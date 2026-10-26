@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jam Cards preview</title>
+<!-- Mimics a sections dashboard with the JamBoard theme. ?mode=light switches to the paper palette. -->
+<style>
+  :root{
+    --jam-ink:#141210; --jam-slab:#1f1c19; --jam-slab2:#2a2622; --jam-paper:#ece2c9; --jam-paper-fg:#141210;
+    --jam-paper-dim:#5c5446; --jam-fg:#ece2c9; --jam-dim:#9a8f7c; --jam-line:#34302a;
+    --jam-ochre:#e5a31b; --jam-red:#d43a1c; --jam-teal:#3f9aa5;
+  }
+  :root.light{
+    --jam-ink:#141210; --jam-slab:#f6efdd; --jam-slab2:#e9dfc4; --jam-paper:#141210; --jam-paper-fg:#ece2c9;
+    --jam-paper-dim:#9a8f7c; --jam-fg:#141210; --jam-dim:#6b6152; --jam-line:#d3c7a8;
+    --jam-ochre:#c98a0c; --jam-red:#c2361a; --jam-teal:#2f7f89;
+  }
+  html,body{margin:0;background:#141210} :root.light body{background:#ece2c9}
+  .view{max-width:1200px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .sec{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-content:start}
+  .sec > *{grid-column:span 12} .sec > .half{grid-column:span 6}
+  .wide{grid-column:span 2} @media (max-width:700px){.wide{grid-column:span 1}}
+  .full{grid-column:1/-1}
+</style>
+<script src="../jam-cards.js"></script>
+</head>
+<body>
+<div class="view" id="view"></div>
+<script>
+if (new URLSearchParams(location.search).get("mode") === "light") document.documentElement.classList.add("light");
+const now = new Date().toISOString();
+const st = (entity_id, state, attributes = {}) => ({entity_id, state, attributes, last_changed: now, last_updated: now});
+const states = {};
+[
+  st("switch.hisense_tv_power", "on", {friendly_name: "Hisense TV Power"}),
+  st("sensor.hisense_tv_current_app", "JellyWatch Player", {friendly_name: "Current app"}),
+  st("select.hisense_tv_input", "Switch 2", {friendly_name: "Input", options: ["HDMI 1", "Switch 2", "HDMI 3"]}),
+  st("select.hisense_tv_launch_app", "JellyWatch Player", {friendly_name: "Launch app", options: ["YouTube", "JellyWatch Player", "Jamfin", "Dropout", "Corridor Digital", "Settings"]}),
+  st("sensor.hisense_tv_input_signal", "3840x2080 @ 24 Hz", {friendly_name: "Input signal"}),
+  st("sensor.hisense_tv_hdr_format", "Dolby Vision", {friendly_name: "HDR format"}),
+  st("sensor.hisense_tv_vrr_refresh_rate", "24", {friendly_name: "VRR refresh", unit_of_measurement: "Hz"}),
+  st("binary_sensor.hisense_tv_signal_present", "on", {friendly_name: "Signal present"}),
+  st("binary_sensor.hisense_tv_game_signal", "off", {friendly_name: "Game signal"}),
+  st("select.hisense_tv_picture_mode", "Dolby Vision Custom", {friendly_name: "Picture mode", options: ["Standard", "Theater Day", "Theater Night", "Dolby Vision Custom", "Filmmaker"]}),
+  st("number.hisense_tv_backlight", "100", {friendly_name: "Backlight", min: 0, max: 100, step: 1, unit_of_measurement: "%"}),
+  st("select.hisense_tv_audio_output", "Optical", {friendly_name: "Audio output", options: ["Speaker", "Optical", "Bluetooth"]}),
+  st("select.hisense_tv_sound_mode", "Standard", {friendly_name: "Sound mode", options: ["Standard", "Theater", "Music", "Speech", "Late Night"]}),
+  st("media_player.living_room_phoster_android_tv", "playing", {friendly_name: "Phoster", app_name: "JellyWatch Player", media_title: "Close Encounters of the Third Kind"}),
+].forEach(s => states[s.entity_id] = s);
+window.__calls = [];
+const hass = {
+  states,
+  callService(domain, service, data) { window.__calls.push({domain, service, data}); return Promise.resolve(); },
+  formatEntityState(s) { const u = s.attributes.unit_of_measurement; return u ? `${s.state} ${u}` : s.state; },
+};
+window.__hass = hass;
+const layout = [
+  ["full", {type: "custom:jam-hero", kicker: "Living room TV", title_entity: "sensor.hisense_tv_current_app", power_entity: "switch.hisense_tv_power",
+    meta_entities: ["select.hisense_tv_input", "sensor.hisense_tv_input_signal", "sensor.hisense_tv_hdr_format"], off_title: "TV off",
+    chips: [{entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}, {entity: "binary_sensor.hisense_tv_game_signal", name: "Game mode", show_state: "on", hide_value: true}], accent: "red"}],
+  ["wide", [
+    {type: "custom:jam-heading", kicker: "Now", title: "Playing", accent: "ochre"},
+    ["half", {type: "custom:jam-tile", entity: "switch.hisense_tv_power", name: "Power"}],
+    ["half", {type: "custom:jam-tile", entity: "binary_sensor.hisense_tv_signal_present", name: "Signal", label: "Present"}],
+    {type: "custom:jam-choice", entity: "select.hisense_tv_launch_app", name: "Launch app"},
+    {type: "custom:jam-choice", entity: "select.hisense_tv_input", name: "Input", columns: 3},
+    {type: "custom:jam-media", entity: "media_player.living_room_phoster_android_tv", name: "Playback"},
+  ]],
+  ["", [
+    {type: "custom:jam-heading", kicker: "Picture", title: "Image", accent: "red"},
+    {type: "custom:jam-choice", entity: "select.hisense_tv_picture_mode", name: "Picture mode"},
+    {type: "custom:jam-slider", entity: "number.hisense_tv_backlight", name: "Backlight"},
+  ]],
+  ["", [
+    {type: "custom:jam-heading", kicker: "Sound", title: "Audio", accent: "teal"},
+    {type: "custom:jam-choice", entity: "select.hisense_tv_audio_output", name: "Audio output", columns: 3},
+    {type: "custom:jam-choice", entity: "select.hisense_tv_sound_mode", name: "Sound mode"},
+  ]],
+  ["", [
+    {type: "custom:jam-heading", kicker: "Signal", title: "Source", accent: "teal", entities: ["sensor.hisense_tv_hdr_format"]},
+    {type: "custom:jam-tile", entity: "sensor.hisense_tv_input_signal", name: "Resolution & rate"},
+    ["half", {type: "custom:jam-tile", entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}],
+    ["half", {type: "custom:jam-tile", entity: "binary_sensor.hisense_tv_game_signal", name: "Game signal"}],
+  ]],
+];
+const view = document.getElementById("view");
+const mk = (cfg, cls) => { const e = document.createElement(cfg.type.replace("custom:", "")); e.setConfig(cfg); e.hass = hass; if (cls) e.className = cls; return e; };
+for (const [cls, item] of layout) {
+  if (!Array.isArray(item)) { view.append(mk(item, cls)); continue; }
+  const sec = document.createElement("div"); sec.className = "sec " + cls;
+  for (const it of item) sec.append(Array.isArray(it) ? mk(it[1], it[0]) : mk(it));
+  view.append(sec);
+}
+window.__ready = true;
+</script>
+</body>
+</html>
