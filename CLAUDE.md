@@ -6,3 +6,5 @@ request, after the JamBoard/Crew Hub card look (crew-hub/card/crew-hub-card.js C
 - No build step: jam-cards.js is the shipped file. Preview + checks: `pw-node preview/shoot.js` (exit 0 = pass).
 - Rules: flat colour, no gradients/blur/rounded corners, display type uppercase; textContent only for entity data.
 - Theme vars --jam-* drive the cards per mode; keep jam-cards.js fallbacks equal to the dark palette.
+- v0.2 work: design rules in docs/DESIGN.md (source of truth), task list in docs/PLAN.md. Read both before changing cards.
+- HA access for workers is READ-ONLY (ha_get_state / ha_config_get_dashboard / ha_search); never push to GitHub.
