@@ -1,5 +1,6 @@
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
+    clock_size?: normal (default) | big | huge (kiosk: the time scales with the card width, minute-aligned, no seconds),
     temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?, accent?}
    Accent = today's forecast column (filled, ink text and glyphs) and the temperature bars; glyph colours are fixed.
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
@@ -142,6 +143,10 @@ class JamWeather extends JamBase {
     .w{display:grid;gap:14px;align-content:start}
     .clock{display:grid;gap:6px}
     .time{font-size:4.4rem;line-height:.82;letter-spacing:-.005em}
+    .w.cs-big .time{font-size:6.6rem}
+    .w.cs-huge{container-type:inline-size}
+    .w.cs-huge .time{font-size:clamp(4.4rem,24cqi,12rem)}
+    .w.cs-big .date,.w.cs-huge .date{font-size:1.05rem}
     .time .per{font:600 1rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:6px;vertical-align:top}
     .date{font:600 .82rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
     .now{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
@@ -178,7 +183,8 @@ class JamWeather extends JamBase {
       b.append(root); return;
     }
     const s = stateObj(h, c.entity), off = !s || UNAVAILABLE.has(s.state), a = (s && s.attributes) || {};
-    const {root, face} = this.paper(c.entity, {cls: "press", face: "w"});
+    const cs = c.clock && (c.clock_size === "big" || c.clock_size === "huge") ? " cs-" + c.clock_size : "";
+    const {root, face} = this.paper(c.entity, {cls: "press", face: "w" + cs});
     root.tabIndex = 0; root.setAttribute("role", "button");
     root.setAttribute("aria-label", friendly(h, c.entity));
     bindActions(root, () => this._hass, c, c.entity);
