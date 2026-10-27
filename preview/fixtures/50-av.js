@@ -36,7 +36,7 @@ jamPreview.add({
     ["", [
       {type: "custom:jam-heading", kicker: "Music", title: "Kitchen", accent: "ochre"},
       {type: "custom:jam-media", entity: "media_player.kitchen", sources: true,
-        players: ["media_player.kitchen", "media_player.house", "media_player.phoster"], group: ["media_player.oneplus_speaker_2"]},
+        players: ["media_player.kitchen", "media_player.house", "media_player.phoster"], group: ["media_player.oneplus_speaker_2", "media_player.house"]}, // house lacks GROUPING: chip hidden,
     ]],
   ],
 });

@@ -2,9 +2,11 @@
    {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop],
     show_art? (true), show_volume? (default: when the player supports volume), sources?: true | [subset],
     players?: [media_player ids] (chip row switching the controlled player, kept in memory),
-    group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player)}
+    group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
+    hidden unless both have the GROUPING feature bit)}
    v1 configs (entity, name, controls) render unchanged in meaning. */
-const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8;
+const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
+const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
 class JamMedia extends JamBase {
   validate(c) {
     if (!c.entity || !c.entity.startsWith("media_player.")) throw new Error("jam-media: entity must be a media_player");
@@ -18,8 +20,8 @@ class JamMedia extends JamBase {
   get _id() { return this._active || this._config.entity; }
   watched() { const c = this._config; return [...new Set([this._id, c.entity, ...(c.players || []), ...(c.group || [])])]; }
   css() { return `
-    .wrap{display:grid;gap:12px;align-content:start}
-    .np{display:grid;grid-template-columns:minmax(84px,36%) minmax(0,1fr);gap:14px;align-items:start}
+    .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
+    .np{display:grid;grid-template-columns:minmax(84px,min(36%,200px)) minmax(0,1fr);gap:14px;align-items:start}
     .np.noart{grid-template-columns:minmax(0,1fr)}
     .art{--sh:5px;aspect-ratio:1;height:auto;cursor:pointer}
     .art > .face{padding:0;background:var(--ochre);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
@@ -27,7 +29,7 @@ class JamMedia extends JamBase {
     .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
     .art .arm{--acc:var(--ink);height:62%;padding-bottom:10%}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
-    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 2.2vw,2.2rem);line-height:.92;text-transform:uppercase;
+    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
     .sub{font:500 .9rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
     .sub b{font-weight:600;color:var(--fg)}
@@ -129,10 +131,11 @@ class JamMedia extends JamBase {
       })), "sources"));
     }
 
-    // Group: join / unjoin with the controlled player.
-    if (c.group && c.group.length) {
+    // Group: join / unjoin with the controlled player. Only players with the GROUPING feature (row and member chips).
+    const grp = (c.group || []).filter(g => g !== id && jamCanGroup(stateObj(h, g)));
+    if (grp.length && jamCanGroup(s)) {
       const members = a.group_members || [];
-      wrap.append(this._chipRow("Group", c.group.filter(g => g !== id).map(g => {
+      wrap.append(this._chipRow("Group", grp.map(g => {
         const gs = stateObj(h, g), joined = members.includes(g) || ((gs && gs.attributes.group_members) || []).includes(id);
         return {key: g, text: friendly(h, g), on: joined, disabled: off || !gs || UNAVAILABLE.has(gs.state),
           run: () => joined ? h.callService("media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};

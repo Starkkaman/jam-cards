@@ -74,6 +74,9 @@ module.exports = async (page, check, {callsNow}) => {
   check((await callsNow()).some(x => x.service === "volume_mute" && x.data.entity_id === MID && x.data.is_volume_muted === true), "media mute key mutes");
   await reset(); await media.locator(".sources button", {hasText: "Spotify Connect (Kitchen)"}).click();
   check((await callsNow()).some(x => x.service === "select_source" && x.data.entity_id === MID && x.data.source === "Spotify Connect (Kitchen)"), "media source chip selects source");
+  // Group chips only for members with the GROUPING feature bit (House lacks it, like the real entity).
+  check(await media.locator('.group button[data-id="media_player.oneplus_speaker_2"]').count() === 1 &&
+    await media.locator('.group button[data-id="media_player.house"]').count() === 0, "group row hides a member without the GROUPING bit");
   // Group join, then unjoin once HA reports the member.
   await reset(); await media.locator('.group button[data-id="media_player.oneplus_speaker_2"]').click();
   check((await callsNow()).some(x => x.service === "join" && x.data.entity_id === MID && x.data.group_members[0] === "media_player.oneplus_speaker_2"), "group chip joins speaker to kitchen");
@@ -87,6 +90,7 @@ module.exports = async (page, check, {callsNow}) => {
   // Player switch: House takes over the controls, Kitchen brings it back.
   await media.locator('.players button[data-id="media_player.house"]').click();
   check((await media.locator(".label").first().textContent()) === "House", "player chip switches the card to House");
+  check(await media.locator(".group").count() === 0, "group row hidden when the controlled player (House) lacks the GROUPING bit");
   await reset(); await media.locator('button[data-key="play_pause"]').click();
   check((await callsNow()).some(x => x.service === "media_play_pause" && x.data.entity_id === "media_player.house"), "transport follows the selected player");
   await media.locator('.players button[data-id="media_player.kitchen"]').click();
