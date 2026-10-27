@@ -41,7 +41,7 @@ class JamHero extends JamBase {
       for (const id of c.meta_entities || []) {
         const s = stateObj(h, id);
         if (!s || UNAVAILABLE.has(s.state)) continue;
-        meta.append(el("span", "", fmtState(h, s)));
+        meta.append(keepUnit(el("span", "", fmtState(h, s)), s));
       }
       if (meta.childNodes.length) hero.append(meta);
       const chips = el("div", "chips");
@@ -50,6 +50,7 @@ class JamHero extends JamBase {
         if (!s) continue;
         if (ch.show_state && s.state !== ch.show_state) continue;
         const btn = el("button", `chip${tone(s) === "on" ? " hot" : ""}`, ch.name ? `${ch.name}${ch.hide_value ? "" : " · " + fmtState(h, s)}` : fmtState(h, s));
+        if (!ch.hide_value) keepUnit(btn, s);
         if (tone(s) === "on" && accentName(ch.tone) && accentName(ch.tone) !== "ink") {
           const t = accentName(ch.tone);
           btn.dataset.tone = t; btn.style.setProperty("--hot", t === "paper" ? "var(--paper-fg)" : `var(--${t})`);

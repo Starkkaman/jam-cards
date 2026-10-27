@@ -27,7 +27,7 @@ class JamHeading extends JamBase {
       const chips = el("div", "chips");
       for (const id of ids) {
         const s = stateObj(h, id);
-        const b2 = el("button", `chip c-${tone(s) === "off" ? "dim" : tone(s)}`, fmtState(h, s));
+        const b2 = keepUnit(el("button", `chip c-${tone(s) === "off" ? "dim" : tone(s)}`, fmtState(h, s)), s);
         b2.title = friendly(h, id); b2.onclick = e => { e.stopPropagation(); moreInfo(this, id); };
         chips.append(b2);
       }

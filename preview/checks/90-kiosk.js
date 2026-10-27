@@ -162,4 +162,87 @@ module.exports = async (page, check, {callsNow}) => {
   });
   check(fb.shown && fb.view === "poster" && fb.imgs === 0 && fb.poster !== "none" && /\d:\d\d/.test(fb.time),
     `index 404 -> poster fallback, never a black screen (${JSON.stringify(fb)})`);
+  // ---- kiosk chrome: fake HA 2026.10 shadow DOM (home-assistant > home-assistant-main > ha-drawer / ha-sidebar,
+  //      partial-panel-resolver > ha-panel-lovelace > hui-root > .header + hui-view-container) ----
+  const kiosk = await page.evaluate(async () => {
+    const orig = location.href, tick = () => new Promise(r => setTimeout(r, 30)), out = {};
+    let raf = 0; const rafOrig = window.requestAnimationFrame; window.requestAnimationFrame = f => { raf++; return rafOrig(f); };
+    const shadow = (tag, css, html) => { const e = document.createElement(tag), sr = e.attachShadow({mode: "open"}); sr.innerHTML = `<style>${css}</style>${html || ""}`; return e; };
+    const ha = shadow("home-assistant", ":host{display:block}");
+    const main = shadow("home-assistant-main", ":host{display:block;--ha-sidebar-width:256px;--ha-top-app-bar-width:calc(100% - var(--ha-sidebar-width))}ha-sidebar{display:block;width:var(--ha-sidebar-width);height:10px}");
+    const drawer = shadow("ha-drawer", ".sidebar-shell{width:var(--ha-sidebar-width);position:fixed;height:100%}.app-content{padding-inline-start:var(--ha-sidebar-width)}",
+      '<div class="layout"><div class="sidebar-shell"><slot></slot></div><div class="app-content"><slot name="appContent"></slot></div></div>');
+    const sidebar = document.createElement("ha-sidebar");
+    const ppr = document.createElement("partial-panel-resolver"); ppr.slot = "appContent";
+    const panel = shadow("ha-panel-lovelace", ":host{display:block}");
+    const root = shadow("hui-root", ":host{display:block;--header-height:56px}.header{position:fixed;top:0;height:var(--header-height);width:var(--ha-top-app-bar-width,100%);z-index:4}" +
+      "hui-view-container{display:flex;padding-top:calc(var(--header-height) + var(--safe-area-inset-top,0px) + var(--view-container-padding-top,0px))}",
+      '<div><div class="header"><div class="toolbar">Header</div></div><hui-view-container id="view"></hui-view-container></div>');
+    drawer.append(sidebar, ppr); ppr.append(panel); panel.shadowRoot.append(root); main.shadowRoot.append(drawer); ha.shadowRoot.append(main);
+    const stage = document.createElement("div"); stage.style.cssText = "position:absolute;left:0;top:0;width:600px;visibility:hidden"; stage.append(ha);
+    document.body.append(stage);
+    const vc = root.shadowRoot.getElementById("view");
+    const mk = cfg => { const e = document.createElement("jam-screensaver"); e.setConfig({type: "custom:jam-screensaver", idle_seconds: 999, ...cfg}); e.hass = window.__hass; return e; };
+    const kstyles = h => [...h.shadowRoot.children].filter(e => e.localName === "style" && e.hasAttribute("data-jam-kiosk")).length;
+    const state = () => ({
+      styles: [main, drawer, root].map(kstyles),
+      sidebar: getComputedStyle(sidebar).display, shell: getComputedStyle(drawer.shadowRoot.querySelector(".sidebar-shell")).display,
+      pad: getComputedStyle(drawer.shadowRoot.querySelector(".app-content")).paddingInlineStart,
+      header: getComputedStyle(root.shadowRoot.querySelector(".header")).display, top: getComputedStyle(vc).paddingTop,
+    });
+    // 1: no ?kiosk -> default "url" does nothing
+    history.pushState({}, "", "/plain-dash/0");
+    let card = mk({}); vc.append(card); await tick();
+    out.plain = {...state(), active: card.kioskActive};
+    card.remove(); await tick();
+    // 2: ?kiosk -> hidden
+    history.pushState({}, "", "/jam-test/0?kiosk");
+    card = mk({}); vc.append(card); await tick();
+    out.on = {...state(), active: card.kioskActive};
+    // 3: HA drops the style on re-render -> the MutationObserver puts it back
+    [...root.shadowRoot.children].find(e => e.hasAttribute && e.hasAttribute("data-jam-kiosk")).remove(); await tick();
+    out.readd = state();
+    // 4: view switch inside the dashboard (card leaves, query dropped) keeps it; another dashboard restores HA's chrome
+    card.remove(); history.pushState({}, "", "/jam-test/1"); window.dispatchEvent(new Event("location-changed")); await tick();
+    out.viewSwitch = state();
+    history.pushState({}, "", "/other-dash/0"); window.dispatchEvent(new Event("location-changed")); await tick();
+    out.away = state();
+    // 5: back on the kiosk dashboard without the query (remembered until reload)
+    history.pushState({}, "", "/jam-test/0"); window.dispatchEvent(new Event("location-changed"));
+    card = mk({}); vc.append(card); await tick();
+    out.back = state();
+    // 6: kiosk: false on a fresh dashboard
+    card.remove(); history.pushState({}, "", "/off-dash/0?kiosk"); window.dispatchEvent(new Event("location-changed"));
+    const off = mk({kiosk: false}); vc.append(off); await tick();
+    out.off = state(); off.remove();
+    history.pushState({}, "", "/jam-test/0"); window.dispatchEvent(new Event("location-changed"));
+    card = mk({kiosk: true}); vc.append(card); await tick();
+    out.forced = state();
+    window.__kioskCard = card; window.__kioskState = state; window.__kioskStage = stage; window.__kioskOrig = orig;
+    window.requestAnimationFrame = rafOrig; out.raf = raf;
+    return out;
+  });
+  const hidden = s => s.styles.join() === "1,1,1" && s.sidebar === "none" && s.shell === "none" && s.pad === "0px" && s.header === "none" && s.top === "0px";
+  const shown = s => s.styles.join() === "0,0,0" && s.sidebar === "block" && s.shell === "block" && s.pad === "256px" && s.header === "block" && s.top === "56px";
+  check(shown(kiosk.plain) && !kiosk.plain.active, `kiosk "url" without ?kiosk leaves HA's sidebar + header alone (${JSON.stringify(kiosk.plain)})`);
+  check(hidden(kiosk.on) && kiosk.on.active, `?kiosk hides ha-sidebar, the drawer shell, hui-root's header and zeroes the top padding (${JSON.stringify(kiosk.on)})`);
+  check(hidden(kiosk.readd), `MutationObserver re-adds the style after a re-render drops it (${JSON.stringify(kiosk.readd)})`);
+  check(hidden(kiosk.viewSwitch), `a view switch inside the kiosk dashboard keeps the chrome hidden (${JSON.stringify(kiosk.viewSwitch)})`);
+  check(shown(kiosk.away), `navigating to another dashboard removes every injected style (${JSON.stringify(kiosk.away)})`);
+  check(hidden(kiosk.back), `back on the kiosk dashboard (query dropped) it is hidden again (${JSON.stringify(kiosk.back)})`);
+  check(shown(kiosk.off) && hidden(kiosk.forced), `kiosk: false never hides, kiosk: true always does (${JSON.stringify({off: kiosk.off.styles, forced: kiosk.forced.styles})})`);
+  check(kiosk.raf === 0, `kiosk chrome uses no requestAnimationFrame (${kiosk.raf})`);
+  // Way out: a short press in the corner does nothing, a 2 s long-press restores the chrome until reload.
+  await page.mouse.move(10, 10); await page.mouse.down(); await page.waitForTimeout(600); await page.mouse.up();
+  const short = await page.evaluate(() => window.__kioskState());
+  await page.mouse.down(); await page.waitForTimeout(2200); await page.mouse.up();
+  const esc = await page.evaluate(async () => {
+    const s = window.__kioskState(), c = window.__kioskCard, active = c.kioskActive;
+    c.remove(); document.querySelector("#view").append(c); await new Promise(r => setTimeout(r, 30)); // reconnect: stays restored
+    const again = window.__kioskState();
+    c.remove(); window.__kioskStage.remove(); history.replaceState({}, "", window.__kioskOrig);
+    return {s, active, again};
+  });
+  check(hidden(short), "a short press in the top-left corner keeps kiosk mode");
+  check(shown(esc.s) && !esc.active && esc.again.styles.join() === "0,0,0", `2 s long-press in the top-left 48x48 corner restores the chrome until reload (${JSON.stringify(esc)})`);
 };

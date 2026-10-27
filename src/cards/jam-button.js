@@ -72,7 +72,7 @@ class JamButton extends JamBase {
       k.append(sq);
     } else if (ic) L.append(ic);
     if (name) L.append(el("div", "lbl", name));
-    if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
+    if (c.show_state && s) L.append(keepUnit(el("div", "st num", fmtState(h, s)), s));
     k.append(L);
     face.append(k);
     b.append(root);

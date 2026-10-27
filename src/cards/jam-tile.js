@@ -52,7 +52,8 @@ class JamTile extends JamBase {
     const row = el("div", "row");
     const left = el("div", "main"); /* basis 0: the key wraps below only when the longest value word needs the room */
     left.append(el("div", "name", c.name || friendly(h, c.entity)));
-    left.append(el("div", `val num c-${t === "off" ? "dim" : t}`, c.label || fmtState(h, s)));
+    const val = el("div", `val num c-${t === "off" ? "dim" : t}`, c.label || fmtState(h, s));
+    left.append(c.label ? val : keepUnit(val, s));
     row.append(left);
     const key = this._key(s);
     if (key) row.append(key);

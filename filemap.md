@@ -5,7 +5,7 @@
 - docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list (0.3 work is planned in ../jam-home/docs/PLAN.md)
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
-- src/core.js — loadFonts (injects the generated FONT_CSS into document.head once), BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), edge/cut system, openSheet, JamBase, window.JamCards, register()
+- src/core.js — loadFonts (injects the generated FONT_CSS into document.head once), BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), keepUnit (units keep their case in uppercase type), edge/cut system, openSheet, JamBase, window.JamCards, register()
 - src/cards/jam-*.js — 22 cards (alerts, button, choice, fan, gauge, graph, heading, hero, house, light, list, media, panel, popup, remote, scenes, screensaver, slider, tabs, tile, tv, weather), one class each, ends with register(tag, Class, name, description); jam-media.js also holds jamCardSheet / JamSheetHost (used by jam-tv)
 - src/footer.js — console banner, closes the IIFE
 - fonts/ — bundled web fonts (latin subset from Google Fonts): londrina-solid-900-latin.woff2, jost-var-latin.woff2 (variable, used as 400-600) + OFL-LondrinaSolid.txt, OFL-Jost.txt

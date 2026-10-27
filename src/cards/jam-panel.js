@@ -69,7 +69,8 @@ class JamPanel extends JamBase {
         else text = fmtState(this._hass, s);
     }
     if (r.max !== undefined && n !== null) text = `${jpShort(n)} / ${r.max}${unit ? " " + unit : ""}`;
-    return {text, raw: n, unavail: false};
+    /* unit kept in its own case (keepUnit) only where the text ends with the entity's own unit */
+    return {text, raw: n, unavail: false, unit: ["bytes_rate", "duration", "relative", "pct"].includes(r.format) ? "" : unit};
   }
   isBad(r, v) {
     const b = r.bad;
@@ -93,7 +94,7 @@ class JamPanel extends JamBase {
       row.dataset.entity = r.entity;
       if (act.action === "none") row.classList.add("static");
       else { row.classList.add("focusable"); row.tabIndex = 0; row.setAttribute("role", "button"); bindActions(row, () => this._hass, {tap_action: act}, r.entity); }
-      row.append(el("span", "nm", r.name || friendly(h, r.entity)), el("span", "v num", v.text));
+      row.append(el("span", "nm", r.name || friendly(h, r.entity)), keepUnit(el("span", "v num", v.text), v.unit));
       face.append(row);
     }
     b.append(root);

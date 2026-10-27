@@ -72,12 +72,12 @@ class JamAlerts extends JamBase {
     .v{flex:0 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:break-word}
     .row.off .nm,.row.off .v{color:var(--dim)}
     .row.bad .v{color:var(--red)}`; }
-  _row(face, id, name, text, cls, tap) {
+  _row(face, id, name, text, cls, tap, unitOf) {
     const row = el("div", "row" + (cls ? " " + cls : ""));
     if (id) row.dataset.entity = id;
     if (tap) { row.classList.add("focusable"); row.tabIndex = 0; row.setAttribute("role", "button"); bindActions(row, () => this._hass, {tap_action: {action: "more-info"}}, id); }
     else row.classList.add("static");
-    row.append(el("span", "nm", name), el("span", "v num", text));
+    row.append(el("span", "nm", name), keepUnit(el("span", "v num", text), unitOf));
     face.append(row);
     return row;
   }
@@ -97,7 +97,7 @@ class JamAlerts extends JamBase {
     for (const id of this._watch()) {
       const s = stateObj(h, id), bad = !s || UNAVAILABLE.has(s.state);
       if (bad) fails++;
-      this._row(face, id, friendly(h, id), bad ? "unavailable" : fmtState(h, s), "watch" + (bad ? " bad" : ""), true);
+      this._row(face, id, friendly(h, id), bad ? "unavailable" : fmtState(h, s), "watch" + (bad ? " bad" : ""), true, bad ? null : s);
     }
     if (this._count()) {
       const n = jaCountUnavailable(h.states);

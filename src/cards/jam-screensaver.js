@@ -3,7 +3,7 @@
     weather_entity?, temperature_entity?, kicker? ("The Bungalow · kitchen"),
     images?: {index: URL of a JSON list (["a.jpg", {url, caption}]), interval? (20 s), shuffle? (false)},
     poster_every? (images mode: every Nth slide is the poster), active_hours?: {from: "06:00", to: "23:00"},
-    disable_on?: {entity, state: "playing" | [states]} or a list of those}
+    disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false}
    Built for weak kiosk hardware (Echo Show 8 / iPad): no rAF, no infinite animation, no filters; one clock timer aligned to
    the minute; every timer stops while document.hidden. It never touches screen brightness (the kiosk app owns that).
    Activity = pointerdown / keydown / wheel on document (capture). The first tap on the overlay dismisses it and is
@@ -13,7 +13,17 @@
    the card's shadow root (position:fixed, z-index 2147483000). When it is shown, the card hit-tests the viewport corners
    and centre; if the overlay does not cover the viewport (an HA ancestor makes a containing block via transform/filter/
    contain, or a stacking context puts the header above it) the layer moves to document.body, carrying the --jam-* tokens
-   it resolved. It is removed from body again on disconnect. */
+   it resolved. It is removed from body again on disconnect.
+   Kiosk chrome (option kiosk): "url" (default) = only when the page URL has ?kiosk (remembered for that dashboard until
+   reload, since view switches may drop the query), true = always, false = never. While active, HA's sidebar and the
+   dashboard header are hidden on THIS dashboard only, by one <style data-jam-kiosk> appended to each of three shadow roots
+   (HA frontend 2026.10): home-assistant-main (--ha-sidebar-width 0, --ha-top-app-bar-width 100%, ha-sidebar hidden),
+   ha-drawer (.sidebar-shell hidden, .app-content padding-inline-start 0) and hui-root (.header hidden, --header-height 0,
+   hui-view-container padding-top = safe-area inset only). The hosts are found by walking up from the card through its
+   shadow roots (document path as fallback). A MutationObserver (childList only, on those three roots) re-adds the style
+   if HA re-renders; no polling. The styles are removed on navigation to another dashboard (location-changed / popstate)
+   or when the last kiosk card leaves while the URL is no longer on its dashboard. Way out: a 2 s long-press in the
+   top-left 48x48 px corner restores the chrome until the page reloads. */
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
@@ -87,6 +97,126 @@ function jamSsDeepAt(x, y) {
   return e;
 }
 
+/* ---- kiosk chrome: one controller for the page (several screensaver cards may ask for it) ---- */
+const JAM_KIOSK_CSS = Object.freeze({
+  "home-assistant-main": ":host{--ha-sidebar-width:0px!important;--ha-top-app-bar-width:100%!important}ha-sidebar{display:none!important}",
+  "ha-drawer": ".sidebar-shell{display:none!important}.app-content{padding-inline-start:0!important}",
+  "hui-root": ":host{--header-height:0px!important}.header{display:none!important}" +
+    "hui-view-container{padding-top:calc(var(--safe-area-inset-top,0px) + var(--view-container-padding-top,0px))!important}",
+});
+/* Top-level <style data-jam-kiosk> children of a shadow root (:scope does not work on a ShadowRoot). */
+const jamKioskStyles = sr => [...sr.children].filter(e => e.localName === "style" && e.hasAttribute("data-jam-kiosk"));
+const JamKiosk = {
+  cards: new Set(), dash: null, hosts: new Map(), mo: null, escaped: false, seen: new Set(), lpT: null, lpAt: null,
+  dashOf() { return location.pathname.split("/")[1] || ""; },
+  wants(card) {
+    const k = card._config && card._config.kiosk;
+    if (k === false || this.escaped) return false;
+    if (k === true) return true;
+    let q = false;
+    try { q = new URLSearchParams(location.search).has("kiosk"); } catch (e) { /* old engine */ q = /[?&]kiosk(=|&|$)/.test(location.search); }
+    if (q) this.seen.add(this.dashOf());
+    return this.seen.has(this.dashOf());
+  },
+  /* Card connected / reconfigured. */
+  join(card) {
+    if (this.wants(card)) { this.cards.add(card); this.apply(); }
+    else { this.cards.delete(card); if (!this.cards.size && this.dash !== null && this.dash !== this.dashOf()) this.clear(); }
+  },
+  /* Card disconnected: a view switch inside the same dashboard keeps the chrome hidden; anything else restores it. */
+  leave(card) {
+    this.cards.delete(card);
+    if (!this.cards.size && this.dash !== null && this.dash !== this.dashOf()) this.clear();
+  },
+  /* Shadow hosts to style: walk up from the card (this dashboard's hui-root), document path as fallback. */
+  resolve(card) {
+    const out = {};
+    let n = card;
+    for (let i = 0; i < 60 && n; i++) {
+      const r = n.getRootNode && n.getRootNode();
+      if (!r || !r.host) break;
+      if (JAM_KIOSK_CSS[r.host.localName] && !out[r.host.localName]) out[r.host.localName] = r.host;
+      n = r.host;
+    }
+    let m = out["home-assistant-main"];
+    if (!m) { const ha = document.querySelector("home-assistant"); m = ha && ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main"); if (m) out["home-assistant-main"] = m; }
+    const d = m && m.shadowRoot && m.shadowRoot.querySelector("ha-drawer");
+    if (d) out["ha-drawer"] = d;
+    if (!out["hui-root"] && m && m.shadowRoot) {
+      const p = m.shadowRoot.querySelector("partial-panel-resolver");
+      const pl = p && (p.querySelector("ha-panel-lovelace") || (p.shadowRoot && p.shadowRoot.querySelector("ha-panel-lovelace")));
+      const hr = pl && pl.shadowRoot && pl.shadowRoot.querySelector("hui-root");
+      if (hr) out["hui-root"] = hr;
+    }
+    return out;
+  },
+  apply() {
+    if (this.escaped) return;
+    const card = [...this.cards].find(c => c.isConnected);
+    if (!card) return;
+    if (this.dash === null) {
+      this.dash = this.dashOf();
+      this._onLoc = () => this.located();
+      this._onDown = e => this.press(e); this._onUp = () => this.release(); this._onMove = e => this.moved(e);
+      window.addEventListener("location-changed", this._onLoc);
+      window.addEventListener("popstate", this._onLoc);
+      document.addEventListener("pointerdown", this._onDown, {capture: true, passive: true});
+      for (const t of ["pointerup", "pointercancel"]) document.addEventListener(t, this._onUp, {capture: true, passive: true});
+      document.addEventListener("pointermove", this._onMove, {capture: true, passive: true});
+      this.mo = new MutationObserver(() => this.ensure());
+    }
+    const want = this.resolve(card);
+    for (const [name, host] of this.hosts) if (want[host.localName] !== host) { this.unstyle(host); this.hosts.delete(name); }
+    this.mo.disconnect();
+    for (const [name, host] of Object.entries(want)) {
+      if (!host.shadowRoot) continue;
+      this.hosts.set(name, host);
+      this.style(host);
+      this.mo.observe(host.shadowRoot, {childList: true});
+    }
+  },
+  style(host) {
+    const sr = host.shadowRoot;
+    let st = jamKioskStyles(sr)[0];
+    if (!st) { st = document.createElement("style"); st.dataset.jamKiosk = ""; st.textContent = JAM_KIOSK_CSS[host.localName]; }
+    if (st !== sr.lastElementChild) sr.append(st); /* last wins over HA's own adopted/inline styles of equal weight */
+  },
+  unstyle(host) { if (host.shadowRoot) for (const st of jamKioskStyles(host.shadowRoot)) st.remove(); },
+  /* MutationObserver: re-add a dropped style; a replaced ha-drawer / hui-root is picked up by resolving again. */
+  ensure() {
+    if (this.dash === null) return;
+    const lost = [...this.hosts.values()].some(h => !h.isConnected || !jamKioskStyles(h.shadowRoot).length);
+    if (lost) this.apply();
+  },
+  located() {
+    if (this.dash === null) return;
+    if (this.dashOf() !== this.dash) this.clear();
+  },
+  clear() {
+    clearTimeout(this.lpT); this.lpT = null; this.lpAt = null;
+    if (this.mo) this.mo.disconnect();
+    for (const h of this.hosts.values()) this.unstyle(h);
+    this.hosts.clear();
+    if (this.dash !== null) {
+      window.removeEventListener("location-changed", this._onLoc);
+      window.removeEventListener("popstate", this._onLoc);
+      document.removeEventListener("pointerdown", this._onDown, {capture: true});
+      for (const t of ["pointerup", "pointercancel"]) document.removeEventListener(t, this._onUp, {capture: true});
+      document.removeEventListener("pointermove", this._onMove, {capture: true});
+    }
+    this.dash = null; this.mo = null;
+  },
+  /* Way out: hold the top-left 48x48 corner for 2 s -> chrome back until reload. */
+  press(e) {
+    if (e.clientX > 48 || e.clientY > 48) return;
+    clearTimeout(this.lpT);
+    this.lpAt = [e.clientX, e.clientY];
+    this.lpT = setTimeout(() => { this.lpT = null; this.escaped = true; this.cards.clear(); this.clear(); }, 2000);
+  },
+  release() { clearTimeout(this.lpT); this.lpT = null; this.lpAt = null; },
+  moved(e) { if (this.lpAt && Math.hypot(e.clientX - this.lpAt[0], e.clientY - this.lpAt[1]) > 12) this.release(); },
+};
+
 class JamScreensaver extends JamBase {
   constructor() {
     super();
@@ -101,6 +231,7 @@ class JamScreensaver extends JamBase {
     if (c.mode === "images" && !(c.images && typeof c.images.index === "string" && c.images.index)) throw new Error("jam-screensaver: images.index (URL of a JSON list) is required in images mode");
     if (c.active_hours && (jamSsMinutes(c.active_hours.from) === null || jamSsMinutes(c.active_hours.to) === null)) throw new Error('jam-screensaver: active_hours needs from/to as "HH:MM"');
     for (const d of this._disables(c)) if (!d || typeof d.entity !== "string") throw new Error("jam-screensaver: disable_on needs an entity");
+    if (c.kiosk !== undefined && c.kiosk !== true && c.kiosk !== false && c.kiosk !== "url") throw new Error('jam-screensaver: kiosk is true, false or "url"');
   }
   setConfig(config) {
     if (!config) throw new Error("Invalid configuration");
@@ -108,7 +239,7 @@ class JamScreensaver extends JamBase {
     this._config = config;
     this._list = null; this._listAt = 0;
     this._shell();
-    if (this.isConnected) this._restartIdle();
+    if (this.isConnected) { this._restartIdle(); JamKiosk.join(this); }
   }
   set hass(h) {
     this._hass = h;
@@ -125,6 +256,7 @@ class JamScreensaver extends JamBase {
     document.addEventListener("visibilitychange", this._onVis);
     if (this._layer && this._layer.parentNode !== this.shadowRoot && this._layer.parentNode !== document.body) this.shadowRoot.append(this._layer);
     this._restartIdle();
+    if (this._config) JamKiosk.join(this);
   }
   disconnectedCallback() {
     for (const t of ["pointerdown", "keydown", "wheel"]) document.removeEventListener(t, this._onAct, {capture: true});
@@ -132,7 +264,10 @@ class JamScreensaver extends JamBase {
     this._hide();
     clearTimeout(this._idleT); this._idleT = null;
     if (this._layer && this._layer.parentNode === document.body) this._layer.remove();
+    JamKiosk.leave(this);
   }
+  /* true while this page has HA's sidebar + header hidden (see the kiosk notes at the top). */
+  get kioskActive() { return JamKiosk.dash !== null && JamKiosk.hosts.size > 0; }
   get overlay() { return this._ov; }
   get layer() { return this._layer; }
   _disables(c) { const d = (c || this._config || {}).disable_on; return !d ? [] : Array.isArray(d) ? d : [d]; }

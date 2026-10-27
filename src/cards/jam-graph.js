@@ -237,7 +237,7 @@ class JamGraph extends JamBase {
         btn.append(sq, el("span", "", this._name(e)));
         if (show && s) {
           const v = Number(s.state);
-          btn.append(el("span", "v num", s.state !== "" && isFinite(v) ? `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}` : fmtState(h, s)));
+          btn.append(keepUnit(el("span", "v num", s.state !== "" && isFinite(v) ? `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}` : fmtState(h, s)), s));
         }
         btn.onclick = () => moreInfo(this, e.entity);
         lg.append(btn);

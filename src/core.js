@@ -24,6 +24,7 @@ const BASE_CSS = `
 }
 *{box-sizing:border-box}
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
+.unit{text-transform:none}
 .label{font:600 .72rem/1.25 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .disp{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:.01em;margin:0;text-wrap:balance}
 /* Chips/pills: flat slab2 block, bottom-right 6px cut, text in the tone colour. */
@@ -90,6 +91,17 @@ function fmtState(hass, s) {
   try { if (hass && typeof hass.formatEntityState === "function") return hass.formatEntityState(s); } catch (e) { /* fall through */ }
   const u = s.attributes.unit_of_measurement;
   return u ? `${s.state} ${u}` : s.state;
+}
+/* Units keep their own case inside uppercase display type ("µg/m³" must not become "MG/M³"): wrap a trailing unit
+   (the entity's unit_of_measurement, or a given string) of a text-only node in <span class="unit"> (text-transform:none). */
+function keepUnit(node, s) {
+  const u = typeof s === "string" ? s : s && s.attributes && s.attributes.unit_of_measurement;
+  if (!node || !u || node.children.length) return node;
+  const t = node.textContent, i = t.lastIndexOf(u);
+  if (i < 0 || t.slice(i + u.length).trim() !== "") return node;
+  node.textContent = t.slice(0, i);
+  node.append(el("span", "unit", u));
+  return node;
 }
 /* Tone of an entity: on (ochre) / alert (red) / calm (teal) / off (line). */
 function tone(s, overrides) {
@@ -512,7 +524,7 @@ class JamBase extends HTMLElement {
 window.JamCards = Object.freeze({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
-  el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
+  el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, vertigoSpiral, deepActive, openSheet,
 });
 window.customCards = window.customCards || [];

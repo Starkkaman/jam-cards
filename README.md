@@ -383,6 +383,12 @@ active_hours: {from: "06:00", to: "23:00"}
 | `active_hours` | `{from, to}`: only shows in this window |
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
 | `accent` | Poster colour |
+| `kiosk` | Hide HA's sidebar and the dashboard header on this dashboard: `"url"` (default) only when the URL has `?kiosk`, `true` always, `false` never |
+
+Kiosk chrome (0.3.3): with `?kiosk` in the dashboard URL (e.g. `/jam-kitchen/0?kiosk`) the card hides Home Assistant's
+sidebar and top header and removes the space they reserve, without a kiosk-mode plugin. It applies to the dashboard the
+card is on only (it stays hidden while you switch views there, and comes back when you open another dashboard).
+Way out: press and hold the top-left corner (48 × 48 px) for 2 seconds; the sidebar and header return until the page is reloaded.
 
 ### jam-panel
 Compact system panel for a control room: name / value rows, red when a value is bad.

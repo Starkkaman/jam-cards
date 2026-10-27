@@ -182,4 +182,24 @@ module.exports = async (page, check) => {
   const bundle = require("fs").readFileSync(require("path").join(__dirname, "..", "..", "jam-cards.js"), "utf8");
   const copies = (bundle.match(/"Partly cloudy"/g) || []).length;
   check(copies === 1 && !/JAM_WX_WORDS|JAM_HOUSE_WORDS/.test(bundle), `condition word map defined once, in core (${copies} copies)`);
+  // Units keep their case under uppercase display type: "μg/m³" must not render as "ΜG/M³" (keepUnit in core).
+  const units = await page.evaluate(async () => {
+    const pm = "sensor.vital_200s_series_pm2_5", u = window.__hass.states[pm].attributes.unit_of_measurement, out = {};
+    const cfgs = {
+      "jam-heading": {title: "Air", entities: [pm]}, "jam-tile": {entity: pm}, "jam-list": {entities: [pm]},
+      "jam-panel": {title: "Air", rows: [{entity: pm}]}, "jam-button": {entity: pm, show_state: true},
+      "jam-house": {inside_entity: pm, outside_entity: "weather.bungalo_weather"}, "jam-hero": {title: "Air", meta_entities: [pm], chips: [{entity: pm, name: "PM"}]},
+    };
+    const box = document.createElement("div"); box.style.cssText = "position:absolute;left:0;top:0;width:400px"; document.body.append(box);
+    for (const [tag, cfg] of Object.entries(cfgs)) {
+      const e = document.createElement(tag); e.setConfig({type: "custom:" + tag, ...cfg}); e.hass = window.__hass; box.append(e);
+      await new Promise(r => setTimeout(r, 30));
+      const spans = [...e.shadowRoot.querySelectorAll(".unit")];
+      out[tag] = {n: spans.length, ok: spans.length > 0 && spans.every(x => x.textContent === u && getComputedStyle(x).textTransform === "none" && x.innerText === u),
+        upper: /ΜG\/M³/.test(e.shadowRoot.querySelector(".host, *") ? [...e.shadowRoot.children].map(x => x.innerText || "").join(" ") : "")};
+    }
+    box.remove(); return out;
+  });
+  const bad = Object.entries(units).filter(([, v]) => !v.ok || v.upper).map(([k, v]) => k + JSON.stringify(v));
+  check(bad.length === 0, `units keep their case in uppercase type (μg/m³) in heading chips, tile, list, panel, button, house, hero` + (bad.length ? " — " + bad.join("; ") : ""));
 };

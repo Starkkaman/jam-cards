@@ -50,6 +50,7 @@ class JamList extends JamBase {
       } else {
         const t = tone(s);
         const v = el("div", "v num" + (c.state_color === false ? "" : ` c-${t === "off" ? "dim" : t}`), s ? this._val(s) : "—");
+        if (s) keepUnit(v, s);
         if (!s || UNAVAILABLE.has(s.state)) row.classList.add("unavail");
         row.append(v);
       }

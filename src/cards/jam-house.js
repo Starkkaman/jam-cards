@@ -83,7 +83,7 @@ class JamHouse extends JamBase {
     const t = el("div", "disp temp num focusable", jamHouseNum(ins && ins.state));
     t.tabIndex = 0; t.title = friendly(h, c.inside_entity);
     const unit = ins && ins.attributes.unit_of_measurement;
-    if (unit && t.textContent !== "—") t.append(el("small", "", unit));
+    if (unit && t.textContent !== "—") t.append(el("small", "unit", unit));
     t.onclick = () => moreInfo(this, c.inside_entity);
     inBox.append(t);
     const inAq = this._aq(c.inside_aq); if (inAq) inBox.append(inAq);
