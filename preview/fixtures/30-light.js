@@ -15,7 +15,7 @@ jamPreview.add({
     st("input_select.light_scenes", "Movie Time", {friendly_name: "Light Scenes", options: ["Normal", "Movie Time", "Vibes"]}),
   ],
   sections: [
-    ["", [
+    ["", jamPreview.room("living", [
       {type: "custom:jam-heading", kicker: "Lights", title: "Living room"},
       {type: "custom:jam-light", entity: "light.kajplats_e26_cws_globe_1100lm",
         tap_action: {action: "perform-action", perform_action: "light.toggle", target: {entity_id: "light.kajplats_e26_cws_globe_1100lm"},
@@ -33,7 +33,7 @@ jamPreview.add({
         {type: "custom:jam-light", entity: "light.living_room_floor_lamp"},
         {type: "custom:jam-choice", entity: "input_select.light_scenes"},
       ]},
-    ]],
+    ])],
   ],
 });
 }

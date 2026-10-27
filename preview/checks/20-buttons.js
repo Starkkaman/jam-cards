@@ -26,16 +26,34 @@ module.exports = async (page, check, {callsNow}) => {
   await push("jam-button", "button.hisense_tv_restart", {state: "unavailable"});
   check(await greyed("Restart TV") === 1, "jam-button: stateless button greys only when unavailable");
   await push("jam-button", "button.hisense_tv_restart", {state: "unknown"});
-  // Accent block width capped on wide keys: min(42%, 112px), big 136px (height unchanged 40/56).
-  const blk = async name => btn(name).locator(".blk").evaluate(b => {
-    const r = b.getBoundingClientRect(), k = b.parentElement.getBoundingClientRect();
-    return {w: r.width - parseFloat(getComputedStyle(b).paddingLeft), h: r.height, k: k.width};
+  // Accent square (Poster): small cut square in the accent when off (28px, big 36px), ink square on an on face; accent wins
+  // over color; HA colour names map to the new hues; ink/grey = plain key without a square.
+  const look = await page.evaluate(() => {
+    const r0 = document.querySelector("jam-button").shadowRoot;
+    const col = v => { const p = document.createElement("span"); p.style.color = v; r0.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+    const W = {}; for (const k of ["ochre", "teal", "blue", "pink", "violet", "green", "red", "on-fg"]) W[k] = col(`var(--${k})`);
+    const find = n => [...document.querySelectorAll("#view jam-button")].find(b => b.shadowRoot.textContent.includes(n));
+    const sq = b => { const q = b.shadowRoot.querySelector(".sq"); if (!q) return null; const r = q.getBoundingClientRect(); return {bg: getComputedStyle(q).backgroundColor, w: r.width, h: r.height}; };
+    const face = b => { const f = b.shadowRoot.querySelector(".kf"); return {bg: getComputedStyle(f).backgroundColor, fg: getComputedStyle(f).color, on: f.classList.contains("on")}; };
+    const mk = cfg => { const e = document.createElement("jam-button"); e.setConfig({type: "custom:jam-button", ...cfg}); e.hass = window.__hass; document.body.append(e); return e; };
+    const onPink = mk({entity: "switch.dehumidifier", accent: "pink"}), onMarissa = mk({entity: "switch.dehumidifier", accent: "marissa"});
+    const out = {W, jelly: sq(find("Jellyfin")), sw: sq(find("Switch")), bato: sq(find("Batocera")), movie: sq(find("Movie Time")), normal: sq(find("Normal")),
+      chime: sq(find("Porch Chime")), restart: sq(find("Restart TV")), dehum: face(find("Dehumidifier")), dsq: sq(find("Dehumidifier")),
+      pink: face(onPink), pinkSq: sq(onPink), alias: face(onMarissa)};
+    onPink.remove(); onMarissa.remove();
+    return out;
   });
-  const bn = await blk("Restart TV"), bb = await blk("Porch Chime"), bs = await blk("Movie Time");
-  check(bn.w <= 112.5 && bn.k * 0.42 > 112 && bn.h === 40 && bb.w <= 136.5 && bb.w > 112.5 && bb.h === 56 && bs.w <= bs.k * 0.42 + 0.5,
-    `jam-button: accent block capped on wide keys (normal ${bn.w.toFixed(0)}px of ${bn.k.toFixed(0)}, big ${bb.w.toFixed(0)}px, narrow ${bs.w.toFixed(0)}px of ${bs.k.toFixed(0)})`);
-  // Toggleable default: toggle; "on" switch prints a full ochre face.
-  check(await btn("Dehumidifier").locator(".kf.on").count() === 1, "on switch button has the ochre face");
+  const W = look.W;
+  check(look.jelly.bg === W.violet && look.sw.bg === W.blue && look.bato.bg === W.green && look.movie.bg === W.red && look.restart.bg === W.teal,
+    `jam-button: color purple/blue/green -> violet/blue/green squares, accent red/teal squares (${look.jelly.bg}, ${look.sw.bg}, ${look.bato.bg})`);
+  check(look.normal === null && look.restart.w === 28 && look.restart.h === 28 && look.chime.w === 36,
+    `jam-button: grey = plain key, accent square 28px (big ${look.chime && look.chime.w}px)`);
+  check(look.dehum.on && look.dehum.bg === W.ochre && look.dehum.fg === W["on-fg"] && look.dsq.bg === W["on-fg"],
+    `jam-button: on face = card accent (room living: ${look.dehum.bg}) with ink text and an ink square`);
+  check(look.pink.on && look.pink.bg === W.pink && look.pink.fg === W["on-fg"] && look.pinkSq.bg === W["on-fg"] && look.alias.bg === W.pink,
+    `jam-button: on face uses the configured accent (pink ${look.pink.bg}; alias marissa ${look.alias.bg})`);
+  // Toggleable default: toggle; "on" switch prints a full accent face.
+  check(await btn("Dehumidifier").locator(".kf.on").count() === 1, "on switch button has the accent face");
   n = (await callsNow()).length; await btn("Dehumidifier").click(); c = await since(n);
   check(c.length === 1 && c[0].service === "toggle" && c[0].data.entity_id === "switch.dehumidifier", "toggle button toggles switch.dehumidifier");
   // Navigate.

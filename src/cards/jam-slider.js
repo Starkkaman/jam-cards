@@ -1,5 +1,6 @@
-/* ---------- jam-slider: cut paper strip for number / input_number / light brightness / media volume / fan speed ----------
-   {type: custom:jam-slider, entity, name?, min?, max?, step?} */
+/* ---------- jam-slider: strip for number / input_number / light brightness / media volume / fan speed ----------
+   {type: custom:jam-slider, entity, name?, min?, max?, step?, accent? (fill colour; DESIGN "Colour system")}
+   Slab2 strip, accent fill with a straight 8px diagonal end (shared .track/.strip/.fill in BASE_CSS). */
 class JamSlider extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-slider: entity is required"); }
   watched() { return [this._config.entity]; }
@@ -7,10 +8,7 @@ class JamSlider extends JamBase {
     .wrap{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track{position:relative;height:32px;cursor:pointer;touch-action:none}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`; }
+    .track{cursor:pointer}`; }
   _model() {
     const c = this._config, s = stateObj(this._hass, c.entity), d = c.entity.split(".")[0];
     if (!s) return null;
@@ -30,15 +28,12 @@ class JamSlider extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, m = this._model();
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${m && !isNaN(m.v) ? (m.v > m.min ? "on" : "off") : "alert"}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${m && !isNaN(m.v) ? (m.v > m.min ? "on" : "off") : "alert"}`});
     const row = el("div", "row");
     row.append(el("div", "label", c.name || friendly(h, c.entity)));
     const val = el("div", "v num", m && !isNaN(m.v) ? `${m.v}${m.unit ? " " + m.unit : ""}` : "—");
     row.append(val); wrap.append(row);
-    const sd = seed("jam-slider|" + c.entity);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     strip.append(fill); track.append(strip); wrap.append(track); b.append(root);
     if (!m || isNaN(m.v)) return;
     const pct = v => Math.max(0, Math.min(100, ((v - m.min) / ((m.max - m.min) || 1)) * 100));
@@ -63,4 +58,4 @@ class JamSlider extends JamBase {
     };
   }
 }
-register("jam-slider", JamSlider, "Jam Slider", "Cut paper strip for numbers, light brightness, media volume or fan speed.");
+register("jam-slider", JamSlider, "Jam Slider", "Strip for numbers, light brightness, media volume or fan speed.");

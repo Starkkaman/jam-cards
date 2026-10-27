@@ -1,15 +1,16 @@
 /* GENERATED from src/ by tools/bundle.mjs — edit src/, then run node tools/bundle.mjs */
 /* Jam Cards: Saul Bass styled Lovelace cards (same look as the JamBoard / Crew Hub card).
-   Rules: flat colour, no gradients, no blur, no rounded corners; heavy uppercase display type; hard cuts.
+   Rules (v0.3 "Poster"): flat colour, no gradients/blur/shadows/rounded corners; straight edges with one cut corner;
+   one accent colour per card; heavy uppercase display type; hard cuts.
    No build step, no dependencies. Entity names/states are rendered with textContent only.
 
    Cards: jam-heading, jam-hero, jam-tile, jam-choice, jam-slider, jam-media, jam-button, jam-gauge, jam-list,
    jam-light, jam-popup, jam-graph, jam-weather, jam-remote.
    Colours come from the JamBoard theme (--jam-* variables, one set per light/dark mode); without the theme the
    cards fall back to the dark "ink" palette. Design rules: docs/DESIGN.md.
-   Shared helpers (edge system, paper blocks, actions) are exported on window.JamCards for cards added later. */
+   Shared helpers (colour/accent system, edge system, cut blocks, actions) are exported on window.JamCards for cards added later. */
 (() => {
-const VERSION = "0.2.0";
+const VERSION = "0.3.0-dev";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&display=swap";
 
@@ -26,7 +27,9 @@ const BASE_CSS = `
   --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622);
   --paper:var(--jam-paper,#ece2c9); --paper-fg:var(--jam-paper-fg,#141210); --paper-dim:var(--jam-paper-dim,#5c5446);
   --fg:var(--jam-fg,#ece2c9); --dim:var(--jam-dim,#9a8f7c); --line:var(--jam-line,#34302a);
-  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#d43a1c); --teal:var(--jam-teal,#3f9aa5);
+  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --teal:var(--jam-teal,#22a39a);
+  --blue:var(--jam-blue,#4a7be0); --pink:var(--jam-pink,#e2658f); --violet:var(--jam-violet,#9b6dd6); --green:var(--jam-green,#86a83a);
+  --on-fg:var(--jam-on-fg,#141210);
   --shadow:var(--jam-shadow,#0a0908);
   --s1:var(--jam-s1,#bd8000); --s2:var(--jam-s2,#1f9fb0); --s3:var(--jam-s3,#d43a1c); --s4:var(--jam-s4,#a66cc4); --s5:var(--jam-s5,#7f9b2a);
   --display:var(--jam-display,"Londrina Solid","Arial Black",Impact,sans-serif);
@@ -37,35 +40,45 @@ const BASE_CSS = `
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
 .label{font:600 .72rem/1.25 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .disp{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:.01em;margin:0;text-wrap:balance}
-.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:5px 7px;border:1.5px solid currentColor;flex:none;background:none;color:inherit}
+/* Chips/pills: flat slab2 block, bottom-right 6px cut, text in the tone colour. */
+.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--slab2);color:inherit;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible,.focusable:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
 .stripe{border-left:6px solid var(--line)}
-.s-on{border-left-color:var(--ochre)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
-.c-on{color:var(--ochre)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
+.s-on{border-left-color:var(--acc)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
+.c-on{color:var(--acc)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
 .num{font-variant-numeric:tabular-nums}
 .unavail{opacity:.55}
-/* Paper system: .paper root > .shadow (offset slab) + .face (torn clip). Clips come from paper() as --clip/--clip-s,
-   torn depth per edge as --tt/--tr/--tb/--tl (added to the face padding so text never sits in a torn zone). */
-.host{height:100%;padding:0 6px 6px 0}
-.paper{position:relative;display:block;height:100%;--sh:6px}
-.shadow{position:absolute;inset:0;background:var(--shadow);clip-path:var(--clip-s);transform:translate(var(--sh),var(--sh));pointer-events:none}
+/* Card accent (DESIGN "Colour system"): --acc fills anything on/active, --acc-fg is the text on it. A card's accent
+   option sets both on .host; without one the card follows --jam-accent (set by a jam-popup for its children, or by
+   the user) and then ochre. */
+.host{height:100%;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
+/* Paper system: .paper root > .face. paper() sets --clip on the root: a straight rectangle with ONE 45° cut corner,
+   fixed per kind (card/key/chip/hero/sheet). The face padding is at least the cut size, so text never sits in the cut. */
+.paper{position:relative;display:block;height:100%}
 .face{--p-t:12px;--p-r:14px;--p-b:14px;--p-l:16px;position:relative;display:block;height:100%;background:var(--slab);clip-path:var(--clip);
-  padding:calc(var(--p-t) + var(--tt,0px)) calc(var(--p-r) + var(--tr,0px)) calc(var(--p-b) + var(--tb,0px)) calc(var(--p-l) + var(--tl,0px))}
+  padding:var(--p-t) var(--p-r) var(--p-b) var(--p-l)}
 .press{cursor:pointer}
-.press:active > .face{transform:translate(3px,3px)}
+.press:active > .face{transform:translate(2px,2px)}
 .press:has(.press:active) > .face{transform:none}
-/* Cut keys (buttons, chips): small paper with a 3px shadow. */
-.key{--sh:3px;min-width:56px;text-align:center}
+/* Keys (buttons, chips): slab2 off, accent fill + ink text on, red for alert/power. */
+.key{min-width:56px;text-align:center}
 .key > .face{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:12px;background:var(--slab2);color:var(--fg);border:2px solid transparent;
   font:600 .74rem/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase}
 .key:not(:disabled):hover > .face{border-color:var(--dim)}
-.key.on > .face{background:var(--ochre);color:var(--ink)}
-.key.alert > .face{background:var(--red);color:var(--ink)}
+.key.on > .face{background:var(--acc);color:var(--acc-fg)}
+.key.alert > .face{background:var(--red);color:var(--on-fg)}
 .key:disabled{cursor:default} .key:disabled > .face{color:var(--dim)}
-/* Golden Arm bars motif. */
+/* Strips (slider, light brightness, media volume, gauge bar): 32px touch track, 22px slab2 strip, accent fill with a
+   straight 8px diagonal end. */
+.track{position:relative;height:32px;touch-action:none}
+.strip{position:absolute;inset:5px 0;background:var(--slab2)}
+.fill{position:absolute;inset:0 auto 0 0;background:var(--acc);clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+/* Golden Arm bars motif (empty-state placeholder): straight bars. */
 .arm{display:flex;align-items:flex-end;gap:6px;height:44px}
-.arm span{background:var(--acc,var(--red))}
+.arm span{background:var(--acc)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.press:active > .face{transform:none}}
 `;
 
@@ -173,15 +186,51 @@ function icon(name) {
   return i;
 }
 
+/* ---------- colour system (DESIGN "Colour system") ---------- */
+/* Accent names and room aliases -> jam colour token. Unknown names resolve to null (the card falls back). */
+const ACCENTS = Object.freeze({
+  ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red", ink: "ink", paper: "paper",
+  living: "ochre", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red",
+});
+function accentName(a) { return (a && ACCENTS[String(a).trim().toLowerCase()]) || null; }
+/* CSS fill for an accent ("var(--teal)"), or null when the name is unknown. */
+function accentVar(a) { const n = accentName(a); return n ? `var(--${n})` : null; }
+/* Text colour on an accent fill: ink (--on-fg) on every hue; paper-fg on paper; a light ink-fg on ink. */
+function accentFg(a) {
+  const n = accentName(a);
+  return n === "paper" ? "var(--paper-fg)" : n === "ink" ? "var(--jam-ink-fg,#ece2c9)" : "var(--on-fg)";
+}
+/* Sets --acc / --acc-fg on node for a configured accent; returns false (and sets nothing) when it is unknown. */
+function setAccent(node, a) {
+  const v = accentVar(a);
+  if (!v) return false;
+  node.style.setProperty("--acc", v); node.style.setProperty("--acc-fg", accentFg(a));
+  return true;
+}
+
 /* ---------- edge system (DESIGN "Edge system") ---------- */
-/* FNV-1a 32-bit hash of a string. */
+/* Fixed cut per element kind: [corner, size px]. Every surface is a straight rectangle with exactly one 45° cut corner. */
+const CUTS = Object.freeze({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18]});
+/* CSS polygon() (5 points) for a rectangle with one corner ("tl"|"tr"|"br"|"bl") cut by a size px diagonal. */
+function cutPath(corner = "br", size = 14) {
+  const z = +size + "px", n = `calc(100% - ${+size}px)`;
+  const P = {
+    tl: ["0 " + z, z + " 0", "100% 0", "100% 100%", "0 100%"],
+    tr: ["0 0", n + " 0", "100% " + z, "100% 100%", "0 100%"],
+    br: ["0 0", "100% 0", "100% " + n, n + " 100%", "0 100%"],
+    bl: ["0 0", "100% 0", "100% 100%", z + " 100%", "0 " + n],
+  }[corner] || null;
+  if (!P) throw new Error("cutPath: corner must be tl, tr, br or bl");
+  return `polygon(${P.join(",")})`;
+}
+/* Legacy (v0.2) helpers, kept exported for compatibility; no card uses them any more.
+   seed(str): FNV-1a 32-bit hash. rng(seed): mulberry32 PRNG () => [0,1). tornPath(): the old jagged polygon(). */
 function seed(str) {
   const s = String(str);
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return h >>> 0;
 }
-/* mulberry32: deterministic PRNG, returns () => [0,1). */
 function rng(a) {
   a >>>= 0;
   return () => {
@@ -193,16 +242,12 @@ function rng(a) {
 }
 const CORNERS = ["tl", "tr", "br", "bl"];
 const cutCorner = s => CORNERS[(s >>> 0) % 4];
-/* One polygon coordinate: pct% moved by off px (calc() only when both are non-zero). */
 function coord(pct, off) {
   const p = +pct.toFixed(1), o = +off.toFixed(1);
   if (!o) return p + "%";
   if (!p) return o + "px";
   return `calc(${p}% ${o < 0 ? "-" : "+"} ${Math.abs(o)}px)`;
 }
-/* CSS polygon() for a paper face. edges: any of "t","r","b","l" are torn (others straight); a torn edge gets a point
-   about every `step`% jittered inward 0..depth px. cut: null | true (corner picked by seed) | "tl"|"tr"|"br"|"bl"
-   cuts that corner by a 14-18 px diagonal. Same arguments = same string. */
 function tornPath(s, {edges = "b", depth = 5, step = 7, cut = null} = {}) {
   s >>>= 0;
   const r = rng(s), pts = [];
@@ -223,28 +268,27 @@ function tornPath(s, {edges = "b", depth = 5, step = 7, cut = null} = {}) {
   tear("l", (q, d) => P(0, d, 100 - q, 0));
   return `polygon(${pts.join(",")})`;
 }
-/* Cut-paper block: <tag class="paper cls"> > <.shadow aria-hidden> + <.face faceCls>. key: seed number or string.
-   The shadow uses seed+1 with the same edges/cut corner. Returns {root, face}; put content in face. */
-function paper(tag, key, {edges = "b", depth = 5, step = 7, cut = null, cls = "", face = ""} = {}) {
-  const s = typeof key === "number" ? key >>> 0 : seed(key);
-  const o = {edges, depth, step, cut: cut === true ? cutCorner(s) : cut};
+/* Cut block: <tag class="paper cls" data-cut=kind> > <.face faceCls>. kind: card (default) | key | chip | hero | sheet
+   (see CUTS). `key` is kept for API compatibility (v0.2 seeded the torn edges with it); the shape no longer depends on it,
+   and the v0.2 options edges/depth/step/cut are ignored. Returns {root, face}; put content in face. */
+function paper(tag, key, {kind = "card", cls = "", face = ""} = {}) {
+  const [corner, size] = CUTS[kind] || CUTS.card;
   const inner = tag === "button" ? "span" : "div";
   const root = el(tag, "paper" + (cls ? " " + cls : ""));
-  const sh = el(inner, "shadow"); sh.setAttribute("aria-hidden", "true");
+  root.dataset.cut = CUTS[kind] ? kind : "card";
   const f = el(inner, "face" + (face ? " " + face : ""));
-  root.style.setProperty("--clip", tornPath(s, o));
-  root.style.setProperty("--clip-s", tornPath(s + 1, o));
-  for (const e of "trbl") root.style.setProperty("--t" + e, edges.includes(e) ? depth + "px" : "0px");
-  root.append(sh, f);
+  root.style.setProperty("--clip", cutPath(corner, size));
+  root.append(f);
   return {root, face: f};
 }
-/* A cut key: real <button> on the paper system (classes "key press" + cls, e.g. "on", "alert"). Label via textContent. */
-function cutKey(label, key, cls) {
-  const {root, face} = paper("button", key, {edges: "rb", depth: 2.5, step: 14, cls: "key press" + (cls ? " " + cls : "")});
+/* A key: real <button> on the paper system (classes "key press" + cls, e.g. "on", "alert"). Label via textContent.
+   kind: "key" (top-right 12px cut, default) or "chip" (pills, option chips, small keys: bottom-right 6px). */
+function cutKey(label, key, cls, kind = "key") {
+  const {root, face} = paper("button", key, {kind, cls: "key press" + (cls ? " " + cls : "")});
   root.type = "button"; face.textContent = String(label);
   return root;
 }
-/* Golden Arm motif: 3-5 jagged vertical bars of varied height/width in var(--acc), aria-hidden. */
+/* Golden Arm motif: 3-5 straight vertical bars of varied height/width in var(--acc), aria-hidden. Same key = same bars. */
 function armBars(key) {
   const s = typeof key === "number" ? key >>> 0 : seed(key), r = rng(s ^ 0x9e3779b9);
   const box = el("div", "arm"); box.setAttribute("aria-hidden", "true");
@@ -252,7 +296,6 @@ function armBars(key) {
     const b = el("span");
     b.style.width = Math.round(10 + r() * 9) + "px";
     b.style.height = Math.round(38 + r() * 62) + "%";
-    b.style.clipPath = tornPath(s + 7919 * (i + 1), {edges: "t", depth: 7, step: 30});
     box.append(b);
   }
   return box;
@@ -288,6 +331,7 @@ class JamBase extends HTMLElement {
       const st = el("style"); st.textContent = BASE_CSS + this.css();
       root.append(st);
       this._body = el("div", "host");
+      setAccent(this._body, this._config.accent);
       root.append(this._body);
     }
     if (!this._hass) return;
@@ -295,7 +339,7 @@ class JamBase extends HTMLElement {
     this.render(this._body);
   }
   render() {}
-  /* Card-level paper block seeded by card type + key (entity id or title): same config = same edges. */
+  /* Card-level cut block (kind "card" unless opts.kind says otherwise). */
   paper(key, opts) { return paper("div", this.localName + "|" + key, opts); }
   getCardSize() { return 2; }
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 3}; }
@@ -303,7 +347,8 @@ class JamBase extends HTMLElement {
 
 /* Shared API for cards (src/cards/) and for debugging. */
 window.JamCards = Object.freeze({
-  VERSION, BASE_CSS, JamBase, seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
+  VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
+  seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
 });
 window.customCards = window.customCards || [];
@@ -313,18 +358,19 @@ function register(tag, cls, name, description) {
   if (!window.customCards.some(c => c.type === tag)) window.customCards.push({type: tag, name, description, preview: false});
 }
 
-/* ---------- jam-button: chunky cut-paper key for launchers, scenes, scripts, stereo keys and openers ----------
-   {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
-    show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
+/* ---------- jam-button: chunky key for launchers, scenes, scripts, stereo keys and openers ----------
+   {type: custom:jam-button, entity?, name?, icon?, accent?: colour or room alias | paper | ink (DESIGN "Colour system"),
+    color?: HA colour name, show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
    Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, toggleable entity -> toggle,
    other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
    "unknown" and a timestamp are their normal states.
-   Accent = flat cut block in the top-left of the face (min(42%, 112px) wide, big 136px; 40/56px high, torn bottom/right) carrying
-   the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
-const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
-  blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
-const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
-  paper: ["var(--paper)", "var(--paper-fg)"]};
+   Shape: key cut (top-right 12px), slab face. Accent (accent, else color mapped by JB_COLOR, else the card default ochre)
+   = a small square with a cut corner in the top-left carrying the icon in ink (28px, big 36px); light/switch/fan/input_boolean
+   "on" = the whole face in the accent with ink text, the square turns ink with the icon in the accent.
+   ink (and HA grey colours) = plain key without a square (on = inverted fg face). */
+const JB_COLOR = {red: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
+  pink: "pink", blue: "blue", "light-blue": "blue", indigo: "blue", cyan: "teal", teal: "teal",
+  purple: "violet", "deep-purple": "violet", green: "green", "light-green": "green", lime: "green", "light-grey": "ink", grey: "ink"};
 const JB_ON = new Set(["light", "switch", "fan", "input_boolean"]);
 const JB_STATELESS = new Set(["button", "input_button", "scene", "script"]);
 class JamButton extends JamBase {
@@ -332,24 +378,27 @@ class JamButton extends JamBase {
   watched() { return this._config.entity ? [this._config.entity] : []; }
   css() { return `
     .btn{min-height:88px}
-    .kf{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
+    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
     .big .kf{min-height:120px}
-    .kf.on{background:var(--ochre);color:var(--ink)}
+    .kf.on{background:var(--acc);color:var(--acc-fg)}
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
-    .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
-      margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
-      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + min(42%, var(--blk-max,112px)))}
-    .big .blk{height:56px;--blk-max:136px}
+    .sq{flex:none;display:grid;place-items:center;width:28px;height:28px;background:var(--acc);color:var(--acc-fg);
+      clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
+    .big .sq{width:36px;height:36px}
+    .on .sq{background:var(--acc-fg);color:var(--acc)}
     .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
+    .sq .ic{--mdc-icon-size:18px;width:18px;height:18px}
+    .big .sq .ic{--mdc-icon-size:24px;width:24px;height:24px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
       font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
     .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
-    .st{color:var(--dim)} .on .st{color:var(--ink)}`; }
+    .st{color:var(--dim)} .on .st{color:var(--acc-fg)}`; }
+  /* Configured accent name (accent wins over color), or null = the card default. */
   _accent() {
-    const c = this._config, a = c.accent || JB_COLOR[c.color];
-    return JB_ACC[a] ? a : null;
+    const c = this._config;
+    return accentName(c.accent) || JB_COLOR[c.color] || null;
   }
   _tap() {
     const c = this._config, d = (c.entity || "").split(".")[0];
@@ -361,11 +410,13 @@ class JamButton extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), d = (c.entity || "").split(".")[0];
-    const on = !!s && s.state === "on" && JB_ON.has(d), acc = on ? null : this._accent();
+    const on = !!s && s.state === "on" && JB_ON.has(d), acc = this._accent(), plain = acc === "ink";
     const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
-    const {root, face} = this.paper(c.entity || name || c.icon, {edges: "rb", depth: 3, cut: true,
+    const {root, face} = this.paper(c.entity || name || c.icon, {kind: "key",
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
+    if (plain) { root.style.setProperty("--acc", "var(--fg)"); root.style.setProperty("--acc-fg", "var(--slab)"); }
+    else if (acc) setAccent(root, acc);
     root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", name);
     if (s && JB_ON.has(d)) root.setAttribute("aria-pressed", on ? "true" : "false");
     bindActions(root, () => this._hass, {...c, tap_action: this._tap()}, c.entity);
@@ -374,13 +425,11 @@ class JamButton extends JamBase {
     k.style.setProperty("--fit", Math.max(4, ...String(name).split(/\s+/).map(w => w.length)));
     const ic = icon(c.icon || (s && s.attributes.icon)), L = el("div", "layer");
     if (ic) ic.classList.add("ic");
-    if (acc) {
-      root.style.setProperty("--acc", JB_ACC[acc][0]); root.style.setProperty("--acc-fg", JB_ACC[acc][1]);
-      const blk = el("div", "blk");
-      blk.setAttribute("aria-hidden", "true");
-      blk.style.clipPath = tornPath(seed("jam-button|blk|" + (c.entity || name)), {edges: "rb", depth: 4, step: 16});
-      if (ic) blk.append(ic);
-      k.append(blk);
+    if (!plain) {
+      const sq = el("span", "sq");
+      sq.setAttribute("aria-hidden", "true");
+      if (ic) sq.append(ic);
+      k.append(sq);
     } else if (ic) L.append(ic);
     if (name) L.append(el("div", "lbl", name));
     if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
@@ -407,10 +456,11 @@ class JamButton extends JamBase {
   getCardSize() { return this._config.size === "big" ? 3 : 2; }
   getGridOptions() { return {columns: 3, rows: this._config.size === "big" ? 2 : "auto", min_columns: 2}; }
 }
-register("jam-button", JamButton, "Jam Button", "Chunky cut-paper key for launchers, scenes, scripts and openers.");
+register("jam-button", JamButton, "Jam Button", "Chunky key for launchers, scenes, scripts and openers.");
 
-/* ---------- jam-choice: select / input_select as cut paper chips ----------
-   {type: custom:jam-choice, entity, name?, options?: [subset/order], columns?} */
+/* ---------- jam-choice: select / input_select as option chips ----------
+   {type: custom:jam-choice, entity, name?, options?: [subset/order], columns?, accent? (selected option fill; DESIGN "Colour system")}
+   Options are chips (bottom-right 6px cut): slab2 off, accent fill + ink text when selected. */
 class JamChoice extends JamBase {
   validate(c) {
     if (!c.entity || !/^(input_)?select\./.test(c.entity)) throw new Error("jam-choice: entity must be a select or input_select");
@@ -422,10 +472,10 @@ class JamChoice extends JamBase {
     .opt{text-align:left}
     .opt > .face{--p-t:12px;--p-b:12px;--p-l:10px;--p-r:10px;min-height:46px;display:flex;align-items:center;
       font-size:.76rem;letter-spacing:.08em;overflow-wrap:break-word;min-width:0}
-    .opt.busy > .face{border-color:var(--ochre)}`; }
+    .opt.busy > .face{border-color:var(--acc)}`; }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${s && !UNAVAILABLE.has(s.state) ? "on" : "alert"}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${s && !UNAVAILABLE.has(s.state) ? "on" : "alert"}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
     const box = el("div", "opts");
     if (c.columns) box.style.setProperty("--cols", String(c.columns));
@@ -434,7 +484,7 @@ class JamChoice extends JamBase {
     const dom = c.entity.split(".")[0];
     for (const o of list) {
       const on = !!s && s.state === o;
-      const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""));
+      const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""), "chip");
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.disabled = !s || UNAVAILABLE.has(s.state);
       btn.onclick = () => { btn.classList.add("busy"); h.callService(dom, "select_option", {entity_id: c.entity, option: o}); };
@@ -448,10 +498,11 @@ class JamChoice extends JamBase {
 }
 register("jam-choice", JamChoice, "Jam Choice", "Select / input_select options as chunky chips.");
 
-/* ---------- jam-gauge: half-disc of cut wedges (or a cut strip) with a big numeral, read-only ----------
+/* ---------- jam-gauge: half-disc of cut wedges (or a strip) with a big numeral, read-only ----------
    {type: custom:jam-gauge, entity, name?, min?: 0, max?: 100, unit?, severity?: {green, yellow, red} (band starts, HA
-    semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?}
-   Bands green/yellow/red -> teal/ochre/red; without severity one ochre band. Values outside min..max are clamped
+    semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?, accent?}
+   Bands green/yellow/red -> teal/ochre/red (fixed, not the accent); without severity one band in the card accent
+   (default ochre). Every wedge has the same radius. Values outside min..max are clamped
    (the numeral still shows the real value). Unavailable / non-numeric -> red "Unavailable", no fill. */
 const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
 const JG_SVG = "http://www.w3.org/2000/svg";
@@ -469,14 +520,12 @@ class JamGauge extends JamBase {
     .bar{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
     .bar .big{font-size:1.9rem}
-    .track{position:relative;height:32px}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0}`; }
+`; }
   _bands(min, max) {
     const sv = this._config.severity;
     const st = sv ? Object.keys(JG_TONE).filter(k => sv[k] !== undefined && sv[k] !== null && !isNaN(Number(sv[k])))
       .map(k => ({from: Math.min(max, Math.max(min, Number(sv[k]))), col: JG_TONE[k]})).sort((a, b) => a.from - b.from) : [];
-    if (!st.length) return [{from: min, to: max, col: "ochre"}];
+    if (!st.length) return [{from: min, to: max, col: "acc"}];
     st[0].from = min; /* below the first band start HA has no colour; the first band covers it */
     st.forEach((x, i) => { x.to = i + 1 < st.length ? st[i + 1].from : max; });
     return st.filter(x => x.to > x.from);
@@ -500,8 +549,8 @@ class JamGauge extends JamBase {
     if (m.ok) { node.setAttribute("aria-valuenow", m.cv); node.setAttribute("aria-valuetext", jgFmt(m.v) + (m.unit ? " " + m.unit : "")); }
     else node.setAttribute("aria-valuetext", "Unavailable");
   }
-  _arc(face, m, sd) {
-    const svg = document.createElementNS(JG_SVG, "svg"), r = rng(sd);
+  _arc(face, m) {
+    const svg = document.createElementNS(JG_SVG, "svg");
     svg.setAttribute("viewBox", "-2 -2 204 104");
     const frac = v => (v - m.min) / (m.max - m.min);
     const pt = (f, rad) => { const a = Math.PI * (1 - f); return `${(100 + rad * Math.cos(a)).toFixed(2)} ${(100 - rad * Math.sin(a)).toFixed(2)}`; };
@@ -514,7 +563,7 @@ class JamGauge extends JamBase {
     const GAP = 0.006, fv = frac(m.cv);
     for (const bd of this._bands(m.min, m.max)) {
       const f0 = frac(bd.from) + (bd.from > m.min ? GAP : 0), f1 = frac(bd.to) - (bd.to < m.max ? GAP : 0);
-      const rad = 88 + r() * 6; /* each band a separately cut piece */
+      const rad = 92;
       if (m.ok && fv > f0) wedge(f0, Math.min(f1, fv), rad, `var(--${bd.col})`);
       wedge(m.ok ? Math.max(f0, fv) : f0, f1, rad, "var(--line)");
     }
@@ -538,17 +587,15 @@ class JamGauge extends JamBase {
     this._meter(box, m); box.append(svg); face.append(box);
     this._numeral(m, face);
   }
-  _bar(face, m, sd) {
+  _bar(face, m) {
     const row = el("div", "row");
     row.append(el("div", "label", this._name()));
     this._numeral(m, row); face.append(row);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
     this._meter(track, m);
     if (m.ok) {
       const band = this._bands(m.min, m.max).filter(x => m.cv >= x.from).pop();
-      fill.style.background = `var(--${band ? band.col : "ochre"})`;
-      fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
+      fill.style.background = `var(--${band ? band.col : "acc"})`;
       fill.style.width = ((m.cv - m.min) / (m.max - m.min)) * 100 + "%";
       strip.append(fill);
     }
@@ -557,23 +604,21 @@ class JamGauge extends JamBase {
   _name() { return this._config.name || friendly(this._hass, this._config.entity); }
   render(b) {
     const c = this._config, m = this._model(), bar = c.style === "bar";
-    const {root, face} = this.paper(c.entity, {edges: bar ? "rb" : "b", cls: "press",
-      face: bar ? "bar" : "g"});
+    const {root, face} = this.paper(c.entity, {cls: "press", face: bar ? "bar" : "g"});
     root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", this._name());
     bindActions(root, () => this._hass, c, c.entity);
-    const sd = seed("jam-gauge|" + c.entity);
-    if (bar) this._bar(face, m, sd);
-    else { face.append(el("div", "label", this._name())); this._arc(face, m, sd); }
+    if (bar) this._bar(face, m);
+    else { face.append(el("div", "label", this._name())); this._arc(face, m); }
     b.append(root);
   }
   getCardSize() { return this._config.style === "bar" ? 2 : 4; }
   getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
 }
-register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a cut strip with a big numeral (replaces gauge).");
+register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a strip with a big numeral (replaces gauge).");
 
 /* ---------- jam-graph: history chart from the recorder (line / step / bars), 1-5 series ----------
    {type: custom:jam-graph, title?, entities: [id | {entity, name?}] (1-5), hours_to_show? (24), style?: line|step|bars,
-    show_current? (true), min?, max?, refresh_minutes? (5)}
+    show_current? (true), min?, max?, refresh_minutes? (5), accent? (loading placeholder only; series colours are fixed)}
    One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
    series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
    at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
@@ -772,7 +817,7 @@ class JamGraph extends JamBase {
     .mk{stroke:var(--slab);stroke-width:2}
     .empty{display:flex;align-items:center;justify-content:center}
     .empty .arm{--acc:var(--dim)}
-    .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;box-shadow:3px 3px 0 var(--shadow);
+    .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;border:2px solid var(--line);
       pointer-events:none;font:500 .74rem/1.35 var(--body);display:grid;grid-template-columns:auto auto auto;gap:2px 8px;align-items:center;white-space:nowrap}
     .tip[hidden]{display:none}
     .tip .label{grid-column:1/-1}
@@ -960,23 +1005,22 @@ class JamGraph extends JamBase {
 }
 register("jam-graph", JamGraph, "Jam Graph", "History chart (line, step or bars) for 1-5 numeric sensors with a crosshair tooltip.");
 
-/* ---------- jam-heading: section label + big title over a torn accent rule ----------
-   {type: custom:jam-heading, title, kicker?, accent?: ochre|red|teal, entities?: [ids shown as chips],
-    tap_action?, hold_action?, double_tap_action?} */
+/* ---------- jam-heading: section label + big title over a straight 5px accent rule ----------
+   {type: custom:jam-heading, title, kicker?, accent?: colour or room alias (DESIGN "Colour system"; default ochre),
+    entities?: [ids shown as chips], tap_action?, hold_action?, double_tap_action?} */
 class JamHeading extends JamBase {
   validate(c) { if (!c.title) throw new Error("jam-heading: title is required"); }
   watched() { return this._config.entities || []; }
   css() { return `
     .h{display:grid;gap:6px;padding:6px 2px 0}
     .row{display:flex;gap:10px 16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
-    .rule{height:8px;background:var(--acc,var(--ochre))}
+    .rule{height:5px;background:var(--acc)}
     h2{font-size:clamp(1.6rem,5.4vw,2.3rem)} .t{display:grid;gap:4px;min-width:0}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .h.tap{cursor:pointer}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const box = el("div", "h");
-    box.style.setProperty("--acc", `var(--${c.accent || "ochre"})`);
     if (c.tap_action || c.hold_action || c.double_tap_action) {
       box.classList.add("tap", "focusable"); box.tabIndex = 0; box.setAttribute("role", "button");
       bindActions(box, () => this._hass, {tap_action: {action: "none"}, ...c});
@@ -996,8 +1040,7 @@ class JamHeading extends JamBase {
       }
       row.append(chips);
     }
-    const rule = el("div", "rule");
-    rule.style.clipPath = tornPath(seed("jam-heading|" + c.title), {edges: "b", depth: 3, step: 4});
+    const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
     box.append(row, rule);
     b.append(box);
   }
@@ -1005,10 +1048,11 @@ class JamHeading extends JamBase {
 }
 register("jam-heading", JamHeading, "Jam Heading", "Section title slab with an accent rule and optional state chips.");
 
-/* ---------- jam-hero: torn paper slab with a cut corner and Golden Arm bars ----------
+/* ---------- jam-hero: paper slab with a 22px bottom-right cut ----------
    {type: custom:jam-hero, kicker?, title?, title_entity?, meta_entities?: [ids], power_entity?, off_title?, off_text?,
-    chips?: [{entity, name?, show_state?: "on", hide_value?, tone?: red|ochre|teal|paper}], accent?}
-   A chip is hot (accent colour) when its entity is on; tone overrides the hot colour (paper = paper-fg block, still .hot). */
+    chips?: [{entity, name?, show_state?: "on", hide_value?, tone?: any accent name | paper}], accent? (default ochre)}
+   A chip is hot (accent fill, ink text) when its entity is on; tone overrides the hot colour (paper = paper-fg block with
+   paper text, still .hot). Accent also marks the meta separators. */
 class JamHero extends JamBase {
   watched() {
     const c = this._config;
@@ -1017,19 +1061,19 @@ class JamHero extends JamBase {
   css() { return `
     .hero{--p-t:18px;--p-r:20px;--p-b:22px;--p-l:20px;background:var(--paper);color:var(--paper-fg);display:grid;gap:12px;align-content:start}
     .hero .label{color:var(--paper-dim)}
-    h1{font-size:clamp(2.7rem,11vw,4.8rem);line-height:.9;letter-spacing:-.005em} h1 span{color:var(--acc,var(--red))}
+    h1{font-size:clamp(2.7rem,11vw,4.8rem);line-height:.9;letter-spacing:-.005em}
     .meta{display:flex;gap:6px 16px;flex-wrap:wrap;font-weight:500}
     .meta span{min-width:0;overflow-wrap:anywhere}
-    .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc,var(--red));margin:0 12px 1px 0;vertical-align:middle}
+    .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc);margin:0 12px 1px 0;vertical-align:middle}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
-    .chips .chip{background:var(--paper-fg);color:var(--paper);border-color:var(--paper-fg);padding:4px 8px}
-    .chips .chip.hot{background:var(--hot,var(--acc,var(--red)));border-color:var(--hot,var(--acc,var(--red)));color:var(--paper)}
+    .chips .chip{background:var(--paper-fg);color:var(--paper);padding:6px 10px 6px 8px}
+    .chips .chip.hot{background:var(--hot,var(--acc));color:var(--on-fg)}
+    .chips .chip.hot[data-tone=paper]{color:var(--paper)}
     .off h1{color:var(--paper-dim)}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const key = c.title_entity || c.title || c.kicker || "hero";
-    const {root, face: hero} = this.paper(key, {edges: "rb", cut: true, face: "hero"});
-    hero.style.setProperty("--acc", `var(--${c.accent || "red"})`);
+    const {root, face: hero} = this.paper(key, {kind: "hero", face: "hero"});
     const pw = c.power_entity ? stateObj(h, c.power_entity) : null;
     const off = pw && (pw.state === "off" || UNAVAILABLE.has(pw.state));
     if (off) hero.classList.add("off");
@@ -1039,7 +1083,7 @@ class JamHero extends JamBase {
     if (off) title = c.off_title || "Off";
     const h1 = el("h1", "disp focusable", title);
     if (c.title_entity) { h1.tabIndex = 0; h1.style.cursor = "pointer"; h1.onclick = () => moreInfo(this, c.title_entity); }
-    hero.append(h1, armBars("jam-hero|" + key));
+    hero.append(h1);
     if (off) {
       if (c.off_text) hero.append(el("div", "meta", c.off_text));
     } else {
@@ -1056,8 +1100,9 @@ class JamHero extends JamBase {
         if (!s) continue;
         if (ch.show_state && s.state !== ch.show_state) continue;
         const btn = el("button", `chip${tone(s) === "on" ? " hot" : ""}`, ch.name ? `${ch.name}${ch.hide_value ? "" : " · " + fmtState(h, s)}` : fmtState(h, s));
-        if (tone(s) === "on" && ["red", "ochre", "teal", "paper"].includes(ch.tone)) {
-          btn.dataset.tone = ch.tone; btn.style.setProperty("--hot", ch.tone === "paper" ? "var(--paper-fg)" : `var(--${ch.tone})`);
+        if (tone(s) === "on" && accentName(ch.tone) && accentName(ch.tone) !== "ink") {
+          const t = accentName(ch.tone);
+          btn.dataset.tone = t; btn.style.setProperty("--hot", t === "paper" ? "var(--paper-fg)" : `var(--${t})`);
         }
         btn.onclick = () => moreInfo(this, ch.entity);
         chips.append(btn);
@@ -1068,13 +1113,15 @@ class JamHero extends JamBase {
   }
   getCardSize() { return 4; }
 }
-register("jam-hero", JamHero, "Jam Hero", "Paper slab with clipped corner: big title from an entity, meta line and chips.");
+register("jam-hero", JamHero, "Jam Hero", "Paper slab with a cut corner: big title from an entity, meta line and chips.");
 
 /* ---------- jam-light: light with ON key, brightness strip, colour-temp chips and colour swatches ----------
    {type: custom:jam-light, entity (light.*), name?, icon?, tap_action? (ON key; default toggle), hold_action?,
     show_brightness? (default true when the light dims), show_color_temp? (default: color_temp supported),
-    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}]}
-   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off). */
+    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}],
+    accent? (DESIGN "Colour system": ON pill, brightness fill, active temp/preset chip, swatch block of a white light)}
+   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off).
+   The ON key, temp/preset chips and colour swatches are chips (bottom-right 6px cut); unavailable = red swatch + key. */
 const LIGHT_TEMPS = [["Candle", 2200], ["Warm", 2700], ["Neutral", 4000], ["Day", 6000]];
 const LIGHT_SWATCHES = [["Ochre", [229, 163, 27]], ["Red", [212, 58, 28]], ["Teal", [63, 154, 165]],
   ["Paper", [236, 226, 201]], ["Violet", [166, 108, 196]], ["Green", [127, 155, 42]]];
@@ -1097,18 +1144,14 @@ class JamLight extends JamBase {
     .nm h3{font-size:1.45rem;overflow-wrap:anywhere}
     .nm ha-icon{--mdc-icon-size:22px;flex:none;color:var(--dim)}
     .pw{flex:none;min-width:64px;height:auto}
-    .pw.alert:disabled > .face{color:var(--ink)}
+    .pw.alert:disabled > .face{color:var(--on-fg)}
     .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track{position:relative;height:32px;touch-action:none}
     .track[role=slider]{cursor:pointer}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
     .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:8px}
     .chips .key{min-width:0} .chips .key > .face{--p-l:6px;--p-r:6px;font-size:.68rem;letter-spacing:.1em}
     .sws{display:flex;flex-wrap:wrap;gap:10px}
-    .sw{min-width:0;width:40px} .sw > .face{height:34px;padding:0}
+    .sw{min-width:0;width:40px} .sw > .face{height:30px;padding:0}
     .sw.on > .face,.sw[aria-pressed=true] > .face{border-color:var(--fg)}`; }
   _render(force) {
     // A hass update mid-drag would rebuild the strip under the pointer; render once the drag ends instead.
@@ -1119,16 +1162,16 @@ class JamLight extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", modes = lightModes(s);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: "wrap"});
+    const {root, face: wrap} = this.paper(c.entity, {face: "wrap"});
     const sw = el("div", "swatch"); sw.setAttribute("aria-hidden", "true");
     const rgb = Array.isArray(a.rgb_color) ? a.rgb_color : null;
-    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--ochre)";
+    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--acc)";
     wrap.append(sw);
     // Header: name + cut ON/OFF key (tap_action, default toggle; hold_action).
     const head = el("div", "head"), nm = el("div", "nm");
     const ic = icon(c.icon); if (ic) nm.append(ic);
     nm.append(el("h3", "disp", c.name || friendly(h, c.entity)));
-    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""));
+    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""), "chip");
     key.setAttribute("aria-pressed", on ? "true" : "false");
     key.setAttribute("aria-label", `${c.name || friendly(h, c.entity)}: ${on ? "on" : dead ? "unavailable" : "off"}`);
     key.disabled = dead;
@@ -1143,12 +1186,10 @@ class JamLight extends JamBase {
     if (Array.isArray(c.presets) && c.presets.length) this._presets(wrap, a);
   }
   _brightness(wrap, v0, dead) {
-    const c = this._config, sd = seed("jam-light|" + c.entity);
+    const c = this._config;
     const row = el("div", "row"), val = el("div", "v num", dead ? "—" : v0 + "%");
     row.append(el("div", "label", "Brightness"), val);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     fill.style.width = (dead ? 0 : v0) + "%";
     strip.append(fill); track.append(strip); wrap.append(row, track);
     if (dead) return;
@@ -1185,7 +1226,7 @@ class JamLight extends JamBase {
     if (typeof cur === "number") for (const t of list) if (!best || Math.abs(t.kv - cur) < Math.abs(best.kv - cur)) best = t;
     const box = el("div", "chips"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour temperature");
     for (const t of list) {
-      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "");
+      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "", "chip");
       k.title = t.kv + " K"; k.setAttribute("aria-pressed", t === best ? "true" : "false");
       k.onclick = () => this._on({color_temp_kelvin: t.kv});
       box.append(k);
@@ -1197,7 +1238,7 @@ class JamLight extends JamBase {
     const box = el("div", "sws"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour");
     for (const [name, col] of LIGHT_SWATCHES) {
       const act = rgbDist(rgb, col) < 40;
-      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {edges: "rb", depth: 2.5, step: 20, cls: "key press sw"});
+      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {kind: "chip", cls: "key press sw"});
       root.type = "button"; root.title = name; root.setAttribute("aria-label", name);
       root.setAttribute("aria-pressed", act ? "true" : "false");
       face.style.background = `rgb(${col.join(",")})`;
@@ -1217,7 +1258,7 @@ class JamLight extends JamBase {
       const act = data.color_temp_kelvin != null
         ? a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - data.color_temp_kelvin) < 60
         : a.color_mode !== "color_temp" && rgbDist(a.rgb_color, data.rgb_color) < 40;
-      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "");
+      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "", "chip");
       k.setAttribute("aria-pressed", act ? "true" : "false");
       k.onclick = () => this._on(data);
       box.append(k);
@@ -1229,8 +1270,9 @@ class JamLight extends JamBase {
 register("jam-light", JamLight, "Jam Light", "Light with an ON key, brightness strip, colour-temp chips and colour swatches.");
 
 /* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
-   {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true}
-   Row tap = more-info. Toggleable on/off rows get a cut ON/OFF key; device_tracker/person home/not_home = HOME/AWAY;
+   {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true,
+    accent? (ON keys and "on" values; DESIGN "Colour system")}
+   Row tap = more-info. Toggleable on/off rows get an ON/OFF pill (chip cut); device_tracker/person home/not_home = HOME/AWAY;
    ISO timestamps (uptime, last boot) read as relative time. */
 function jlRel(iso) {
   const t = Date.parse(iso);
@@ -1261,7 +1303,7 @@ class JamList extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, rows = this._rows();
-    const {root, face} = this.paper(c.title || rows[0].entity, {edges: "rb", face: "sheet"});
+    const {root, face} = this.paper(c.title || rows[0].entity, {face: "sheet"});
     if (c.title) face.append(el("h2", "disp ttl", c.title));
     for (const r of rows) {
       const s = stateObj(h, r.entity), row = el("div", "row focusable");
@@ -1271,7 +1313,7 @@ class JamList extends JamBase {
       if (r.secondary_info === "last-changed" && s) nm.append(el("span", "sub num", jlRel(s.last_changed)));
       row.append(nm);
       if (s && toggleable(r.entity) && (s.state === "on" || s.state === "off")) {
-        const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""));
+        const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""), "chip");
         key.setAttribute("aria-pressed", on ? "true" : "false");
         key.setAttribute("aria-label", `${r.name || friendly(h, r.entity)}: ${on ? "on" : "off"}`);
         key.onclick = e => { e.stopPropagation(); this._hass.callService("homeassistant", "toggle", {entity_id: r.entity}); };
@@ -1295,7 +1337,8 @@ register("jam-list", JamList, "Jam List", "Paper sheet of entity rows with ON/OF
     show_art? (true), show_volume? (default: when the player supports volume), sources?: true | [subset],
     players?: [media_player ids] (chip row switching the controlled player, kept in memory),
     group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
-    hidden unless both have the GROUPING feature bit)}
+    hidden unless both have the GROUPING feature bit), accent? (DESIGN "Colour system")}
+   Accent = art block (paused: dim), play key, volume fill, active chips. Transport keys and chips use the chip cut.
    v1 configs (entity, name, controls) render unchanged in meaning. */
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
@@ -1315,11 +1358,11 @@ class JamMedia extends JamBase {
     .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
     .np{display:grid;grid-template-columns:minmax(84px,min(36%,200px)) minmax(0,1fr);gap:14px;align-items:start}
     .np.noart{grid-template-columns:minmax(0,1fr)}
-    .art{--sh:5px;aspect-ratio:1;height:auto;cursor:pointer}
-    .art > .face{padding:0;background:var(--ochre);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
-    .art.paused > .face{background:var(--red)}
+    .art{aspect-ratio:1;height:auto;cursor:pointer}
+    .art > .face{padding:0;background:var(--acc);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+    .art.paused > .face{background:var(--dim)}
     .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
-    .art .arm{--acc:var(--ink);height:62%;padding-bottom:10%}
+    .art .arm{height:62%;padding-bottom:10%} .art .arm span{background:var(--acc-fg)}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
     .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
@@ -1331,11 +1374,8 @@ class JamMedia extends JamBase {
     .vol{display:grid;grid-template-columns:auto minmax(0,1fr) 3.4em;gap:10px;align-items:center}
     .vol .key{min-width:64px}
     .vol .v{font-family:var(--display);font-weight:900;font-size:1.4rem;line-height:1;text-align:right}
-    .track{position:relative;height:32px;cursor:pointer;touch-action:none}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
+    .track{cursor:pointer}
     .muted .fill{background:var(--dim)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0;max-width:100%;height:auto}
@@ -1352,7 +1392,7 @@ class JamMedia extends JamBase {
     const g = el("div", "grp " + kind); g.append(el("div", "label", label));
     const row = el("div", "chips"); g.append(row);
     for (const it of items) {
-      const b = cutKey(it.text, `jam-media|${this._config.entity}|${kind}|${it.key}`, it.on ? "on" : "");
+      const b = cutKey(it.text, `jam-media|${this._config.entity}|${kind}|${it.key}`, it.on ? "on" : "", "chip");
       b.setAttribute("aria-pressed", it.on ? "true" : "false");
       b.dataset.id = it.key; b.disabled = !!it.disabled; b.onclick = it.run;
       row.append(b);
@@ -1363,7 +1403,7 @@ class JamMedia extends JamBase {
     const c = this._config, h = this._hass, id = this._id, s = stateObj(h, id);
     const off = !s || UNAVAILABLE.has(s.state);
     const a = (s && s.attributes) || {}, feat = Number(a.supported_features) || 0;
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", (id === c.entity && c.name) || friendly(h, id)));
 
     // Player switch (in memory).
@@ -1376,7 +1416,7 @@ class JamMedia extends JamBase {
     const np = el("div", "np"), showArt = c.show_art !== false;
     if (showArt) {
       const paused = s && s.state === "paused";
-      const {root: art, face} = paper("div", "jam-media-art|" + id, {edges: "trbl", depth: 4, step: 9, cls: "art" + (paused ? " paused" : "")});
+      const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: "chip", cls: "art" + (paused ? " paused" : "")});
       art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, id);
       const src = this._url(a.entity_picture_local || a.entity_picture);
       if (src && !off) {
@@ -1403,7 +1443,7 @@ class JamMedia extends JamBase {
     };
     for (const k of c.controls || ["prev", "play_pause", "next"]) {
       const m = map[k]; if (!m) continue;
-      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "");
+      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "", "chip");
       btn.dataset.key = k; btn.disabled = off;
       btn.onclick = () => this._call(m[1]);
       ctl.append(btn);
@@ -1438,14 +1478,11 @@ class JamMedia extends JamBase {
   _volume(id, a, feat, off) {
     const row = el("div", "vol" + (a.is_volume_muted ? " muted" : ""));
     const muted = !!a.is_volume_muted;
-    const mute = cutKey(muted ? "Unmute" : "Mute", `jam-media|${this._config.entity}|mute`, muted ? "alert" : "");
+    const mute = cutKey(muted ? "Unmute" : "Mute", `jam-media|${this._config.entity}|mute`, muted ? "alert" : "", "chip");
     mute.dataset.key = "mute";
     mute.disabled = off || !(feat & JAM_MEDIA_VOLUME_MUTE || a.is_volume_muted !== undefined);
     mute.onclick = () => this._call("volume_mute", {is_volume_muted: !muted});
-    const sd = seed("jam-media|vol|" + id);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     strip.append(fill); track.append(strip);
     let cur = Math.round((Number(a.volume_level) || 0) * 100);
     const val = el("div", "v num", off ? "—" : String(cur));
@@ -1470,29 +1507,31 @@ class JamMedia extends JamBase {
 }
 register("jam-media", JamMedia, "Jam Media", "Now playing as a duotone print, transport, volume, sources, player switch and grouping.");
 
-/* ---------- jam-popup: full-screen ink veil + torn paper sheet that opens on a URL hash ----------
-   {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: ochre|red|teal (default ochre),
+/* ---------- jam-popup: full-screen ink veil + cut sheet (top-right 18px) that opens on a URL hash ----------
+   {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
+   Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
+   own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
    Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag). */
 const POPUP_CSS = `
   /* Zero footprint when closed: the host is a 0-height block; the overlay is position:fixed. Whether a sections
      grid adds a gap/row for a 0-height card is verified in real HA in the clone step. */
   :host{display:block;height:0;overflow:visible}
-  .pop{position:fixed;inset:0;z-index:9999;display:none}
+  .pop{position:fixed;inset:0;z-index:9999;display:none;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
   .pop.open{display:block}
   .veil{position:absolute;inset:0;background:var(--ink)}
   .spiral{position:absolute;left:50%;top:50%;width:min(92vmin,720px);height:min(92vmin,720px);transform:translate(-50%,-50%);
     visibility:hidden;pointer-events:none;color:var(--acc)}
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
-  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto;--sh:6px}
+  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
   .sheet > .face{--p-t:16px;--p-r:18px;--p-b:18px;--p-l:18px;height:auto;max-height:88vh;display:flex;flex-direction:column;gap:12px;
     background:var(--slab2);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
   .t .label{color:var(--acc)}
   .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
-  .rule{flex:none;height:6px;background:var(--acc)}
+  .rule{flex:none;height:5px;background:var(--acc)}
   .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0}
   .body > *{display:block;min-width:0}
   .close{flex:none}
@@ -1503,9 +1542,8 @@ const POPUP_CSS = `
   @keyframes jam-wipe-up{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
   @media (max-width:600px){
     .stage{align-items:flex-end;padding:0}
-    .sheet{max-width:none;--sh:0px}
-    .sheet > .face{clip-path:var(--clip-m);--tr:0px;--tb:0px;--tl:0px;padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
-    .sheet > .shadow{display:none}
+    .sheet{max-width:none}
+    .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
     .pop.opening .wipe{animation-name:jam-wipe-up}
   }
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
@@ -1574,33 +1612,31 @@ class JamPopup extends JamBase {
     document.removeEventListener("keydown", this._onKey);
     if (this._open) this._hide(false);
   }
-  /* Static DOM: veil, spiral, sheet (paper, torn all round on desktop, torn top only as a bottom sheet on phones). */
+  /* Static DOM: veil, spiral, sheet (sheet cut: top-right 18px; a bottom sheet on phones). */
   _shell() {
     const c = this._config, root = this.shadowRoot;
     root.textContent = "";
     const st = el("style"); st.textContent = BASE_CSS + POPUP_CSS;
-    const pop = el("div", "pop"); pop.style.setProperty("--acc", `var(--${c.accent || "ochre"})`);
+    const pop = el("div", "pop"); setAccent(pop, c.accent);
     const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
     veil.onclick = () => this.close();
     const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
     if (c.spiral === false) spiral.hidden = true;
     const stage = el("div", "stage");
     const key = "jam-popup|" + c.hash;
-    const {root: sheet, face} = this.paper(key, {edges: "trbl", depth: 6, step: 5, cut: true, cls: "sheet wipe"});
-    const s = seed(this.localName + "|" + key);
-    sheet.style.setProperty("--clip-m", tornPath(s + 2, {edges: "t", depth: 7, step: 4}));
+    const {root: sheet, face} = this.paper(key, {kind: "sheet", cls: "sheet wipe"});
     face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
     face.setAttribute("aria-label", c.title || c.kicker || "Pop-up");
     const head = el("div", "head"), t = el("div", "t");
     if (c.kicker) t.append(el("div", "label", c.kicker));
     if (c.title) t.append(el("h2", "disp", c.title));
-    const close = cutKey("Close ×", key + "|close", "close");
+    const close = cutKey("Close ×", key + "|close", "close", "chip");
     close.setAttribute("aria-label", "Close");
     close.onclick = () => this.close();
     head.append(t, close);
     const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
-    rule.style.clipPath = tornPath(s + 9, {edges: "b", depth: 3, step: 4});
     this._bodyEl = el("div", "body");
+    if (accentVar(c.accent)) this._bodyEl.style.setProperty("--jam-accent", accentVar(c.accent));
     for (const k of this._kids) this._bodyEl.append(k);
     face.append(head, rule, this._bodyEl);
     stage.append(sheet);
@@ -1698,12 +1734,14 @@ class JamPopup extends JamBase {
   getCardSize() { return 0; }
   getGridOptions() { return {columns: 12, rows: "auto"}; }
 }
-register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a torn paper sheet of cards, opened by a URL hash.");
+register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a cut sheet of cards, opened by a URL hash.");
 
-/* ---------- jam-remote: TV remote (cut-paper d-pad cross + cut keys) ----------
+/* ---------- jam-remote: TV remote (d-pad cross of cut arrows + keys) ----------
    {type: custom:jam-remote, entity (remote.*), media_player? (title/state), name?,
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
-    labels?: {key: text}}
+    labels?: {key: text}, accent? (OK disc + arrow marks; DESIGN "Colour system")}
+   Row keys = key cut (top-right 12px); power is red. D-pad arms are fixed straight arrows (45° point toward the arm's
+   direction), the OK key a disc.
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
    power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
@@ -1742,12 +1780,12 @@ class JamRemote extends JamBase {
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
     .pad{display:grid;grid-template-columns:repeat(3,minmax(56px,78px));grid-template-rows:repeat(3,minmax(56px,78px));justify-content:center;gap:2px;padding:4px 0 8px}
-    .pad > .paper{--sh:4px;min-width:48px;min-height:48px;aspect-ratio:1}
+    .pad > .paper{min-width:48px;min-height:48px;aspect-ratio:1}
     .pad > .paper > .face{padding:0;display:grid;place-items:center;background:var(--slab2);color:var(--fg)}
     .pad > .paper:not(:disabled):hover > .face{background:var(--line)}
-    .pad .tri{width:34%;height:34%;background:var(--ochre)}
-    .pad .ok > .face{background:var(--ochre);color:var(--ink);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
-    .pad .ok:not(:disabled):hover > .face{background:var(--ochre)}
+    .pad .tri{width:34%;height:34%;background:var(--acc)}
+    .pad .ok > .face{background:var(--acc);color:var(--acc-fg);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+    .pad .ok:not(:disabled):hover > .face{background:var(--acc)}
     .pad .up{grid-area:1/2} .pad .left{grid-area:2/1} .pad .ok{grid-area:2/2} .pad .right{grid-area:2/3} .pad .down{grid-area:3/2}`; }
   _run(k) {
     const c = this._config, h = this._hass;
@@ -1780,25 +1818,24 @@ class JamRemote extends JamBase {
     btn.addEventListener("contextmenu", e => e.preventDefault());
     btn.addEventListener("click", e => { if (e.detail === 0) this._run(k); });
   }
-  /* Hand-cut arm: arrow pointing `dir`, base on the side touching the OK disc. Jitter from the seed, so the shape is stable. */
-  _arm(dir, s) {
-    const r = rng(s), j = n => +(n + (r() - .5) * 5).toFixed(1);
-    const up = [[j(4), 100], [j(5), j(42)], [j(50), j(3)], [j(95), j(42)], [j(96), 100], [j(70), j(97)], [j(30), j(98)]];
+  /* Arm: straight 5-point arrow pointing `dir` (square block with a 45° point), base on the side touching the OK disc. */
+  _arm(dir) {
+    const up = [[0, 100], [0, 50], [50, 0], [100, 50], [100, 100]];
     const map = {up: (x, y) => [x, y], right: (x, y) => [100 - y, x], down: (x, y) => [100 - x, 100 - y], left: (x, y) => [y, 100 - x]}[dir];
-    return `polygon(${up.map(([x, y]) => map(x, y).map(v => Math.max(0, Math.min(100, v)) + "%").join(" ")).join(",")})`;
+    return `polygon(${up.map(([x, y]) => map(x, y).map(v => v + "%").join(" ")).join(",")})`;
   }
   _pad(off) {
-    const c = this._config, pad = el("div", "pad"), base = seed("jam-remote|" + c.entity);
+    const c = this._config, pad = el("div", "pad");
     const tri = {up: "polygon(50% 0,100% 100%,0 100%)", down: "polygon(0 0,100% 0,50% 100%)", left: "polygon(0 50%,100% 0,100% 100%)", right: "polygon(0 0,100% 50%,0 100%)"};
-    ["up", "left", "ok", "right", "down"].forEach((k, i) => {
-      const {root, face} = paper("button", base + i * 101, {cls: k + " press"});
+    ["up", "left", "ok", "right", "down"].forEach(k => {
+      const {root, face} = paper("button", "jam-remote|" + k, {cls: k + " press"});
       root.type = "button";
       const lbl = (c.labels && c.labels[k]) || JAM_REMOTE_LABELS[k];
       if (k === "ok") {
-        root.style.setProperty("--clip", "circle(46% at 50% 50%)"); root.style.setProperty("--clip-s", "circle(46% at 50% 50%)");
+        root.style.setProperty("--clip", "circle(46% at 50% 50%)"); root.dataset.cut = "disc";
         face.textContent = lbl;
       } else {
-        root.style.setProperty("--clip", this._arm(k, base + i * 101)); root.style.setProperty("--clip-s", this._arm(k, base + i * 101 + 1));
+        root.style.setProperty("--clip", this._arm(k)); root.dataset.cut = "arrow";
         const t = el("span", "tri"); t.style.clipPath = tri[k]; t.setAttribute("aria-hidden", "true");
         face.append(t); root.setAttribute("aria-label", lbl);
       }
@@ -1819,7 +1856,7 @@ class JamRemote extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
     const off = !s || UNAVAILABLE.has(s.state);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
     const title = this._title(s, mp);
     const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
@@ -1843,10 +1880,11 @@ class JamRemote extends JamBase {
   disconnectedCallback() { if (this._hold) this._hold(); }
   getCardSize() { return 7; }
 }
-register("jam-remote", JamRemote, "Jam Remote", "TV remote: cut-paper d-pad, OK disc and keys sending remote commands or custom actions.");
+register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");
 
-/* ---------- jam-slider: cut paper strip for number / input_number / light brightness / media volume / fan speed ----------
-   {type: custom:jam-slider, entity, name?, min?, max?, step?} */
+/* ---------- jam-slider: strip for number / input_number / light brightness / media volume / fan speed ----------
+   {type: custom:jam-slider, entity, name?, min?, max?, step?, accent? (fill colour; DESIGN "Colour system")}
+   Slab2 strip, accent fill with a straight 8px diagonal end (shared .track/.strip/.fill in BASE_CSS). */
 class JamSlider extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-slider: entity is required"); }
   watched() { return [this._config.entity]; }
@@ -1854,10 +1892,7 @@ class JamSlider extends JamBase {
     .wrap{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track{position:relative;height:32px;cursor:pointer;touch-action:none}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`; }
+    .track{cursor:pointer}`; }
   _model() {
     const c = this._config, s = stateObj(this._hass, c.entity), d = c.entity.split(".")[0];
     if (!s) return null;
@@ -1877,15 +1912,12 @@ class JamSlider extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, m = this._model();
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${m && !isNaN(m.v) ? (m.v > m.min ? "on" : "off") : "alert"}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${m && !isNaN(m.v) ? (m.v > m.min ? "on" : "off") : "alert"}`});
     const row = el("div", "row");
     row.append(el("div", "label", c.name || friendly(h, c.entity)));
     const val = el("div", "v num", m && !isNaN(m.v) ? `${m.v}${m.unit ? " " + m.unit : ""}` : "—");
     row.append(val); wrap.append(row);
-    const sd = seed("jam-slider|" + c.entity);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     strip.append(fill); track.append(strip); wrap.append(track); b.append(root);
     if (!m || isNaN(m.v)) return;
     const pct = v => Math.max(0, Math.min(100, ((v - m.min) / ((m.max - m.min) || 1)) * 100));
@@ -1910,11 +1942,12 @@ class JamSlider extends JamBase {
     };
   }
 }
-register("jam-slider", JamSlider, "Jam Slider", "Cut paper strip for numbers, light brightness, media volume or fan speed.");
+register("jam-slider", JamSlider, "Jam Slider", "Strip for numbers, light brightness, media volume or fan speed.");
 
 /* ---------- jam-tile: entity block with status stripe ----------
    {type: custom:jam-tile, entity, name?, label?, control?: auto|toggle|lock|press|none, tones?: {state: on|alert|calm|off},
-    tap_action?, hold_action?, double_tap_action?, show_last_changed?}
+    tap_action?, hold_action?, double_tap_action?, show_last_changed?, accent? (DESIGN "Colour system")}
+   Card = card cut; the key is a pill (chip cut). On: stripe, value and ON key in the accent; jammed lock key red.
    control auto: lock.* -> lock, button./input_button. -> press, on/off toggleable entities -> toggle. */
 class JamTile extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-tile: entity is required"); }
@@ -1941,15 +1974,15 @@ class JamTile extends JamBase {
     let key, call;
     if (ctl === "toggle") {
       const on = s.state === "on";
-      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""));
+      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""), "chip");
       key.setAttribute("aria-pressed", on ? "true" : "false");
       call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
     } else if (ctl === "lock") {
       const locked = s.state === "locked";
-      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""));
+      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""), "chip");
       call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
     } else if (ctl === "press") {
-      key = cutKey("Press", k, "sw");
+      key = cutKey("Press", k, "sw", "chip");
       call = () => h.callService(d, "press", {entity_id: c.entity});
     } else return null;
     if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);
@@ -1979,7 +2012,8 @@ register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status str
 
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
-    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
+    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?, accent?}
+   Accent = today's forecast column (filled, ink text and glyphs) and the temperature bars; glyph colours are fixed.
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
    `forecast` attribute when the subscription fails. show_current: false hides the temperature/condition block.
    Glyphs are flat cut shapes (≤6 each), no animation. */
@@ -2133,7 +2167,6 @@ class JamWeather extends JamBase {
     .word{font-size:1.45rem;line-height:.9;overflow-wrap:anywhere}
     .meta{display:flex;flex-wrap:wrap;gap:2px 12px}
     .fc{display:grid;gap:6px}
-    .col{--sh:3px}
     .col > .face{--p-t:8px;--p-r:3px;--p-b:8px;--p-l:3px;background:var(--slab2);display:grid;justify-items:center;gap:5px;text-align:center}
     .col .gl{width:30px;height:30px;--g-bg:var(--slab2)}
     .col .label{font-size:.64rem;letter-spacing:.1em;overflow-wrap:anywhere}
@@ -2141,10 +2174,10 @@ class JamWeather extends JamBase {
     .lo{color:var(--dim)}
     .span{position:relative;width:8px;height:56px}
     .span::before{content:"";position:absolute;left:3px;width:2px;top:0;bottom:0;background:var(--line)}
-    .bar{position:absolute;left:0;width:8px;background:var(--ochre);min-height:4px}
-    .col.today > .face{background:var(--ochre);color:var(--ink);--g-sun:var(--ink);--g-paper:var(--ink);--g-rain:var(--ink);--g-bolt:var(--ink);--g-bg:var(--ochre)}
-    .col.today .label,.col.today .lo{color:var(--ink)}
-    .col.today .span::before,.col.today .bar{background:var(--ink)}
+    .bar{position:absolute;left:0;width:8px;background:var(--acc);min-height:4px}
+    .col.today > .face{background:var(--acc);color:var(--acc-fg);--g-sun:var(--acc-fg);--g-paper:var(--acc-fg);--g-rain:var(--acc-fg);--g-bolt:var(--acc-fg);--g-bg:var(--acc)}
+    .col.today .label,.col.today .lo{color:var(--acc-fg)}
+    .col.today .span::before,.col.today .bar{background:var(--acc-fg)}
     .none{grid-column:1/-1}
     .err{display:grid;gap:6px}`; }
   _temp(v) { return Math.round(v * 10) / 10; }
@@ -2157,7 +2190,7 @@ class JamWeather extends JamBase {
       b.append(root); return;
     }
     const s = stateObj(h, c.entity), off = !s || UNAVAILABLE.has(s.state), a = (s && s.attributes) || {};
-    const {root, face} = this.paper(c.entity, {edges: "rb", cls: "press", face: "w"});
+    const {root, face} = this.paper(c.entity, {cls: "press", face: "w"});
     root.tabIndex = 0; root.setAttribute("role", "button");
     root.setAttribute("aria-label", friendly(h, c.entity));
     bindActions(root, () => this._hass, c, c.entity);
@@ -2189,7 +2222,7 @@ class JamWeather extends JamBase {
     if (c.show_forecast !== false) face.append(this._strip());
     b.append(root);
   }
-  /* Forecast strip: N torn paper columns; one shared low->high scale for every day's bar. */
+  /* Forecast strip: N columns (chip cut); one shared low->high scale for every day's bar. */
   _strip() {
     const c = this._config, type = this._type(), fc = (this._fc || []).slice(0, this._days());
     const box = el("div", "fc");
@@ -2203,7 +2236,7 @@ class JamWeather extends JamBase {
     fc.forEach((f, i) => {
       const d = new Date(f.datetime), valid = !isNaN(d);
       const isToday = valid && (type === "daily" ? d.toDateString() === today : i === 0);
-      const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {edges: "b", depth: 3, step: 25, cls: "col" + (isToday ? " today" : "")});
+      const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {kind: "chip", cls: "col" + (isToday ? " today" : "")});
       let name = "";
       const tf = jamWxTime(this._hass);
       if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})
@@ -2227,5 +2260,5 @@ class JamWeather extends JamBase {
 }
 register("jam-weather", JamWeather, "Jam Weather", "Big temperature, condition word and cut-paper glyph, forecast strip, optional clock.");
 
-console.info(`%c JAM CARDS %c ${VERSION} `, "background:#d43a1c;color:#ece2c9;font-weight:900", "background:#141210;color:#e5a31b");
+console.info(`%c JAM CARDS %c ${VERSION} `, "background:#e0553b;color:#141210;font-weight:900", "background:#141210;color:#e5a31b");
 })();

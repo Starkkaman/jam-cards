@@ -3,7 +3,8 @@
     show_art? (true), show_volume? (default: when the player supports volume), sources?: true | [subset],
     players?: [media_player ids] (chip row switching the controlled player, kept in memory),
     group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
-    hidden unless both have the GROUPING feature bit)}
+    hidden unless both have the GROUPING feature bit), accent? (DESIGN "Colour system")}
+   Accent = art block (paused: dim), play key, volume fill, active chips. Transport keys and chips use the chip cut.
    v1 configs (entity, name, controls) render unchanged in meaning. */
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
@@ -23,11 +24,11 @@ class JamMedia extends JamBase {
     .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
     .np{display:grid;grid-template-columns:minmax(84px,min(36%,200px)) minmax(0,1fr);gap:14px;align-items:start}
     .np.noart{grid-template-columns:minmax(0,1fr)}
-    .art{--sh:5px;aspect-ratio:1;height:auto;cursor:pointer}
-    .art > .face{padding:0;background:var(--ochre);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
-    .art.paused > .face{background:var(--red)}
+    .art{aspect-ratio:1;height:auto;cursor:pointer}
+    .art > .face{padding:0;background:var(--acc);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+    .art.paused > .face{background:var(--dim)}
     .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
-    .art .arm{--acc:var(--ink);height:62%;padding-bottom:10%}
+    .art .arm{height:62%;padding-bottom:10%} .art .arm span{background:var(--acc-fg)}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
     .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
@@ -39,11 +40,8 @@ class JamMedia extends JamBase {
     .vol{display:grid;grid-template-columns:auto minmax(0,1fr) 3.4em;gap:10px;align-items:center}
     .vol .key{min-width:64px}
     .vol .v{font-family:var(--display);font-weight:900;font-size:1.4rem;line-height:1;text-align:right}
-    .track{position:relative;height:32px;cursor:pointer;touch-action:none}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
+    .track{cursor:pointer}
     .muted .fill{background:var(--dim)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0;max-width:100%;height:auto}
@@ -60,7 +58,7 @@ class JamMedia extends JamBase {
     const g = el("div", "grp " + kind); g.append(el("div", "label", label));
     const row = el("div", "chips"); g.append(row);
     for (const it of items) {
-      const b = cutKey(it.text, `jam-media|${this._config.entity}|${kind}|${it.key}`, it.on ? "on" : "");
+      const b = cutKey(it.text, `jam-media|${this._config.entity}|${kind}|${it.key}`, it.on ? "on" : "", "chip");
       b.setAttribute("aria-pressed", it.on ? "true" : "false");
       b.dataset.id = it.key; b.disabled = !!it.disabled; b.onclick = it.run;
       row.append(b);
@@ -71,7 +69,7 @@ class JamMedia extends JamBase {
     const c = this._config, h = this._hass, id = this._id, s = stateObj(h, id);
     const off = !s || UNAVAILABLE.has(s.state);
     const a = (s && s.attributes) || {}, feat = Number(a.supported_features) || 0;
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", (id === c.entity && c.name) || friendly(h, id)));
 
     // Player switch (in memory).
@@ -84,7 +82,7 @@ class JamMedia extends JamBase {
     const np = el("div", "np"), showArt = c.show_art !== false;
     if (showArt) {
       const paused = s && s.state === "paused";
-      const {root: art, face} = paper("div", "jam-media-art|" + id, {edges: "trbl", depth: 4, step: 9, cls: "art" + (paused ? " paused" : "")});
+      const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: "chip", cls: "art" + (paused ? " paused" : "")});
       art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, id);
       const src = this._url(a.entity_picture_local || a.entity_picture);
       if (src && !off) {
@@ -111,7 +109,7 @@ class JamMedia extends JamBase {
     };
     for (const k of c.controls || ["prev", "play_pause", "next"]) {
       const m = map[k]; if (!m) continue;
-      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "");
+      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "", "chip");
       btn.dataset.key = k; btn.disabled = off;
       btn.onclick = () => this._call(m[1]);
       ctl.append(btn);
@@ -146,14 +144,11 @@ class JamMedia extends JamBase {
   _volume(id, a, feat, off) {
     const row = el("div", "vol" + (a.is_volume_muted ? " muted" : ""));
     const muted = !!a.is_volume_muted;
-    const mute = cutKey(muted ? "Unmute" : "Mute", `jam-media|${this._config.entity}|mute`, muted ? "alert" : "");
+    const mute = cutKey(muted ? "Unmute" : "Mute", `jam-media|${this._config.entity}|mute`, muted ? "alert" : "", "chip");
     mute.dataset.key = "mute";
     mute.disabled = off || !(feat & JAM_MEDIA_VOLUME_MUTE || a.is_volume_muted !== undefined);
     mute.onclick = () => this._call("volume_mute", {is_volume_muted: !muted});
-    const sd = seed("jam-media|vol|" + id);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     strip.append(fill); track.append(strip);
     let cur = Math.round((Number(a.volume_level) || 0) * 100);
     const val = el("div", "v num", off ? "—" : String(cur));

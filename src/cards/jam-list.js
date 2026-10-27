@@ -1,6 +1,7 @@
 /* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
-   {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true}
-   Row tap = more-info. Toggleable on/off rows get a cut ON/OFF key; device_tracker/person home/not_home = HOME/AWAY;
+   {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true,
+    accent? (ON keys and "on" values; DESIGN "Colour system")}
+   Row tap = more-info. Toggleable on/off rows get an ON/OFF pill (chip cut); device_tracker/person home/not_home = HOME/AWAY;
    ISO timestamps (uptime, last boot) read as relative time. */
 function jlRel(iso) {
   const t = Date.parse(iso);
@@ -31,7 +32,7 @@ class JamList extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, rows = this._rows();
-    const {root, face} = this.paper(c.title || rows[0].entity, {edges: "rb", face: "sheet"});
+    const {root, face} = this.paper(c.title || rows[0].entity, {face: "sheet"});
     if (c.title) face.append(el("h2", "disp ttl", c.title));
     for (const r of rows) {
       const s = stateObj(h, r.entity), row = el("div", "row focusable");
@@ -41,7 +42,7 @@ class JamList extends JamBase {
       if (r.secondary_info === "last-changed" && s) nm.append(el("span", "sub num", jlRel(s.last_changed)));
       row.append(nm);
       if (s && toggleable(r.entity) && (s.state === "on" || s.state === "off")) {
-        const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""));
+        const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""), "chip");
         key.setAttribute("aria-pressed", on ? "true" : "false");
         key.setAttribute("aria-label", `${r.name || friendly(h, r.entity)}: ${on ? "on" : "off"}`);
         key.onclick = e => { e.stopPropagation(); this._hass.callService("homeassistant", "toggle", {entity_id: r.entity}); };

@@ -1,6 +1,7 @@
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
-    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
+    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?, accent?}
+   Accent = today's forecast column (filled, ink text and glyphs) and the temperature bars; glyph colours are fixed.
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
    `forecast` attribute when the subscription fails. show_current: false hides the temperature/condition block.
    Glyphs are flat cut shapes (≤6 each), no animation. */
@@ -154,7 +155,6 @@ class JamWeather extends JamBase {
     .word{font-size:1.45rem;line-height:.9;overflow-wrap:anywhere}
     .meta{display:flex;flex-wrap:wrap;gap:2px 12px}
     .fc{display:grid;gap:6px}
-    .col{--sh:3px}
     .col > .face{--p-t:8px;--p-r:3px;--p-b:8px;--p-l:3px;background:var(--slab2);display:grid;justify-items:center;gap:5px;text-align:center}
     .col .gl{width:30px;height:30px;--g-bg:var(--slab2)}
     .col .label{font-size:.64rem;letter-spacing:.1em;overflow-wrap:anywhere}
@@ -162,10 +162,10 @@ class JamWeather extends JamBase {
     .lo{color:var(--dim)}
     .span{position:relative;width:8px;height:56px}
     .span::before{content:"";position:absolute;left:3px;width:2px;top:0;bottom:0;background:var(--line)}
-    .bar{position:absolute;left:0;width:8px;background:var(--ochre);min-height:4px}
-    .col.today > .face{background:var(--ochre);color:var(--ink);--g-sun:var(--ink);--g-paper:var(--ink);--g-rain:var(--ink);--g-bolt:var(--ink);--g-bg:var(--ochre)}
-    .col.today .label,.col.today .lo{color:var(--ink)}
-    .col.today .span::before,.col.today .bar{background:var(--ink)}
+    .bar{position:absolute;left:0;width:8px;background:var(--acc);min-height:4px}
+    .col.today > .face{background:var(--acc);color:var(--acc-fg);--g-sun:var(--acc-fg);--g-paper:var(--acc-fg);--g-rain:var(--acc-fg);--g-bolt:var(--acc-fg);--g-bg:var(--acc)}
+    .col.today .label,.col.today .lo{color:var(--acc-fg)}
+    .col.today .span::before,.col.today .bar{background:var(--acc-fg)}
     .none{grid-column:1/-1}
     .err{display:grid;gap:6px}`; }
   _temp(v) { return Math.round(v * 10) / 10; }
@@ -178,7 +178,7 @@ class JamWeather extends JamBase {
       b.append(root); return;
     }
     const s = stateObj(h, c.entity), off = !s || UNAVAILABLE.has(s.state), a = (s && s.attributes) || {};
-    const {root, face} = this.paper(c.entity, {edges: "rb", cls: "press", face: "w"});
+    const {root, face} = this.paper(c.entity, {cls: "press", face: "w"});
     root.tabIndex = 0; root.setAttribute("role", "button");
     root.setAttribute("aria-label", friendly(h, c.entity));
     bindActions(root, () => this._hass, c, c.entity);
@@ -210,7 +210,7 @@ class JamWeather extends JamBase {
     if (c.show_forecast !== false) face.append(this._strip());
     b.append(root);
   }
-  /* Forecast strip: N torn paper columns; one shared low->high scale for every day's bar. */
+  /* Forecast strip: N columns (chip cut); one shared low->high scale for every day's bar. */
   _strip() {
     const c = this._config, type = this._type(), fc = (this._fc || []).slice(0, this._days());
     const box = el("div", "fc");
@@ -224,7 +224,7 @@ class JamWeather extends JamBase {
     fc.forEach((f, i) => {
       const d = new Date(f.datetime), valid = !isNaN(d);
       const isToday = valid && (type === "daily" ? d.toDateString() === today : i === 0);
-      const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {edges: "b", depth: 3, step: 25, cls: "col" + (isToday ? " today" : "")});
+      const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {kind: "chip", cls: "col" + (isToday ? " today" : "")});
       let name = "";
       const tf = jamWxTime(this._hass);
       if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})

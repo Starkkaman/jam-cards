@@ -27,7 +27,7 @@ jamPreview.add({
     st("input_button.porch_chime", "unknown", {friendly_name: "Porch Chime", icon: "mdi:bell-ring"}),
   ],
   sections: [
-    ["", [
+    ["", jamPreview.room("living", [
       {type: "custom:jam-heading", kicker: "Living room", title: "Launch"},
       ["q", launch("input_button.jellyfin_button", "Jellyfin", "mdi:jellyfish", "purple", "automation.launch_jellyfin")],
       ["q", launch("input_button.launch_youtube", "Youtube", "mdi:youtube", "red", "automation.launch_youtube")],
@@ -43,8 +43,8 @@ jamPreview.add({
       // Stateless keys in their normal "unknown" state (default tap = <domain>.press) on wide keys: accent block capped.
       {type: "custom:jam-button", entity: "input_button.porch_chime", accent: "ochre", size: "big"},
       {type: "custom:jam-button", entity: "button.hisense_tv_restart", accent: "teal"},
-    ]],
-    ["", [
+    ])],
+    ["", jamPreview.room("music", [
       {type: "custom:jam-heading", kicker: "Readings", title: "Gauges"},
       ["half", {type: "custom:jam-gauge", entity: "sensor.dehumidifier_current_consumption", name: "Dehumidifier", max: 100,
         severity: {green: 0, yellow: 25, red: 50}}],
@@ -56,7 +56,7 @@ jamPreview.add({
         {entity: "sensor.system_monitor_memory_usage", name: "Memory", secondary_info: "last-changed"},
         {entity: "switch.dehumidifier", name: "Dehumidifier"},
       ]}],
-    ]],
+    ])],
   ],
 });
 }

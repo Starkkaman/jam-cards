@@ -20,3 +20,6 @@ Card-fix round: done d36c37a, 62c1a4b (bundle regen 08776ed).
 Common verification for card tasks: `pw-node preview/shoot.js` exits 0, new cards appear in `preview/index.html`
 (dark + light, 390 + 1280 px screenshots in preview/shots/), every control's service call is asserted in shoot.js,
 no page errors, existing TV-dashboard configs keep working (backward compatible options).
+
+v0.3 "Poster" restyle (2026-10-27): straight cut corners per element kind, no shadow slabs, accent colour system with
+room aliases (docs/DESIGN.md "Colour system" / "Edge system"); version 0.3.0-dev.

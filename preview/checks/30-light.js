@@ -93,7 +93,7 @@ module.exports = async (page, check, {callsNow}) => {
     "swatch / preset -> light.turn_on rgb_color");
   const hall = light("Hall");
   check(await hall.locator("button.pw").isDisabled() && await hall.locator(".track[role=slider]").count() === 0 &&
-    (await hall.evaluate(e => getComputedStyle(e.shadowRoot.querySelector(".swatch")).backgroundColor)) === "rgb(212, 58, 28)",
+    (await hall.evaluate(e => getComputedStyle(e.shadowRoot.querySelector(".swatch")).backgroundColor)) === "rgb(224, 85, 59)",
     "unavailable light: red swatch, controls disabled");
 
   // ---- jam-popup ----
@@ -157,6 +157,36 @@ module.exports = async (page, check, {callsNow}) => {
   s = await state();
   check(s.display === "none" && s.hash === "" && (await page.evaluate(() => history.length)) === before && page.url().includes("preview/index.html"),
     "close after a replace navigation clears the hash in place (no history.back)");
+
+  // ---- accent (Poster): ON pill, brightness fill, active temp chip in the card accent; popup hands its accent to children ----
+  const acc = await page.evaluate(() => {
+    const e = document.createElement("jam-light");
+    e.setConfig({type: "custom:jam-light", entity: "light.kajplats_e26_cws_globe_1100lm", accent: "music"});
+    e.hass = window.__hass; document.body.append(e);
+    const r = e.shadowRoot, col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+    const bg = sel => getComputedStyle(r.querySelector(sel)).backgroundColor;
+    const out = {violet: col("var(--violet)"), onfg: col("var(--on-fg)"), key: bg("button.pw > .face"), keyFg: getComputedStyle(r.querySelector("button.pw > .face")).color,
+      fill: bg(".fill"), chip: bg('.chips button[aria-pressed="true"] > .face'), offChip: bg('.chips button[aria-pressed="false"] > .face'), slab2: col("var(--slab2)"),
+      fillClip: getComputedStyle(r.querySelector(".fill")).clipPath, teal: col("var(--teal)")};
+    e.remove();
+    return out;
+  });
+  // A pop-up with accent kitchen: its body hands --jam-accent (teal) to a child without its own accent.
+  const popAcc = await page.evaluate(async () => {
+    const e = document.createElement("jam-popup");
+    e.setConfig({type: "custom:jam-popup", hash: "#jam-accent-test", accent: "kitchen", cards: [{type: "custom:jam-light", entity: "light.kajplats_e26_cws_globe_1100lm"}]});
+    document.body.append(e); e.hass = window.__hass;
+    await new Promise(r => setTimeout(r, 50));
+    const kid = e.shadowRoot.querySelector(".body > jam-light");
+    const out = kid ? {key: getComputedStyle(kid.shadowRoot.querySelector("button.pw > .face")).backgroundColor,
+      rule: getComputedStyle(e.shadowRoot.querySelector(".rule")).backgroundColor} : {};
+    e.remove();
+    return out;
+  });
+  check(acc.key === acc.violet && acc.keyFg === acc.onfg && acc.fill === acc.violet && acc.chip === acc.violet && acc.offChip === acc.slab2,
+    `jam-light accent music: ON pill ${acc.key}, fill ${acc.fill}, active chip ${acc.chip} in violet, idle chip slab2, ink text`);
+  check(/^polygon\(/.test(acc.fillClip) && acc.fillClip.split(",").length === 4 && acc.fillClip.includes("8px"), `brightness fill has a straight 8px diagonal end (${acc.fillClip})`);
+  check(popAcc.key === acc.teal && popAcc.rule === acc.teal, `jam-popup accent kitchen: teal header rule, child without accent follows it (ON key ${popAcc.key})`);
 
   // ---- popup screenshots (390 px, both modes) ----
   const browser = page.context().browser(), url = new URL(page.url());

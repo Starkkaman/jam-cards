@@ -1,6 +1,6 @@
 /* ---------- jam-graph: history chart from the recorder (line / step / bars), 1-5 series ----------
    {type: custom:jam-graph, title?, entities: [id | {entity, name?}] (1-5), hours_to_show? (24), style?: line|step|bars,
-    show_current? (true), min?, max?, refresh_minutes? (5)}
+    show_current? (true), min?, max?, refresh_minutes? (5), accent? (loading placeholder only; series colours are fixed)}
    One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
    series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
    at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
@@ -199,7 +199,7 @@ class JamGraph extends JamBase {
     .mk{stroke:var(--slab);stroke-width:2}
     .empty{display:flex;align-items:center;justify-content:center}
     .empty .arm{--acc:var(--dim)}
-    .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;box-shadow:3px 3px 0 var(--shadow);
+    .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;border:2px solid var(--line);
       pointer-events:none;font:500 .74rem/1.35 var(--body);display:grid;grid-template-columns:auto auto auto;gap:2px 8px;align-items:center;white-space:nowrap}
     .tip[hidden]{display:none}
     .tip .label{grid-column:1/-1}

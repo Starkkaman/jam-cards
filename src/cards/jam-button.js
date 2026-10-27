@@ -1,15 +1,16 @@
-/* ---------- jam-button: chunky cut-paper key for launchers, scenes, scripts, stereo keys and openers ----------
-   {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
-    show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
+/* ---------- jam-button: chunky key for launchers, scenes, scripts, stereo keys and openers ----------
+   {type: custom:jam-button, entity?, name?, icon?, accent?: colour or room alias | paper | ink (DESIGN "Colour system"),
+    color?: HA colour name, show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
    Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, toggleable entity -> toggle,
    other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
    "unknown" and a timestamp are their normal states.
-   Accent = flat cut block in the top-left of the face (min(42%, 112px) wide, big 136px; 40/56px high, torn bottom/right) carrying
-   the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
-const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
-  blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
-const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
-  paper: ["var(--paper)", "var(--paper-fg)"]};
+   Shape: key cut (top-right 12px), slab face. Accent (accent, else color mapped by JB_COLOR, else the card default ochre)
+   = a small square with a cut corner in the top-left carrying the icon in ink (28px, big 36px); light/switch/fan/input_boolean
+   "on" = the whole face in the accent with ink text, the square turns ink with the icon in the accent.
+   ink (and HA grey colours) = plain key without a square (on = inverted fg face). */
+const JB_COLOR = {red: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
+  pink: "pink", blue: "blue", "light-blue": "blue", indigo: "blue", cyan: "teal", teal: "teal",
+  purple: "violet", "deep-purple": "violet", green: "green", "light-green": "green", lime: "green", "light-grey": "ink", grey: "ink"};
 const JB_ON = new Set(["light", "switch", "fan", "input_boolean"]);
 const JB_STATELESS = new Set(["button", "input_button", "scene", "script"]);
 class JamButton extends JamBase {
@@ -17,24 +18,27 @@ class JamButton extends JamBase {
   watched() { return this._config.entity ? [this._config.entity] : []; }
   css() { return `
     .btn{min-height:88px}
-    .kf{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
+    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
     .big .kf{min-height:120px}
-    .kf.on{background:var(--ochre);color:var(--ink)}
+    .kf.on{background:var(--acc);color:var(--acc-fg)}
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
-    .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
-      margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
-      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + min(42%, var(--blk-max,112px)))}
-    .big .blk{height:56px;--blk-max:136px}
+    .sq{flex:none;display:grid;place-items:center;width:28px;height:28px;background:var(--acc);color:var(--acc-fg);
+      clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
+    .big .sq{width:36px;height:36px}
+    .on .sq{background:var(--acc-fg);color:var(--acc)}
     .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
+    .sq .ic{--mdc-icon-size:18px;width:18px;height:18px}
+    .big .sq .ic{--mdc-icon-size:24px;width:24px;height:24px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
       font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
     .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
-    .st{color:var(--dim)} .on .st{color:var(--ink)}`; }
+    .st{color:var(--dim)} .on .st{color:var(--acc-fg)}`; }
+  /* Configured accent name (accent wins over color), or null = the card default. */
   _accent() {
-    const c = this._config, a = c.accent || JB_COLOR[c.color];
-    return JB_ACC[a] ? a : null;
+    const c = this._config;
+    return accentName(c.accent) || JB_COLOR[c.color] || null;
   }
   _tap() {
     const c = this._config, d = (c.entity || "").split(".")[0];
@@ -46,11 +50,13 @@ class JamButton extends JamBase {
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), d = (c.entity || "").split(".")[0];
-    const on = !!s && s.state === "on" && JB_ON.has(d), acc = on ? null : this._accent();
+    const on = !!s && s.state === "on" && JB_ON.has(d), acc = this._accent(), plain = acc === "ink";
     const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
-    const {root, face} = this.paper(c.entity || name || c.icon, {edges: "rb", depth: 3, cut: true,
+    const {root, face} = this.paper(c.entity || name || c.icon, {kind: "key",
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
+    if (plain) { root.style.setProperty("--acc", "var(--fg)"); root.style.setProperty("--acc-fg", "var(--slab)"); }
+    else if (acc) setAccent(root, acc);
     root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", name);
     if (s && JB_ON.has(d)) root.setAttribute("aria-pressed", on ? "true" : "false");
     bindActions(root, () => this._hass, {...c, tap_action: this._tap()}, c.entity);
@@ -59,13 +65,11 @@ class JamButton extends JamBase {
     k.style.setProperty("--fit", Math.max(4, ...String(name).split(/\s+/).map(w => w.length)));
     const ic = icon(c.icon || (s && s.attributes.icon)), L = el("div", "layer");
     if (ic) ic.classList.add("ic");
-    if (acc) {
-      root.style.setProperty("--acc", JB_ACC[acc][0]); root.style.setProperty("--acc-fg", JB_ACC[acc][1]);
-      const blk = el("div", "blk");
-      blk.setAttribute("aria-hidden", "true");
-      blk.style.clipPath = tornPath(seed("jam-button|blk|" + (c.entity || name)), {edges: "rb", depth: 4, step: 16});
-      if (ic) blk.append(ic);
-      k.append(blk);
+    if (!plain) {
+      const sq = el("span", "sq");
+      sq.setAttribute("aria-hidden", "true");
+      if (ic) sq.append(ic);
+      k.append(sq);
     } else if (ic) L.append(ic);
     if (name) L.append(el("div", "lbl", name));
     if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
@@ -92,4 +96,4 @@ class JamButton extends JamBase {
   getCardSize() { return this._config.size === "big" ? 3 : 2; }
   getGridOptions() { return {columns: 3, rows: this._config.size === "big" ? 2 : "auto", min_columns: 2}; }
 }
-register("jam-button", JamButton, "Jam Button", "Chunky cut-paper key for launchers, scenes, scripts and openers.");
+register("jam-button", JamButton, "Jam Button", "Chunky key for launchers, scenes, scripts and openers.");

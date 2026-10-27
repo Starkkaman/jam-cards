@@ -1,8 +1,10 @@
 /* ---------- jam-light: light with ON key, brightness strip, colour-temp chips and colour swatches ----------
    {type: custom:jam-light, entity (light.*), name?, icon?, tap_action? (ON key; default toggle), hold_action?,
     show_brightness? (default true when the light dims), show_color_temp? (default: color_temp supported),
-    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}]}
-   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off). */
+    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}],
+    accent? (DESIGN "Colour system": ON pill, brightness fill, active temp/preset chip, swatch block of a white light)}
+   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off).
+   The ON key, temp/preset chips and colour swatches are chips (bottom-right 6px cut); unavailable = red swatch + key. */
 const LIGHT_TEMPS = [["Candle", 2200], ["Warm", 2700], ["Neutral", 4000], ["Day", 6000]];
 const LIGHT_SWATCHES = [["Ochre", [229, 163, 27]], ["Red", [212, 58, 28]], ["Teal", [63, 154, 165]],
   ["Paper", [236, 226, 201]], ["Violet", [166, 108, 196]], ["Green", [127, 155, 42]]];
@@ -25,18 +27,14 @@ class JamLight extends JamBase {
     .nm h3{font-size:1.45rem;overflow-wrap:anywhere}
     .nm ha-icon{--mdc-icon-size:22px;flex:none;color:var(--dim)}
     .pw{flex:none;min-width:64px;height:auto}
-    .pw.alert:disabled > .face{color:var(--ink)}
+    .pw.alert:disabled > .face{color:var(--on-fg)}
     .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track{position:relative;height:32px;touch-action:none}
     .track[role=slider]{cursor:pointer}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
-    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
     .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:8px}
     .chips .key{min-width:0} .chips .key > .face{--p-l:6px;--p-r:6px;font-size:.68rem;letter-spacing:.1em}
     .sws{display:flex;flex-wrap:wrap;gap:10px}
-    .sw{min-width:0;width:40px} .sw > .face{height:34px;padding:0}
+    .sw{min-width:0;width:40px} .sw > .face{height:30px;padding:0}
     .sw.on > .face,.sw[aria-pressed=true] > .face{border-color:var(--fg)}`; }
   _render(force) {
     // A hass update mid-drag would rebuild the strip under the pointer; render once the drag ends instead.
@@ -47,16 +45,16 @@ class JamLight extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", modes = lightModes(s);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: "wrap"});
+    const {root, face: wrap} = this.paper(c.entity, {face: "wrap"});
     const sw = el("div", "swatch"); sw.setAttribute("aria-hidden", "true");
     const rgb = Array.isArray(a.rgb_color) ? a.rgb_color : null;
-    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--ochre)";
+    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--acc)";
     wrap.append(sw);
     // Header: name + cut ON/OFF key (tap_action, default toggle; hold_action).
     const head = el("div", "head"), nm = el("div", "nm");
     const ic = icon(c.icon); if (ic) nm.append(ic);
     nm.append(el("h3", "disp", c.name || friendly(h, c.entity)));
-    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""));
+    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""), "chip");
     key.setAttribute("aria-pressed", on ? "true" : "false");
     key.setAttribute("aria-label", `${c.name || friendly(h, c.entity)}: ${on ? "on" : dead ? "unavailable" : "off"}`);
     key.disabled = dead;
@@ -71,12 +69,10 @@ class JamLight extends JamBase {
     if (Array.isArray(c.presets) && c.presets.length) this._presets(wrap, a);
   }
   _brightness(wrap, v0, dead) {
-    const c = this._config, sd = seed("jam-light|" + c.entity);
+    const c = this._config;
     const row = el("div", "row"), val = el("div", "v num", dead ? "—" : v0 + "%");
     row.append(el("div", "label", "Brightness"), val);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
-    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
     fill.style.width = (dead ? 0 : v0) + "%";
     strip.append(fill); track.append(strip); wrap.append(row, track);
     if (dead) return;
@@ -113,7 +109,7 @@ class JamLight extends JamBase {
     if (typeof cur === "number") for (const t of list) if (!best || Math.abs(t.kv - cur) < Math.abs(best.kv - cur)) best = t;
     const box = el("div", "chips"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour temperature");
     for (const t of list) {
-      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "");
+      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "", "chip");
       k.title = t.kv + " K"; k.setAttribute("aria-pressed", t === best ? "true" : "false");
       k.onclick = () => this._on({color_temp_kelvin: t.kv});
       box.append(k);
@@ -125,7 +121,7 @@ class JamLight extends JamBase {
     const box = el("div", "sws"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour");
     for (const [name, col] of LIGHT_SWATCHES) {
       const act = rgbDist(rgb, col) < 40;
-      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {edges: "rb", depth: 2.5, step: 20, cls: "key press sw"});
+      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {kind: "chip", cls: "key press sw"});
       root.type = "button"; root.title = name; root.setAttribute("aria-label", name);
       root.setAttribute("aria-pressed", act ? "true" : "false");
       face.style.background = `rgb(${col.join(",")})`;
@@ -145,7 +141,7 @@ class JamLight extends JamBase {
       const act = data.color_temp_kelvin != null
         ? a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - data.color_temp_kelvin) < 60
         : a.color_mode !== "color_temp" && rgbDist(a.rgb_color, data.rgb_color) < 40;
-      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "");
+      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "", "chip");
       k.setAttribute("aria-pressed", act ? "true" : "false");
       k.onclick = () => this._on(data);
       box.append(k);

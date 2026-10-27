@@ -22,8 +22,8 @@ jamPreview.add({
       group_members: [], source_list: ["Music Assistant Queue", "Spotify Connect (Livingroom)"]}),
   ],
   sections: [
-    ["", [
-      {type: "custom:jam-heading", kicker: "Living room", title: "Remote", accent: "red"},
+    ["", jamPreview.room("music", [
+      {type: "custom:jam-heading", kicker: "Living room", title: "Remote"},
       {type: "custom:jam-remote", entity: "remote.living_room_phoster_android_tv", media_player: "media_player.living_room_phoster_android_tv", name: "Phoster",
         rows: [["power", "tv", "home", "menu"], ["dpad"], ["back", "play_pause", "next"], ["vol_down", "mute", "vol_up"]],
         labels: {tv: "TV in"},
@@ -32,12 +32,12 @@ jamPreview.add({
           vol_down: {action: "perform-action", perform_action: "script.stereo_volume_down"},
           tv: {action: "perform-action", perform_action: "script.stereo_input_select_video"},
         }},
-    ]],
-    ["", [
-      {type: "custom:jam-heading", kicker: "Music", title: "Kitchen", accent: "ochre"},
+    ])],
+    ["", jamPreview.room("kitchen", [
+      {type: "custom:jam-heading", kicker: "Music", title: "Kitchen"},
       {type: "custom:jam-media", entity: "media_player.kitchen", sources: true,
         players: ["media_player.kitchen", "media_player.house", "media_player.phoster"], group: ["media_player.oneplus_speaker_2", "media_player.house"]}, // house lacks GROUPING: chip hidden,
-    ]],
+    ])],
   ],
 });
 }

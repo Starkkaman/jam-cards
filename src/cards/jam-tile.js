@@ -1,6 +1,7 @@
 /* ---------- jam-tile: entity block with status stripe ----------
    {type: custom:jam-tile, entity, name?, label?, control?: auto|toggle|lock|press|none, tones?: {state: on|alert|calm|off},
-    tap_action?, hold_action?, double_tap_action?, show_last_changed?}
+    tap_action?, hold_action?, double_tap_action?, show_last_changed?, accent? (DESIGN "Colour system")}
+   Card = card cut; the key is a pill (chip cut). On: stripe, value and ON key in the accent; jammed lock key red.
    control auto: lock.* -> lock, button./input_button. -> press, on/off toggleable entities -> toggle. */
 class JamTile extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-tile: entity is required"); }
@@ -27,15 +28,15 @@ class JamTile extends JamBase {
     let key, call;
     if (ctl === "toggle") {
       const on = s.state === "on";
-      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""));
+      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""), "chip");
       key.setAttribute("aria-pressed", on ? "true" : "false");
       call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
     } else if (ctl === "lock") {
       const locked = s.state === "locked";
-      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""));
+      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""), "chip");
       call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
     } else if (ctl === "press") {
-      key = cutKey("Press", k, "sw");
+      key = cutKey("Press", k, "sw", "chip");
       call = () => h.callService(d, "press", {entity_id: c.entity});
     } else return null;
     if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);

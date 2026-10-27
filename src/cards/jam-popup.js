@@ -1,26 +1,28 @@
-/* ---------- jam-popup: full-screen ink veil + torn paper sheet that opens on a URL hash ----------
-   {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: ochre|red|teal (default ochre),
+/* ---------- jam-popup: full-screen ink veil + cut sheet (top-right 18px) that opens on a URL hash ----------
+   {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
+   Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
+   own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
    Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag). */
 const POPUP_CSS = `
   /* Zero footprint when closed: the host is a 0-height block; the overlay is position:fixed. Whether a sections
      grid adds a gap/row for a 0-height card is verified in real HA in the clone step. */
   :host{display:block;height:0;overflow:visible}
-  .pop{position:fixed;inset:0;z-index:9999;display:none}
+  .pop{position:fixed;inset:0;z-index:9999;display:none;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
   .pop.open{display:block}
   .veil{position:absolute;inset:0;background:var(--ink)}
   .spiral{position:absolute;left:50%;top:50%;width:min(92vmin,720px);height:min(92vmin,720px);transform:translate(-50%,-50%);
     visibility:hidden;pointer-events:none;color:var(--acc)}
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
-  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto;--sh:6px}
+  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
   .sheet > .face{--p-t:16px;--p-r:18px;--p-b:18px;--p-l:18px;height:auto;max-height:88vh;display:flex;flex-direction:column;gap:12px;
     background:var(--slab2);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
   .t .label{color:var(--acc)}
   .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
-  .rule{flex:none;height:6px;background:var(--acc)}
+  .rule{flex:none;height:5px;background:var(--acc)}
   .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0}
   .body > *{display:block;min-width:0}
   .close{flex:none}
@@ -31,9 +33,8 @@ const POPUP_CSS = `
   @keyframes jam-wipe-up{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
   @media (max-width:600px){
     .stage{align-items:flex-end;padding:0}
-    .sheet{max-width:none;--sh:0px}
-    .sheet > .face{clip-path:var(--clip-m);--tr:0px;--tb:0px;--tl:0px;padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
-    .sheet > .shadow{display:none}
+    .sheet{max-width:none}
+    .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
     .pop.opening .wipe{animation-name:jam-wipe-up}
   }
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
@@ -102,33 +103,31 @@ class JamPopup extends JamBase {
     document.removeEventListener("keydown", this._onKey);
     if (this._open) this._hide(false);
   }
-  /* Static DOM: veil, spiral, sheet (paper, torn all round on desktop, torn top only as a bottom sheet on phones). */
+  /* Static DOM: veil, spiral, sheet (sheet cut: top-right 18px; a bottom sheet on phones). */
   _shell() {
     const c = this._config, root = this.shadowRoot;
     root.textContent = "";
     const st = el("style"); st.textContent = BASE_CSS + POPUP_CSS;
-    const pop = el("div", "pop"); pop.style.setProperty("--acc", `var(--${c.accent || "ochre"})`);
+    const pop = el("div", "pop"); setAccent(pop, c.accent);
     const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
     veil.onclick = () => this.close();
     const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
     if (c.spiral === false) spiral.hidden = true;
     const stage = el("div", "stage");
     const key = "jam-popup|" + c.hash;
-    const {root: sheet, face} = this.paper(key, {edges: "trbl", depth: 6, step: 5, cut: true, cls: "sheet wipe"});
-    const s = seed(this.localName + "|" + key);
-    sheet.style.setProperty("--clip-m", tornPath(s + 2, {edges: "t", depth: 7, step: 4}));
+    const {root: sheet, face} = this.paper(key, {kind: "sheet", cls: "sheet wipe"});
     face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
     face.setAttribute("aria-label", c.title || c.kicker || "Pop-up");
     const head = el("div", "head"), t = el("div", "t");
     if (c.kicker) t.append(el("div", "label", c.kicker));
     if (c.title) t.append(el("h2", "disp", c.title));
-    const close = cutKey("Close ×", key + "|close", "close");
+    const close = cutKey("Close ×", key + "|close", "close", "chip");
     close.setAttribute("aria-label", "Close");
     close.onclick = () => this.close();
     head.append(t, close);
     const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
-    rule.style.clipPath = tornPath(s + 9, {edges: "b", depth: 3, step: 4});
     this._bodyEl = el("div", "body");
+    if (accentVar(c.accent)) this._bodyEl.style.setProperty("--jam-accent", accentVar(c.accent));
     for (const k of this._kids) this._bodyEl.append(k);
     face.append(head, rule, this._bodyEl);
     stage.append(sheet);
@@ -226,4 +225,4 @@ class JamPopup extends JamBase {
   getCardSize() { return 0; }
   getGridOptions() { return {columns: 12, rows: "auto"}; }
 }
-register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a torn paper sheet of cards, opened by a URL hash.");
+register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a cut sheet of cards, opened by a URL hash.");

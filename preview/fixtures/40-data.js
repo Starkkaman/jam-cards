@@ -39,13 +39,13 @@ jamPreview.add({
         {entity: "sensor.kitchen_sensor_temperature", name: "Kitchen"}]},
       {type: "custom:jam-graph", title: "Serenity power", entities: ["sensor.serenity_current_consumption"], style: "bars"},
     ]],
-    ["", [
+    ["", jamPreview.room("master", [
       {type: "custom:jam-weather", entity: "weather.bungalo_weather", clock: true},
       {type: "custom:jam-graph", entities: [{entity: "sensor.home_temperature", name: "House temperature"}], style: "step"},
-    ]],
-    ["", [
+    ])],
+    ["", jamPreview.room("kitchen", [
       {type: "custom:jam-weather", entity: "weather.cabin_weather", forecast_type: "twice_daily", days: 6},
-    ]],
+    ])],
   ],
 });
 

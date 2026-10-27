@@ -1,7 +1,9 @@
-/* ---------- jam-remote: TV remote (cut-paper d-pad cross + cut keys) ----------
+/* ---------- jam-remote: TV remote (d-pad cross of cut arrows + keys) ----------
    {type: custom:jam-remote, entity (remote.*), media_player? (title/state), name?,
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
-    labels?: {key: text}}
+    labels?: {key: text}, accent? (OK disc + arrow marks; DESIGN "Colour system")}
+   Row keys = key cut (top-right 12px); power is red. D-pad arms are fixed straight arrows (45° point toward the arm's
+   direction), the OK key a disc.
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
    power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
@@ -40,12 +42,12 @@ class JamRemote extends JamBase {
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
     .pad{display:grid;grid-template-columns:repeat(3,minmax(56px,78px));grid-template-rows:repeat(3,minmax(56px,78px));justify-content:center;gap:2px;padding:4px 0 8px}
-    .pad > .paper{--sh:4px;min-width:48px;min-height:48px;aspect-ratio:1}
+    .pad > .paper{min-width:48px;min-height:48px;aspect-ratio:1}
     .pad > .paper > .face{padding:0;display:grid;place-items:center;background:var(--slab2);color:var(--fg)}
     .pad > .paper:not(:disabled):hover > .face{background:var(--line)}
-    .pad .tri{width:34%;height:34%;background:var(--ochre)}
-    .pad .ok > .face{background:var(--ochre);color:var(--ink);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
-    .pad .ok:not(:disabled):hover > .face{background:var(--ochre)}
+    .pad .tri{width:34%;height:34%;background:var(--acc)}
+    .pad .ok > .face{background:var(--acc);color:var(--acc-fg);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+    .pad .ok:not(:disabled):hover > .face{background:var(--acc)}
     .pad .up{grid-area:1/2} .pad .left{grid-area:2/1} .pad .ok{grid-area:2/2} .pad .right{grid-area:2/3} .pad .down{grid-area:3/2}`; }
   _run(k) {
     const c = this._config, h = this._hass;
@@ -78,25 +80,24 @@ class JamRemote extends JamBase {
     btn.addEventListener("contextmenu", e => e.preventDefault());
     btn.addEventListener("click", e => { if (e.detail === 0) this._run(k); });
   }
-  /* Hand-cut arm: arrow pointing `dir`, base on the side touching the OK disc. Jitter from the seed, so the shape is stable. */
-  _arm(dir, s) {
-    const r = rng(s), j = n => +(n + (r() - .5) * 5).toFixed(1);
-    const up = [[j(4), 100], [j(5), j(42)], [j(50), j(3)], [j(95), j(42)], [j(96), 100], [j(70), j(97)], [j(30), j(98)]];
+  /* Arm: straight 5-point arrow pointing `dir` (square block with a 45° point), base on the side touching the OK disc. */
+  _arm(dir) {
+    const up = [[0, 100], [0, 50], [50, 0], [100, 50], [100, 100]];
     const map = {up: (x, y) => [x, y], right: (x, y) => [100 - y, x], down: (x, y) => [100 - x, 100 - y], left: (x, y) => [y, 100 - x]}[dir];
-    return `polygon(${up.map(([x, y]) => map(x, y).map(v => Math.max(0, Math.min(100, v)) + "%").join(" ")).join(",")})`;
+    return `polygon(${up.map(([x, y]) => map(x, y).map(v => v + "%").join(" ")).join(",")})`;
   }
   _pad(off) {
-    const c = this._config, pad = el("div", "pad"), base = seed("jam-remote|" + c.entity);
+    const c = this._config, pad = el("div", "pad");
     const tri = {up: "polygon(50% 0,100% 100%,0 100%)", down: "polygon(0 0,100% 0,50% 100%)", left: "polygon(0 50%,100% 0,100% 100%)", right: "polygon(0 0,100% 50%,0 100%)"};
-    ["up", "left", "ok", "right", "down"].forEach((k, i) => {
-      const {root, face} = paper("button", base + i * 101, {cls: k + " press"});
+    ["up", "left", "ok", "right", "down"].forEach(k => {
+      const {root, face} = paper("button", "jam-remote|" + k, {cls: k + " press"});
       root.type = "button";
       const lbl = (c.labels && c.labels[k]) || JAM_REMOTE_LABELS[k];
       if (k === "ok") {
-        root.style.setProperty("--clip", "circle(46% at 50% 50%)"); root.style.setProperty("--clip-s", "circle(46% at 50% 50%)");
+        root.style.setProperty("--clip", "circle(46% at 50% 50%)"); root.dataset.cut = "disc";
         face.textContent = lbl;
       } else {
-        root.style.setProperty("--clip", this._arm(k, base + i * 101)); root.style.setProperty("--clip-s", this._arm(k, base + i * 101 + 1));
+        root.style.setProperty("--clip", this._arm(k)); root.dataset.cut = "arrow";
         const t = el("span", "tri"); t.style.clipPath = tri[k]; t.setAttribute("aria-hidden", "true");
         face.append(t); root.setAttribute("aria-label", lbl);
       }
@@ -117,7 +118,7 @@ class JamRemote extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
     const off = !s || UNAVAILABLE.has(s.state);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
+    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
     const title = this._title(s, mp);
     const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
@@ -141,4 +142,4 @@ class JamRemote extends JamBase {
   disconnectedCallback() { if (this._hold) this._hold(); }
   getCardSize() { return 7; }
 }
-register("jam-remote", JamRemote, "Jam Remote", "TV remote: cut-paper d-pad, OK disc and keys sending remote commands or custom actions.");
+register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");

@@ -1,7 +1,7 @@
 # Jam Cards
 
-Saul Bass inspired Lovelace cards for Home Assistant: flat colour, square corners, heavy uppercase display type,
-hard cuts. Same look as the JamBoard / Crew Hub card.
+Saul Bass inspired Lovelace cards for Home Assistant, poster style: flat colour blocks on an ink ground, straight edges
+with one cut corner, one accent colour per card (per room), heavy uppercase display type.
 
 ![Dark mode](preview/shots/dark-1280.png)
 ![Light mode](preview/shots/light-1280.png)
@@ -12,7 +12,13 @@ hard cuts. Same look as the JamBoard / Crew Hub card.
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
 All options are YAML. Unknown or unavailable entities render as unavailable instead of throwing.
-Status colours: ochre = on/active, red = alert/unavailable, teal = calm/informational, line = off.
+
+## Colours
+Every card takes `accent:` — `ochre` (default), `teal`, `blue`, `pink`, `violet`, `green`, `red`, or a room alias:
+`living` (ochre), `kitchen` (teal), `master` (blue), `marissa` (pink), `music` (violet), `nerd` (green), `alert` (red).
+Anything that is on or selected fills with the accent (ink text); idle controls stay neutral. Red is meant for alerts:
+unavailable states, jammed locks and power keys are always red. Cards inside a `jam-popup` follow the pop-up's accent
+unless they set their own. Status colours: accent = on/active, red = alert/unavailable, teal = calm/informational, line = off.
 
 ## Actions
 Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` accept standard Lovelace action objects:
@@ -22,7 +28,7 @@ Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` acce
 ## Cards
 
 ### jam-heading
-Section label with a big title over a torn accent rule.
+Section label with a big title over a 5px accent rule.
 ```yaml
 type: custom:jam-heading
 title: Living room
@@ -32,12 +38,12 @@ kicker: Downstairs
 |---|---|
 | `title` | Title (required) |
 | `kicker` | Small label above the title |
-| `accent` | `ochre` / `red` / `teal` |
+| `accent` | Rule colour (see Colours) |
 | `entities` | List of entity ids shown as state chips |
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
 
 ### jam-hero
-Torn paper slab with a cut corner: a big title (fixed or from an entity), meta line and chips.
+Paper slab with a cut corner: a big title (fixed or from an entity), meta line and chips.
 ```yaml
 type: custom:jam-hero
 kicker: Living room TV
@@ -52,8 +58,8 @@ off_title: TV off
 | `meta_entities` | List of entity ids shown as a meta line |
 | `power_entity` | When off, shows `off_title` / `off_text` instead |
 | `off_title`, `off_text` | Text shown while `power_entity` is off |
-| `chips` | List of `{entity, name, show_state, hide_value, tone}`; a chip is hot (accent colour) when its entity is on; `show_state` shows the chip only in that state; `hide_value` hides the value; `tone`: `red`/`ochre`/`teal`/`paper` |
-| `accent` | Accent colour |
+| `chips` | List of `{entity, name, show_state, hide_value, tone}`; a chip is hot (accent colour) when its entity is on; `show_state` shows the chip only in that state; `hide_value` hides the value; `tone`: any accent name, or `paper` |
+| `accent` | Hot chips and separators (default ochre; see Colours) |
 
 ### jam-tile
 Entity block with a status stripe and an optional control.
@@ -72,7 +78,7 @@ entity: switch.coffee_machine
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
 
 ### jam-choice
-A `select` / `input_select` as cut paper chips.
+A `select` / `input_select` as option chips; the selected one fills with the accent.
 ```yaml
 type: custom:jam-choice
 entity: input_select.house_mode
@@ -85,7 +91,7 @@ entity: input_select.house_mode
 | `columns` | Number of chip columns |
 
 ### jam-slider
-Cut paper strip for number / input_number, light brightness, media volume or fan speed.
+Strip for number / input_number, light brightness, media volume or fan speed.
 ```yaml
 type: custom:jam-slider
 entity: light.desk
@@ -114,7 +120,7 @@ entity: media_player.kitchen
 | `group` | media_player ids: join / unjoin chips (shown only when both players support grouping) |
 
 ### jam-button
-Chunky cut-paper key for launchers, scenes, scripts and openers.
+Chunky key for launchers, scenes, scripts and openers: a small accent square carries the icon; an on light/switch/fan/input_boolean fills the whole key with the accent.
 ```yaml
 type: custom:jam-button
 entity: scene.movie_night
@@ -124,8 +130,8 @@ accent: red
 |---|---|
 | `entity` | Entity id (entity, `name` or `icon` required) |
 | `name`, `icon` | Label and icon |
-| `accent` | `ochre` / `red` / `teal` / `paper` / `ink` |
-| `color` | HA colour name instead of `accent` |
+| `accent` | Any accent (see Colours), `paper`, or `ink` (plain key, no square) |
+| `color` | HA colour name instead of `accent` (blue/indigo → blue, purple → violet, green/lime → green, cyan → teal, pink → pink, orange/amber/yellow → ochre, red → red, grey → ink) |
 | `show_state` | Show the entity state |
 | `size` | `normal` / `big` |
 | `tap_action`, `hold_action`, `double_tap_action` | Actions (default tap: scene/script → turn_on, button → press, toggleable → toggle, else more-info) |
@@ -177,7 +183,7 @@ entity: light.living_room
 | `tap_action`, `hold_action` | Actions for the ON key (default tap: toggle) |
 
 ### jam-popup
-Full-screen veil with a torn paper sheet of cards, opened by a URL hash.
+Full-screen veil with a sheet of cards, opened by a URL hash.
 ```yaml
 type: custom:jam-popup
 hash: "#lights-popup"
@@ -191,7 +197,7 @@ Open it with a `navigate` action to `#lights-popup`; close with the CLOSE key, a
 |---|---|
 | `hash` | URL hash that opens the popup (required) |
 | `title`, `kicker` | Sheet title and label |
-| `accent` | `ochre` / `red` / `teal` (default ochre) |
+| `accent` | Header colour (default ochre); also the default accent of the cards inside |
 | `spiral` | Spiral flash on open (default true) |
 | `cards` | List of card configs |
 
@@ -231,7 +237,7 @@ clock: true
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
 
 ### jam-remote
-TV remote: cut-paper d-pad and keys sending `remote.send_command` (Android TV defaults).
+TV remote: d-pad of cut arrows and keys sending `remote.send_command` (Android TV defaults).
 ```yaml
 type: custom:jam-remote
 entity: remote.living_room_tv
@@ -248,7 +254,7 @@ media_player: media_player.living_room_tv
 | `labels` | Map of key → label text |
 
 ## Design rules
-Flat colour, no gradients, no blur, no rounded corners, uppercase display type, hard torn/cut edges.
+Flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight edges with one cut corner.
 The full rules are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Develop

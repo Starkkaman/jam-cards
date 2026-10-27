@@ -10,8 +10,8 @@ jamPreview.add({
     st("light.reading_lamp", "on", {friendly_name: "Reading lamp", brightness: 128}),
   ],
   sections: [
-    ["", [
-      {type: "custom:jam-heading", kicker: "House", title: "Doors & air", accent: "ochre"},
+    ["", jamPreview.room("marissa", [
+      {type: "custom:jam-heading", kicker: "House", title: "Doors & air"},
       ["half", {type: "custom:jam-tile", entity: "lock.front_door"}],
       ["half", {type: "custom:jam-tile", entity: "lock.back_door"}],
       {type: "custom:jam-tile", entity: "input_button.doorbell_test", label: "Ring"},
@@ -19,7 +19,7 @@ jamPreview.add({
         hold_action: {action: "perform-action", perform_action: "light.turn_on", data: {entity_id: "light.reading_lamp", brightness_pct: 100}},
         double_tap_action: {action: "toggle", confirmation: {text: "Toggle the lamp?"}}},
       {type: "custom:jam-slider", entity: "fan.bedroom", name: "Fan speed"},
-    ]],
+    ])],
   ],
 });
 }

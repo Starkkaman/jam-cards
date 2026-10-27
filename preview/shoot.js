@@ -34,28 +34,80 @@ const server = http.createServer((req, res) => {
         await page.waitForFunction(() => window.__ready);
         await page.waitForTimeout(1500); // web fonts
         await page.screenshot({path: path.join(__dirname, "shots", `${mode}-${width}.png`), fullPage: true});
-        // Layout: every card's paper (plus its 6px shadow) stays inside the card box; no face overflows sideways.
+        // Layout: every card's paper stays inside the card box; no face overflows sideways.
         const layout = await page.evaluate(() => {
           const bad = [];
           for (const card of document.querySelectorAll("#view [class], #view jam-heading, #view jam-hero, #view jam-tile, #view jam-choice, #view jam-slider, #view jam-media")) {
             if (!card.shadowRoot) continue;
             const host = card.getBoundingClientRect(), p = card.shadowRoot.querySelector(".host > .paper");
-            if (p) { const r = p.getBoundingClientRect(); if (r.right + 6 > host.right + 0.5 || r.bottom + 6 > host.bottom + 0.5) bad.push(card.localName + " shadow outside box"); }
+            if (p) { const r = p.getBoundingClientRect(); if (r.right > host.right + 0.5 || r.bottom > host.bottom + 0.5) bad.push(card.localName + " paper outside box"); }
             for (const f of card.shadowRoot.querySelectorAll(".face")) if (f.scrollWidth > f.clientWidth + 1) bad.push(card.localName + " face overflows: " + f.textContent.slice(0, 30));
           }
           return [...new Set(bad)];
         });
         check(layout.length === 0, `${mode}/${width}: papers fit their boxes` + (layout.length ? " — " + layout.join("; ") : ""));
+        // Edge system (every mode/width): straight cuts only, one cut corner per surface fixed by kind, no shadow slabs.
+        const edges = await page.evaluate(() => {
+          const J = window.JamCards, roots = [];
+          const walk = r => { roots.push(r); for (const e of r.querySelectorAll("*")) if (e.shadowRoot) walk(e.shadowRoot); };
+          walk(document);
+          const pts = cp => { const m = /^polygon\((.*)\)$/.exec(cp); return m ? m[1].split(",").length : -1; };
+          const bad = [], kinds = {};
+          let papers = 0, shadows = 0;
+          for (const r of roots) {
+            shadows += r.querySelectorAll(".shadow").length;
+            for (const p of r.querySelectorAll(".paper")) {
+              papers++;
+              const k = p.dataset.cut, clip = p.style.getPropertyValue("--clip").trim();
+              kinds[k] = (kinds[k] || 0) + 1;
+              if (J.CUTS[k]) { if (clip !== J.cutPath(...J.CUTS[k]) || pts(clip) !== 5) bad.push(`${k}: ${clip}`); }
+              else if (k === "arrow") { if (pts(clip) !== 5) bad.push("arrow: " + clip); }
+              else if (k === "disc") { if (!clip.startsWith("circle(")) bad.push("disc: " + clip); }
+              else bad.push(`unknown kind ${k}: ${clip}`);
+            }
+            for (const e of r.querySelectorAll("*")) {
+              const cp = getComputedStyle(e).clipPath;
+              if (cp && cp.startsWith("polygon(") && pts(cp) > 5) bad.push(`${e.localName}.${e.className} has ${pts(cp)} points`);
+            }
+          }
+          return {bad, kinds, papers, shadows};
+        });
+        check(edges.papers > 50 && edges.bad.length === 0,
+          `${mode}/${width}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes) ${JSON.stringify(edges.kinds)}` +
+          (edges.bad.length ? " — " + edges.bad.slice(0, 5).join("; ") : ""));
+        check(edges.shadows === 0, `${mode}/${width}: no shadow slab elements (${edges.shadows})`);
         if (mode === "dark" && width === 1280) {
-          // Edge system: deterministic, polygon() with calc() jitter, cut corner when asked.
-          const edge = await page.evaluate(() => {
-            const J = window.JamCards, a = J.tornPath(J.seed("x"), {edges: "rb", cut: true}), b = J.tornPath(J.seed("x"), {edges: "rb", cut: true});
-            return {same: a === b, poly: /^polygon\(/.test(a) && a.includes("calc(100% - "), diff: a !== J.tornPath(J.seed("y"), {edges: "rb", cut: true}),
-              version: J.VERSION, api: ["seed", "rng", "tornPath", "paper", "cutKey", "armBars", "icon", "bindActions", "runAction"].every(k => typeof J[k] === "function")};
+          // Edge + colour system API.
+          const core = await page.evaluate(() => {
+            const J = window.JamCards;
+            const cuts = Object.entries({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18]})
+              .every(([k, v]) => JSON.stringify(J.CUTS[k]) === JSON.stringify(v));
+            const br = J.cutPath("br", 14) === "polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)";
+            const want = {ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red",
+              living: "ochre", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red", ink: "ink", paper: "paper"};
+            const names = Object.entries(want).every(([a, n]) => J.accentVar(a) === `var(--${n})`) && J.accentVar("Kitchen") === "var(--teal)" && J.accentVar("nope") === null;
+            return {cuts, br, names, version: J.VERSION,
+              api: ["seed", "rng", "tornPath", "paper", "cutKey", "cutPath", "accentName", "accentVar", "accentFg", "setAccent", "armBars", "icon", "bindActions", "runAction"].every(k => typeof J[k] === "function")};
           });
-          check(edge.same && edge.poly && edge.diff, "tornPath is stable per seed, differs across seeds, uses calc() jitter");
-          check(edge.api && edge.version === "0.2.0", `window.JamCards exports the helper API (version ${edge.version})`);
-
+          check(core.cuts && core.br, "JamCards.CUTS / cutPath: card br14, key tr12, chip br6, hero br22, sheet tr18");
+          check(core.names, "accent names + room aliases resolve (living→ochre, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
+          check(core.api && core.version === "0.3.0-dev", `window.JamCards exports the helper API (version ${core.version})`);
+          // A rendered card resolves an alias: accent kitchen -> teal heading rule; no accent -> ochre; the fixture rooms differ.
+          const rule = await page.evaluate(() => {
+            const mk = accent => { const e = document.createElement("jam-heading"); e.setConfig({type: "custom:jam-heading", title: "T", ...(accent ? {accent} : {})});
+              e.hass = window.__hass; document.body.append(e); return e; };
+            const a = mk("kitchen"), b = mk(null), r = a.shadowRoot;
+            const col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+            const bg = e => getComputedStyle(e.shadowRoot.querySelector(".rule")).backgroundColor;
+            const out = {kitchen: bg(a), teal: col("var(--teal)"), def: bg(b), ochre: col("var(--ochre)"),
+              h: a.shadowRoot.querySelector(".rule").getBoundingClientRect().height};
+            a.remove(); b.remove();
+            out.rooms = new Set([...document.querySelectorAll("#view jam-heading")].map(bg)).size;
+            return out;
+          });
+          check(rule.kitchen === rule.teal && rule.def === rule.ochre && rule.h === 5,
+            `jam-heading accent kitchen -> teal rule (${rule.kitchen}), default ochre (${rule.def}), 5px tall`);
+          check(rule.rooms >= 6, `preview headings show ${rule.rooms} accent colours (>= 6)`);
 
           const helpers = {
             tile: name => page.locator("jam-tile").filter({hasText: name}),

@@ -9,13 +9,15 @@
   :root{
     --jam-ink:#141210; --jam-slab:#1f1c19; --jam-slab2:#2a2622; --jam-paper:#ece2c9; --jam-paper-fg:#141210;
     --jam-paper-dim:#5c5446; --jam-fg:#ece2c9; --jam-dim:#9a8f7c; --jam-line:#34302a;
-    --jam-ochre:#e5a31b; --jam-red:#d43a1c; --jam-teal:#3f9aa5; --jam-shadow:#0a0908;
+    --jam-ochre:#e5a31b; --jam-red:#e0553b; --jam-teal:#22a39a; --jam-shadow:#0a0908;
+    --jam-blue:#4a7be0; --jam-pink:#e2658f; --jam-violet:#9b6dd6; --jam-green:#86a83a; --jam-on-fg:#141210;
     --jam-s1:#bd8000; --jam-s2:#1f9fb0; --jam-s3:#d43a1c; --jam-s4:#a66cc4; --jam-s5:#7f9b2a;
   }
   :root.light{
     --jam-ink:#141210; --jam-slab:#f6efdd; --jam-slab2:#e9dfc4; --jam-paper:#141210; --jam-paper-fg:#ece2c9;
     --jam-paper-dim:#9a8f7c; --jam-fg:#141210; --jam-dim:#6b6152; --jam-line:#d3c7a8;
-    --jam-ochre:#c98a0c; --jam-red:#c2361a; --jam-teal:#2f7f89; --jam-shadow:#c9bb98;
+    --jam-ochre:#d99410; --jam-red:#e0553b; --jam-teal:#22a39a; --jam-shadow:#c9bb98;
+    --jam-blue:#4a7be0; --jam-pink:#d24f7c; --jam-violet:#9b6dd6; --jam-green:#6d8f22; --jam-on-fg:#141210;
     --jam-s1:#a86e00; --jam-s2:#00879c; --jam-s3:#c2361a; --jam-s4:#8a52ad; --jam-s5:#5f7d1c;
   }
   html,body{margin:0;background:#141210} :root.light body{background:#ece2c9}
@@ -35,8 +37,14 @@ const now = new Date().toISOString();
 const states = {}, layout = [];
 // Fixture API (preview/fixtures/*.js, loaded in name order by fixtures/index.js):
 //   jamPreview.add({states: [st(...)], sections: [[cls, card | [card | [cls, card]]]]})
+//   jamPreview.room(accent, items): gives every card in a section's item list that accent, unless it sets accent or color.
 window.jamPreview = {
   st: (entity_id, state, attributes = {}) => ({entity_id, state, attributes, last_changed: now, last_updated: now}),
+  room: (accent, items) => items.map(it => {
+    const [cls, c] = Array.isArray(it) ? it : [null, it];
+    const out = c.accent || c.color ? c : {...c, accent};
+    return cls === null ? out : [cls, out];
+  }),
   add({states: s = [], sections = []}) { s.forEach(x => states[x.entity_id] = x); layout.push(...sections); },
 };
 </script>

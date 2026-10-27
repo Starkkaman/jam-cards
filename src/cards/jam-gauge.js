@@ -1,7 +1,8 @@
-/* ---------- jam-gauge: half-disc of cut wedges (or a cut strip) with a big numeral, read-only ----------
+/* ---------- jam-gauge: half-disc of cut wedges (or a strip) with a big numeral, read-only ----------
    {type: custom:jam-gauge, entity, name?, min?: 0, max?: 100, unit?, severity?: {green, yellow, red} (band starts, HA
-    semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?}
-   Bands green/yellow/red -> teal/ochre/red; without severity one ochre band. Values outside min..max are clamped
+    semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?, accent?}
+   Bands green/yellow/red -> teal/ochre/red (fixed, not the accent); without severity one band in the card accent
+   (default ochre). Every wedge has the same radius. Values outside min..max are clamped
    (the numeral still shows the real value). Unavailable / non-numeric -> red "Unavailable", no fill. */
 const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
 const JG_SVG = "http://www.w3.org/2000/svg";
@@ -19,14 +20,12 @@ class JamGauge extends JamBase {
     .bar{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
     .bar .big{font-size:1.9rem}
-    .track{position:relative;height:32px}
-    .strip{position:absolute;inset:0;background:var(--line)}
-    .fill{position:absolute;inset:0 auto 0 0}`; }
+`; }
   _bands(min, max) {
     const sv = this._config.severity;
     const st = sv ? Object.keys(JG_TONE).filter(k => sv[k] !== undefined && sv[k] !== null && !isNaN(Number(sv[k])))
       .map(k => ({from: Math.min(max, Math.max(min, Number(sv[k]))), col: JG_TONE[k]})).sort((a, b) => a.from - b.from) : [];
-    if (!st.length) return [{from: min, to: max, col: "ochre"}];
+    if (!st.length) return [{from: min, to: max, col: "acc"}];
     st[0].from = min; /* below the first band start HA has no colour; the first band covers it */
     st.forEach((x, i) => { x.to = i + 1 < st.length ? st[i + 1].from : max; });
     return st.filter(x => x.to > x.from);
@@ -50,8 +49,8 @@ class JamGauge extends JamBase {
     if (m.ok) { node.setAttribute("aria-valuenow", m.cv); node.setAttribute("aria-valuetext", jgFmt(m.v) + (m.unit ? " " + m.unit : "")); }
     else node.setAttribute("aria-valuetext", "Unavailable");
   }
-  _arc(face, m, sd) {
-    const svg = document.createElementNS(JG_SVG, "svg"), r = rng(sd);
+  _arc(face, m) {
+    const svg = document.createElementNS(JG_SVG, "svg");
     svg.setAttribute("viewBox", "-2 -2 204 104");
     const frac = v => (v - m.min) / (m.max - m.min);
     const pt = (f, rad) => { const a = Math.PI * (1 - f); return `${(100 + rad * Math.cos(a)).toFixed(2)} ${(100 - rad * Math.sin(a)).toFixed(2)}`; };
@@ -64,7 +63,7 @@ class JamGauge extends JamBase {
     const GAP = 0.006, fv = frac(m.cv);
     for (const bd of this._bands(m.min, m.max)) {
       const f0 = frac(bd.from) + (bd.from > m.min ? GAP : 0), f1 = frac(bd.to) - (bd.to < m.max ? GAP : 0);
-      const rad = 88 + r() * 6; /* each band a separately cut piece */
+      const rad = 92;
       if (m.ok && fv > f0) wedge(f0, Math.min(f1, fv), rad, `var(--${bd.col})`);
       wedge(m.ok ? Math.max(f0, fv) : f0, f1, rad, "var(--line)");
     }
@@ -88,17 +87,15 @@ class JamGauge extends JamBase {
     this._meter(box, m); box.append(svg); face.append(box);
     this._numeral(m, face);
   }
-  _bar(face, m, sd) {
+  _bar(face, m) {
     const row = el("div", "row");
     row.append(el("div", "label", this._name()));
     this._numeral(m, row); face.append(row);
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
     this._meter(track, m);
     if (m.ok) {
       const band = this._bands(m.min, m.max).filter(x => m.cv >= x.from).pop();
-      fill.style.background = `var(--${band ? band.col : "ochre"})`;
-      fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
+      fill.style.background = `var(--${band ? band.col : "acc"})`;
       fill.style.width = ((m.cv - m.min) / (m.max - m.min)) * 100 + "%";
       strip.append(fill);
     }
@@ -107,16 +104,14 @@ class JamGauge extends JamBase {
   _name() { return this._config.name || friendly(this._hass, this._config.entity); }
   render(b) {
     const c = this._config, m = this._model(), bar = c.style === "bar";
-    const {root, face} = this.paper(c.entity, {edges: bar ? "rb" : "b", cls: "press",
-      face: bar ? "bar" : "g"});
+    const {root, face} = this.paper(c.entity, {cls: "press", face: bar ? "bar" : "g"});
     root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", this._name());
     bindActions(root, () => this._hass, c, c.entity);
-    const sd = seed("jam-gauge|" + c.entity);
-    if (bar) this._bar(face, m, sd);
-    else { face.append(el("div", "label", this._name())); this._arc(face, m, sd); }
+    if (bar) this._bar(face, m);
+    else { face.append(el("div", "label", this._name())); this._arc(face, m); }
     b.append(root);
   }
   getCardSize() { return this._config.style === "bar" ? 2 : 4; }
   getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
 }
-register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a cut strip with a big numeral (replaces gauge).");
+register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a strip with a big numeral (replaces gauge).");

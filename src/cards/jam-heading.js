@@ -1,20 +1,19 @@
-/* ---------- jam-heading: section label + big title over a torn accent rule ----------
-   {type: custom:jam-heading, title, kicker?, accent?: ochre|red|teal, entities?: [ids shown as chips],
-    tap_action?, hold_action?, double_tap_action?} */
+/* ---------- jam-heading: section label + big title over a straight 5px accent rule ----------
+   {type: custom:jam-heading, title, kicker?, accent?: colour or room alias (DESIGN "Colour system"; default ochre),
+    entities?: [ids shown as chips], tap_action?, hold_action?, double_tap_action?} */
 class JamHeading extends JamBase {
   validate(c) { if (!c.title) throw new Error("jam-heading: title is required"); }
   watched() { return this._config.entities || []; }
   css() { return `
     .h{display:grid;gap:6px;padding:6px 2px 0}
     .row{display:flex;gap:10px 16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
-    .rule{height:8px;background:var(--acc,var(--ochre))}
+    .rule{height:5px;background:var(--acc)}
     h2{font-size:clamp(1.6rem,5.4vw,2.3rem)} .t{display:grid;gap:4px;min-width:0}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .h.tap{cursor:pointer}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const box = el("div", "h");
-    box.style.setProperty("--acc", `var(--${c.accent || "ochre"})`);
     if (c.tap_action || c.hold_action || c.double_tap_action) {
       box.classList.add("tap", "focusable"); box.tabIndex = 0; box.setAttribute("role", "button");
       bindActions(box, () => this._hass, {tap_action: {action: "none"}, ...c});
@@ -34,8 +33,7 @@ class JamHeading extends JamBase {
       }
       row.append(chips);
     }
-    const rule = el("div", "rule");
-    rule.style.clipPath = tornPath(seed("jam-heading|" + c.title), {edges: "b", depth: 3, step: 4});
+    const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
     box.append(row, rule);
     b.append(box);
   }

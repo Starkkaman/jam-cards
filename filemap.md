@@ -5,7 +5,7 @@
 - docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
-- src/core.js — fonts, BASE_CSS, helpers, edge/paper system, JamBase, window.JamCards, register()
+- src/core.js — fonts, BASE_CSS, helpers, colour (accent) system, edge/cut system, JamBase, window.JamCards, register()
 - src/cards/jam-*.js — 14 cards (button, choice, gauge, graph, heading, hero, light, list, media, popup, remote, slider, tile, weather), one class each, ends with register(tag, Class, name, description)
 - src/footer.js — console banner, closes the IIFE
 - tools/bundle.mjs — builds jam-cards.js + preview/fixtures/index.js; --check exits 1 if stale

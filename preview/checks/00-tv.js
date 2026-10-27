@@ -29,6 +29,29 @@ module.exports = async (page, check, {tile, callsNow}) => {
   const [ta, tb, tc, td, te] = tones.ch, W = tones.want;
   check(ta.hot && ta.bg === W.red && tb.hot && tb.bg === W.teal && tc.hot && tc.bg === W.pfg && tc.fg === W.paper && td.bg === W.ochre && !te.hot && te.bg === W.pfg,
     `jam-hero: chip tone overrides the hot colour (default ${ta.bg}, teal ${tb.bg}, paper ${tc.bg}/${tc.fg}, ochre ${td.bg}, cold ${te.bg})`);
+  // Poster colour rule: hero default accent is ochre (never red); tile/list ON keys fill with the card accent, ink text;
+  // off keys stay slab2.
+  const acc = await page.evaluate(() => {
+    const on = "binary_sensor.hisense_tv_signal_present", out = {};
+    const mk = (tag, cfg) => { const e = document.createElement(tag); e.setConfig({type: "custom:" + tag, ...cfg}); e.hass = window.__hass; document.body.append(e); return e; };
+    const hero = mk("jam-hero", {title: "Default", chips: [{entity: on, name: "A"}]});
+    const r = hero.shadowRoot, col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+    for (const k of ["ochre", "green", "slab2", "on-fg"]) out[k] = col(`var(--${k})`);
+    const chip = r.querySelector(".chip.hot");
+    out.hero = {bg: getComputedStyle(chip).backgroundColor, fg: getComputedStyle(chip).color, clip: hero.shadowRoot.querySelector(".paper").dataset.cut};
+    const tile = mk("jam-tile", {entity: "switch.hisense_tv_power", accent: "nerd"}), key = tile.shadowRoot.querySelector("button.sw > .face");
+    out.tile = {bg: getComputedStyle(key).backgroundColor, fg: getComputedStyle(key).color, cut: tile.shadowRoot.querySelector("button.sw").dataset.cut};
+    const list = mk("jam-list", {entities: ["switch.hisense_tv_power", "binary_sensor.hisense_tv_game_signal"], accent: "green"});
+    out.list = getComputedStyle(list.shadowRoot.querySelector("button.sw > .face")).backgroundColor;
+    const off = mk("jam-list", {entities: ["light.living_room_floor_lamp"]});
+    out.off = getComputedStyle(off.shadowRoot.querySelector("button.sw > .face")).backgroundColor;
+    for (const e of [hero, tile, list, off]) e.remove();
+    return out;
+  });
+  check(acc.hero.bg === acc.ochre && acc.hero.fg === acc["on-fg"] && acc.hero.clip === "hero",
+    `jam-hero: default accent ochre on hot chips with ink text (${acc.hero.bg}), hero cut`);
+  check(acc.tile.bg === acc.green && acc.tile.fg === acc["on-fg"] && acc.tile.cut === "chip" && acc.list === acc.green && acc.off === acc.slab2,
+    `jam-tile / jam-list ON keys fill with the accent (nerd/green ${acc.tile.bg}, ${acc.list}); off key slab2 (${acc.off})`);
   // Off state of the hero.
   await page.evaluate(() => { const h = window.__hass; h.states["switch.hisense_tv_power"] = {...h.states["switch.hisense_tv_power"], state: "off", last_updated: "x"};
     document.querySelector("jam-hero").hass = {...h}; });

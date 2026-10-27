@@ -21,31 +21,31 @@ jamPreview.add({
   sections: [
     ["full", {type: "custom:jam-hero", kicker: "Living room TV", title_entity: "sensor.hisense_tv_current_app", power_entity: "switch.hisense_tv_power",
       meta_entities: ["select.hisense_tv_input", "sensor.hisense_tv_input_signal", "sensor.hisense_tv_hdr_format"], off_title: "TV off",
-      chips: [{entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}, {entity: "binary_sensor.hisense_tv_game_signal", name: "Game mode", show_state: "on", hide_value: true}], accent: "red"}],
-    ["wide", [
-      {type: "custom:jam-heading", kicker: "Now", title: "Playing", accent: "ochre"},
+      chips: [{entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}, {entity: "binary_sensor.hisense_tv_game_signal", name: "Game mode", show_state: "on", hide_value: true}], accent: "living"}],
+    ["wide", jamPreview.room("living", [
+      {type: "custom:jam-heading", kicker: "Now", title: "Playing"},
       ["half", {type: "custom:jam-tile", entity: "switch.hisense_tv_power", name: "Power"}],
       ["half", {type: "custom:jam-tile", entity: "binary_sensor.hisense_tv_signal_present", name: "Signal", label: "Present"}],
       {type: "custom:jam-choice", entity: "select.hisense_tv_launch_app", name: "Launch app"},
       {type: "custom:jam-choice", entity: "select.hisense_tv_input", name: "Input", columns: 3},
       {type: "custom:jam-media", entity: "media_player.living_room_phoster_android_tv", name: "Playback"},
-    ]],
-    ["", [
-      {type: "custom:jam-heading", kicker: "Picture", title: "Image", accent: "red"},
+    ])],
+    ["", jamPreview.room("master", [
+      {type: "custom:jam-heading", kicker: "Picture", title: "Image"},
       {type: "custom:jam-choice", entity: "select.hisense_tv_picture_mode", name: "Picture mode"},
       {type: "custom:jam-slider", entity: "number.hisense_tv_backlight", name: "Backlight"},
-    ]],
-    ["", [
-      {type: "custom:jam-heading", kicker: "Sound", title: "Audio", accent: "teal"},
+    ])],
+    ["", jamPreview.room("kitchen", [
+      {type: "custom:jam-heading", kicker: "Sound", title: "Audio"},
       {type: "custom:jam-choice", entity: "select.hisense_tv_audio_output", name: "Audio output", columns: 3},
       {type: "custom:jam-choice", entity: "select.hisense_tv_sound_mode", name: "Sound mode"},
-    ]],
-    ["", [
-      {type: "custom:jam-heading", kicker: "Signal", title: "Source", accent: "teal", entities: ["sensor.hisense_tv_hdr_format"]},
+    ])],
+    ["", jamPreview.room("nerd", [
+      {type: "custom:jam-heading", kicker: "Signal", title: "Source", entities: ["sensor.hisense_tv_hdr_format"]},
       {type: "custom:jam-tile", entity: "sensor.hisense_tv_input_signal", name: "Resolution & rate"},
       ["half", {type: "custom:jam-tile", entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}],
       ["half", {type: "custom:jam-tile", entity: "binary_sensor.hisense_tv_game_signal", name: "Game signal"}],
-    ]],
+    ])],
   ],
 });
 }

@@ -13,7 +13,9 @@ const BASE_CSS = `
   --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622);
   --paper:var(--jam-paper,#ece2c9); --paper-fg:var(--jam-paper-fg,#141210); --paper-dim:var(--jam-paper-dim,#5c5446);
   --fg:var(--jam-fg,#ece2c9); --dim:var(--jam-dim,#9a8f7c); --line:var(--jam-line,#34302a);
-  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#d43a1c); --teal:var(--jam-teal,#3f9aa5);
+  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --teal:var(--jam-teal,#22a39a);
+  --blue:var(--jam-blue,#4a7be0); --pink:var(--jam-pink,#e2658f); --violet:var(--jam-violet,#9b6dd6); --green:var(--jam-green,#86a83a);
+  --on-fg:var(--jam-on-fg,#141210);
   --shadow:var(--jam-shadow,#0a0908);
   --s1:var(--jam-s1,#bd8000); --s2:var(--jam-s2,#1f9fb0); --s3:var(--jam-s3,#d43a1c); --s4:var(--jam-s4,#a66cc4); --s5:var(--jam-s5,#7f9b2a);
   --display:var(--jam-display,"Londrina Solid","Arial Black",Impact,sans-serif);
@@ -24,35 +26,45 @@ const BASE_CSS = `
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
 .label{font:600 .72rem/1.25 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .disp{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:.01em;margin:0;text-wrap:balance}
-.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:5px 7px;border:1.5px solid currentColor;flex:none;background:none;color:inherit}
+/* Chips/pills: flat slab2 block, bottom-right 6px cut, text in the tone colour. */
+.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--slab2);color:inherit;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible,.focusable:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
 .stripe{border-left:6px solid var(--line)}
-.s-on{border-left-color:var(--ochre)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
-.c-on{color:var(--ochre)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
+.s-on{border-left-color:var(--acc)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
+.c-on{color:var(--acc)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
 .num{font-variant-numeric:tabular-nums}
 .unavail{opacity:.55}
-/* Paper system: .paper root > .shadow (offset slab) + .face (torn clip). Clips come from paper() as --clip/--clip-s,
-   torn depth per edge as --tt/--tr/--tb/--tl (added to the face padding so text never sits in a torn zone). */
-.host{height:100%;padding:0 6px 6px 0}
-.paper{position:relative;display:block;height:100%;--sh:6px}
-.shadow{position:absolute;inset:0;background:var(--shadow);clip-path:var(--clip-s);transform:translate(var(--sh),var(--sh));pointer-events:none}
+/* Card accent (DESIGN "Colour system"): --acc fills anything on/active, --acc-fg is the text on it. A card's accent
+   option sets both on .host; without one the card follows --jam-accent (set by a jam-popup for its children, or by
+   the user) and then ochre. */
+.host{height:100%;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
+/* Paper system: .paper root > .face. paper() sets --clip on the root: a straight rectangle with ONE 45° cut corner,
+   fixed per kind (card/key/chip/hero/sheet). The face padding is at least the cut size, so text never sits in the cut. */
+.paper{position:relative;display:block;height:100%}
 .face{--p-t:12px;--p-r:14px;--p-b:14px;--p-l:16px;position:relative;display:block;height:100%;background:var(--slab);clip-path:var(--clip);
-  padding:calc(var(--p-t) + var(--tt,0px)) calc(var(--p-r) + var(--tr,0px)) calc(var(--p-b) + var(--tb,0px)) calc(var(--p-l) + var(--tl,0px))}
+  padding:var(--p-t) var(--p-r) var(--p-b) var(--p-l)}
 .press{cursor:pointer}
-.press:active > .face{transform:translate(3px,3px)}
+.press:active > .face{transform:translate(2px,2px)}
 .press:has(.press:active) > .face{transform:none}
-/* Cut keys (buttons, chips): small paper with a 3px shadow. */
-.key{--sh:3px;min-width:56px;text-align:center}
+/* Keys (buttons, chips): slab2 off, accent fill + ink text on, red for alert/power. */
+.key{min-width:56px;text-align:center}
 .key > .face{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:12px;background:var(--slab2);color:var(--fg);border:2px solid transparent;
   font:600 .74rem/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase}
 .key:not(:disabled):hover > .face{border-color:var(--dim)}
-.key.on > .face{background:var(--ochre);color:var(--ink)}
-.key.alert > .face{background:var(--red);color:var(--ink)}
+.key.on > .face{background:var(--acc);color:var(--acc-fg)}
+.key.alert > .face{background:var(--red);color:var(--on-fg)}
 .key:disabled{cursor:default} .key:disabled > .face{color:var(--dim)}
-/* Golden Arm bars motif. */
+/* Strips (slider, light brightness, media volume, gauge bar): 32px touch track, 22px slab2 strip, accent fill with a
+   straight 8px diagonal end. */
+.track{position:relative;height:32px;touch-action:none}
+.strip{position:absolute;inset:5px 0;background:var(--slab2)}
+.fill{position:absolute;inset:0 auto 0 0;background:var(--acc);clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+/* Golden Arm bars motif (empty-state placeholder): straight bars. */
 .arm{display:flex;align-items:flex-end;gap:6px;height:44px}
-.arm span{background:var(--acc,var(--red))}
+.arm span{background:var(--acc)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.press:active > .face{transform:none}}
 `;
 
@@ -160,15 +172,51 @@ function icon(name) {
   return i;
 }
 
+/* ---------- colour system (DESIGN "Colour system") ---------- */
+/* Accent names and room aliases -> jam colour token. Unknown names resolve to null (the card falls back). */
+const ACCENTS = Object.freeze({
+  ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red", ink: "ink", paper: "paper",
+  living: "ochre", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red",
+});
+function accentName(a) { return (a && ACCENTS[String(a).trim().toLowerCase()]) || null; }
+/* CSS fill for an accent ("var(--teal)"), or null when the name is unknown. */
+function accentVar(a) { const n = accentName(a); return n ? `var(--${n})` : null; }
+/* Text colour on an accent fill: ink (--on-fg) on every hue; paper-fg on paper; a light ink-fg on ink. */
+function accentFg(a) {
+  const n = accentName(a);
+  return n === "paper" ? "var(--paper-fg)" : n === "ink" ? "var(--jam-ink-fg,#ece2c9)" : "var(--on-fg)";
+}
+/* Sets --acc / --acc-fg on node for a configured accent; returns false (and sets nothing) when it is unknown. */
+function setAccent(node, a) {
+  const v = accentVar(a);
+  if (!v) return false;
+  node.style.setProperty("--acc", v); node.style.setProperty("--acc-fg", accentFg(a));
+  return true;
+}
+
 /* ---------- edge system (DESIGN "Edge system") ---------- */
-/* FNV-1a 32-bit hash of a string. */
+/* Fixed cut per element kind: [corner, size px]. Every surface is a straight rectangle with exactly one 45° cut corner. */
+const CUTS = Object.freeze({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18]});
+/* CSS polygon() (5 points) for a rectangle with one corner ("tl"|"tr"|"br"|"bl") cut by a size px diagonal. */
+function cutPath(corner = "br", size = 14) {
+  const z = +size + "px", n = `calc(100% - ${+size}px)`;
+  const P = {
+    tl: ["0 " + z, z + " 0", "100% 0", "100% 100%", "0 100%"],
+    tr: ["0 0", n + " 0", "100% " + z, "100% 100%", "0 100%"],
+    br: ["0 0", "100% 0", "100% " + n, n + " 100%", "0 100%"],
+    bl: ["0 0", "100% 0", "100% 100%", z + " 100%", "0 " + n],
+  }[corner] || null;
+  if (!P) throw new Error("cutPath: corner must be tl, tr, br or bl");
+  return `polygon(${P.join(",")})`;
+}
+/* Legacy (v0.2) helpers, kept exported for compatibility; no card uses them any more.
+   seed(str): FNV-1a 32-bit hash. rng(seed): mulberry32 PRNG () => [0,1). tornPath(): the old jagged polygon(). */
 function seed(str) {
   const s = String(str);
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return h >>> 0;
 }
-/* mulberry32: deterministic PRNG, returns () => [0,1). */
 function rng(a) {
   a >>>= 0;
   return () => {
@@ -180,16 +228,12 @@ function rng(a) {
 }
 const CORNERS = ["tl", "tr", "br", "bl"];
 const cutCorner = s => CORNERS[(s >>> 0) % 4];
-/* One polygon coordinate: pct% moved by off px (calc() only when both are non-zero). */
 function coord(pct, off) {
   const p = +pct.toFixed(1), o = +off.toFixed(1);
   if (!o) return p + "%";
   if (!p) return o + "px";
   return `calc(${p}% ${o < 0 ? "-" : "+"} ${Math.abs(o)}px)`;
 }
-/* CSS polygon() for a paper face. edges: any of "t","r","b","l" are torn (others straight); a torn edge gets a point
-   about every `step`% jittered inward 0..depth px. cut: null | true (corner picked by seed) | "tl"|"tr"|"br"|"bl"
-   cuts that corner by a 14-18 px diagonal. Same arguments = same string. */
 function tornPath(s, {edges = "b", depth = 5, step = 7, cut = null} = {}) {
   s >>>= 0;
   const r = rng(s), pts = [];
@@ -210,28 +254,27 @@ function tornPath(s, {edges = "b", depth = 5, step = 7, cut = null} = {}) {
   tear("l", (q, d) => P(0, d, 100 - q, 0));
   return `polygon(${pts.join(",")})`;
 }
-/* Cut-paper block: <tag class="paper cls"> > <.shadow aria-hidden> + <.face faceCls>. key: seed number or string.
-   The shadow uses seed+1 with the same edges/cut corner. Returns {root, face}; put content in face. */
-function paper(tag, key, {edges = "b", depth = 5, step = 7, cut = null, cls = "", face = ""} = {}) {
-  const s = typeof key === "number" ? key >>> 0 : seed(key);
-  const o = {edges, depth, step, cut: cut === true ? cutCorner(s) : cut};
+/* Cut block: <tag class="paper cls" data-cut=kind> > <.face faceCls>. kind: card (default) | key | chip | hero | sheet
+   (see CUTS). `key` is kept for API compatibility (v0.2 seeded the torn edges with it); the shape no longer depends on it,
+   and the v0.2 options edges/depth/step/cut are ignored. Returns {root, face}; put content in face. */
+function paper(tag, key, {kind = "card", cls = "", face = ""} = {}) {
+  const [corner, size] = CUTS[kind] || CUTS.card;
   const inner = tag === "button" ? "span" : "div";
   const root = el(tag, "paper" + (cls ? " " + cls : ""));
-  const sh = el(inner, "shadow"); sh.setAttribute("aria-hidden", "true");
+  root.dataset.cut = CUTS[kind] ? kind : "card";
   const f = el(inner, "face" + (face ? " " + face : ""));
-  root.style.setProperty("--clip", tornPath(s, o));
-  root.style.setProperty("--clip-s", tornPath(s + 1, o));
-  for (const e of "trbl") root.style.setProperty("--t" + e, edges.includes(e) ? depth + "px" : "0px");
-  root.append(sh, f);
+  root.style.setProperty("--clip", cutPath(corner, size));
+  root.append(f);
   return {root, face: f};
 }
-/* A cut key: real <button> on the paper system (classes "key press" + cls, e.g. "on", "alert"). Label via textContent. */
-function cutKey(label, key, cls) {
-  const {root, face} = paper("button", key, {edges: "rb", depth: 2.5, step: 14, cls: "key press" + (cls ? " " + cls : "")});
+/* A key: real <button> on the paper system (classes "key press" + cls, e.g. "on", "alert"). Label via textContent.
+   kind: "key" (top-right 12px cut, default) or "chip" (pills, option chips, small keys: bottom-right 6px). */
+function cutKey(label, key, cls, kind = "key") {
+  const {root, face} = paper("button", key, {kind, cls: "key press" + (cls ? " " + cls : "")});
   root.type = "button"; face.textContent = String(label);
   return root;
 }
-/* Golden Arm motif: 3-5 jagged vertical bars of varied height/width in var(--acc), aria-hidden. */
+/* Golden Arm motif: 3-5 straight vertical bars of varied height/width in var(--acc), aria-hidden. Same key = same bars. */
 function armBars(key) {
   const s = typeof key === "number" ? key >>> 0 : seed(key), r = rng(s ^ 0x9e3779b9);
   const box = el("div", "arm"); box.setAttribute("aria-hidden", "true");
@@ -239,7 +282,6 @@ function armBars(key) {
     const b = el("span");
     b.style.width = Math.round(10 + r() * 9) + "px";
     b.style.height = Math.round(38 + r() * 62) + "%";
-    b.style.clipPath = tornPath(s + 7919 * (i + 1), {edges: "t", depth: 7, step: 30});
     box.append(b);
   }
   return box;
@@ -275,6 +317,7 @@ class JamBase extends HTMLElement {
       const st = el("style"); st.textContent = BASE_CSS + this.css();
       root.append(st);
       this._body = el("div", "host");
+      setAccent(this._body, this._config.accent);
       root.append(this._body);
     }
     if (!this._hass) return;
@@ -282,7 +325,7 @@ class JamBase extends HTMLElement {
     this.render(this._body);
   }
   render() {}
-  /* Card-level paper block seeded by card type + key (entity id or title): same config = same edges. */
+  /* Card-level cut block (kind "card" unless opts.kind says otherwise). */
   paper(key, opts) { return paper("div", this.localName + "|" + key, opts); }
   getCardSize() { return 2; }
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 3}; }
@@ -290,7 +333,8 @@ class JamBase extends HTMLElement {
 
 /* Shared API for cards (src/cards/) and for debugging. */
 window.JamCards = Object.freeze({
-  VERSION, BASE_CSS, JamBase, seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
+  VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
+  seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
 });
 window.customCards = window.customCards || [];
