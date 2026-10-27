@@ -18,9 +18,11 @@ const launchers = [
 const tv = {
   remote: RC, launchers, keys: ["power", "stereo", "remote"],
   stereo_action: {action: "navigate", navigation_path: "#stereo-popup"},
-  remote_card: {actions: {
+  // Remote sheet = jam-remote layout "full" (jam-tv default) with the user's stereo actions; Settings sends HOME in their setup.
+  remote_card: {layout: "full", commands: {settings: "HOME"}, actions: {
     vol_up: {action: "perform-action", perform_action: "script.stereo_volume_up"},
     vol_down: {action: "perform-action", perform_action: "script.stereo_volume_down"},
+    tv: {action: "perform-action", perform_action: "script.stereo_input_select_video"},
   }},
 };
 const press = (name, id, extra) => ({type: "custom:jam-button", name, tap_action: {action: "perform-action", perform_action: "button.press", target: {entity_id: id}}, ...extra});

@@ -3,7 +3,15 @@
     service data, e.g. {transition: 2})}], current_entity? (input_select whose state names the active scene; matched
     case-insensitively to the scene name or its object id), wrap?: true (keys wrap onto more rows instead of scrolling
     sideways), accent? (default ochre)}
-   Tap = scene.turn_on / script.turn_on with {entity_id, ...data}. The active scene is filled with the accent. */
+   Tap = scene.turn_on / script.turn_on with {entity_id, ...data}. The active scene is filled with the accent.
+   Active scene (0.3.2): the listed scene with the newest activation time (a scene's state is its last activation ISO time;
+   a script's is attributes.last_triggered); when current_entity changed (last_changed) after that time, its option match
+   wins instead. No timestamps at all -> the current_entity match. Re-evaluated on every state change (live). */
+function jamSceneTime(s) {
+  if (!s || UNAVAILABLE.has(s.state)) return NaN;
+  const v = String(s.entity_id || "").startsWith("script.") ? s.attributes.last_triggered : s.state;
+  return v ? Date.parse(v) : NaN;
+}
 class JamScenes extends JamBase {
   validate(c) {
     if (!Array.isArray(c.scenes) || !c.scenes.length) throw new Error("jam-scenes: scenes is required (list of {entity})");
@@ -25,12 +33,17 @@ class JamScenes extends JamBase {
     const c = this._config, h = this._hass;
     const cur = c.current_entity ? stateObj(h, c.current_entity) : null;
     const want = cur && !UNAVAILABLE.has(cur.state) ? String(cur.state).trim().toLowerCase() : null;
+    // Newest activation among the listed scenes; the input_select wins only when it changed after that.
+    let newest = null, newT = -Infinity;
+    for (const sc of c.scenes) { const t = jamSceneTime(stateObj(h, sc.entity)); if (t > newT) { newT = t; newest = sc.entity; } }
+    const curT = cur && cur.last_changed ? Date.parse(cur.last_changed) : NaN;
+    const bySelect = !newest || (!!want && curT > newT);
     const row = el("div", "scenes" + (c.wrap ? " wrap" : ""));
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Scenes");
     for (const sc of c.scenes) {
       const name = friendly(h, sc.entity, sc.name);
       const obj = String(sc.entity).split(".")[1].replace(/_/g, " ");
-      const on = !!want && (String(name).trim().toLowerCase() === want || obj === want);
+      const on = bySelect ? !!want && (String(name).trim().toLowerCase() === want || obj === want) : sc.entity === newest;
       const btn = el("button", "scene" + (on ? " on" : ""), name);
       btn.type = "button"; btn.setAttribute("aria-pressed", String(on));
       const s = stateObj(h, sc.entity);

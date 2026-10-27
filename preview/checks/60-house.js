@@ -1,4 +1,4 @@
-// Landing strip checks: jam-house door chip + people, jam-tabs current tab + navigate, jam-scenes call + active scene.
+// Landing strip checks: jam-house door chip + people + air lines, jam-tabs current tab + navigate, jam-scenes call + active scene.
 module.exports = async (page, check, {callsNow}) => {
   const house = page.locator("jam-house").first();
   // People: only those home, as chips (amber is not_home).
@@ -6,7 +6,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(JSON.stringify(people) === JSON.stringify(["Isaac", "Marissa", "Nick"]), `jam-house shows only people at home (${people.join(", ")})`);
   check((await house.locator(".temp").textContent()) === "73.9°F" && (await house.locator(".otemp").textContent()) === "63°",
     "jam-house shows inside 73.9°F and outside 63°");
-  check(/Outside · Clear night/.test(await house.locator(".out .label").textContent()), "jam-house outside kicker names the condition");
+  check(/Outside · Clear night/.test(await house.locator(".out .label:not(.aq)").textContent()), "jam-house outside kicker names the condition");
   // Door: unlocked -> red chip, tap calls lock.lock without a confirmation dialog.
   let dialog = false; const onDialog = d => { dialog = true; d.dismiss(); };
   page.on("dialog", onDialog);
@@ -24,6 +24,25 @@ module.exports = async (page, check, {callsNow}) => {
     e.setConfig({...c, full_names: true}); e.hass = {...window.__hass};
     const t = [...e.shadowRoot.querySelectorAll("[data-role=person]")].map(x => x.textContent); e.setConfig(c); e.hass = {...window.__hass}; return t; });
   check(full[0] === "Isaac Hulter", `jam-house full_names: true shows full names (${full.join(", ")})`);
+  // Air lines: word state capitalised + extra (PM2.5); numeric = US AQI + band word; missing entity -> no line.
+  const aq = await house.evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.closest(".in") ? "in:" + x.textContent : "out:" + x.textContent));
+  check(JSON.stringify(aq) === JSON.stringify(["in:Air · Excellent · PM2.5 1", "out:Air · AQI 42 · Good"]), `jam-house air lines under both temperatures (${aq.join(" | ")})`);
+  const caq = await page.locator("jam-house").nth(1).evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.textContent));
+  check(caq.length === 1 && caq[0] === "Air · Excellent", `compact jam-house: id-only inside_aq, missing outside_aq hidden (${caq.join(" | ")})`);
+  const bands = await page.evaluate(() => {
+    const h = window.__hass, keep = h.states["sensor.airnow_aqi"], e = document.querySelector("jam-house"), out = [];
+    for (const v of ["50", "51", "101", "150.4", "151", "201", "301", "unavailable"]) {
+      h.states["sensor.airnow_aqi"] = {...keep, state: v, last_updated: "b" + v}; e.hass = {...h};
+      const l = [...e.shadowRoot.querySelectorAll(".out [data-role=aq]")].map(x => x.textContent.replace("Air · ", ""));
+      out.push(l[0] || "hidden");
+    }
+    delete h.states["sensor.airnow_aqi"]; e.hass = {...h};
+    out.push(e.shadowRoot.querySelector(".out [data-role=aq]") ? "shown" : "hidden");
+    h.states["sensor.airnow_aqi"] = keep; e.hass = {...h};
+    return out;
+  });
+  check(bands.join(" | ") === "AQI 50 · Good | AQI 51 · Moderate | AQI 101 · Unhealthy for sensitive | AQI 150 · Unhealthy for sensitive | AQI 151 · Unhealthy | AQI 201 · Very unhealthy | AQI 301 · Hazardous | hidden | hidden",
+    `jam-house AQI bands, unavailable / missing hidden (${bands.join(" | ")})`);
   // Compact house: matching alert chip.
   const alert = page.locator("jam-house").nth(1).locator("[data-role=alert]");
   check(await alert.count() === 1 && (await alert.textContent()) === "Washer leak", "compact jam-house shows the matching alert chip");
@@ -44,7 +63,25 @@ module.exports = async (page, check, {callsNow}) => {
 
   // Scenes: active from input_select (case-insensitive), tap = scene.turn_on with data.
   const scenes = page.locator("jam-scenes").first();
-  check((await scenes.locator(".scene.on").textContent()) === "Movie Time", "active scene comes from input_select.light_scenes ('Movie Time')");
+  check((await scenes.locator(".scene.on").textContent()) === "Movie Time", "input_select changed after every scene activation -> its option is active ('Movie Time')");
+  // Newest scene activation wins over a stale input_select; the select wins again once it changes later; live updates.
+  const sceneSet = (id, patch) => page.evaluate(([id, patch]) => {
+    const h = window.__hass, s = h.states[id];
+    h.states[id] = {...s, ...patch, attributes: {...s.attributes, ...(patch.attributes || {})}, last_updated: "s" + Math.random()};
+    document.querySelectorAll("jam-scenes").forEach(e => e.hass = {...h});
+  }, [id, patch]);
+  const keepSc = await page.evaluate(() => JSON.stringify(["input_select.light_scenes", "scene.vibes", "scene.spring_vibes"].map(id => window.__hass.states[id])));
+  await sceneSet("input_select.light_scenes", {last_changed: "2026-10-26T00:25:02+00:00"});
+  check((await scenes.locator(".scene.on").textContent()) === "Movie Time", "stale input_select: newest scene state (movie_time 10-26 04:53) is active");
+  await sceneSet("scene.vibes", {state: "2026-10-27T20:58:37+00:00"});
+  check((await scenes.locator(".scene.on").allTextContents()).join() === "Vibes", "scene.vibes activated later -> Vibes is active (live)");
+  await sceneSet("scene.spring_vibes", {state: "2026-10-27T21:00:00+00:00", attributes: {friendly_name: "Spooky Vibes"}});
+  const spooky = await scenes.locator(".scene.on").allTextContents();
+  check(spooky.join() === "Spooky Vibes", `button name = friendly_name, newest activation active (${spooky})`);
+  await sceneSet("input_select.light_scenes", {state: "Normal", last_changed: "2026-10-27T21:05:00+00:00"});
+  check((await scenes.locator(".scene.on").allTextContents()).join() === "Normal", "input_select changed after the newest scene -> its option (Normal) is active");
+  await page.evaluate(k => { const h = window.__hass; for (const s of JSON.parse(k)) h.states[s.entity_id] = {...s, last_updated: "r" + Math.random()};
+    document.querySelectorAll("jam-scenes").forEach(e => e.hass = {...h}); }, keepSc);
   await scenes.locator(".scene", {hasText: "Vibes"}).first().click();
   check((await callsNow()).some(c => c.domain === "scene" && c.service === "turn_on" && c.data.entity_id === "scene.vibes" && c.data.transition === 2),
     "scene tap calls scene.turn_on with its data (transition 2)");

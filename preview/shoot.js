@@ -103,7 +103,7 @@ const server = http.createServer((req, res) => {
           });
           check(core.cuts && core.br, "JamCards.CUTS / cutPath: card br14, key tr12, chip br6, hero br22, sheet tr18");
           check(core.names, "accent names + room aliases resolve (living→ochre, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
-          check(core.api && core.version === "0.3.1", `window.JamCards exports the helper API (version ${core.version})`);
+          check(core.api && core.version === "0.3.2", `window.JamCards exports the helper API (version ${core.version})`);
           // A rendered card resolves an alias: accent kitchen -> teal heading rule; no accent -> ochre; the fixture rooms differ.
           const rule = await page.evaluate(() => {
             const mk = accent => { const e = document.createElement("jam-heading"); e.setConfig({type: "custom:jam-heading", title: "T", ...(accent ? {accent} : {})});

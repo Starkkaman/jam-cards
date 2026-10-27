@@ -9,18 +9,41 @@
    power without a command = remote.toggle.
    Without `entity` (e.g. NerveOS: button.* presses / select options) keys only run `actions`: the card is valid when
    `actions` has at least one entry; every key without one (and dpad arms / OK without one) is disabled, not an error. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
+   layout?: "full" (0.3.2) = the universal-remote-card set: [power, back, home, settings] / [tv, vol_down, vol_up] / d-pad /
+   [prev, play_pause, next] / [keyboard, captions, audio_track, source]; `rows` wins over `layout`.
+   Default commands (Android TV, remote.send_command): settings SETTINGS, captions CAPTIONS, audio_track MEDIA_AUDIO_TRACK,
+   source TV_INPUT, tv TV (override per key with commands / actions).
+   keyboard key: opens a small sheet (openSheet) with a text field + Send / Backspace / Enter, sent like
+   universal-remote-card's Android TV keyboard: Send = remote.send_command command "text:<field>" (androidtv_remote types
+   the text), Backspace = command "DEL", Enter = command "ENTER" (Enter in the field = Send, or ENTER when it is empty).
+   Needs `entity` (or actions.keyboard, which then runs instead of the sheet).
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
    app_name, else the remote's current_activity; JAM_REMOTE_APPS, null = skip), else name / the media_player's friendly_name. */
 const JAM_REMOTE_ROWS = [["power", "back", "home", "menu"], ["dpad"], ["prev", "play_pause", "next"], ["vol_down", "mute", "vol_up"]];
+const JAM_REMOTE_LAYOUTS = {
+  full: [["power", "back", "home", "settings"], ["tv", "vol_down", "vol_up"], ["dpad"], ["prev", "play_pause", "next"],
+    ["keyboard", "captions", "audio_track", "source"]],
+};
 const JAM_REMOTE_CMDS = {
   up: "DPAD_UP", down: "DPAD_DOWN", left: "DPAD_LEFT", right: "DPAD_RIGHT", ok: "DPAD_CENTER",
   back: "BACK", home: "HOME", menu: "MENU", prev: "MEDIA_PREVIOUS", next: "MEDIA_NEXT", play_pause: "MEDIA_PLAY_PAUSE",
   mute: "VOLUME_MUTE", vol_up: "VOLUME_UP", vol_down: "VOLUME_DOWN",
+  settings: "SETTINGS", captions: "CAPTIONS", audio_track: "MEDIA_AUDIO_TRACK", source: "TV_INPUT", tv: "TV",
 };
 const JAM_REMOTE_LABELS = {
   power: "Power", back: "Back", home: "Home", menu: "Menu", prev: "Prev", next: "Next", play_pause: "Play",
   mute: "Mute", vol_up: "Vol +", vol_down: "Vol −", ok: "OK", up: "Up", down: "Down", left: "Left", right: "Right",
+  settings: "Settings", tv: "TV", keyboard: "Keyboard", captions: "Captions", audio_track: "Audio", source: "Input",
 };
+const JAM_REMOTE_KB_CSS = `
+  .kb{display:grid;gap:10px}
+  .kb input{box-sizing:border-box;width:100%;min-width:0;height:52px;padding:0 14px;border:0;border-radius:0;background:var(--slab2);color:var(--fg);
+    font:500 1.15rem/1 var(--body);outline:none;-webkit-appearance:none;appearance:none}
+  .kb input::placeholder{color:var(--dim)}
+  .kb input:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
+  .kb .keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .kb .keys .key{min-width:0}
+  .kb .keys .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center}`;
 /* Package id -> short title; null = never show (fall through to the name). Prefix keys end with "." */
 const JAM_REMOTE_APPS = {
   "com.spocky.projengmenu": "Home", "org.jellyfin.androidtv": "Jellyfin", "com.jellywatch.tv": "Jellywatch",
@@ -48,6 +71,8 @@ class JamRemote extends JamBase {
     .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
+    /* Rows of 4+ keys (layout full: SETTINGS / KEYBOARD / CAPTIONS): smaller, tighter labels that never break mid-word. */
+    .row.dense .key > .face{--p-l:3px;--p-r:5px;font-size:.62rem;letter-spacing:.04em;overflow-wrap:normal;word-break:normal}
     .pad{display:grid;grid-template-columns:repeat(3,minmax(56px,78px));grid-template-rows:repeat(3,minmax(56px,78px));justify-content:center;gap:2px;padding:4px 0 8px}
     .pad > .paper{min-width:48px;min-height:48px;aspect-ratio:1}
     .pad > .paper > .face{padding:0;display:grid;place-items:center;background:var(--slab2);color:var(--fg)}
@@ -61,6 +86,7 @@ class JamRemote extends JamBase {
     const a = c.actions && c.actions[k];
     if (a) { runAction(this, h, a, c.entity); return; }
     if (!c.entity) return;
+    if (k === "keyboard") { this._keyboard(); return; }
     const cmd = (c.commands && c.commands[k]) || (k === "power" ? null : JAM_REMOTE_CMDS[k]);
     if (cmd) h.callService("remote", "send_command", {entity_id: c.entity, command: cmd});
     else if (k === "power") h.callService("remote", "toggle", {entity_id: c.entity});
@@ -69,7 +95,31 @@ class JamRemote extends JamBase {
     const c = this._config;
     if (c.actions && c.actions[k]) return true;
     if (!c.entity) return false;
-    return !!( (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power");
+    return !!( (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power" || k === "keyboard");
+  }
+  /* Keyboard sheet (Android TV, as universal-remote-card): text via "text:<s>", Backspace "DEL", Enter "ENTER". */
+  _keyboard() {
+    const c = this._config, send = command => this._hass.callService("remote", "send_command", {entity_id: c.entity, command});
+    if (this._kb && this._kb.isOpen()) return;
+    const sheet = openSheet({from: this._body || this, kicker: c.name || friendly(this._hass, c.media_player || c.entity) || "Remote",
+      title: (c.labels && c.labels.keyboard) || "Keyboard", accent: accentVar(c.accent) || undefined, css: JAM_REMOTE_KB_CSS,
+      onClose: () => { this._kb = null; }});
+    this._kb = sheet;
+    const box = el("div", "kb"), field = el("input");
+    field.type = "text"; field.placeholder = "Type, then Send";
+    field.autocomplete = "off"; field.spellcheck = false;
+    field.setAttribute("autocapitalize", "off"); field.setAttribute("autocorrect", "off"); field.setAttribute("enterkeyhint", "send");
+    field.setAttribute("aria-label", "Text to send to the TV");
+    const sendText = () => { const v = field.value; if (!v) return false; send("text:" + v); field.value = ""; return true; };
+    const keys = el("div", "keys");
+    const mk = (label, id, cls, fn) => { const b = cutKey(label, "jam-remote|kb|" + id, cls); b.dataset.key = id; b.onclick = () => { fn(); field.focus(); }; return b; };
+    keys.append(mk("Send", "send", "on", sendText), mk("Backspace", "backspace", "", () => send("DEL")), mk("Enter", "enter", "", () => send("ENTER")));
+    field.addEventListener("keydown", e => {
+      if (e.key !== "Enter" || e.isComposing) return;
+      e.preventDefault(); if (!sendText()) send("ENTER");
+    });
+    box.append(field, keys); sheet.body.append(box);
+    try { field.focus({preventScroll: true}); } catch (e) { field.focus(); }
   }
   /* Tap = one send. Repeat keys: send on pointerdown, repeat after 400 ms every 180 ms until up/leave/cancel;
      keyboard activation (click with detail 0) sends once. */
@@ -138,10 +188,10 @@ class JamRemote extends JamBase {
       if (mi) { tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, mi); }
       wrap.append(tt);
     }
-    for (const row of c.rows || JAM_REMOTE_ROWS) {
+    for (const row of c.rows || JAM_REMOTE_LAYOUTS[c.layout] || JAM_REMOTE_ROWS) {
       if (!Array.isArray(row)) continue;
       if (row.includes("dpad")) { wrap.append(this._pad(off)); continue; }
-      const r = el("div", "row");
+      const r = el("div", "row" + (row.length >= 4 ? " dense" : ""));
       for (const k of row) {
         const lbl = (c.labels && c.labels[k]) || JAM_REMOTE_LABELS[k] || String(k).replace(/_/g, " ");
         const btn = cutKey(lbl, `jam-remote|${c.entity}|${k}`, k === "power" ? "alert" : "");
@@ -154,7 +204,7 @@ class JamRemote extends JamBase {
     }
     b.append(root);
   }
-  disconnectedCallback() { if (this._hold) this._hold(); }
+  disconnectedCallback() { if (this._hold) this._hold(); if (this._kb) this._kb.close({silent: true}); }
   getCardSize() { return 7; }
 }
 register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");

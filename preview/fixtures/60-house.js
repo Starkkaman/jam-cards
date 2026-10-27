@@ -1,4 +1,4 @@
-// Preview fixture: landing strip — jam-house (full + compact kiosk), jam-tabs (four rooms), jam-scenes (living room).
+// Preview fixture: landing strip — jam-house (full + compact kiosk, air lines), jam-tabs (four rooms), jam-scenes (living room).
 { // block scope: every fixture file may declare its own st
 const {st} = jamPreview;
 jamPreview.add({
@@ -12,11 +12,14 @@ jamPreview.add({
     st("person.nick", "home", {friendly_name: "Nick"}),
     // scene.normal/movie_time/vibes/spring_vibes come from 20-buttons.js, input_select.light_scenes ("Movie Time") from 30-light.js.
     st("binary_sensor.washer_leak", "on", {friendly_name: "Washer leak", device_class: "moisture"}),
+    // Outside AQI (AirNow-style numeric US AQI); inside air = the Vital 200S sensors from 70-tv.js ("excellent", PM2.5 1).
+    st("sensor.airnow_aqi", "42", {friendly_name: "AirNow AQI", device_class: "aqi"}),
   ],
   sections: [
     ["full", [
       {type: "custom:jam-house", title: "The Bungalow", inside_entity: "sensor.home_temperature", outside_entity: "weather.bungalo_weather",
-        lock_entity: "lock.level_bolt_matter", people: ["person.isaac", "person.amber", "person.marissa", "person.nick"]},
+        lock_entity: "lock.level_bolt_matter", people: ["person.isaac", "person.amber", "person.marissa", "person.nick"],
+        inside_aq: {entity: "sensor.vital_200s_series_air_quality", extra: "sensor.vital_200s_series_pm2_5"}, outside_aq: {entity: "sensor.airnow_aqi"}},
       {type: "custom:jam-tabs", tabs: [
         {name: "Living", path: "/jam-overview/living", accent: "living"},
         {name: "Kitchen", path: "/jam-overview/kitchen", accent: "kitchen"},
@@ -30,6 +33,7 @@ jamPreview.add({
         {entity: "scene.normal", name: "Normal again"}, {entity: "scene.movie_time", name: "Movie time two"}]},
       {type: "custom:jam-house", compact: true, kicker: "Kitchen kiosk · inside", inside_entity: "sensor.home_temperature",
         outside_entity: "weather.bungalo_weather", lock_entity: "lock.level_bolt_matter", people: ["person.isaac", "person.amber"],
+        inside_aq: "sensor.vital_200s_series_air_quality", outside_aq: {entity: "sensor.airnow_not_added_yet"}, // missing -> no outside line
         alerts: [{entity: "binary_sensor.washer_leak", state: "on", name: "Washer leak"}]},
     ]],
   ],

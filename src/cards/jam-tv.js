@@ -5,7 +5,8 @@
     keys?: [power | stereo | remote | {name, tap_action, hold_action?}] (idle row; default [power, stereo, remote]),
     power_action? (default remote.toggle, else media_player toggle), stereo_action? (the Stereo key; hidden without it),
     remote_card? (jam-remote config for the Remote sheet, merged over the default: entity = remote, media_player,
-      rows d-pad / back home settings / vol − mute vol +; commands and labels are merged), remote_title? ("Remote"),
+      layout "full" (0.3.2: power back home settings / tv vol − vol + / d-pad / prev play next / keyboard captions audio input;
+      set rows to replace it); commands and labels are merged), remote_title? ("Remote"),
     accent? (DESIGN "Colour system")}
    Playing (playing / paused / buffering, or on with a media_title): art (entity_picture as a duotone print, else Golden Arm
    bars in the accent), title, app (friendly name, never a package id) · position / duration, keys Prev / Play-Pause /
@@ -14,10 +15,7 @@
    row. Off / unavailable: launchers (their actions wake the TV) + Power. Remote = a sheet with a jam-remote
    (jamCardSheet, jam-media.js). Keys use the key cut (top-right 12px); Play-Pause is the accent key. */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
-const JAM_TV_REMOTE = {
-  rows: [["dpad"], ["back", "home", "settings"], ["vol_down", "mute", "vol_up"]],
-  commands: {settings: "SETTINGS"}, labels: {settings: "Settings"},
-};
+const JAM_TV_REMOTE = {layout: "full", commands: {}, labels: {}};
 /* h:mm when the duration is an hour or more, else m:ss. */
 function jamTvTime(sec, long) {
   sec = Math.max(0, Math.floor(sec));
@@ -60,7 +58,7 @@ class JamTv extends JamSheetHost(JamBase) {
     .sq ha-icon{--mdc-icon-size:16px;display:block;width:16px;height:16px}`; }
   _remoteCfg() {
     const c = this._config, rc = c.remote_card || {};
-    return {type: "custom:jam-remote", entity: c.remote, media_player: c.media_player, name: c.name, rows: JAM_TV_REMOTE.rows, ...rc,
+    return {type: "custom:jam-remote", entity: c.remote, media_player: c.media_player, name: c.name, layout: JAM_TV_REMOTE.layout, ...rc,
       commands: {...JAM_TV_REMOTE.commands, ...(rc.commands || {})}, labels: {...JAM_TV_REMOTE.labels, ...(rc.labels || {})}};
   }
   /* Current app as a friendly name: app_name unless it is a package id, else a known package (jam-remote's list). */

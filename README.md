@@ -267,9 +267,13 @@ media_player: media_player.living_room_tv
 | `name` | Name override |
 | `hide_title` | Hide the name and title (set automatically inside jam-tv / jam-media sheets) |
 | `rows` | Key layout, e.g. `[[power, home], [dpad], [back, menu]]` |
+| `layout` | `full`: power back home settings / tv vol− vol+ / d-pad / prev play next / keyboard captions audio input (`rows` wins) |
 | `commands` | Map of key → `send_command` value |
 | `actions` | Map of key → action object (overrides the command) |
 | `labels` | Map of key → label text |
+
+The `keyboard` key opens a small sheet: a text field with Send (`send_command` `text:<text>`), Backspace (`DEL`) and
+Enter (`ENTER`), as universal-remote-card's Android TV keyboard. Volume and d-pad keys repeat while held.
 
 ### jam-tv
 Smart TV (Android TV media_player + remote): now playing with transport, or app launchers when idle; Remote opens a
@@ -289,7 +293,7 @@ launchers:
 | `launchers` | `{name, icon, color, tap_action, hold_action}`: 4-up (3-up in narrow cards), names wrap by word |
 | `keys` | Idle key row: `power`, `stereo`, `remote` or `{name, tap_action, hold_action}` (default all three) |
 | `power_action`, `stereo_action` | Power key action (default `remote.toggle`); Stereo key action (hidden without it) |
-| `remote_card`, `remote_title` | jam-remote config merged over the default; sheet title (default "Remote") |
+| `remote_card`, `remote_title` | jam-remote config merged over the default (`layout: full`); sheet title (default "Remote") |
 | `accent` | Play key, art block (see Colours) |
 
 ### jam-fan
@@ -304,7 +308,7 @@ sensor: sensor.air_purifier_air_quality
 | `entity` | fan (required) |
 | `name` | Name override |
 | `speeds` | Percent steps (default from `percentage_step`) |
-| `presets` | Preset modes to show (default the fan's) |
+| `presets` | Preset modes to show (default the fan's; `false` or `[]` hides the chips) |
 | `sensor`, `extra_sensor` | `id` or `{entity, name}` shown in the label |
 | `accent` | Pill, active speed and preset |
 
@@ -328,6 +332,7 @@ people: [person.alex, person.sam]
 | `alerts` | `{entity, state, name}`: red chip while the entity is in `state` (or on/open/problem) |
 | `title`, `kicker` | Title (default the HA location name) and label |
 | `compact` | One smaller row (kiosks) |
+| `inside_aq`, `outside_aq` | `{entity, extra}` (or an id): "Air · Good · PM2.5 3" under the temperature; numeric states read as US AQI ("AQI 42 · Good"); hidden while the entity is missing/unavailable |
 
 ### jam-tabs
 Equal-width room tabs; the tab for the current path fills with its accent.
@@ -343,7 +348,8 @@ tabs:
 | `sticky` | `true`: the card is `position: sticky` under the header. In HA it only sticks inside its own section, so put the tabs in their own full-width section at the top |
 
 ### jam-scenes
-Row of scene / script keys; the active scene (from an input_select) fills with the accent.
+Row of scene / script keys; the active scene fills with the accent: the listed scene activated last (its state is the
+activation time), or the `current_entity` option when that changed later. Names default to the scenes' friendly names.
 ```yaml
 type: custom:jam-scenes
 current_entity: input_select.light_scenes

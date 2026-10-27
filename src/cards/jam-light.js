@@ -7,7 +7,7 @@
     show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
     tap_action? (default toggle), hold_action? (default: open the pop-up)}
    Card: when on the face is the light's hue at full value (rgb_color scaled so the max channel is 255; kelvin -> rgb in
-   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
+   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 10px strip along the bottom; 40px corner trigger (⋯). 84px tall (0.3.2; was 112), grid rows auto.
    Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
    vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
    ←/→ = ±10 %, M or Shift+Enter = pop-up.
@@ -145,23 +145,23 @@ class JamLight extends JamBase {
     return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
   }
   css() { return `
-    .lc{height:100%;min-height:112px;-webkit-user-select:none;user-select:none}
+    .lc{height:100%;min-height:84px;-webkit-user-select:none;user-select:none}
     .lc > .face{--p-t:0px;--p-r:0px;--p-b:0px;--p-l:0px;overflow:hidden}
     .lc.on > .face{background:var(--lc);color:var(--lc-fg)}
     .lc.dead > .face{color:var(--dim)}
-    .tap{position:relative;height:100%;min-height:112px;padding:10px 12px 18px;display:flex;flex-direction:column;justify-content:space-between;
+    .tap{position:relative;height:100%;min-height:84px;padding:10px 12px 16px;display:flex;flex-direction:column;justify-content:space-between;
       gap:6px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
     .lc.dead .tap{cursor:default}
-    .nm{display:flex;align-items:center;gap:6px;padding-right:40px;font:900 1.05rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
+    .nm{display:flex;align-items:center;gap:6px;padding-right:40px;font:900 .95rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
     .nm ha-icon{--mdc-icon-size:18px;flex:none}
     .sub{font:600 .56rem/1.1 var(--body);letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-top:3px}
-    .pct{font:900 2.3rem/.8 var(--display)}
+    .pct{font:900 1.7rem/.8 var(--display)}
     .pct small{font-size:1rem;text-transform:uppercase}
     .lc.dead .pct small{color:var(--red)}
-    .bs{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(0,0,0,.18);pointer-events:none}
+    .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:rgba(0,0,0,.18);pointer-events:none}
     .bs i{position:absolute;inset:0 auto 0 0;background:currentColor;clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
     .lc:not(.on) .bs{display:none}
-    .more{position:absolute;right:0;top:0;width:46px;height:46px;z-index:1}
+    .more{position:absolute;right:0;top:0;width:40px;height:40px;z-index:1}
     .more .tri{position:absolute;inset:0;background:var(--slab2);color:var(--fg);clip-path:polygon(0 0,100% 0,100% 100%)}
     .more .tri span{position:absolute;right:6px;top:4px;font:900 1.1rem/1 var(--body)}
     .lc.on .more .tri{background:var(--lc-fg);color:var(--lc)}
@@ -486,6 +486,6 @@ class JamLight extends JamBase {
     body.append(row);
   }
   getCardSize() { return 2; }
-  getGridOptions() { return {columns: 6, rows: 2, min_columns: 4, min_rows: 2}; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 4}; }
 }
 register("jam-light", JamLight, "Jam Light", "Light card in the light's own colour: tap toggles, drag dims, hold or ⋯ opens the light pop-up.");

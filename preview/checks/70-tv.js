@@ -103,13 +103,78 @@ module.exports = async (page, check, {callsNow}) => {
   check(c.length === 1 && c[0].domain === "remote" && c[0].service === "send_command" && c[0].data.entity_id === RC && c[0].data.command === "DPAD_UP",
     "jam-tv: sheet d-pad up = remote.send_command DPAD_UP");
   await reset(); await rem.locator('button[data-key="settings"]').click();
-  check((await callsNow()).some(x => x.service === "send_command" && x.data.command === "SETTINGS"), "jam-tv: Settings key sends SETTINGS");
+  check((await callsNow()).some(x => x.service === "send_command" && x.data.command === "HOME"), "jam-tv: Settings key sends the configured command (HOME)");
   await reset(); await rem.locator('button[data-key="vol_up"]').click();
   check((await callsNow()).some(x => x.domain === "script" && x.service === "stereo_volume_up"), "jam-tv: remote_card actions are merged (vol + = script.stereo_volume_up)");
+  await reset(); await rem.locator('button[data-key="tv"]').click();
+  check((await callsNow()).some(x => x.domain === "script" && x.service === "stereo_input_select_video"), "jam-tv: TV key runs script.stereo_input_select_video");
+  for (const [k, cmd] of [["captions", "CAPTIONS"], ["audio_track", "MEDIA_AUDIO_TRACK"], ["source", "TV_INPUT"], ["prev", "MEDIA_PREVIOUS"], ["back", "BACK"]]) {
+    await reset(); await rem.locator(`button[data-key="${k}"]`).click();
+    const cc = await callsNow();
+    check(cc.length === 1 && cc[0].service === "send_command" && cc[0].data.command === cmd && cc[0].data.entity_id === RC, `jam-tv remote: ${k} sends ${cmd}`);
+  }
+  await reset(); await rem.locator('button[data-key="power"]').click();
+  check((await callsNow()).some(x => x.domain === "remote" && x.service === "toggle" && x.data.entity_id === RC), "jam-tv remote: Power = remote.toggle");
+  // Volume repeats while held (pointer down -> one send, then repeats after 400 ms).
+  await reset();
+  const vb = await rem.locator('button[data-key="vol_down"]').boundingBox();
+  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  const held = (await callsNow()).filter(x => x.service === "stereo_volume_down").length;
+  check(held >= 3, `jam-tv remote: holding Vol − repeats script.stereo_volume_down (${held} calls)`);
+  // Keyboard key: a second sheet with a text field; Send = text:<field>, Backspace = DEL, Enter = ENTER.
+  await rem.locator('button[data-key="keyboard"]').click();
+  await page.waitForTimeout(80);
+  check(await page.locator(".jam-sheet-host").count() === 2, "jam-tv remote: Keyboard opens a sheet over the remote sheet");
+  const kb = page.locator(".jam-sheet-host").nth(1).locator(".pop");
+  check((await kb.locator("h2").textContent()) === "Keyboard" && await kb.locator("input").count() === 1 &&
+    (await kb.locator(".kb button").evaluateAll(bs => bs.map(b => b.dataset.key).join(","))) === "send,backspace,enter", "keyboard sheet: text field + Send / Backspace / Enter");
+  await reset();
+  await kb.locator("input").fill("star trek");
+  await kb.locator('button[data-key="send"]').click();
+  await kb.locator('button[data-key="backspace"]').click();
+  await kb.locator('button[data-key="enter"]').click();
+  await kb.locator("input").fill("ok");
+  await kb.locator("input").press("Enter");
+  await kb.locator("input").press("Enter");
+  const kc = (await callsNow()).map(x => `${x.domain}.${x.service}:${x.data.entity_id === RC ? "rc" : x.data.entity_id}:${x.data.command}`);
+  check(kc.join(" | ") === "remote.send_command:rc:text:star trek | remote.send_command:rc:DEL | remote.send_command:rc:ENTER | remote.send_command:rc:text:ok | remote.send_command:rc:ENTER",
+    `keyboard sheet sends like universal-remote-card Android TV (${kc.join(" | ")})`);
+  check((await kb.locator("input").inputValue()) === "", "keyboard sheet: Send clears the field");
+  if (process.env.JAM_SHOTS) {
+    await page.setViewportSize({width: 390, height: 844});
+    await kb.locator("input").fill("Close enc");
+    await page.screenshot({path: path.join(process.env.JAM_SHOTS, "tv-keyboard-sheet-390.png")});
+    await kb.locator("input").fill("");
+    await page.setViewportSize({width: 1280, height: 900});
+  }
+  await page.keyboard.press("Escape");
+  check(await page.locator(".jam-sheet-host").count() === 1, "keyboard sheet: Esc closes only the keyboard sheet");
+  // layout: full = the universal-remote-card rows; explicit rows win over layout.
+  const lay = await page.evaluate(() => {
+    const keys = cfg => { const e = document.createElement("jam-remote"); e.setConfig({type: "custom:jam-remote", entity: "remote.living_room_phoster_android_tv", ...cfg});
+      e.hass = window.__hass; return [...e.shadowRoot.querySelectorAll("button[data-key]")].map(b => b.dataset.key).join(","); };
+    return {full: keys({layout: "full"}), rows: keys({layout: "full", rows: [["home"]]})};
+  });
+  check(lay.full === "power,back,home,settings,tv,vol_down,vol_up,up,left,ok,right,down,prev,play_pause,next,keyboard,captions,audio_track,source" && lay.rows === "home",
+    `jam-remote layout full rows; rows override layout (${lay.rows})`);
   const remHead = await rem.evaluate(r => r.shadowRoot.querySelectorAll(".label, .title").length);
   check(remHead === 0 && await rem.evaluate(r => r._config.hide_title === true), `jam-tv: the jam-remote in the sheet hides its own name/title (${remHead})`);
   const rows = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll("button[data-key]")].map(b => b.dataset.key).join(","));
-  check(rows === "up,left,ok,right,down,back,home,settings,vol_down,mute,vol_up", `jam-tv: default remote rows d-pad / back home settings / vol (${rows})`);
+  check(rows === "power,back,home,settings,tv,vol_down,vol_up,up,left,ok,right,down,prev,play_pause,next,keyboard,captions,audio_track,source",
+    `jam-tv: remote sheet uses layout full (${rows})`);
+  for (const w of [360, 390]) {
+    await page.setViewportSize({width: w, height: 844}); await page.waitForTimeout(60);
+    const broken = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll(".row .key")].filter(b => {
+      const f = b.firstChild, lh = parseFloat(getComputedStyle(f).lineHeight) || 12, pad = parseFloat(getComputedStyle(f).paddingTop) + parseFloat(getComputedStyle(f).paddingBottom) + 4;
+      const words = f.textContent.split(/\s+/).length;
+      return f.scrollWidth > f.clientWidth + 1 || (words === 1 && f.getBoundingClientRect().height - pad > lh * 1.5 && f.scrollHeight > 0 && (() => { const rg = document.createRange(); rg.selectNodeContents(f); return rg.getClientRects().length > 1; })());
+    }).map(b => b.textContent));
+    check(broken.length === 0, `jam-tv remote sheet ${w}px: row key labels fit, no mid-word breaks (${broken.join(", ") || "ok"})`);
+  }
+  await page.setViewportSize({width: 1280, height: 900});
+  const defLayout = await page.evaluate(() => { const t = document.createElement("jam-tv");
+    t.setConfig({type: "custom:jam-tv", media_player: "media_player.living_room_phoster_android_tv", remote: "remote.living_room_phoster_android_tv"}); return t._remoteCfg().layout; });
+  check(defLayout === "full", `jam-tv: remote sheet defaults to layout full (${defLayout})`);
   await page.keyboard.press("Escape");
   check(await page.locator(".jam-sheet-host").count() === 0, "jam-tv: Esc closes the sheet");
 
@@ -196,6 +261,10 @@ module.exports = async (page, check, {callsNow}) => {
     "jam-fan: active preset lights its chip; no speed active");
   await reset(); await fan.locator('button[data-key="power"]').click();
   check((await callsNow()).some(x => x.service === "turn_off" && x.data.entity_id === FID), "jam-fan: pill turns the fan off");
+  const pres = await page.evaluate(() => [undefined, false, []].map(p => { const e = document.createElement("jam-fan");
+    e.setConfig({type: "custom:jam-fan", entity: "fan.vital_200s_series", ...(p === undefined ? {} : {presets: p})}); e.hass = window.__hass;
+    return e.shadowRoot.querySelectorAll("[data-preset]").length; }));
+  check(pres.join(",") === "3,0,0", `jam-fan: presets default 3 chips; false / [] hide them (${pres})`);
   await push(FID, {state: "unavailable"});
   check(await fan.locator("button:not([disabled])").count() === 0, "jam-fan: unavailable disables every control");
   await push(FID, {state: "on", attributes: {preset_mode: null}});

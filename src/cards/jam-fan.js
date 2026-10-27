@@ -1,6 +1,6 @@
 /* ---------- jam-fan: fan / air purifier with on/off pill, speed steps and preset chips ----------
    {type: custom:jam-fan, entity (fan.*), name?, speeds?: [percent, ...] (default from percentage_step, e.g. 25 -> 25/50/75/100;
-    none when the fan cannot set a speed), presets?: [mode, ...] (default the fan's preset_modes),
+    none when the fan cannot set a speed), presets?: [mode, ...] (default the fan's preset_modes; false or [] = no preset chips),
     sensor?: id | {entity, name?} (kicker, e.g. air quality "Excellent"), extra_sensor?: id | {entity, name?}
     (kicker, "PM2.5 1 µg/m³"; name defaults from the device class), accent? (DESIGN "Colour system")}
    Slab card: name + On/Off pill (accent when on; fan.turn_on / turn_off), segmented speed keys (active = accent;
@@ -11,7 +11,8 @@ const JAM_FAN_DC = {pm25: "PM2.5", pm10: "PM10", pm1: "PM1", carbon_dioxide: "CO
 class JamFan extends JamBase {
   validate(c) {
     if (!c.entity || !c.entity.startsWith("fan.")) throw new Error("jam-fan: entity must be a fan");
-    for (const k of ["speeds", "presets"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-fan: ${k} must be a list`);
+    for (const k of ["speeds", "presets"]) if (c[k] !== undefined && !Array.isArray(c[k]) && !(k === "presets" && c[k] === false))
+      throw new Error(`jam-fan: ${k} must be a list` + (k === "presets" ? " (or false)" : ""));
   }
   _sid(x) { return (x && x.entity) || (typeof x === "string" ? x : null); }
   watched() { const c = this._config; return [c.entity, this._sid(c.sensor), this._sid(c.extra_sensor)].filter(Boolean); }
@@ -90,7 +91,7 @@ class JamFan extends JamBase {
       wrap.append(seg);
     }
 
-    const presets = Array.isArray(c.presets) ? c.presets : (feat & JAM_FAN_PRESET) || a.preset_modes ? a.preset_modes || [] : [];
+    const presets = c.presets === false ? [] : Array.isArray(c.presets) ? c.presets : (feat & JAM_FAN_PRESET) || a.preset_modes ? a.preset_modes || [] : [];
     if (presets.length) {
       const row = el("div", "chips");
       for (const p of presets) {

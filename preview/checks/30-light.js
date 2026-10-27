@@ -49,7 +49,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(ga.bg === look.tok.ochre && ga.fg === look.tok.onfg, `light without colour falls back to the accent (living -> ochre ${ga.bg})`);
   check(ha.pct === "N/A" && ha.moreDisabled && /\bdead\b/.test(ha.cls), "unavailable light: N/A, corner disabled");
   check(g.sub === "Group · 2 bulbs" && w.sub === "WLED" && k.sub === "", `sub lines: "${g.sub}", "${w.sub}"`);
-  check(Math.abs(g.h - 112) <= 1, `light card is 112 px tall (${g.h})`);
+  check(Math.abs(g.h - 84) <= 1, `light card is 84 px tall (${g.h})`);
   // WLED reports brightness-scaled rgb_color: [51,20,0] paints its full-value hue [255,100,0] (ink text on it), also in the pop-up.
   const fr = await page.evaluate(() => JSON.stringify([window.JamCards.fullRgb([51, 20, 0]), window.JamCards.fullRgb([0, 0, 0]), window.JamCards.fullRgb(null)]));
   check(fr === "[[255,100,0],null,null]", `fullRgb scales the max channel to 255, black/missing -> null (${fr})`);
@@ -70,11 +70,13 @@ module.exports = async (page, check, {callsNow}) => {
       triBg: tri.backgroundColor, clip: tri.clipPath, fill: getComputedStyle(r.querySelector(".bs i")).clipPath, touch: getComputedStyle(r.querySelector(".tap")).touchAction,
       grid: JSON.stringify(e.getGridOptions())};
   });
-  check(geo.w === 46 && geo.h === 46 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon(") && geo.triBg === "rgb(20, 18, 16)",
-    `46x46 corner triangle top-right, ink on a light colour (${geo.w}x${geo.h}, ${geo.triBg})`);
-  check(geo.strip === 12 && geo.stripBottom === 0 && geo.fill.includes("9px") && geo.touch === "pan-y",
-    `12 px bottom strip with a 9 px diagonal end; touch-action ${geo.touch}`);
-  check(geo.grid.includes('"columns":6') && geo.grid.includes('"min_columns":4'), `getGridOptions ${geo.grid}`);
+  check(geo.w === 40 && geo.h === 40 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon(") && geo.triBg === "rgb(20, 18, 16)",
+    `40x40 corner triangle top-right, ink on a light colour (${geo.w}x${geo.h}, ${geo.triBg})`);
+  check(geo.strip === 10 && geo.stripBottom === 0 && geo.fill.includes("9px") && geo.touch === "pan-y",
+    `10 px bottom strip with a 9 px diagonal end; touch-action ${geo.touch}`);
+  check(geo.grid.includes('"columns":6') && geo.grid.includes('"rows":"auto"') && geo.grid.includes('"min_columns":4'), `getGridOptions ${geo.grid}`);
+  const ty = await light("Living room").evaluate(e => { const r = e.shadowRoot, f = n => parseFloat(getComputedStyle(r.querySelector(n)).fontSize); return {pct: f(".pct"), nm: f(".nm")}; });
+  check(Math.abs(ty.pct - 27.2) < .5 && Math.abs(ty.nm - 15.2) < .5, `light type: brightness 1.7rem, name .95rem (${ty.pct}px / ${ty.nm}px)`);
 
   // ---- tap = toggle / tap_action ----
   let n = await mark();
