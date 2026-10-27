@@ -9,7 +9,8 @@
     accent? (DESIGN "Colour system")}
    Playing (playing / paused / buffering, or on with a media_title): art (entity_picture as a duotone print, else Golden Arm
    bars in the accent), title, app (friendly name, never a package id) · position / duration, keys Prev / Play-Pause /
-   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (flat colour square + name), then the keys
+   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (3-up in cards narrower than ≈340px; names wrap on
+   word boundaries, max 2 lines) (flat colour square + name), then the keys
    row. Off / unavailable: launchers (their actions wake the TV) + Power. Remote = a sheet with a jam-remote
    (jamCardSheet, jam-media.js). Keys use the key cut (top-right 12px); Play-Pause is the accent key. */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
@@ -49,7 +50,11 @@ class JamTv extends JamSheetHost(JamBase) {
     .apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
     .apps .key{min-width:0}
     .apps .key > .face{--p-t:14px;--p-b:10px;--p-l:4px;--p-r:4px;min-height:76px;display:flex;flex-direction:column;align-items:center;
-      justify-content:flex-start;gap:7px;font-size:.62rem;letter-spacing:.1em;line-height:1.15;overflow-wrap:anywhere}
+      justify-content:flex-start;gap:7px;font-size:clamp(.54rem,2.6cqi,.62rem);letter-spacing:.1em;line-height:1.15}
+    /* Names wrap on word boundaries only (max 2 lines), never mid-word; narrow cards drop to 3-up. */
+    .apps .nm{max-width:100%;overflow-wrap:normal;word-break:normal;hyphens:none;text-align:center;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    @container (max-width:310px){.apps{grid-template-columns:repeat(3,minmax(0,1fr))}}
     .sq{flex:none;display:grid;place-items:center;width:24px;height:24px;background:var(--app,var(--acc));color:var(--on-fg);
       clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
     .sq ha-icon{--mdc-icon-size:16px;display:block;width:16px;height:16px}`; }

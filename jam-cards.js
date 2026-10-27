@@ -4,13 +4,14 @@
    one accent colour per card; heavy uppercase display type; hard cuts.
    No build step, no dependencies. Entity names/states are rendered with textContent only.
 
-   Cards: jam-heading, jam-hero, jam-tile, jam-choice, jam-slider, jam-media, jam-button, jam-gauge, jam-list,
-   jam-light, jam-popup, jam-graph, jam-weather, jam-remote.
+   Cards (22): jam-heading, jam-hero, jam-tile, jam-choice, jam-slider, jam-media, jam-button, jam-gauge, jam-list,
+   jam-light, jam-popup, jam-graph, jam-weather, jam-remote, jam-tv, jam-fan, jam-house, jam-tabs, jam-scenes,
+   jam-screensaver, jam-panel, jam-alerts.
    Colours come from the JamBoard theme (--jam-* variables, one set per light/dark mode); without the theme the
    cards fall back to the dark "ink" palette. Design rules: docs/DESIGN.md.
    Shared helpers (colour/accent system, edge system, cut blocks, actions) are exported on window.JamCards for cards added later. */
 (() => {
-const VERSION = "0.3.0-dev";
+const VERSION = "0.3.0";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&display=swap";
 
@@ -24,7 +25,7 @@ function loadFonts() {
 /* Shared tokens + primitives. Every card gets this in its shadow root. */
 const BASE_CSS = `
 :host{
-  --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622);
+  --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622); --slab3:var(--jam-slab3,#35302a);
   --paper:var(--jam-paper,#ece2c9); --paper-fg:var(--jam-paper-fg,#141210); --paper-dim:var(--jam-paper-dim,#5c5446);
   --fg:var(--jam-fg,#ece2c9); --dim:var(--jam-dim,#9a8f7c); --line:var(--jam-line,#34302a);
   --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --teal:var(--jam-teal,#22a39a);
@@ -364,7 +365,7 @@ function deepActive() {
   return a;
 }
 /* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>). */
-const SHEET_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
+const SHEET_TOKENS = ["ink", "slab", "slab2", "slab3", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
   "violet", "green", "on-fg", "shadow", "s1", "s2", "s3", "s4", "s5", "display", "body", "accent"].map(n => "--jam-" + n);
 const SHEET_CSS = `
   .pop{position:fixed;inset:0;z-index:10000;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
@@ -379,7 +380,8 @@ const SHEET_CSS = `
   .t{display:grid;gap:4px;min-width:0}
   .t h2{font-size:clamp(1.7rem,6vw,2.2rem);overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
-  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0}
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0;
+    --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .close{flex:none}
   .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
   .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
@@ -398,6 +400,8 @@ const SHEET_STACK = [];
    --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
    cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
    onClose()}.
+   Child cards appended to `body` get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3), so their
+   faces and keys stay visible on the slab sheet face.
    Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
    Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
 function openSheet(opts = {}) {
@@ -1519,7 +1523,8 @@ register("jam-hero", JamHero, "Jam Hero", "Paper slab with a cut corner: big tit
 
 /* ---------- jam-house: the house strip (inside / outside temperature, front door, who's home, alerts) ----------
    {type: custom:jam-house, inside_entity (temperature sensor), outside_entity (weather.* or sensor.*), lock_entity?,
-    people?: [person ids] (only those home are shown, as teal chips), alerts?: [{entity, state?, name}] (red chip while
+    people?: [person ids] (only those home are shown, as teal chips with the first name), full_names?: true (chips show
+    the full friendly name), alerts?: [{entity, state?, name}] (red chip while
     the entity matches `state`, or without `state` while it is on/open/problem), title? (default
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller)}
    Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
@@ -1602,7 +1607,8 @@ class JamHouse extends JamBase {
     for (const id of c.people || []) {
       const ps = stateObj(h, id);
       if (!ps || ps.state !== "home") continue;
-      const chip = el("span", "chip home", friendly(h, id));
+      const full = String(friendly(h, id)).trim();
+      const chip = el("span", "chip home", c.full_names ? full : (full.split(/\s+/)[0] || full));
       chip.dataset.role = "person"; chip.dataset.entity = id;
       chips.append(chip);
     }
@@ -2587,6 +2593,7 @@ register("jam-panel", JamPanel, "Jam Panel", "Compact system panel: rows of name
 /* ---------- jam-popup: full-screen ink veil + cut sheet (top-right 18px) that opens on a URL hash ----------
    {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
+   Sheet face = slab; child cards get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3).
    Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
    own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
@@ -2603,13 +2610,15 @@ const POPUP_CSS = `
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
   .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
   .sheet > .face{--p-t:16px;--p-r:18px;--p-b:18px;--p-l:18px;height:auto;max-height:88vh;display:flex;flex-direction:column;gap:12px;
-    background:var(--slab2);outline:none}
+    background:var(--slab);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
   .t .label{color:var(--acc)}
   .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
-  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0}
+  /* Child cards one surface step up (DESIGN "Tokens"): their face = slab2, their inner controls = slab3. */
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0;
+    --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .body > *{display:block;min-width:0}
   .close{flex:none}
   .pop.opening .wipe{animation:jam-wipe 160ms steps(4,start) backwards}
@@ -2960,7 +2969,8 @@ register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows,
 /* ---------- jam-scenes: horizontally scrolling row of scene keys (Londrina, 10px bottom-right cut) ----------
    {type: custom:jam-scenes, scenes: [{entity (scene.* | script.*), name? (default friendly name), data? (extra
     service data, e.g. {transition: 2})}], current_entity? (input_select whose state names the active scene; matched
-    case-insensitively to the scene name or its object id), accent? (default ochre)}
+    case-insensitively to the scene name or its object id), wrap?: true (keys wrap onto more rows instead of scrolling
+    sideways), accent? (default ochre)}
    Tap = scene.turn_on / script.turn_on with {entity_id, ...data}. The active scene is filled with the accent. */
 class JamScenes extends JamBase {
   validate(c) {
@@ -2976,13 +2986,14 @@ class JamScenes extends JamBase {
     .scene{flex:0 0 auto;font-family:var(--display);font-weight:900;font-size:1rem;line-height:1;text-transform:uppercase;
       padding:12px 14px;background:var(--slab2);color:var(--fg);white-space:nowrap;
       clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
+    .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
     .scene.on{background:var(--acc);color:var(--acc-fg)}
     .scene:active{transform:translate(2px,2px)}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const cur = c.current_entity ? stateObj(h, c.current_entity) : null;
     const want = cur && !UNAVAILABLE.has(cur.state) ? String(cur.state).trim().toLowerCase() : null;
-    const row = el("div", "scenes");
+    const row = el("div", "scenes" + (c.wrap ? " wrap" : ""));
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Scenes");
     for (const sc of c.scenes) {
       const name = friendly(h, sc.entity, sc.name);
@@ -3470,7 +3481,11 @@ register("jam-slider", JamSlider, "Jam Slider", "Strip for numbers, light bright
 
 /* ---------- jam-tabs: room tabs (equal-width keys, 8px top-right cut, 4px accent bar) ----------
    {type: custom:jam-tabs, tabs: [{name, path (navigation path, e.g. /jam-overview/kitchen), accent? (colour or room
-    alias; default the card accent)}], sticky?: true (sticks under the HA header: top var(--header-height, 0))}
+    alias; default the card accent)}], sticky?: true (the host itself is position:sticky, top var(--header-height, 0))}
+   Sticky limit: CSS sticky only works inside the element's containing block. In HA the card sits in hui-card inside a
+   section grid cell, so it sticks only while that cell / section is on screen and cannot follow the whole view. Put the
+   tabs in their own full-width section at the top of the view; there they stay put, they do not float over later sections.
+   The cut corners show the page background (--primary-background-color, else --jam-ink) in both modes.
    The tab whose path equals location.pathname is current: filled with its accent, ink text. Tap = navigate like HA
    (history.pushState + location-changed); the card follows location-changed / popstate. */
 class JamTabs extends JamBase {
@@ -3493,7 +3508,7 @@ class JamTabs extends JamBase {
   }
   css() { return `
     :host([data-sticky]){position:sticky;top:var(--header-height,0);z-index:2}
-    :host([data-sticky]) .tabs{background:var(--ink)}
+    :host([data-sticky]) .tabs{background:var(--primary-background-color,var(--ink))}
     .tabs{display:flex;gap:4px}
     .tab{flex:1 1 0;min-width:0;position:relative;font:600 .6rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;
       padding:10px 4px 12px;background:var(--slab2);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -3601,7 +3616,8 @@ register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status str
     accent? (DESIGN "Colour system")}
    Playing (playing / paused / buffering, or on with a media_title): art (entity_picture as a duotone print, else Golden Arm
    bars in the accent), title, app (friendly name, never a package id) · position / duration, keys Prev / Play-Pause /
-   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (flat colour square + name), then the keys
+   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (3-up in cards narrower than ≈340px; names wrap on
+   word boundaries, max 2 lines) (flat colour square + name), then the keys
    row. Off / unavailable: launchers (their actions wake the TV) + Power. Remote = a sheet with a jam-remote
    (jamCardSheet, jam-media.js). Keys use the key cut (top-right 12px); Play-Pause is the accent key. */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
@@ -3641,7 +3657,11 @@ class JamTv extends JamSheetHost(JamBase) {
     .apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
     .apps .key{min-width:0}
     .apps .key > .face{--p-t:14px;--p-b:10px;--p-l:4px;--p-r:4px;min-height:76px;display:flex;flex-direction:column;align-items:center;
-      justify-content:flex-start;gap:7px;font-size:.62rem;letter-spacing:.1em;line-height:1.15;overflow-wrap:anywhere}
+      justify-content:flex-start;gap:7px;font-size:clamp(.54rem,2.6cqi,.62rem);letter-spacing:.1em;line-height:1.15}
+    /* Names wrap on word boundaries only (max 2 lines), never mid-word; narrow cards drop to 3-up. */
+    .apps .nm{max-width:100%;overflow-wrap:normal;word-break:normal;hyphens:none;text-align:center;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    @container (max-width:310px){.apps{grid-template-columns:repeat(3,minmax(0,1fr))}}
     .sq{flex:none;display:grid;place-items:center;width:24px;height:24px;background:var(--app,var(--acc));color:var(--on-fg);
       clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
     .sq ha-icon{--mdc-icon-size:16px;display:block;width:16px;height:16px}`; }

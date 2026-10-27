@@ -8,6 +8,9 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 ## Hard rules
 - Flat colour only. No gradients, blur, glows, shadows of any kind, rounded corners, opacity fades as decoration.
 - Separation comes from flat surfaces: card face `--slab` on the ink ground, inner controls `--slab2`. No shadow slabs.
+- Inside a sheet (jam-popup, openSheet / jamCardSheet) the sheet face is `--slab` and child cards move one step up: the
+  sheet body sets `--jam-slab: slab2` and `--jam-slab2: slab3`, so child faces are slab2 and their keys slab3 (theme key
+  `jam-slab3` in both modes of ../jam-theme). Content a sheet builds itself (jam-light pop-up) keeps slab2 controls.
 - Edges are **straight**: every surface is a rectangle with ONE 45° cut corner, fixed per element kind (see "Edge system").
   Nothing is torn or jagged; nothing is random per seed. Text never sits in a cut.
 - Display type: Londrina Solid 900, UPPERCASE, tight leading (.9), slight negative tracking allowed (-.005em).
@@ -23,6 +26,7 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 | ground | `--jam-ink` | #141210 | #141210 |
 | card face | `--jam-slab` | #1f1c19 | #f6efdd |
 | inner controls, off keys | `--jam-slab2` | #2a2622 | #e9dfc4 |
+| inner controls of cards inside a sheet | `--jam-slab3` | #35302a | #ddd1b3 |
 | hero face | `--jam-paper` | #ece2c9 | #141210 |
 | hero text | `--jam-paper-fg` | #141210 | #ece2c9 |
 | hero muted | `--jam-paper-dim` | #5c5446 | #9a8f7c |
@@ -104,18 +108,18 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 | jam-slider | numeric tile, bubble slider | number/input_number/light/media volume/fan percentage |
 | jam-button | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or HA `color` names), accent face when entity on, tap/hold/double_tap actions, confirmation |
 | jam-light (v2) | mushroom-light | card face = the light's hue at full value (`fullRgb`: rgb_color scaled so the max channel is 255, kelvin → rgb in color_temp mode, else the accent), ink/paper text by luminance of that colour; big %, 12px brightness strip, drag to dim, corner ⋯ / hold = light pop-up (openSheet): 72px brightness bar, whites or WLED preset cards, hue strip, "Your colours" (HA user data), group members (pills + bars in each member's full-value colour), off-timer |
-| jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet, title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
+| jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet (slab face; children one surface step up), title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
 | jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows; `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets) |
 | jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image multiplied over a flat accent block: flat print, not a gradient), title, artist, transport, volume, sources, players, group; `compact` mini layout; `more` ⋯ sheet of child cards (jamCardSheet); title_entity players without a media_player |
-| jam-tv | Android TV media cards | now playing (art, title, app, position) + Prev/Play/Next/Remote, or idle launchers 4-up + Power/Stereo/Remote; Remote = sheet with a jam-remote |
+| jam-tv | Android TV media cards | now playing (art, title, app, position) + Prev/Play/Next/Remote, or idle launchers 4-up (3-up below ≈340px card width; names wrap by word, max 2 lines) + Power/Stereo/Remote; Remote = sheet with a jam-remote |
 | jam-fan | fan tile, purifier cards | On/Off pill, speed steps (fan.set_percentage), preset chips, air-quality kicker sensors |
 | jam-weather | clock-weather, weather-forecast | big temp numeral, condition word (`conditionWord`), cut-paper glyph, forecast strip, optional clock (`clock_size` normal/big/huge) |
 | jam-graph | mini-graph, statistics-graph | SVG step/line chart from history, 1-5 series in `--jam-s*`, legend chips, crosshair + tooltip, current value big |
 | jam-gauge | gauge | half-disc of cut wedges (severity bands) + big numeral, or `style: bar` |
 | jam-list | entities | rows: name / value, divider rules, toggles for switchable rows |
-| jam-house | landing header | house strip: inside / outside temperature + condition word, door lock chip (tap = lock), who's home, alert chips; `compact` kiosk row |
-| jam-tabs | navigation chips / tab bars | equal-width room tabs, current tab filled with its accent, optional sticky |
-| jam-scenes | scene buttons | horizontally scrolling scene/script keys, active scene (input_select) in the accent |
+| jam-house | landing header | house strip: inside / outside temperature + condition word, door lock chip (tap = lock), who's home (first names; `full_names`), alert chips; `compact` kiosk row |
+| jam-tabs | navigation chips / tab bars | equal-width room tabs, current tab filled with its accent, optional sticky (host is position:sticky; in HA it sticks only within its own section; cut corners show `--primary-background-color`) |
+| jam-scenes | scene buttons | horizontally scrolling scene/script keys (`wrap: true` = more rows), active scene (input_select) in the accent |
 | jam-screensaver | kiosk screensavers | zero-footprint card; full-viewport Poster clock + weather word or photo slideshow after idle; built for weak kiosks (no rAF, minute timer) |
 | jam-panel | entities (control room) | compact name / value rows, formats (pct, temp, bytes_rate, duration, relative), `bad` thresholds in red; `accent` = 4px rule under the title; names/titles never break mid-word (the value column wraps) |
 | jam-alerts | automation / alert lists | automations by last_triggered ("ran …"), watched entities, unavailable count, red failure chip |
@@ -125,7 +129,8 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
   colour), `fullRgb` (scale [r,g,b] so the max channel is 255; null for black/missing), `rgbCss`, `luminance`, `inkOn` (ink/paper text).
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`.
-- Sheets: `openSheet({from, title, kicker, accent, …})` → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it),
+- Sheets: `openSheet({from, title, kicker, accent, …})` → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it; child
+  cards in `body` get the surface tokens one step up),
   `vertigoSpiral`, `deepActive`. jam-media's `jamCardSheet` puts child cards in one (used by jam-tv and jam-media `more`).
 
 ## Native cards left in clones

@@ -6,7 +6,7 @@ jamPreview.add({
     st("sensor.home_temperature", "73.9", {friendly_name: "Home temperature", unit_of_measurement: "°F", device_class: "temperature"}),
     st("weather.bungalo_weather", "clear-night", {friendly_name: "Bungalo weather", temperature: 63, temperature_unit: "°F"}),
     st("lock.level_bolt_matter", "unlocked", {friendly_name: "Level Bolt"}),
-    st("person.isaac", "home", {friendly_name: "Isaac"}),
+    st("person.isaac", "home", {friendly_name: "Isaac Hulter"}),  // chip shows the first name
     st("person.amber", "not_home", {friendly_name: "Amber"}),
     st("person.marissa", "home", {friendly_name: "Marissa"}),
     st("person.nick", "home", {friendly_name: "Nick"}),
@@ -25,6 +25,9 @@ jamPreview.add({
       {type: "custom:jam-scenes", accent: "living", current_entity: "input_select.light_scenes", scenes: [
         {entity: "scene.normal", data: {transition: 2}}, {entity: "scene.movie_time", data: {transition: 2}},
         {entity: "scene.vibes", data: {transition: 2}}, {entity: "scene.spring_vibes", data: {transition: 2}}]},
+      {type: "custom:jam-scenes", accent: "living", wrap: true, current_entity: "input_select.light_scenes", scenes: [
+        {entity: "scene.normal"}, {entity: "scene.movie_time"}, {entity: "scene.vibes"}, {entity: "scene.spring_vibes"},
+        {entity: "scene.normal", name: "Normal again"}, {entity: "scene.movie_time", name: "Movie time two"}]},
       {type: "custom:jam-house", compact: true, kicker: "Kitchen kiosk · inside", inside_entity: "sensor.home_temperature",
         outside_entity: "weather.bungalo_weather", lock_entity: "lock.level_bolt_matter", people: ["person.isaac", "person.amber"],
         alerts: [{entity: "binary_sensor.washer_leak", state: "on", name: "Washer leak"}]},

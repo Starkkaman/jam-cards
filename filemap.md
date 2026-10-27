@@ -2,7 +2,7 @@
 - CLAUDE.md — agent rules for this repo
 - filemap.md — this file
 - README.md, LICENSE, hacs.json — HACS packaging + user docs
-- docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list
+- docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list (0.3 work is planned in ../jam-home/docs/PLAN.md)
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
 - src/core.js — fonts, BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), edge/cut system, openSheet, JamBase, window.JamCards, register()
@@ -14,4 +14,4 @@
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
 - preview/shoot.js — runs bundle, screenshots, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
 - preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 80-control, 90-kiosk (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same ten names
-- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png)
+- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png); with JAM_SHOTS=<dir> the 70-tv checks also write nerveos-sheet-390 / tv-remote-sheet-390

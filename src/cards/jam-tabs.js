@@ -1,6 +1,10 @@
 /* ---------- jam-tabs: room tabs (equal-width keys, 8px top-right cut, 4px accent bar) ----------
    {type: custom:jam-tabs, tabs: [{name, path (navigation path, e.g. /jam-overview/kitchen), accent? (colour or room
-    alias; default the card accent)}], sticky?: true (sticks under the HA header: top var(--header-height, 0))}
+    alias; default the card accent)}], sticky?: true (the host itself is position:sticky, top var(--header-height, 0))}
+   Sticky limit: CSS sticky only works inside the element's containing block. In HA the card sits in hui-card inside a
+   section grid cell, so it sticks only while that cell / section is on screen and cannot follow the whole view. Put the
+   tabs in their own full-width section at the top of the view; there they stay put, they do not float over later sections.
+   The cut corners show the page background (--primary-background-color, else --jam-ink) in both modes.
    The tab whose path equals location.pathname is current: filled with its accent, ink text. Tap = navigate like HA
    (history.pushState + location-changed); the card follows location-changed / popstate. */
 class JamTabs extends JamBase {
@@ -23,7 +27,7 @@ class JamTabs extends JamBase {
   }
   css() { return `
     :host([data-sticky]){position:sticky;top:var(--header-height,0);z-index:2}
-    :host([data-sticky]) .tabs{background:var(--ink)}
+    :host([data-sticky]) .tabs{background:var(--primary-background-color,var(--ink))}
     .tabs{display:flex;gap:4px}
     .tab{flex:1 1 0;min-width:0;position:relative;font:600 .6rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;
       padding:10px 4px 12px;background:var(--slab2);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;

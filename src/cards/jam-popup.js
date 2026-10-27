@@ -1,6 +1,7 @@
 /* ---------- jam-popup: full-screen ink veil + cut sheet (top-right 18px) that opens on a URL hash ----------
    {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
+   Sheet face = slab; child cards get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3).
    Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
    own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
@@ -17,13 +18,15 @@ const POPUP_CSS = `
   .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
   .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
   .sheet > .face{--p-t:16px;--p-r:18px;--p-b:18px;--p-l:18px;height:auto;max-height:88vh;display:flex;flex-direction:column;gap:12px;
-    background:var(--slab2);outline:none}
+    background:var(--slab);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
   .t .label{color:var(--acc)}
   .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
-  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0}
+  /* Child cards one surface step up (DESIGN "Tokens"): their face = slab2, their inner controls = slab3. */
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0;
+    --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .body > *{display:block;min-width:0}
   .close{flex:none}
   .pop.opening .wipe{animation:jam-wipe 160ms steps(4,start) backwards}

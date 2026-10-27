@@ -10,7 +10,7 @@ function loadFonts() {
 /* Shared tokens + primitives. Every card gets this in its shadow root. */
 const BASE_CSS = `
 :host{
-  --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622);
+  --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622); --slab3:var(--jam-slab3,#35302a);
   --paper:var(--jam-paper,#ece2c9); --paper-fg:var(--jam-paper-fg,#141210); --paper-dim:var(--jam-paper-dim,#5c5446);
   --fg:var(--jam-fg,#ece2c9); --dim:var(--jam-dim,#9a8f7c); --line:var(--jam-line,#34302a);
   --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --teal:var(--jam-teal,#22a39a);
@@ -350,7 +350,7 @@ function deepActive() {
   return a;
 }
 /* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>). */
-const SHEET_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
+const SHEET_TOKENS = ["ink", "slab", "slab2", "slab3", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
   "violet", "green", "on-fg", "shadow", "s1", "s2", "s3", "s4", "s5", "display", "body", "accent"].map(n => "--jam-" + n);
 const SHEET_CSS = `
   .pop{position:fixed;inset:0;z-index:10000;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
@@ -365,7 +365,8 @@ const SHEET_CSS = `
   .t{display:grid;gap:4px;min-width:0}
   .t h2{font-size:clamp(1.7rem,6vw,2.2rem);overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
-  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0}
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0;
+    --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .close{flex:none}
   .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
   .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
@@ -384,6 +385,8 @@ const SHEET_STACK = [];
    --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
    cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
    onClose()}.
+   Child cards appended to `body` get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3), so their
+   faces and keys stay visible on the slab sheet face.
    Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
    Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
 function openSheet(opts = {}) {

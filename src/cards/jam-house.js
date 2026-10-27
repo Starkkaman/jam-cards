@@ -1,6 +1,7 @@
 /* ---------- jam-house: the house strip (inside / outside temperature, front door, who's home, alerts) ----------
    {type: custom:jam-house, inside_entity (temperature sensor), outside_entity (weather.* or sensor.*), lock_entity?,
-    people?: [person ids] (only those home are shown, as teal chips), alerts?: [{entity, state?, name}] (red chip while
+    people?: [person ids] (only those home are shown, as teal chips with the first name), full_names?: true (chips show
+    the full friendly name), alerts?: [{entity, state?, name}] (red chip while
     the entity matches `state`, or without `state` while it is on/open/problem), title? (default
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller)}
    Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
@@ -83,7 +84,8 @@ class JamHouse extends JamBase {
     for (const id of c.people || []) {
       const ps = stateObj(h, id);
       if (!ps || ps.state !== "home") continue;
-      const chip = el("span", "chip home", friendly(h, id));
+      const full = String(friendly(h, id)).trim();
+      const chip = el("span", "chip home", c.full_names ? full : (full.split(/\s+/)[0] || full));
       chip.dataset.role = "person"; chip.dataset.entity = id;
       chips.append(chip);
     }

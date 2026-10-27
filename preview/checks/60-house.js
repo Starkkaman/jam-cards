@@ -2,7 +2,7 @@
 module.exports = async (page, check, {callsNow}) => {
   const house = page.locator("jam-house").first();
   // People: only those home, as chips (amber is not_home).
-  const people = await house.locator("[data-role=person]").allTextContents();
+  const people = await house.locator("[data-role=person]").allTextContents();   // "Isaac Hulter" -> first name
   check(JSON.stringify(people) === JSON.stringify(["Isaac", "Marissa", "Nick"]), `jam-house shows only people at home (${people.join(", ")})`);
   check((await house.locator(".temp").textContent()) === "73.9°F" && (await house.locator(".otemp").textContent()) === "63°",
     "jam-house shows inside 73.9°F and outside 63°");
@@ -19,6 +19,11 @@ module.exports = async (page, check, {callsNow}) => {
   await page.evaluate(() => { const h = window.__hass; h.states["lock.level_bolt_matter"] = {...h.states["lock.level_bolt_matter"], state: "locked", last_updated: "z"};
     document.querySelectorAll("jam-house").forEach(t => t.hass = {...h}); });
   check((await door.textContent()) === "Door locked" && !(await door.evaluate(e => e.classList.contains("red"))), "locked door chip reads 'Door locked' (slab)");
+  // full_names: true keeps the full friendly name.
+  const full = await page.evaluate(() => { const e = document.querySelector("jam-house"); const c = e._config;
+    e.setConfig({...c, full_names: true}); e.hass = {...window.__hass};
+    const t = [...e.shadowRoot.querySelectorAll("[data-role=person]")].map(x => x.textContent); e.setConfig(c); e.hass = {...window.__hass}; return t; });
+  check(full[0] === "Isaac Hulter", `jam-house full_names: true shows full names (${full.join(", ")})`);
   // Compact house: matching alert chip.
   const alert = page.locator("jam-house").nth(1).locator("[data-role=alert]");
   check(await alert.count() === 1 && (await alert.textContent()) === "Washer leak", "compact jam-house shows the matching alert chip");
@@ -43,4 +48,11 @@ module.exports = async (page, check, {callsNow}) => {
   await scenes.locator(".scene", {hasText: "Vibes"}).first().click();
   check((await callsNow()).some(c => c.domain === "scene" && c.service === "turn_on" && c.data.entity_id === "scene.vibes" && c.data.transition === 2),
     "scene tap calls scene.turn_on with its data (transition 2)");
+  // wrap: true -> keys wrap onto more rows, no sideways scroll.
+  const wr = page.locator("jam-scenes").nth(1);
+  await wr.evaluate(e => { e.style.display = "block"; e.style.width = "280px"; });
+  const wrap = await wr.locator(".scenes").evaluate(r => ({cls: r.classList.contains("wrap"), sw: r.scrollWidth, cw: r.clientWidth,
+    rows: new Set([...r.children].map(b => Math.round(b.getBoundingClientRect().top))).size}));
+  check(wrap.cls && wrap.sw <= wrap.cw + 1 && wrap.rows > 1, `jam-scenes wrap (280 px): more rows, no horizontal overflow (${wrap.sw}/${wrap.cw}, ${wrap.rows} rows)`);
+  await wr.evaluate(e => { e.style.display = ""; e.style.width = ""; });
 };

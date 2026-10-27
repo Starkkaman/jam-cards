@@ -42,6 +42,22 @@ module.exports = async (page, check, {callsNow}) => {
   check(await apps.count() === 7, "jam-tv: idle shows the 7 launchers");
   const ys = await apps.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
   check(ys.slice(0, 4).every(y => y === ys[0]) && ys[4] > ys[0], `jam-tv: launchers are 4-up (${ys.join(",")})`);
+  // Narrow card (300 px): 3-up, names wrap on word boundaries only (each word fits on one line, max 2 lines).
+  await idle.evaluate(e => { e.style.display = "block"; e.style.width = "300px"; });
+  const nys = await apps.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
+  check(nys.slice(0, 3).every(y => y === nys[0]) && nys[3] > nys[0], `jam-tv: 300 px card -> launchers 3-up (${nys.join(",")})`);
+  const names = await apps.evaluateAll(bs => bs.map(b => {
+    const nm = b.querySelector(".nm"), lh = parseFloat(getComputedStyle(nm).lineHeight) || 10;
+    let wordsFit = true;
+    for (const w of nm.textContent.split(/\s+/)) {   // a word wider than the box would be clipped or broken
+      const probe = document.createElement("span"); probe.textContent = w; probe.style.whiteSpace = "nowrap";
+      nm.append(probe); if (probe.getBoundingClientRect().width > nm.clientWidth + 0.5) wordsFit = false; probe.remove();
+    }
+    return {n: nm.textContent, wordsFit, lines: Math.round(nm.getBoundingClientRect().height / lh)};
+  }));
+  const badNames = names.filter(x => !x.wordsFit || x.lines > 2);
+  check(badNames.length === 0, `jam-tv: 300 px launcher names fit whole words, max 2 lines (${names.map(x => x.n + ":" + x.lines + (x.wordsFit ? "" : "!")).join(", ")})`);
+  await idle.evaluate(e => { e.style.display = ""; e.style.width = ""; });
   const sq = await apps.first().locator(".sq").evaluate(e => getComputedStyle(e).backgroundColor);
   const violet = await page.evaluate(() => { const p = document.createElement("span"); p.style.color = "var(--jam-violet)"; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; });
   check(sq === violet, `jam-tv: launcher colour square is a flat jam colour (Jellyfin violet ${sq})`);
@@ -113,6 +129,16 @@ module.exports = async (page, check, {callsNow}) => {
     return [...m._jamSheet.sheet.body.children].every(k => k.hass === nh);
   });
   check(fresh, "jam-media more: a new hass reaches the sheet's child cards");
+  // Surfaces one step up inside the sheet: sheet face slab, child card face slab2 (≠ sheet), child keys slab3.
+  const surf = await page.evaluate(() => {
+    const sr = document.querySelector(".jam-sheet-host").shadowRoot, bg = n => n ? getComputedStyle(n).backgroundColor : null;
+    const btn = sr.querySelector("jam-button"), tile = sr.querySelector("jam-tile");
+    const tok = v => { const p = document.createElement("span"); p.style.color = `var(${v})`; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+    return {sheet: bg(sr.querySelector(".sheet > .face")), btn: bg(btn.shadowRoot.querySelector(".face")), tileKey: bg(tile.shadowRoot.querySelector(".key > .face")),
+      slab: tok("--jam-slab"), slab2: tok("--jam-slab2"), slab3: tok("--jam-slab3")};
+  });
+  check(surf.sheet === surf.slab && surf.btn === surf.slab2 && surf.btn !== surf.sheet && (!surf.tileKey || surf.tileKey === surf.slab3),
+    `sheet child cards one surface step up (sheet ${surf.sheet}, key face ${surf.btn}, tile key ${surf.tileKey})`);
   // Entity-less jam-remote (NerveOS): keys run their actions; keys without one are disabled; no own title in the sheet.
   const nrem = ns.locator("jam-remote");
   const nr = await nrem.evaluate(r => ({head: r.shadowRoot.querySelectorAll(".label, .title").length, err: r.shadowRoot.querySelectorAll(".c-alert").length,
