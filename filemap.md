@@ -5,13 +5,13 @@
 - docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
-- src/core.js — fonts, BASE_CSS, helpers, colour (accent) system, edge/cut system, JamBase, window.JamCards, register()
-- src/cards/jam-*.js — 14 cards (button, choice, gauge, graph, heading, hero, light, list, media, popup, remote, slider, tile, weather), one class each, ends with register(tag, Class, name, description)
+- src/core.js — fonts, BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), edge/cut system, openSheet, JamBase, window.JamCards, register()
+- src/cards/jam-*.js — 22 cards (alerts, button, choice, fan, gauge, graph, heading, hero, house, light, list, media, panel, popup, remote, scenes, screensaver, slider, tabs, tile, tv, weather), one class each, ends with register(tag, Class, name, description); jam-media.js also holds jamCardSheet / JamSheetHost (used by jam-tv)
 - src/footer.js — console banner, closes the IIFE
 - tools/bundle.mjs — builds jam-cards.js + preview/fixtures/index.js; --check exits 1 if stale
 - preview/index.html — fake hass + theme tokens; renders all fixtures
 - preview/fixtures/NN-*.js — jamPreview.add({states, sections}); index.js is GENERATED
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
 - preview/shoot.js — runs bundle, screenshots, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
-- preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av (+ generated index.js); preview/checks/: same six names
-- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-dark-390, popup-light-390 (.png)
+- preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 80-control, 90-kiosk (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same ten names
+- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png)

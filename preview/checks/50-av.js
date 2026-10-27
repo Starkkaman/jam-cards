@@ -24,6 +24,21 @@ module.exports = async (page, check, {callsNow}) => {
   await reset(); await key("power").click();
   check((await callsNow()).some(c => c.domain === "remote" && c.service === "toggle" && c.data.entity_id === RID), "remote power = remote.toggle");
   check(await key("power").evaluate(b => b.classList.contains("alert")), "remote power key is red");
+  // Config: entity-less needs actions; hide_title hides the name label + title.
+  const vr = await page.evaluate(() => {
+    const mk = cfg => { const e = document.createElement("jam-remote"); try { e.setConfig(cfg); return "ok"; } catch (x) { return x.message; } };
+    const e = document.createElement("jam-remote");
+    e.setConfig({type: "custom:jam-remote", entity: "remote.living_room_phoster_android_tv", hide_title: true});
+    document.body.append(e); e.hass = window.__hass;
+    const head = e.shadowRoot.querySelectorAll(".label, .title").length, pad = e.shadowRoot.querySelectorAll("button[data-key]").length;
+    e.remove();
+    return {none: mk({type: "custom:jam-remote"}), empty: mk({type: "custom:jam-remote", actions: {}}),
+      acts: mk({type: "custom:jam-remote", actions: {ok: {action: "none"}}}), bad: mk({type: "custom:jam-remote", entity: "light.x"}), head, pad};
+  });
+  check(/entity/.test(vr.none) && /entity/.test(vr.empty) && vr.acts === "ok" && /must be a remote/.test(vr.bad),
+    `jam-remote config: no entity needs actions; non-remote entity rejected (${vr.none} | ${vr.acts} | ${vr.bad})`);
+  check(vr.head === 0 && vr.pad > 5, `jam-remote hide_title: no name/title, keys still render (${vr.head}, ${vr.pad} keys)`);
+  check(await remote.evaluate(r => r.shadowRoot.querySelectorAll(".label, .title").length === 2), "jam-remote shows its name + title by default");
   // Custom actions override the command.
   await reset(); await key("tv").click();
   check((await callsNow()).some(c => c.domain === "script" && c.service === "stereo_input_select_video"), "remote tv key runs script.stereo_input_select_video");

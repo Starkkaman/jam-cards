@@ -94,22 +94,39 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
 - **Big numerals**: values (temperature, %, time) set huge in Londrina; units small Jost beside them.
 
 ## Card catalogue (what each jam card is for)
+Every card accepts `accent:` (Colour system). Option details are in each file's header comment (src/cards/jam-*.js).
 | Card | Replaces | Essentials |
 |---|---|---|
 | jam-heading | heading (+badges) | kicker, title, 5px accent rule, state chips, tap_action |
 | jam-hero | markdown header / big status | paper slab, 22px cut, title_entity, meta, chips, power off state |
 | jam-tile | tile, mushroom-entity, bubble button | entity block, stripe, value; `control: auto/toggle/lock/press/none`; features below |
 | jam-choice | select tile, bubble select | option chips |
-| jam-slider | numeric tile, bubble slider | number/input_number/light/media volume/**fan percentage** |
-| jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image + CSS `mix-blend-mode: multiply` over a flat accent block is allowed: it is flat print, not a gradient), title, artist, transport, volume slider, optional source chips |
-| jam-button **new** | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or `color` from HA names mapped to jam tokens), accent face when entity on, tap/hold/double_tap actions, confirmation |
-| jam-light **new** | mushroom-light | name, on/off key, brightness bar (drag), colour-temp chips + colour swatches from `effect`-less presets; light colour shown as a flat swatch block |
-| jam-popup **new** | bubble pop-up | opens on `location.hash == hash`, full-screen ink veil + cut sheet, title, child `cards` rendered via HA card helpers; close on veil/Esc/close button (history.back if we pushed, else clear hash) |
-| jam-remote **new** | universal-remote-card | d-pad (cross of cut arrows), OK, back/home/menu row, transport row, volume via custom actions; sends `remote.send_command` / configured actions |
-| jam-weather **new** | clock-weather, weather-forecast(-card) | big temp numeral, condition word (no animated effects), N-day forecast strip as cut columns, optional `clock: true` big time; uses `weather/subscribe_forecast` |
-| jam-graph **new** | mini-graph, sensor graph, statistics-graph | SVG step/line chart from history (`history/history_during_period`), 1-5 series in `--jam-s*`, 3px square-capped lines, recessive axis, legend chips, crosshair + tooltip on hover/tap, current value big |
-| jam-gauge **new** | gauge | half-disc of cut wedges (severity bands) + big numeral, or `style: bar` |
-| jam-list **new** | entities | rows: name / value, divider rules, toggles for switchable rows |
+| jam-slider | numeric tile, bubble slider | number/input_number/light/media volume/fan percentage |
+| jam-button | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or HA `color` names), accent face when entity on, tap/hold/double_tap actions, confirmation |
+| jam-light (v2) | mushroom-light | card face = the light's hue at full value (`fullRgb`: rgb_color scaled so the max channel is 255, kelvin → rgb in color_temp mode, else the accent), ink/paper text by luminance of that colour; big %, 12px brightness strip, drag to dim, corner ⋯ / hold = light pop-up (openSheet): 72px brightness bar, whites or WLED preset cards, hue strip, "Your colours" (HA user data), group members (pills + bars in each member's full-value colour), off-timer |
+| jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet, title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
+| jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows; `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets) |
+| jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image multiplied over a flat accent block: flat print, not a gradient), title, artist, transport, volume, sources, players, group; `compact` mini layout; `more` ⋯ sheet of child cards (jamCardSheet); title_entity players without a media_player |
+| jam-tv | Android TV media cards | now playing (art, title, app, position) + Prev/Play/Next/Remote, or idle launchers 4-up + Power/Stereo/Remote; Remote = sheet with a jam-remote |
+| jam-fan | fan tile, purifier cards | On/Off pill, speed steps (fan.set_percentage), preset chips, air-quality kicker sensors |
+| jam-weather | clock-weather, weather-forecast | big temp numeral, condition word (`conditionWord`), cut-paper glyph, forecast strip, optional clock (`clock_size` normal/big/huge) |
+| jam-graph | mini-graph, statistics-graph | SVG step/line chart from history, 1-5 series in `--jam-s*`, legend chips, crosshair + tooltip, current value big |
+| jam-gauge | gauge | half-disc of cut wedges (severity bands) + big numeral, or `style: bar` |
+| jam-list | entities | rows: name / value, divider rules, toggles for switchable rows |
+| jam-house | landing header | house strip: inside / outside temperature + condition word, door lock chip (tap = lock), who's home, alert chips; `compact` kiosk row |
+| jam-tabs | navigation chips / tab bars | equal-width room tabs, current tab filled with its accent, optional sticky |
+| jam-scenes | scene buttons | horizontally scrolling scene/script keys, active scene (input_select) in the accent |
+| jam-screensaver | kiosk screensavers | zero-footprint card; full-viewport Poster clock + weather word or photo slideshow after idle; built for weak kiosks (no rAF, minute timer) |
+| jam-panel | entities (control room) | compact name / value rows, formats (pct, temp, bytes_rate, duration, relative), `bad` thresholds in red; `accent` = 4px rule under the title; names/titles never break mid-word (the value column wraps) |
+| jam-alerts | automation / alert lists | automations by last_triggered ("ran …"), watched entities, unavailable count, red failure chip |
+
+### Core helpers (window.JamCards, src/core.js)
+- Colour: `ACCENTS`, `accentName`, `accentVar`, `accentFg`, `setAccent`; light colour `kelvinToRgb`, `lightRgb` (a light's output
+  colour), `fullRgb` (scale [r,g,b] so the max channel is 255; null for black/missing), `rgbCss`, `luminance`, `inkOn` (ink/paper text).
+- Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
+- Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`.
+- Sheets: `openSheet({from, title, kicker, accent, …})` → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it),
+  `vertigoSpiral`, `deepActive`. jam-media's `jamCardSheet` puts child cards in one (used by jam-tv and jam-media `more`).
 
 ## Native cards left in clones
 picture-glance (camera), markdown, conditional/grid/vertical-stack/horizontal-stack containers. The theme styles them

@@ -325,7 +325,24 @@ function lightRgb(s) {
   if (a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
   return null;
 }
+/* A colour's hue at full value: [r,g,b] scaled so the largest channel is 255 (WLED reports brightness-scaled rgb_color,
+   e.g. [51,20,0] -> [255,100,0]). null for a missing or black colour. */
+function fullRgb(c) {
+  if (!Array.isArray(c) || c.length < 3) return null;
+  const v = c.slice(0, 3).map(x => Math.max(0, Number(x) || 0)), m = Math.max(...v);
+  return m > 0 ? v.map(x => Math.min(255, Math.round(x * 255 / m))) : null;
+}
 const rgbCss = c => `rgb(${c.slice(0, 3).map(v => Math.round(Number(v) || 0)).join(",")})`;
+
+/* ---------- weather words ---------- */
+/* HA weather condition -> short word (jam-weather, jam-house, jam-screensaver). */
+const CONDITION_WORDS = Object.freeze({
+  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
+  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
+  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
+});
+/* Word for a condition state; unknown states with - / _ turned into spaces. */
+function conditionWord(st) { const k = String(st == null ? "" : st); return CONDITION_WORDS[k] || k.replace(/[-_]/g, " "); }
 
 /* ---------- sheet (pop-up) helpers ---------- */
 /* Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
@@ -507,7 +524,7 @@ window.JamCards = Object.freeze({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, vertigoSpiral, deepActive, openSheet,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, vertigoSpiral, deepActive, openSheet,
 });
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */
@@ -1507,11 +1524,6 @@ register("jam-hero", JamHero, "Jam Hero", "Paper slab with a cut corner: big tit
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller)}
    Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
    (tap = more-info); jammed/unavailable -> red, tap = more-info. */
-const JAM_HOUSE_WORDS = {
-  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
-  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
-  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
-};
 /* Numeric state as written (73.9 stays 73.9, 63.0 -> 63); anything else -> "—". */
 function jamHouseNum(v) {
   const n = Number(v);
@@ -1563,7 +1575,7 @@ class JamHouse extends JamBase {
     const out = stateObj(h, c.outside_entity), isWx = c.outside_entity.startsWith("weather.");
     const outBox = el("div", "out");
     let word = "";
-    if (isWx && out && !UNAVAILABLE.has(out.state)) word = JAM_HOUSE_WORDS[out.state] || String(out.state).replace(/-/g, " ");
+    if (isWx && out && !UNAVAILABLE.has(out.state)) word = conditionWord(out.state);
     outBox.append(el("div", "label", word ? `Outside · ${word}` : "Outside"));
     const ov = jamHouseNum(out && (isWx ? out.attributes.temperature : out.state));
     const ot = el("div", "disp otemp num focusable", ov === "—" ? ov : ov + "°");
@@ -1624,8 +1636,8 @@ register("jam-house", JamHouse, "Jam House", "House strip: inside and outside te
     presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}] (extra chips in the pop-up),
     show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
     tap_action? (default toggle), hold_action? (default: open the pop-up)}
-   Card: when on the face is the light's real output colour (rgb_color; kelvin -> rgb in color_temp mode; else the accent),
-   text ink or paper by luminance; big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
+   Card: when on the face is the light's hue at full value (rgb_color scaled so the max channel is 255; kelvin -> rgb in
+   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
    Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
    vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
    ←/→ = ±10 %, M or Shift+Enter = pop-up.
@@ -1756,9 +1768,10 @@ class JamLight extends JamBase {
     if (!a && e && e.device_id && h.devices && h.devices[e.device_id]) a = h.devices[e.device_id].area_id;
     return a && h.areas && h.areas[a] ? h.areas[a].name : "";
   }
-  /* Fill colour [css, text css] for a light state; the accent when it is on without a colour. */
+  /* Fill colour [css, text css] for a light state: its hue at full value (fullRgb: WLED's brightness-scaled rgb_color
+     [51,20,0] paints [255,100,0]); ink/paper text chosen on that scaled colour. The accent when it is on without a colour. */
   _paint(s) {
-    const rgb = lightRgb(s);
+    const rgb = fullRgb(lightRgb(s));
     return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
   }
   css() { return `
@@ -2189,7 +2202,7 @@ const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 
    jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs]}) opens a sheet (theme tokens copied from host, back /
    Esc / veil / CLOSE close it) whose body holds the cards, created with HA's card helpers (preview: by tag). They get
    host.hass, and later updates through sheet.hass(h) (JamSheetHost does that). A configured accent becomes the sheet accent
-   and the children's --jam-accent. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
+   and the children's --jam-accent; a custom:jam-remote child gets hide_title: true unless set. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
 function jamMakeCard(cfg, helpers, onRebuild) {
   try {
     if (helpers && helpers.createCardElement) {
@@ -2220,7 +2233,9 @@ function jamCardSheet(host, opts) {
   if (acc) body.style.setProperty("--jam-accent", acc);
   const feed = k => { if (hass) { try { k.hass = hass; } catch (e) { /* child without hass setter */ } } };
   const rebuild = (old, n) => { const i = kids.indexOf(old); if (i < 0 || done) return; kids[i] = n; if (old.parentNode) old.replaceWith(n); feed(n); };
-  const build = helpers => { kids = (o.cards || []).map(cfg => jamMakeCard(cfg, helpers, rebuild)); body.textContent = ""; body.append(...kids); kids.forEach(feed); };
+  // A jam-remote in a sheet hides its own name/title (the sheet header names it) unless hide_title is set explicitly.
+  const cfgs = (o.cards || []).map(cfg => (cfg && cfg.type === "custom:jam-remote" && cfg.hide_title === undefined ? {...cfg, hide_title: true} : cfg));
+  const build = helpers => { kids = cfgs.map(cfg => jamMakeCard(cfg, helpers, rebuild)); body.textContent = ""; body.append(...kids); kids.forEach(feed); };
   if (window.loadCardHelpers) window.loadCardHelpers().then(hp => { if (!done) build(hp); }, () => { if (!done) build(null); });
   else build(null);
   const api = {sheet, hass(h) { hass = h; kids.forEach(feed); }, close: a => sheet.close(a)};
@@ -2470,7 +2485,8 @@ register("jam-media", JamMedia, "Jam Media", "Now playing as a duotone print, tr
    Slab panel (card cut), Londrina title, rows split by 2px --jam-line rules: name left (Jost .8rem), value right (Londrina 1rem).
    Values are never in the accent colour. A row is red when its value crosses a `bad` threshold, its state is listed in
    bad.state, or the entity is unavailable/unknown/missing (value "unavailable"). `max` shows "value / max unit".
-   Row tap = more-info unless tap_action says otherwise. */
+   Row tap = more-info unless tap_action says otherwise. A configured `accent` shows as a 4px rule under the title.
+   Names and the title never break mid-word; the value column shrinks and wraps instead. */
 const JP_RATE = {"bit/s": 1 / 8, "kbit/s": 125, "mbit/s": 125e3, "gbit/s": 125e6, "b/s": 1, "kb/s": 1e3, "mb/s": 1e6, "gb/s": 1e9,
   "kib/s": 1024, "mib/s": 1048576, "gib/s": 1073741824};
 const JP_SEC = {s: 1, sec: 1, min: 60, h: 3600, hr: 3600, d: 86400, ms: .001, w: 604800};
@@ -2504,11 +2520,12 @@ class JamPanel extends JamBase {
   watched() { return this._rows().map(r => r.entity); }
   css() { return `
     .pn{display:flex;flex-direction:column}
-    .ttl{font-size:1.1rem;margin:0 0 7px}
+    .ttl{font-size:1.1rem;margin:0 0 7px;overflow-wrap:normal;word-break:normal;hyphens:none}
+    .acc{height:4px;background:var(--acc);margin:-2px 0 8px}
     .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px solid var(--line);padding:6px 0;cursor:pointer}
     .row.static{cursor:default}
-    .nm{flex:1 1 auto;min-width:0;font:500 .8rem/1.3 var(--body);overflow-wrap:anywhere}
-    .v{flex:0 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:break-word}
+    .nm{flex:0 1 auto;min-width:min-content;font:500 .8rem/1.3 var(--body);overflow-wrap:normal;word-break:normal;hyphens:none}
+    .v{flex:1 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:anywhere}
     .row.bad .v{color:var(--red)}`; }
   /* -> {text, raw (number|null), unavail} for one row. */
   value(r) {
@@ -2550,6 +2567,7 @@ class JamPanel extends JamBase {
     const c = this._config, h = this._hass;
     const {root, face} = this.paper(c.title || "panel", {face: "pn"});
     if (c.title) face.append(el("h3", "disp ttl", c.title));
+    if (accentVar(c.accent)) { const r = el("div", "acc"); r.setAttribute("aria-hidden", "true"); face.append(r); }
     for (const r of this._rows()) {
       const v = this.value(r), bad = this.isBad(r, v), act = r.tap_action || {action: "more-info"};
       const row = el("div", "row" + (bad ? " bad" : ""));
@@ -2779,13 +2797,16 @@ class JamPopup extends JamBase {
 register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a cut sheet of cards, opened by a URL hash.");
 
 /* ---------- jam-remote: TV remote (d-pad cross of cut arrows + keys) ----------
-   {type: custom:jam-remote, entity (remote.*), media_player? (title/state), name?,
+   {type: custom:jam-remote, entity? (remote.*), media_player? (title/state), name?, hide_title? (hide the name label + title;
+    jam-tv / jam-media sheets set it, the sheet header already names the remote),
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
     labels?: {key: text}, accent? (OK disc + arrow marks; DESIGN "Colour system")}
    Row keys = key cut (top-right 12px); power is red. D-pad arms are fixed straight arrows (45° point toward the arm's
    direction), the OK key a disc.
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
-   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
+   power without a command = remote.toggle.
+   Without `entity` (e.g. NerveOS: button.* presses / select options) keys only run `actions`: the card is valid when
+   `actions` has at least one entry; every key without one (and dpad arms / OK without one) is disabled, not an error. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
    app_name, else the remote's current_activity; JAM_REMOTE_APPS, null = skip), else name / the media_player's friendly_name. */
 const JAM_REMOTE_ROWS = [["power", "back", "home", "menu"], ["dpad"], ["prev", "play_pause", "next"], ["vol_down", "mute", "vol_up"]];
@@ -2812,7 +2833,11 @@ function jamRemoteApp(id) {
 const JAM_REMOTE_REPEAT = new Set(["up", "down", "left", "right", "vol_up", "vol_down"]);
 
 class JamRemote extends JamBase {
-  validate(c) { if (!c.entity || !c.entity.startsWith("remote.")) throw new Error("jam-remote: entity must be a remote"); }
+  validate(c) {
+    if (c.entity) { if (!String(c.entity).startsWith("remote.")) throw new Error("jam-remote: entity must be a remote"); return; }
+    if (!c.actions || typeof c.actions !== "object" || !Object.values(c.actions).some(Boolean))
+      throw new Error("jam-remote: set entity (remote.*), or actions for the keys");
+  }
   watched() { return [this._config.entity, this._config.media_player].filter(Boolean); }
   css() { return `
     .wrap{display:grid;gap:12px;align-content:start}
@@ -2833,13 +2858,16 @@ class JamRemote extends JamBase {
     const c = this._config, h = this._hass;
     const a = c.actions && c.actions[k];
     if (a) { runAction(this, h, a, c.entity); return; }
+    if (!c.entity) return;
     const cmd = (c.commands && c.commands[k]) || (k === "power" ? null : JAM_REMOTE_CMDS[k]);
     if (cmd) h.callService("remote", "send_command", {entity_id: c.entity, command: cmd});
     else if (k === "power") h.callService("remote", "toggle", {entity_id: c.entity});
   }
   _known(k) {
     const c = this._config;
-    return !!((c.actions && c.actions[k]) || (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power");
+    if (c.actions && c.actions[k]) return true;
+    if (!c.entity) return false;
+    return !!( (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power");
   }
   /* Tap = one send. Repeat keys: send on pointerdown, repeat after 400 ms every 180 ms until up/leave/cancel;
      keyboard activation (click with detail 0) sends once. */
@@ -2881,7 +2909,7 @@ class JamRemote extends JamBase {
         const t = el("span", "tri"); t.style.clipPath = tri[k]; t.setAttribute("aria-hidden", "true");
         face.append(t); root.setAttribute("aria-label", lbl);
       }
-      root.dataset.key = k; root.disabled = off;
+      root.dataset.key = k; root.disabled = off || !this._known(k);
       this._bind(root, k);
       pad.append(root);
     });
@@ -2893,16 +2921,21 @@ class JamRemote extends JamBase {
     if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
     const t = jamRemoteApp(a.app_id || a.app_name || (s && s.attributes.current_activity)); /* the current app's package */
     if (t) return t;
-    return c.name || friendly(this._hass, c.media_player || c.entity) || "—";
+    return c.name || friendly(this._hass, c.media_player || c.entity) || "Remote";
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
-    const off = !s || UNAVAILABLE.has(s.state);
-    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
-    wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const title = this._title(s, mp);
-    const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
-    wrap.append(tt);
+    // Without a remote entity the keys run actions only; the stripe follows the media_player (if any).
+    const off = c.entity ? !s || UNAVAILABLE.has(s.state) : false, st = c.entity ? s : mp;
+    const tn = st ? tone(st) : "off";
+    const {root, face: wrap} = this.paper(c.entity || c.media_player || c.name || "remote", {face: `wrap stripe s-${tn}${off ? " unavail" : ""}`});
+    if (!c.hide_title) {
+      wrap.append(el("div", "label", c.name || friendly(h, c.entity || c.media_player) || "Remote"));
+      const tt = el("div", "title", this._title(s, mp));
+      const mi = c.media_player || c.entity;
+      if (mi) { tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, mi); }
+      wrap.append(tt);
+    }
     for (const row of c.rows || JAM_REMOTE_ROWS) {
       if (!Array.isArray(row)) continue;
       if (row.includes("dpad")) { wrap.append(this._pad(off)); continue; }
@@ -3281,7 +3314,7 @@ class JamScreensaver extends JamBase {
     const wok = w && !UNAVAILABLE.has(w.state);
     let temp = wok ? Number(w.attributes.temperature) : NaN, unit = wok ? w.attributes.temperature_unit || "" : "";
     if (ts && ts.state !== "" && isFinite(Number(ts.state))) { temp = Number(ts.state); unit = ts.attributes.unit_of_measurement || unit; }
-    if (wok) { this._word.textContent = JAM_WX_WORDS[w.state] || w.state.replace(/[-_]/g, " "); this._wx.append(this._word); }
+    if (wok) { this._word.textContent = conditionWord(w.state); this._wx.append(this._word); }
     if (w || ts) {
       if (isFinite(temp)) { this._temp.textContent = Math.round(temp) + (unit ? unit.replace(/^°?/, "°").replace(/[CF]$/, "") : "°"); this._wx.append(this._temp); }
     }
@@ -3753,11 +3786,6 @@ function jamWxTime(h) {
   return {loc, h12};
 }
 const JAM_WX_TYPES = ["daily", "hourly", "twice_daily"];
-const JAM_WX_WORDS = {
-  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
-  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
-  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
-};
 /* Shapes in a 48x48 box. Classes pick the colour: s = sun (ochre), p = paper, r = rain (teal), b = bolt (red), g = cut (face colour). */
 const JAM_WX_CLOUD = ["polygon", {points: "4,36 5,29 10,25 13,26 15,19 21,15 26,14 31,17 34,22 39,21 43,25 45,30 44,36"}, "p"];
 const JAM_WX_SUN = [
@@ -3940,7 +3968,7 @@ class JamWeather extends JamBase {
       const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
       if (isFinite(temp) && unit) t.append(el("small", "", unit));
       const cond = el("div", "cond");
-      cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
+      cond.append(el("div", "word disp", off ? "No data" : conditionWord(s.state)));
       const meta = el("div", "meta label num");
       if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
       if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));

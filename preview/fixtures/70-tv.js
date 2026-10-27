@@ -37,6 +37,7 @@ jamPreview.add({
     st(`button.${NV}_sleep`, "unknown", {friendly_name: "Sleep"}),
     st(`button.${NV}_quit_game`, "unknown", {friendly_name: "Quit game"}),
     st(`switch.${NV}_mute`, "off", {friendly_name: "Mute"}),
+    st("select.nerveos_remote", "Home", {friendly_name: "NerveOS remote", options: ["Back", "Home"]}),
     st("fan.vital_200s_series", "on", {friendly_name: "Vital 200S Series", preset_modes: ["auto", "pet", "sleep"], percentage: 50,
       percentage_step: 25, preset_mode: null, mode: "manual", supported_features: 57}),
     st("sensor.vital_200s_series_air_quality", "excellent", {friendly_name: "Vital 200S Series Air quality"}),
@@ -50,8 +51,13 @@ jamPreview.add({
       ["full", {type: "custom:jam-media", compact: true, name: "NerveOS", accent: "kitchen",
         title_entity: `sensor.${NV}_now_playing`, state_entity: `sensor.${NV}_power`, picture_entity: `image.${NV}_cover_art`,
         sub_entities: [{entity: `number.${NV}_volume`, name: "vol"}],
-        // The real pop-up also needs a d-pad: jam-remote wants a remote.* entity, which NerveOS lacks (see the task report).
+        // NerveOS has no remote.* entity: the jam-remote runs button presses / select options only (menu has none -> disabled).
         more: {title: "NerveOS", kicker: "Living room", cards: [
+          {type: "custom:jam-remote", rows: [["dpad"], ["back", "home", "menu"]], actions: {
+            ...Object.fromEntries(["up", "down", "left", "right", "ok"].map(k => [k, {action: "perform-action", perform_action: "button.press", target: {entity_id: `button.${NV}_${k}`}}])),
+            back: {action: "perform-action", perform_action: "select.select_option", target: {entity_id: "select.nerveos_remote"}, data: {option: "Back"}},
+            home: {action: "perform-action", perform_action: "select.select_option", target: {entity_id: "select.nerveos_remote"}, data: {option: "Home"}},
+          }},
           press("Sleep", `button.${NV}_sleep`),
           press("Quit game", `button.${NV}_quit_game`, {accent: "red"}),
           {type: "custom:jam-tile", entity: `switch.${NV}_mute`, name: "Mute"},

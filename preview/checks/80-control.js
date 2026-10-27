@@ -114,4 +114,35 @@ module.exports = async (page, check) => {
     `jam-alerts: unavailable count skips update/button/scene/event and unknown (${sc["12"].vals[sc["12"].vals.length - 1]}, want 3: sensor.x, light.z, automation.e)`);
   check(sc.all.length === 5 && sc.all[3] === "automation.d" && sc.chip === "1" && sc.nocount === 0,
     `jam-alerts: default limit, never-run + unavailable rows, chip counts the unavailable automation, count row optional (${sc.all.join(",")}; chip ${sc.chip})`);
+
+  // Accent rule under the title (only with `accent`), and names / titles never break mid-word (at 390 px too).
+  const rule = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("jam-panel")].map(p => {
+    const r = p.shadowRoot.querySelector(".acc"), t = p.shadowRoot.querySelector(".ttl");
+    return [p._config.title, r ? {h: r.getBoundingClientRect().height, bg: getComputedStyle(r).backgroundColor,
+      below: r.getBoundingClientRect().top >= t.getBoundingClientRect().bottom - 0.5} : null];
+  })));
+  const green = await page.evaluate(() => { const s = document.createElement("span"); s.style.color = "var(--jam-green)"; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
+  check(rule.NAS && rule.NAS.h === 4 && rule.NAS.bg === green && rule.NAS.below && rule.Network === null,
+    `jam-panel: accent = 4px rule under the title, none without accent (${JSON.stringify(rule.NAS)})`);
+  const midword = async () => page.evaluate(() => {
+    const out = [];
+    for (const p of document.querySelectorAll("jam-panel")) for (const n of p.shadowRoot.querySelectorAll(".nm, .ttl")) {
+      const cs = getComputedStyle(n);
+      if (cs.overflowWrap !== "normal" || cs.wordBreak !== "normal" || cs.hyphens !== "none") out.push(`${n.textContent}: ${cs.overflowWrap}/${cs.wordBreak}/${cs.hyphens}`);
+      const tn = n.firstChild; if (!tn || tn.nodeType !== 3) continue;
+      const re = /\S+/g; let m;
+      while ((m = re.exec(tn.data))) {
+        const rg = document.createRange(); rg.setStart(tn, m.index); rg.setEnd(tn, m.index + m[0].length);
+        const tops = new Set([...rg.getClientRects()].map(r => Math.round(r.top)));
+        if (tops.size > 1) out.push(`"${m[0]}" split`);
+      }
+      if (n.scrollWidth > n.clientWidth + 0.5) out.push(`${n.textContent} overflows`);
+    }
+    return out;
+  });
+  const mw1 = await midword();
+  await page.setViewportSize({width: 390, height: 900}); await page.waitForTimeout(250);
+  const mw2 = await midword();
+  await page.setViewportSize({width: 1280, height: 900}); await page.waitForTimeout(150);
+  check(!mw1.length && !mw2.length, "jam-panel: row names and titles never break mid-word (1280 + 390 px)" + (mw1.length || mw2.length ? " — " + [...mw1, ...mw2].join("; ") : ""));
 };

@@ -17,7 +17,7 @@ const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 
    jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs]}) opens a sheet (theme tokens copied from host, back /
    Esc / veil / CLOSE close it) whose body holds the cards, created with HA's card helpers (preview: by tag). They get
    host.hass, and later updates through sheet.hass(h) (JamSheetHost does that). A configured accent becomes the sheet accent
-   and the children's --jam-accent. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
+   and the children's --jam-accent; a custom:jam-remote child gets hide_title: true unless set. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
 function jamMakeCard(cfg, helpers, onRebuild) {
   try {
     if (helpers && helpers.createCardElement) {
@@ -48,7 +48,9 @@ function jamCardSheet(host, opts) {
   if (acc) body.style.setProperty("--jam-accent", acc);
   const feed = k => { if (hass) { try { k.hass = hass; } catch (e) { /* child without hass setter */ } } };
   const rebuild = (old, n) => { const i = kids.indexOf(old); if (i < 0 || done) return; kids[i] = n; if (old.parentNode) old.replaceWith(n); feed(n); };
-  const build = helpers => { kids = (o.cards || []).map(cfg => jamMakeCard(cfg, helpers, rebuild)); body.textContent = ""; body.append(...kids); kids.forEach(feed); };
+  // A jam-remote in a sheet hides its own name/title (the sheet header names it) unless hide_title is set explicitly.
+  const cfgs = (o.cards || []).map(cfg => (cfg && cfg.type === "custom:jam-remote" && cfg.hide_title === undefined ? {...cfg, hide_title: true} : cfg));
+  const build = helpers => { kids = cfgs.map(cfg => jamMakeCard(cfg, helpers, rebuild)); body.textContent = ""; body.append(...kids); kids.forEach(feed); };
   if (window.loadCardHelpers) window.loadCardHelpers().then(hp => { if (!done) build(hp); }, () => { if (!done) build(null); });
   else build(null);
   const api = {sheet, hass(h) { hass = h; kids.forEach(feed); }, close: a => sheet.close(a)};

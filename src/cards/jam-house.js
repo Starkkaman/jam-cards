@@ -5,11 +5,6 @@
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller)}
    Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
    (tap = more-info); jammed/unavailable -> red, tap = more-info. */
-const JAM_HOUSE_WORDS = {
-  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
-  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
-  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
-};
 /* Numeric state as written (73.9 stays 73.9, 63.0 -> 63); anything else -> "—". */
 function jamHouseNum(v) {
   const n = Number(v);
@@ -61,7 +56,7 @@ class JamHouse extends JamBase {
     const out = stateObj(h, c.outside_entity), isWx = c.outside_entity.startsWith("weather.");
     const outBox = el("div", "out");
     let word = "";
-    if (isWx && out && !UNAVAILABLE.has(out.state)) word = JAM_HOUSE_WORDS[out.state] || String(out.state).replace(/-/g, " ");
+    if (isWx && out && !UNAVAILABLE.has(out.state)) word = conditionWord(out.state);
     outBox.append(el("div", "label", word ? `Outside · ${word}` : "Outside"));
     const ov = jamHouseNum(out && (isWx ? out.attributes.temperature : out.state));
     const ot = el("div", "disp otemp num focusable", ov === "—" ? ov : ov + "°");

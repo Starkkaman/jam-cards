@@ -50,6 +50,19 @@ module.exports = async (page, check, {callsNow}) => {
   check(ha.pct === "N/A" && ha.moreDisabled && /\bdead\b/.test(ha.cls), "unavailable light: N/A, corner disabled");
   check(g.sub === "Group · 2 bulbs" && w.sub === "WLED" && k.sub === "", `sub lines: "${g.sub}", "${w.sub}"`);
   check(Math.abs(g.h - 112) <= 1, `light card is 112 px tall (${g.h})`);
+  // WLED reports brightness-scaled rgb_color: [51,20,0] paints its full-value hue [255,100,0] (ink text on it), also in the pop-up.
+  const fr = await page.evaluate(() => JSON.stringify([window.JamCards.fullRgb([51, 20, 0]), window.JamCards.fullRgb([0, 0, 0]), window.JamCards.fullRgb(null)]));
+  check(fr === "[[255,100,0],null,null]", `fullRgb scales the max channel to 255, black/missing -> null (${fr})`);
+  const wledRgb = (await page.evaluate(() => window.__hass.states["light.wled"].attributes.rgb_color));
+  await setState("light.wled", "on", {rgb_color: [51, 20, 0]});
+  const sc = await light("TV light").evaluate(e => { const cs = getComputedStyle(e.shadowRoot.querySelector(".lc > .face")); return [cs.backgroundColor, cs.color]; });
+  check(sc[0] === "rgb(255, 100, 0)" && sc[1] === "rgb(20, 18, 16)", `scaled WLED rgb [51,20,0] -> card fill ${sc[0]}, ink text by the scaled colour (${sc[1]})`);
+  await corner("TV light").click();
+  await page.waitForTimeout(80);
+  const sl = await page.evaluate(() => { const p = document.querySelector(".jam-sheet-host").shadowRoot.querySelector(".pop"); return [p.style.getPropertyValue("--lc"), p.style.getPropertyValue("--lc-fg")]; });
+  check(sl[0] === "rgb(255,100,0)" && sl[1] === "#141210", `light pop-up bar colour uses the scaled colour (${sl.join(" / ")})`);
+  await closeSheet();
+  await setState("light.wled", "on", {rgb_color: wledRgb});
   const geo = await light("Living room").evaluate(e => {
     const r = e.shadowRoot, m = r.querySelector("button.more").getBoundingClientRect(), f = r.querySelector(".lc").getBoundingClientRect();
     const s = r.querySelector(".bs").getBoundingClientRect(), tri = getComputedStyle(r.querySelector(".more .tri"));

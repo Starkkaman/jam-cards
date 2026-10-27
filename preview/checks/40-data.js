@@ -175,4 +175,11 @@ module.exports = async (page, check) => {
     return out;
   });
   check(!sc.now && sc.clock && sc.fc, `jam-weather: show_current false hides temp/condition, keeps clock + forecast (${JSON.stringify(sc)})`);
+
+  // Condition words live in core (JamCards.conditionWord); the cards keep no local copies.
+  const cw = await page.evaluate(() => [window.JamCards.conditionWord("partlycloudy"), window.JamCards.conditionWord("clear-night"), window.JamCards.conditionWord("dust_storm-x")]);
+  check(cw.join("|") === "Partly cloudy|Clear night|dust storm x", `JamCards.conditionWord (${cw.join(" | ")})`);
+  const bundle = require("fs").readFileSync(require("path").join(__dirname, "..", "..", "jam-cards.js"), "utf8");
+  const copies = (bundle.match(/"Partly cloudy"/g) || []).length;
+  check(copies === 1 && !/JAM_WX_WORDS|JAM_HOUSE_WORDS/.test(bundle), `condition word map defined once, in core (${copies} copies)`);
 };

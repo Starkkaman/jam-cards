@@ -90,6 +90,8 @@ module.exports = async (page, check, {callsNow}) => {
   check((await callsNow()).some(x => x.service === "send_command" && x.data.command === "SETTINGS"), "jam-tv: Settings key sends SETTINGS");
   await reset(); await rem.locator('button[data-key="vol_up"]').click();
   check((await callsNow()).some(x => x.domain === "script" && x.service === "stereo_volume_up"), "jam-tv: remote_card actions are merged (vol + = script.stereo_volume_up)");
+  const remHead = await rem.evaluate(r => r.shadowRoot.querySelectorAll(".label, .title").length);
+  check(remHead === 0 && await rem.evaluate(r => r._config.hide_title === true), `jam-tv: the jam-remote in the sheet hides its own name/title (${remHead})`);
   const rows = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll("button[data-key]")].map(b => b.dataset.key).join(","));
   check(rows === "up,left,ok,right,down,back,home,settings,vol_down,mute,vol_up", `jam-tv: default remote rows d-pad / back home settings / vol (${rows})`);
   await page.keyboard.press("Escape");
@@ -103,7 +105,7 @@ module.exports = async (page, check, {callsNow}) => {
   await nv.locator('button[data-key="more"]').click();
   const ns = page.locator(".jam-sheet-host .pop");
   const kids = await ns.locator(".body").evaluate(b => [...b.children].map(k => ({tag: k.localName, hass: !!k.hass})));
-  check(kids.length === 4 && kids.every(k => k.hass) && kids.map(k => k.tag).join(",") === "jam-button,jam-button,jam-tile,jam-slider",
+  check(kids.length === 5 && kids.every(k => k.hass) && kids.map(k => k.tag).join(",") === "jam-remote,jam-button,jam-button,jam-tile,jam-slider",
     `jam-media more: ⋯ opens a sheet with child cards that receive hass (${kids.map(k => k.tag + (k.hass ? "+" : "-")).join(",")})`);
   const fresh = await page.evaluate(() => {
     const m = [...document.querySelectorAll("jam-media")].find(e => e._jamSheet), nh = {...window.__hass};
@@ -111,6 +113,19 @@ module.exports = async (page, check, {callsNow}) => {
     return [...m._jamSheet.sheet.body.children].every(k => k.hass === nh);
   });
   check(fresh, "jam-media more: a new hass reaches the sheet's child cards");
+  // Entity-less jam-remote (NerveOS): keys run their actions; keys without one are disabled; no own title in the sheet.
+  const nrem = ns.locator("jam-remote");
+  const nr = await nrem.evaluate(r => ({head: r.shadowRoot.querySelectorAll(".label, .title").length, err: r.shadowRoot.querySelectorAll(".c-alert").length,
+    dis: [...r.shadowRoot.querySelectorAll("button[data-key]")].filter(b => b.disabled).map(b => b.dataset.key).join(",")}));
+  check(nr.head === 0 && nr.err === 0 && nr.dis === "menu", `jam-remote without entity: renders, no own title, only the action-less key disabled (${nr.dis})`);
+  await reset(); await nrem.locator('button[data-key="up"]').click();
+  c = await callsNow();
+  check(c.length === 1 && c[0].domain === "button" && c[0].service === "press" && c[0].target.entity_id === "button.living_room_nerveos_aero_15_up",
+    "jam-remote without entity: d-pad up presses button.living_room_nerveos_aero_15_up");
+  await reset(); await nrem.locator('button[data-key="back"]').click();
+  c = await callsNow();
+  check(c.length === 1 && c[0].domain === "select" && c[0].service === "select_option" && c[0].data.option === "Back" && c[0].target.entity_id === "select.nerveos_remote",
+    "jam-remote without entity: Back selects the select.nerveos_remote option");
   await reset(); await ns.locator("jam-button").first().click();
   c = await callsNow();
   check(c.some(x => x.domain === "button" && x.service === "press" && x.target && x.target.entity_id === "button.living_room_nerveos_aero_15_sleep"), "jam-media more: Sleep button in the sheet presses the NerveOS button");

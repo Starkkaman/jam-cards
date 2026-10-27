@@ -18,11 +18,6 @@ function jamWxTime(h) {
   return {loc, h12};
 }
 const JAM_WX_TYPES = ["daily", "hourly", "twice_daily"];
-const JAM_WX_WORDS = {
-  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
-  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
-  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
-};
 /* Shapes in a 48x48 box. Classes pick the colour: s = sun (ochre), p = paper, r = rain (teal), b = bolt (red), g = cut (face colour). */
 const JAM_WX_CLOUD = ["polygon", {points: "4,36 5,29 10,25 13,26 15,19 21,15 26,14 31,17 34,22 39,21 43,25 45,30 44,36"}, "p"];
 const JAM_WX_SUN = [
@@ -205,7 +200,7 @@ class JamWeather extends JamBase {
       const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
       if (isFinite(temp) && unit) t.append(el("small", "", unit));
       const cond = el("div", "cond");
-      cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
+      cond.append(el("div", "word disp", off ? "No data" : conditionWord(s.state)));
       const meta = el("div", "meta label num");
       if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
       if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));

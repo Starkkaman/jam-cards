@@ -311,7 +311,24 @@ function lightRgb(s) {
   if (a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
   return null;
 }
+/* A colour's hue at full value: [r,g,b] scaled so the largest channel is 255 (WLED reports brightness-scaled rgb_color,
+   e.g. [51,20,0] -> [255,100,0]). null for a missing or black colour. */
+function fullRgb(c) {
+  if (!Array.isArray(c) || c.length < 3) return null;
+  const v = c.slice(0, 3).map(x => Math.max(0, Number(x) || 0)), m = Math.max(...v);
+  return m > 0 ? v.map(x => Math.min(255, Math.round(x * 255 / m))) : null;
+}
 const rgbCss = c => `rgb(${c.slice(0, 3).map(v => Math.round(Number(v) || 0)).join(",")})`;
+
+/* ---------- weather words ---------- */
+/* HA weather condition -> short word (jam-weather, jam-house, jam-screensaver). */
+const CONDITION_WORDS = Object.freeze({
+  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
+  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
+  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
+});
+/* Word for a condition state; unknown states with - / _ turned into spaces. */
+function conditionWord(st) { const k = String(st == null ? "" : st); return CONDITION_WORDS[k] || k.replace(/[-_]/g, " "); }
 
 /* ---------- sheet (pop-up) helpers ---------- */
 /* Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
@@ -493,7 +510,7 @@ window.JamCards = Object.freeze({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, vertigoSpiral, deepActive, openSheet,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, vertigoSpiral, deepActive, openSheet,
 });
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */

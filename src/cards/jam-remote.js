@@ -1,11 +1,14 @@
 /* ---------- jam-remote: TV remote (d-pad cross of cut arrows + keys) ----------
-   {type: custom:jam-remote, entity (remote.*), media_player? (title/state), name?,
+   {type: custom:jam-remote, entity? (remote.*), media_player? (title/state), name?, hide_title? (hide the name label + title;
+    jam-tv / jam-media sheets set it, the sheet header already names the remote),
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
     labels?: {key: text}, accent? (OK disc + arrow marks; DESIGN "Colour system")}
    Row keys = key cut (top-right 12px); power is red. D-pad arms are fixed straight arrows (45° point toward the arm's
    direction), the OK key a disc.
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
-   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
+   power without a command = remote.toggle.
+   Without `entity` (e.g. NerveOS: button.* presses / select options) keys only run `actions`: the card is valid when
+   `actions` has at least one entry; every key without one (and dpad arms / OK without one) is disabled, not an error. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
    app_name, else the remote's current_activity; JAM_REMOTE_APPS, null = skip), else name / the media_player's friendly_name. */
 const JAM_REMOTE_ROWS = [["power", "back", "home", "menu"], ["dpad"], ["prev", "play_pause", "next"], ["vol_down", "mute", "vol_up"]];
@@ -32,7 +35,11 @@ function jamRemoteApp(id) {
 const JAM_REMOTE_REPEAT = new Set(["up", "down", "left", "right", "vol_up", "vol_down"]);
 
 class JamRemote extends JamBase {
-  validate(c) { if (!c.entity || !c.entity.startsWith("remote.")) throw new Error("jam-remote: entity must be a remote"); }
+  validate(c) {
+    if (c.entity) { if (!String(c.entity).startsWith("remote.")) throw new Error("jam-remote: entity must be a remote"); return; }
+    if (!c.actions || typeof c.actions !== "object" || !Object.values(c.actions).some(Boolean))
+      throw new Error("jam-remote: set entity (remote.*), or actions for the keys");
+  }
   watched() { return [this._config.entity, this._config.media_player].filter(Boolean); }
   css() { return `
     .wrap{display:grid;gap:12px;align-content:start}
@@ -53,13 +60,16 @@ class JamRemote extends JamBase {
     const c = this._config, h = this._hass;
     const a = c.actions && c.actions[k];
     if (a) { runAction(this, h, a, c.entity); return; }
+    if (!c.entity) return;
     const cmd = (c.commands && c.commands[k]) || (k === "power" ? null : JAM_REMOTE_CMDS[k]);
     if (cmd) h.callService("remote", "send_command", {entity_id: c.entity, command: cmd});
     else if (k === "power") h.callService("remote", "toggle", {entity_id: c.entity});
   }
   _known(k) {
     const c = this._config;
-    return !!((c.actions && c.actions[k]) || (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power");
+    if (c.actions && c.actions[k]) return true;
+    if (!c.entity) return false;
+    return !!( (c.commands && c.commands[k]) || JAM_REMOTE_CMDS[k] || k === "power");
   }
   /* Tap = one send. Repeat keys: send on pointerdown, repeat after 400 ms every 180 ms until up/leave/cancel;
      keyboard activation (click with detail 0) sends once. */
@@ -101,7 +111,7 @@ class JamRemote extends JamBase {
         const t = el("span", "tri"); t.style.clipPath = tri[k]; t.setAttribute("aria-hidden", "true");
         face.append(t); root.setAttribute("aria-label", lbl);
       }
-      root.dataset.key = k; root.disabled = off;
+      root.dataset.key = k; root.disabled = off || !this._known(k);
       this._bind(root, k);
       pad.append(root);
     });
@@ -113,16 +123,21 @@ class JamRemote extends JamBase {
     if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
     const t = jamRemoteApp(a.app_id || a.app_name || (s && s.attributes.current_activity)); /* the current app's package */
     if (t) return t;
-    return c.name || friendly(this._hass, c.media_player || c.entity) || "—";
+    return c.name || friendly(this._hass, c.media_player || c.entity) || "Remote";
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
-    const off = !s || UNAVAILABLE.has(s.state);
-    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
-    wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const title = this._title(s, mp);
-    const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
-    wrap.append(tt);
+    // Without a remote entity the keys run actions only; the stripe follows the media_player (if any).
+    const off = c.entity ? !s || UNAVAILABLE.has(s.state) : false, st = c.entity ? s : mp;
+    const tn = st ? tone(st) : "off";
+    const {root, face: wrap} = this.paper(c.entity || c.media_player || c.name || "remote", {face: `wrap stripe s-${tn}${off ? " unavail" : ""}`});
+    if (!c.hide_title) {
+      wrap.append(el("div", "label", c.name || friendly(h, c.entity || c.media_player) || "Remote"));
+      const tt = el("div", "title", this._title(s, mp));
+      const mi = c.media_player || c.entity;
+      if (mi) { tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, mi); }
+      wrap.append(tt);
+    }
     for (const row of c.rows || JAM_REMOTE_ROWS) {
       if (!Array.isArray(row)) continue;
       if (row.includes("dpad")) { wrap.append(this._pad(off)); continue; }

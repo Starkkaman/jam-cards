@@ -4,7 +4,8 @@
    Slab panel (card cut), Londrina title, rows split by 2px --jam-line rules: name left (Jost .8rem), value right (Londrina 1rem).
    Values are never in the accent colour. A row is red when its value crosses a `bad` threshold, its state is listed in
    bad.state, or the entity is unavailable/unknown/missing (value "unavailable"). `max` shows "value / max unit".
-   Row tap = more-info unless tap_action says otherwise. */
+   Row tap = more-info unless tap_action says otherwise. A configured `accent` shows as a 4px rule under the title.
+   Names and the title never break mid-word; the value column shrinks and wraps instead. */
 const JP_RATE = {"bit/s": 1 / 8, "kbit/s": 125, "mbit/s": 125e3, "gbit/s": 125e6, "b/s": 1, "kb/s": 1e3, "mb/s": 1e6, "gb/s": 1e9,
   "kib/s": 1024, "mib/s": 1048576, "gib/s": 1073741824};
 const JP_SEC = {s: 1, sec: 1, min: 60, h: 3600, hr: 3600, d: 86400, ms: .001, w: 604800};
@@ -38,11 +39,12 @@ class JamPanel extends JamBase {
   watched() { return this._rows().map(r => r.entity); }
   css() { return `
     .pn{display:flex;flex-direction:column}
-    .ttl{font-size:1.1rem;margin:0 0 7px}
+    .ttl{font-size:1.1rem;margin:0 0 7px;overflow-wrap:normal;word-break:normal;hyphens:none}
+    .acc{height:4px;background:var(--acc);margin:-2px 0 8px}
     .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px solid var(--line);padding:6px 0;cursor:pointer}
     .row.static{cursor:default}
-    .nm{flex:1 1 auto;min-width:0;font:500 .8rem/1.3 var(--body);overflow-wrap:anywhere}
-    .v{flex:0 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:break-word}
+    .nm{flex:0 1 auto;min-width:min-content;font:500 .8rem/1.3 var(--body);overflow-wrap:normal;word-break:normal;hyphens:none}
+    .v{flex:1 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:anywhere}
     .row.bad .v{color:var(--red)}`; }
   /* -> {text, raw (number|null), unavail} for one row. */
   value(r) {
@@ -84,6 +86,7 @@ class JamPanel extends JamBase {
     const c = this._config, h = this._hass;
     const {root, face} = this.paper(c.title || "panel", {face: "pn"});
     if (c.title) face.append(el("h3", "disp ttl", c.title));
+    if (accentVar(c.accent)) { const r = el("div", "acc"); r.setAttribute("aria-hidden", "true"); face.append(r); }
     for (const r of this._rows()) {
       const v = this.value(r), bad = this.isBad(r, v), act = r.tap_action || {action: "more-info"};
       const row = el("div", "row" + (bad ? " bad" : ""));

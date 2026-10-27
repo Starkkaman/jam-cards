@@ -310,7 +310,7 @@ class JamScreensaver extends JamBase {
     const wok = w && !UNAVAILABLE.has(w.state);
     let temp = wok ? Number(w.attributes.temperature) : NaN, unit = wok ? w.attributes.temperature_unit || "" : "";
     if (ts && ts.state !== "" && isFinite(Number(ts.state))) { temp = Number(ts.state); unit = ts.attributes.unit_of_measurement || unit; }
-    if (wok) { this._word.textContent = JAM_WX_WORDS[w.state] || w.state.replace(/[-_]/g, " "); this._wx.append(this._word); }
+    if (wok) { this._word.textContent = conditionWord(w.state); this._wx.append(this._word); }
     if (w || ts) {
       if (isFinite(temp)) { this._temp.textContent = Math.round(temp) + (unit ? unit.replace(/^°?/, "°").replace(/[CF]$/, "") : "°"); this._wx.append(this._temp); }
     }

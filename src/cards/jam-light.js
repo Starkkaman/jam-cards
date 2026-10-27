@@ -6,8 +6,8 @@
     presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}] (extra chips in the pop-up),
     show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
     tap_action? (default toggle), hold_action? (default: open the pop-up)}
-   Card: when on the face is the light's real output colour (rgb_color; kelvin -> rgb in color_temp mode; else the accent),
-   text ink or paper by luminance; big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
+   Card: when on the face is the light's hue at full value (rgb_color scaled so the max channel is 255; kelvin -> rgb in
+   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
    Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
    vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
    ←/→ = ±10 %, M or Shift+Enter = pop-up.
@@ -138,9 +138,10 @@ class JamLight extends JamBase {
     if (!a && e && e.device_id && h.devices && h.devices[e.device_id]) a = h.devices[e.device_id].area_id;
     return a && h.areas && h.areas[a] ? h.areas[a].name : "";
   }
-  /* Fill colour [css, text css] for a light state; the accent when it is on without a colour. */
+  /* Fill colour [css, text css] for a light state: its hue at full value (fullRgb: WLED's brightness-scaled rgb_color
+     [51,20,0] paints [255,100,0]); ink/paper text chosen on that scaled colour. The accent when it is on without a colour. */
   _paint(s) {
-    const rgb = lightRgb(s);
+    const rgb = fullRgb(lightRgb(s));
     return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
   }
   css() { return `
