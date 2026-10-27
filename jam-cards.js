@@ -645,11 +645,11 @@ class JamGraph extends JamBase {
         entity_ids: ids, minimal_response: true, no_attributes: true, significant_changes_only: false});
     } catch (e) { res = null; }
     if (tok !== this._tok) return; /* config changed meanwhile */
-    this._data = {t0, t1, series: ids.map(id => JamGraph.prep(res && res[id], t0, t1, style, this._hours()))};
+    this._data = {t0, t1, o: JamGraph.origin(t0), series: ids.map(id => JamGraph.prep(res && res[id], t0, t1, style, this._hours()))};
     this._render(false);
   }
   /* History rows -> [[ms, value]] sorted, numeric only, clamped to [t0, t1]; downsampled to ≤240 points. Line/step get a
-     final point at t1 (the state holds until now); bars get one time-weighted mean per hour (null where nothing known). */
+     final point at t1 (the state holds until now); bars get one time-weighted mean per clock hour (null where nothing known). */
   static prep(rows, t0, t1, style, hours) {
     const raw = [];
     for (const r of Array.isArray(rows) ? rows : []) {
@@ -664,17 +664,17 @@ class JamGraph extends JamBase {
     raw.sort((a, b) => a[0] - b[0]);
     if (!raw.length) return [];
     if (style === "bars") {
-      const per = Math.max(1, Math.ceil(hours / JAM_GRAPH_MAX_PTS)) * 3600e3, n = Math.ceil((t1 - t0) / per);
+      const per = JamGraph.per(hours), o = JamGraph.origin(t0), n = Math.max(1, Math.ceil((t1 - o) / per));
       const sum = new Array(n).fill(0), cov = new Array(n).fill(0);
       for (let j = 0; j < raw.length; j++) {
         let a = raw[j][0]; const b = j + 1 < raw.length ? raw[j + 1][0] : t1, v = raw[j][1];
         while (a < b) {
-          const i = Math.min(n - 1, Math.floor((a - t0) / per)), e = Math.min(b, t0 + (i + 1) * per);
+          const i = Math.min(n - 1, Math.floor((a - o) / per)), e = Math.min(b, o + (i + 1) * per);
           if (e <= a) break;
           sum[i] += v * (e - a); cov[i] += e - a; a = e;
         }
       }
-      return sum.map((s, i) => [t0 + i * per, cov[i] ? s / cov[i] : null]);
+      return sum.map((s, i) => [o + i * per, cov[i] ? s / cov[i] : null]);
     }
     let pts = raw;
     const cap = JAM_GRAPH_MAX_PTS - 1;
@@ -690,10 +690,13 @@ class JamGraph extends JamBase {
     if (pts[pts.length - 1][0] < t1) pts = [...pts, [t1, pts[pts.length - 1][1]]];
     return pts;
   }
+  /* Bars: bucket size (whole hours, ≤240 buckets) and origin (the local clock hour at or before the window start). */
+  static per(hours) { return Math.max(1, Math.ceil((hours + 1) / JAM_GRAPH_MAX_PTS)) * 3600e3; }
+  static origin(t0) { const o = new Date(t0); o.setMinutes(0, 0, 0); return +o; }
   /* Value of a series at time t: held (step), interpolated (line) or the bucket mean (bars). */
-  static at(pts, t, style, t0, per) {
+  static at(pts, t, style, o, per) {
     if (!pts.length) return null;
-    if (style === "bars") { const i = Math.floor((t - t0) / per); return pts[i] ? pts[i][1] : null; }
+    if (style === "bars") { const i = Math.floor((t - o) / per); return pts[i] ? pts[i][1] : null; }
     if (t < pts[0][0]) return null;
     let lo = 0, hi = pts.length - 1;
     while (lo < hi) { const m = (lo + hi + 1) >> 1; if (pts[m][0] <= t) lo = m; else hi = m - 1; }
@@ -722,7 +725,7 @@ class JamGraph extends JamBase {
     const e = this._hass && this._hass.entities && this._hass.entities[id];
     const p = e && typeof e.display_precision === "number" ? e.display_precision : null;
     const d = p !== null ? p : Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2;
-    return v.toLocaleString(this._lang(), {minimumFractionDigits: p !== null ? p : 0, maximumFractionDigits: d});
+    return v.toLocaleString(this._lang(), {minimumFractionDigits: d, maximumFractionDigits: d});
   }
   _unit(id) { const s = stateObj(this._hass, id); return (s && s.attributes.unit_of_measurement) || ""; }
   _name(e) { return e.name || friendly(this._hass, e.entity); }
@@ -830,7 +833,7 @@ class JamGraph extends JamBase {
     const tk = JamGraph.ticks(lo, hi, fixLo, fixHi);
     const fmt = v => v.toLocaleString(this._lang(), {minimumFractionDigits: tk.dec, maximumFractionDigits: tk.dec});
     const ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * 7, mr = 4, mt = 8, mb = 20;
-    const per = Math.max(1, Math.ceil(this._hours() / JAM_GRAPH_MAX_PTS)) * 3600e3;
+    const per = JamGraph.per(this._hours());
     const x = t => ml + (t - d.t0) / (d.t1 - d.t0) * (W - ml - mr);
     const y = v => mt + (tk.hi - Math.min(tk.hi, Math.max(tk.lo, v))) / (tk.hi - tk.lo) * (H - mt - mb);
     return {W, H, ml, mr, mt, mb, x, y, tk, fmt, per, style};
@@ -867,7 +870,7 @@ class JamGraph extends JamBase {
         const base = y(Math.min(g.tk.hi, Math.max(g.tk.lo, 0)));
         for (const [t, v] of pts) {
           if (v === null) continue;
-          const x0 = x(t), x1 = x(Math.min(d.t1, t + g.per)), bw = (x1 - x0 - 2) / n;
+          const x0 = x(Math.max(d.t0, t)), x1 = x(Math.min(d.t1, t + g.per)), bw = (x1 - x0 - 2) / n;
           if (bw <= 0) continue;
           const yv = y(v);
           gp.append(jamGraphSvg("rect", {x: (x0 + 1 + i * bw).toFixed(1), y: Math.min(yv, base).toFixed(1), width: bw.toFixed(1), height: Math.abs(base - yv).toFixed(1)}));
@@ -903,18 +906,18 @@ class JamGraph extends JamBase {
   _show(t) {
     const g = this._g, d = this._data;
     if (!g || !this._tip) return;
-    if (g.style === "bars") t = Math.min(d.t1, d.t0 + (Math.floor((t - d.t0) / g.per) + .5) * g.per);
+    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; t = (Math.max(d.t0, a) + Math.min(d.t1, a + g.per)) / 2; }
     this._hover = t;
     const xx = Math.round(g.x(t)) + .5;
     const line = this._xh.querySelector("line"); line.setAttribute("x1", xx); line.setAttribute("x2", xx);
     const tip = this._tip, opt = {hour: "2-digit", minute: "2-digit"};
     tip.textContent = "";
     let when = new Date(t).toLocaleTimeString(this._lang(), opt);
-    if (g.style === "bars") { const a = d.t0 + Math.floor((t - d.t0) / g.per) * g.per; when = `${new Date(a).toLocaleTimeString(this._lang(), opt)}–${new Date(Math.min(d.t1, a + g.per)).toLocaleTimeString(this._lang(), opt)}`; }
+    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; when = `${new Date(a).toLocaleTimeString(this._lang(), opt)}–${new Date(Math.min(d.t1, a + g.per)).toLocaleTimeString(this._lang(), opt)}`; }
     tip.append(el("div", "label num", when));
     const marks = this._xh.querySelectorAll("rect");
     d.series.forEach((pts, i) => {
-      const e = this._ents[i], v = JamGraph.at(pts, t, g.style, d.t0, g.per);
+      const e = this._ents[i], v = JamGraph.at(pts, t, g.style, d.o, g.per);
       const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`);
       tip.append(sq, el("span", "", this._name(e)), el("span", "v num", v === null ? "—" : `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}`));
       if (v === null) marks[i].setAttribute("visibility", "hidden");
@@ -1067,8 +1070,9 @@ class JamLight extends JamBase {
     .nm{display:flex;align-items:center;gap:8px;min-width:0}
     .nm h3{font-size:1.45rem;overflow-wrap:anywhere}
     .nm ha-icon{--mdc-icon-size:22px;flex:none;color:var(--dim)}
-    .pw{flex:none;min-width:64px}
-    .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+    .pw{flex:none;min-width:64px;height:auto}
+    .pw.alert:disabled > .face{color:var(--ink)}
+    .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
     .track{position:relative;height:32px;touch-action:none}
     .track[role=slider]{cursor:pointer}
