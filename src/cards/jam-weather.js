@@ -4,6 +4,16 @@
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
    `forecast` attribute when the subscription fails. Glyphs are flat cut shapes (≤6 each), no animation. */
 const JAM_WX_NS = "http://www.w3.org/2000/svg";
+/* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
+   "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
+function jamWxTime(h) {
+  const l = h && h.locale, tf = l && l.time_format;
+  const loc = tf === "system" ? undefined : (l && l.language) || (h && h.language) || undefined;
+  if (tf === "12" || tf === "24") return {loc, h12: tf === "12"};
+  let h12;
+  try { const o = new Intl.DateTimeFormat(loc, {hour: "numeric"}).resolvedOptions(); h12 = o.hourCycle ? /h1[12]/.test(o.hourCycle) : !!o.hour12; } catch (e) { h12 = false; }
+  return {loc, h12};
+}
 const JAM_WX_TYPES = ["daily", "hourly", "twice_daily"];
 const JAM_WX_WORDS = {
   "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
@@ -67,7 +77,13 @@ class JamWeather extends JamBase {
     super.setConfig(c);
     if (this.isConnected) { this._sub(); this._arm(); }
   }
-  set hass(h) { super.hass = h; this._sub(); }
+  set hass(h) {
+    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamWxTime(h));
+    super.hass = h;
+    if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed */
+    this._tf = tf;
+    this._sub();
+  }
   get hass() { return super.hass; }
   watched() { const c = this._config; return this._err ? [] : [c.entity, c.temperature_entity, "sun.sun"].filter(Boolean); }
   _type() { return this._config.forecast_type || "daily"; }
@@ -111,13 +127,20 @@ class JamWeather extends JamBase {
   _clock() {
     if (!this._time) return;
     const d = new Date();
-    this._time.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const f = jamWxTime(this._hass), mm = String(d.getMinutes()).padStart(2, "0");
+    if (f.h12) { /* 12 h: "6:54" in Londrina + a small day period ("PM") in Jost */
+      let per = d.getHours() < 12 ? "AM" : "PM";
+      try { const p = new Intl.DateTimeFormat(f.loc, {hour: "numeric", hour12: true}).formatToParts(d).find(x => x.type === "dayPeriod"); if (p) per = p.value; } catch (e) { /* keep AM/PM */ }
+      this._time.textContent = `${d.getHours() % 12 || 12}:${mm}`;
+      this._time.append(el("small", "per", per));
+    } else this._time.textContent = `${String(d.getHours()).padStart(2, "0")}:${mm}`;
     this._date.textContent = d.toLocaleDateString(this._lang(), {weekday: "long", day: "numeric", month: "long"});
   }
   css() { return `
     .w{display:grid;gap:14px;align-content:start}
     .clock{display:grid;gap:6px}
     .time{font-size:4.4rem;line-height:.82;letter-spacing:-.005em}
+    .time .per{font:600 1rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:6px;vertical-align:top}
     .date{font:600 .82rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
     .now{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
     .gl{display:block;flex:none;--g-bg:var(--slab)}
@@ -200,7 +223,8 @@ class JamWeather extends JamBase {
       const isToday = valid && (type === "daily" ? d.toDateString() === today : i === 0);
       const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {edges: "b", depth: 3, step: 25, cls: "col" + (isToday ? " today" : "")});
       let name = "";
-      if (valid) name = type === "hourly" ? d.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"})
+      const tf = jamWxTime(this._hass);
+      if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})
         : type === "twice_daily" && f.is_daytime === false ? "Night" : d.toLocaleDateString(this._lang(), {weekday: "short"});
       face.append(el("div", "label", name));
       face.append(jamWxGlyph(f.condition, f.is_daytime === false));

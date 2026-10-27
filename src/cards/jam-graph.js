@@ -7,6 +7,16 @@
    Config errors (e.g. a 6th series) render in the card instead of throwing. */
 const JAM_GRAPH_MAX_PTS = 240, JAM_GRAPH_GAP = 60e3, JAM_GRAPH_NS = "http://www.w3.org/2000/svg";
 const JAM_GRAPH_STYLES = ["line", "step", "bars"];
+/* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
+   "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
+function jamGraphTime(h) {
+  const l = h && h.locale, tf = l && l.time_format;
+  const loc = tf === "system" ? undefined : (l && l.language) || (h && h.language) || undefined;
+  if (tf === "12" || tf === "24") return {loc, h12: tf === "12"};
+  let h12;
+  try { const o = new Intl.DateTimeFormat(loc, {hour: "numeric"}).resolvedOptions(); h12 = o.hourCycle ? /h1[12]/.test(o.hourCycle) : o.hour12; } catch (e) { h12 = undefined; }
+  return {loc, h12};
+}
 function jamGraphSvg(tag, attrs, cls) {
   const e = document.createElementNS(JAM_GRAPH_NS, tag);
   if (cls) e.setAttribute("class", cls);
@@ -36,10 +46,14 @@ class JamGraph extends JamBase {
     if (this.isConnected) { this._arm(); this._kick(); }
   }
   set hass(h) {
-    const first = !this._hass, before = this._sig;
+    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamGraphTime(h));
     super.hass = h;
+    if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed: redraw the labels */
+    this._tf = tf;
     if (first || this._sig !== before) this._kick(); /* a watched state changed: refetch (throttled) */
   }
+  /* toLocaleTimeString(…) for axis + tooltip, following hass.locale.time_format. */
+  _time(t) { const f = jamGraphTime(this._hass); return new Date(t).toLocaleTimeString(f.loc, {hour: f.h12 ? "numeric" : "2-digit", minute: "2-digit", hour12: f.h12}); }
   get hass() { return super.hass; }
   watched() { return this._err ? [] : this._ents.map(e => e.entity); }
   _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
@@ -292,7 +306,7 @@ class JamGraph extends JamBase {
       const xx = x(+m);
       if (+m < d.t0 || xx < ml + 18 || xx > W - mr - 18) continue;
       const t = jamGraphSvg("text", {x: xx, y: H - 4, "text-anchor": "middle"}, "ax");
-      t.textContent = xs < 24 ? m.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"}) : m.toLocaleDateString(this._lang(), {weekday: "short"});
+      t.textContent = xs < 24 ? this._time(+m) : m.toLocaleDateString(this._lang(), {weekday: "short"});
       svg.append(t);
     }
     const n = d.series.length;
@@ -343,10 +357,10 @@ class JamGraph extends JamBase {
     this._hover = t;
     const xx = Math.round(g.x(t)) + .5;
     const line = this._xh.querySelector("line"); line.setAttribute("x1", xx); line.setAttribute("x2", xx);
-    const tip = this._tip, opt = {hour: "2-digit", minute: "2-digit"};
+    const tip = this._tip;
     tip.textContent = "";
-    let when = new Date(t).toLocaleTimeString(this._lang(), opt);
-    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; when = `${new Date(a).toLocaleTimeString(this._lang(), opt)}–${new Date(Math.min(d.t1, a + g.per)).toLocaleTimeString(this._lang(), opt)}`; }
+    let when = this._time(t);
+    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; when = `${this._time(a)}–${this._time(Math.min(d.t1, a + g.per))}`; }
     tip.append(el("div", "label num", when));
     const marks = this._xh.querySelectorAll("rect");
     d.series.forEach((pts, i) => {

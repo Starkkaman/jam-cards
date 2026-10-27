@@ -621,7 +621,7 @@ class JamGraph extends JamBase {
     if (first || this._sig !== before) this._kick(); /* a watched state changed: refetch (throttled) */
   }
   /* toLocaleTimeString(…) for axis + tooltip, following hass.locale.time_format. */
-  _time(t) { const f = jamGraphTime(this._hass); return new Date(t).toLocaleTimeString(f.loc, {hour: "2-digit", minute: "2-digit", hour12: f.h12}); }
+  _time(t) { const f = jamGraphTime(this._hass); return new Date(t).toLocaleTimeString(f.loc, {hour: f.h12 ? "numeric" : "2-digit", minute: "2-digit", hour12: f.h12}); }
   get hass() { return super.hass; }
   watched() { return this._err ? [] : this._ents.map(e => e.entity); }
   _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
@@ -1302,7 +1302,7 @@ class JamMedia extends JamBase {
   watched() { const c = this._config; return [...new Set([this._id, c.entity, ...(c.players || []), ...(c.group || [])])]; }
   css() { return `
     .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
-    .np{display:grid;grid-template-columns:minmax(84px,36%) minmax(0,1fr);gap:14px;align-items:start}
+    .np{display:grid;grid-template-columns:minmax(84px,min(36%,200px)) minmax(0,1fr);gap:14px;align-items:start}
     .np.noart{grid-template-columns:minmax(0,1fr)}
     .art{--sh:5px;aspect-ratio:1;height:auto;cursor:pointer}
     .art > .face{padding:0;background:var(--ochre);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}

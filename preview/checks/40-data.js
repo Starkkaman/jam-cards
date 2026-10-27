@@ -101,7 +101,31 @@ module.exports = async (page, check) => {
   check(bung.cols === 5 && cabin.cols === 6, `jam-weather: forecast renders \`days\` columns (${bung.cols}/5, ${cabin.cols}/6)`);
   check(bung.today === 1, "jam-weather: today's column is highlighted");
   const d = new Date(), hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  check(/^\d\d:\d\d$/.test(bung.time || "") && cabin.time === undefined, `jam-weather: clock shows HH:MM (${bung.time}, now ${hhmm}); none without clock`);
+  check(/^\d{1,2}:\d\d/.test(bung.time || "") && cabin.time === undefined, `jam-weather: clock shows the time (${bung.time}, now ${hhmm}); none without clock`);
+  // Time format follows hass.locale.time_format: "12" -> "6:54" + small "PM"; "24" -> "18:54". Graph axis + tooltip too.
+  const tfmt = await page.evaluate(async () => {
+    const w = [...document.querySelectorAll("jam-weather")].find(x => x._config.clock), g = [...document.querySelectorAll("jam-graph")].find(x => x._config.title === "Temperature");
+    const out = {};
+    for (const tf of ["12", "24"]) {
+      const h = {...window.__hass, locale: {language: "en", time_format: tf}};
+      w.hass = h; g.hass = h; w._clock();
+      const t = w.shadowRoot.querySelector(".time"), per = t.querySelector(".per");
+      g._show((g._data.t0 + g._data.t1) / 2);
+      const n = new Date(), mm = String(n.getMinutes()).padStart(2, "0");
+      out[tf] = {want: tf === "12" ? `${n.getHours() % 12 || 12}:${mm}` : `${String(n.getHours()).padStart(2, "0")}:${mm}`, num: t.firstChild.textContent, per: per ? per.textContent : null, perFont: per ? getComputedStyle(per).fontFamily : "",
+        axis: [...g.shadowRoot.querySelectorAll("text.ax")].map(x => x.textContent).filter(x => x.includes(":")),
+        tip: g.shadowRoot.querySelector(".tip .label").textContent};
+      g._hide();
+    }
+    w.hass = window.__hass; g.hass = window.__hass;
+    return out;
+  });
+  check(tfmt["12"].num === tfmt["12"].want && /^(AM|PM)$/.test(tfmt["12"].per) && /Jost/.test(tfmt["12"].perFont),
+    `jam-weather: time_format 12 -> "${tfmt["12"].num}" + small "${tfmt["12"].per}" in Jost (want ${tfmt["12"].want})`);
+  check(tfmt["24"].num === tfmt["24"].want && tfmt["24"].per === null, `jam-weather: time_format 24 -> "${tfmt["24"].num}" (want ${tfmt["24"].want})`);
+  check(tfmt["12"].axis.length > 0 && tfmt["12"].axis.every(x => /AM|PM/.test(x)) && /AM|PM/.test(tfmt["12"].tip)
+    && tfmt["24"].axis.every(x => /^\d\d:\d\d$/.test(x)) && /^\d\d:\d\d$/.test(tfmt["24"].tip),
+    `jam-graph: axis + tooltip follow time_format (12: ${tfmt["12"].axis.join(" ")} / ${tfmt["12"].tip}; 24: ${tfmt["24"].axis.join(" ")} / ${tfmt["24"].tip})`);
   check(bung.word === "Clear night" && cabin.word === "Snow", `jam-weather: condition words (${bung.word}, ${cabin.word})`);
   check(wx.every(w => w.glyphs.every(n => n >= 1 && n <= 6)), "jam-weather: every glyph is 1-6 cut shapes");
 
