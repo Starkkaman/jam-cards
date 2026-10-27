@@ -2,8 +2,8 @@
    {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
     show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
    Default tap: scene./script. -> <domain>.turn_on, toggleable entity -> toggle, other entity -> more-info.
-   Accent = flat block on the left 40% of the face (text over it is reprinted in the block's ink); light/switch/fan/
-   input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
+   Accent = flat cut block in the top-left of the face (~42% wide, ~46% of the key height, torn bottom/right) carrying
+   the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
 const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
 const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
@@ -17,17 +17,18 @@ class JamButton extends JamBase {
     .kf{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
     .big .kf{min-height:120px}
     .kf.on{background:var(--ochre);color:var(--ink)}
-    .k{position:relative;flex:1;min-width:0;display:flex;container-type:inline-size}
-    .blk{position:absolute;top:calc(-1 * (var(--p-t) + var(--tt,0px)));bottom:calc(-1 * (var(--p-b) + var(--tb,0px)));
-      left:calc(-1 * (var(--p-l) + var(--tl,0px)));width:calc(var(--p-l) + var(--tl,0px) + 40%);background:var(--acc)}
-    .layer{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
-    .over{position:absolute;inset:0;color:var(--acc-fg);clip-path:inset(0 60% 0 0)}
+    .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
+    .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
+      margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
+      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + 42%)}
+    .big .blk{height:56px}
+    .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
       font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
     .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
-    .layer:not(.over) .st{color:var(--dim)} .on .layer .st{color:var(--ink)}`; }
+    .st{color:var(--dim)} .on .st{color:var(--ink)}`; }
   _accent() {
     const c = this._config, a = c.accent || JB_COLOR[c.color];
     return JB_ACC[a] ? a : null;
@@ -52,19 +53,19 @@ class JamButton extends JamBase {
     const k = el("div", "k");
     /* Font fits the longest word into the key width, so labels wrap by word and never mid-word. */
     k.style.setProperty("--fit", Math.max(4, ...String(name).split(/\s+/).map(w => w.length)));
-    const layer = cls => {
-      const L = el("div", "layer" + cls), i = icon(c.icon || (s && s.attributes.icon));
-      if (i) { i.classList.add("ic"); L.append(i); }
-      if (name) L.append(el("div", "lbl", name));
-      if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
-      return L;
-    };
+    const ic = icon(c.icon || (s && s.attributes.icon)), L = el("div", "layer");
+    if (ic) ic.classList.add("ic");
     if (acc) {
       root.style.setProperty("--acc", JB_ACC[acc][0]); root.style.setProperty("--acc-fg", JB_ACC[acc][1]);
-      const blk = el("div", "blk"), over = layer(" over");
-      blk.setAttribute("aria-hidden", "true"); over.setAttribute("aria-hidden", "true");
-      k.append(blk, layer(""), over);
-    } else k.append(layer(""));
+      const blk = el("div", "blk");
+      blk.setAttribute("aria-hidden", "true");
+      blk.style.clipPath = tornPath(seed("jam-button|blk|" + (c.entity || name)), {edges: "rb", depth: 4, step: 16});
+      if (ic) blk.append(ic);
+      k.append(blk);
+    } else if (ic) L.append(ic);
+    if (name) L.append(el("div", "lbl", name));
+    if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
+    k.append(L);
     face.append(k);
     b.append(root);
     this._fit(k);

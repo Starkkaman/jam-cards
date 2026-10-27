@@ -316,8 +316,8 @@ function register(tag, cls, name, description) {
    {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
     show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
    Default tap: scene./script. -> <domain>.turn_on, toggleable entity -> toggle, other entity -> more-info.
-   Accent = flat block on the left 40% of the face (text over it is reprinted in the block's ink); light/switch/fan/
-   input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
+   Accent = flat cut block in the top-left of the face (~42% wide, ~46% of the key height, torn bottom/right) carrying
+   the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
 const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
 const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
@@ -331,17 +331,18 @@ class JamButton extends JamBase {
     .kf{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
     .big .kf{min-height:120px}
     .kf.on{background:var(--ochre);color:var(--ink)}
-    .k{position:relative;flex:1;min-width:0;display:flex;container-type:inline-size}
-    .blk{position:absolute;top:calc(-1 * (var(--p-t) + var(--tt,0px)));bottom:calc(-1 * (var(--p-b) + var(--tb,0px)));
-      left:calc(-1 * (var(--p-l) + var(--tl,0px)));width:calc(var(--p-l) + var(--tl,0px) + 40%);background:var(--acc)}
-    .layer{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
-    .over{position:absolute;inset:0;color:var(--acc-fg);clip-path:inset(0 60% 0 0)}
+    .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
+    .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
+      margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
+      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + 42%)}
+    .big .blk{height:56px}
+    .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
       font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
     .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
-    .layer:not(.over) .st{color:var(--dim)} .on .layer .st{color:var(--ink)}`; }
+    .st{color:var(--dim)} .on .st{color:var(--ink)}`; }
   _accent() {
     const c = this._config, a = c.accent || JB_COLOR[c.color];
     return JB_ACC[a] ? a : null;
@@ -366,19 +367,19 @@ class JamButton extends JamBase {
     const k = el("div", "k");
     /* Font fits the longest word into the key width, so labels wrap by word and never mid-word. */
     k.style.setProperty("--fit", Math.max(4, ...String(name).split(/\s+/).map(w => w.length)));
-    const layer = cls => {
-      const L = el("div", "layer" + cls), i = icon(c.icon || (s && s.attributes.icon));
-      if (i) { i.classList.add("ic"); L.append(i); }
-      if (name) L.append(el("div", "lbl", name));
-      if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
-      return L;
-    };
+    const ic = icon(c.icon || (s && s.attributes.icon)), L = el("div", "layer");
+    if (ic) ic.classList.add("ic");
     if (acc) {
       root.style.setProperty("--acc", JB_ACC[acc][0]); root.style.setProperty("--acc-fg", JB_ACC[acc][1]);
-      const blk = el("div", "blk"), over = layer(" over");
-      blk.setAttribute("aria-hidden", "true"); over.setAttribute("aria-hidden", "true");
-      k.append(blk, layer(""), over);
-    } else k.append(layer(""));
+      const blk = el("div", "blk");
+      blk.setAttribute("aria-hidden", "true");
+      blk.style.clipPath = tornPath(seed("jam-button|blk|" + (c.entity || name)), {edges: "rb", depth: 4, step: 16});
+      if (ic) blk.append(ic);
+      k.append(blk);
+    } else if (ic) L.append(ic);
+    if (name) L.append(el("div", "lbl", name));
+    if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
+    k.append(L);
     face.append(k);
     b.append(root);
     this._fit(k);
@@ -574,6 +575,16 @@ register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a cut s
    Config errors (e.g. a 6th series) render in the card instead of throwing. */
 const JAM_GRAPH_MAX_PTS = 240, JAM_GRAPH_GAP = 60e3, JAM_GRAPH_NS = "http://www.w3.org/2000/svg";
 const JAM_GRAPH_STYLES = ["line", "step", "bars"];
+/* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
+   "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
+function jamGraphTime(h) {
+  const l = h && h.locale, tf = l && l.time_format;
+  const loc = tf === "system" ? undefined : (l && l.language) || (h && h.language) || undefined;
+  if (tf === "12" || tf === "24") return {loc, h12: tf === "12"};
+  let h12;
+  try { const o = new Intl.DateTimeFormat(loc, {hour: "numeric"}).resolvedOptions(); h12 = o.hourCycle ? /h1[12]/.test(o.hourCycle) : o.hour12; } catch (e) { h12 = undefined; }
+  return {loc, h12};
+}
 function jamGraphSvg(tag, attrs, cls) {
   const e = document.createElementNS(JAM_GRAPH_NS, tag);
   if (cls) e.setAttribute("class", cls);
@@ -603,10 +614,14 @@ class JamGraph extends JamBase {
     if (this.isConnected) { this._arm(); this._kick(); }
   }
   set hass(h) {
-    const first = !this._hass, before = this._sig;
+    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamGraphTime(h));
     super.hass = h;
+    if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed: redraw the labels */
+    this._tf = tf;
     if (first || this._sig !== before) this._kick(); /* a watched state changed: refetch (throttled) */
   }
+  /* toLocaleTimeString(…) for axis + tooltip, following hass.locale.time_format. */
+  _time(t) { const f = jamGraphTime(this._hass); return new Date(t).toLocaleTimeString(f.loc, {hour: "2-digit", minute: "2-digit", hour12: f.h12}); }
   get hass() { return super.hass; }
   watched() { return this._err ? [] : this._ents.map(e => e.entity); }
   _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
@@ -859,7 +874,7 @@ class JamGraph extends JamBase {
       const xx = x(+m);
       if (+m < d.t0 || xx < ml + 18 || xx > W - mr - 18) continue;
       const t = jamGraphSvg("text", {x: xx, y: H - 4, "text-anchor": "middle"}, "ax");
-      t.textContent = xs < 24 ? m.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"}) : m.toLocaleDateString(this._lang(), {weekday: "short"});
+      t.textContent = xs < 24 ? this._time(+m) : m.toLocaleDateString(this._lang(), {weekday: "short"});
       svg.append(t);
     }
     const n = d.series.length;
@@ -910,10 +925,10 @@ class JamGraph extends JamBase {
     this._hover = t;
     const xx = Math.round(g.x(t)) + .5;
     const line = this._xh.querySelector("line"); line.setAttribute("x1", xx); line.setAttribute("x2", xx);
-    const tip = this._tip, opt = {hour: "2-digit", minute: "2-digit"};
+    const tip = this._tip;
     tip.textContent = "";
-    let when = new Date(t).toLocaleTimeString(this._lang(), opt);
-    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; when = `${new Date(a).toLocaleTimeString(this._lang(), opt)}–${new Date(Math.min(d.t1, a + g.per)).toLocaleTimeString(this._lang(), opt)}`; }
+    let when = this._time(t);
+    if (g.style === "bars") { const a = d.o + Math.floor((t - d.o) / g.per) * g.per; when = `${this._time(a)}–${this._time(Math.min(d.t1, a + g.per))}`; }
     tip.append(el("div", "label num", when));
     const marks = this._xh.querySelectorAll("rect");
     d.series.forEach((pts, i) => {
@@ -1268,9 +1283,11 @@ register("jam-list", JamList, "Jam List", "Paper sheet of entity rows with ON/OF
    {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop],
     show_art? (true), show_volume? (default: when the player supports volume), sources?: true | [subset],
     players?: [media_player ids] (chip row switching the controlled player, kept in memory),
-    group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player)}
+    group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
+    hidden unless both have the GROUPING feature bit)}
    v1 configs (entity, name, controls) render unchanged in meaning. */
-const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8;
+const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
+const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
 class JamMedia extends JamBase {
   validate(c) {
     if (!c.entity || !c.entity.startsWith("media_player.")) throw new Error("jam-media: entity must be a media_player");
@@ -1284,7 +1301,7 @@ class JamMedia extends JamBase {
   get _id() { return this._active || this._config.entity; }
   watched() { const c = this._config; return [...new Set([this._id, c.entity, ...(c.players || []), ...(c.group || [])])]; }
   css() { return `
-    .wrap{display:grid;gap:12px;align-content:start}
+    .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
     .np{display:grid;grid-template-columns:minmax(84px,36%) minmax(0,1fr);gap:14px;align-items:start}
     .np.noart{grid-template-columns:minmax(0,1fr)}
     .art{--sh:5px;aspect-ratio:1;height:auto;cursor:pointer}
@@ -1293,7 +1310,7 @@ class JamMedia extends JamBase {
     .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
     .art .arm{--acc:var(--ink);height:62%;padding-bottom:10%}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
-    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 2.2vw,2.2rem);line-height:.92;text-transform:uppercase;
+    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
     .sub{font:500 .9rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
     .sub b{font-weight:600;color:var(--fg)}
@@ -1395,10 +1412,11 @@ class JamMedia extends JamBase {
       })), "sources"));
     }
 
-    // Group: join / unjoin with the controlled player.
-    if (c.group && c.group.length) {
+    // Group: join / unjoin with the controlled player. Only players with the GROUPING feature (row and member chips).
+    const grp = (c.group || []).filter(g => g !== id && jamCanGroup(stateObj(h, g)));
+    if (grp.length && jamCanGroup(s)) {
       const members = a.group_members || [];
-      wrap.append(this._chipRow("Group", c.group.filter(g => g !== id).map(g => {
+      wrap.append(this._chipRow("Group", grp.map(g => {
         const gs = stateObj(h, g), joined = members.includes(g) || ((gs && gs.attributes.group_members) || []).includes(id);
         return {key: g, text: friendly(h, g), on: joined, disabled: off || !gs || UNAVAILABLE.has(gs.state),
           run: () => joined ? h.callService("media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};
@@ -1934,6 +1952,16 @@ register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status str
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
    `forecast` attribute when the subscription fails. Glyphs are flat cut shapes (≤6 each), no animation. */
 const JAM_WX_NS = "http://www.w3.org/2000/svg";
+/* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
+   "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
+function jamWxTime(h) {
+  const l = h && h.locale, tf = l && l.time_format;
+  const loc = tf === "system" ? undefined : (l && l.language) || (h && h.language) || undefined;
+  if (tf === "12" || tf === "24") return {loc, h12: tf === "12"};
+  let h12;
+  try { const o = new Intl.DateTimeFormat(loc, {hour: "numeric"}).resolvedOptions(); h12 = o.hourCycle ? /h1[12]/.test(o.hourCycle) : !!o.hour12; } catch (e) { h12 = false; }
+  return {loc, h12};
+}
 const JAM_WX_TYPES = ["daily", "hourly", "twice_daily"];
 const JAM_WX_WORDS = {
   "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
@@ -1997,7 +2025,13 @@ class JamWeather extends JamBase {
     super.setConfig(c);
     if (this.isConnected) { this._sub(); this._arm(); }
   }
-  set hass(h) { super.hass = h; this._sub(); }
+  set hass(h) {
+    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamWxTime(h));
+    super.hass = h;
+    if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed */
+    this._tf = tf;
+    this._sub();
+  }
   get hass() { return super.hass; }
   watched() { const c = this._config; return this._err ? [] : [c.entity, c.temperature_entity, "sun.sun"].filter(Boolean); }
   _type() { return this._config.forecast_type || "daily"; }
@@ -2041,13 +2075,20 @@ class JamWeather extends JamBase {
   _clock() {
     if (!this._time) return;
     const d = new Date();
-    this._time.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const f = jamWxTime(this._hass), mm = String(d.getMinutes()).padStart(2, "0");
+    if (f.h12) { /* 12 h: "6:54" in Londrina + a small day period ("PM") in Jost */
+      let per = d.getHours() < 12 ? "AM" : "PM";
+      try { const p = new Intl.DateTimeFormat(f.loc, {hour: "numeric", hour12: true}).formatToParts(d).find(x => x.type === "dayPeriod"); if (p) per = p.value; } catch (e) { /* keep AM/PM */ }
+      this._time.textContent = `${d.getHours() % 12 || 12}:${mm}`;
+      this._time.append(el("small", "per", per));
+    } else this._time.textContent = `${String(d.getHours()).padStart(2, "0")}:${mm}`;
     this._date.textContent = d.toLocaleDateString(this._lang(), {weekday: "long", day: "numeric", month: "long"});
   }
   css() { return `
     .w{display:grid;gap:14px;align-content:start}
     .clock{display:grid;gap:6px}
     .time{font-size:4.4rem;line-height:.82;letter-spacing:-.005em}
+    .time .per{font:600 1rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:6px;vertical-align:top}
     .date{font:600 .82rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
     .now{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
     .gl{display:block;flex:none;--g-bg:var(--slab)}
@@ -2130,7 +2171,8 @@ class JamWeather extends JamBase {
       const isToday = valid && (type === "daily" ? d.toDateString() === today : i === 0);
       const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {edges: "b", depth: 3, step: 25, cls: "col" + (isToday ? " today" : "")});
       let name = "";
-      if (valid) name = type === "hourly" ? d.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"})
+      const tf = jamWxTime(this._hass);
+      if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})
         : type === "twice_daily" && f.is_daytime === false ? "Night" : d.toLocaleDateString(this._lang(), {weekday: "short"});
       face.append(el("div", "label", name));
       face.append(jamWxGlyph(f.condition, f.is_daytime === false));
