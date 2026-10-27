@@ -312,6 +312,97 @@ function register(tag, cls, name, description) {
   if (!window.customCards.some(c => c.type === tag)) window.customCards.push({type: tag, name, description, preview: false});
 }
 
+/* ---------- jam-button: chunky cut-paper key for launchers, scenes, scripts, stereo keys and openers ----------
+   {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
+    show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
+   Default tap: scene./script. -> <domain>.turn_on, toggleable entity -> toggle, other entity -> more-info.
+   Accent = flat block on the left 40% of the face (text over it is reprinted in the block's ink); light/switch/fan/
+   input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
+const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
+  blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
+const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
+  paper: ["var(--paper)", "var(--paper-fg)"]};
+const JB_ON = new Set(["light", "switch", "fan", "input_boolean"]);
+class JamButton extends JamBase {
+  validate(c) { if (!c.entity && !c.name && !c.icon) throw new Error("jam-button: entity, name or icon is required"); }
+  watched() { return this._config.entity ? [this._config.entity] : []; }
+  css() { return `
+    .btn{min-height:88px}
+    .kf{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
+    .big .kf{min-height:120px}
+    .kf.on{background:var(--ochre);color:var(--ink)}
+    .k{position:relative;flex:1;min-width:0;display:flex;container-type:inline-size}
+    .blk{position:absolute;top:calc(-1 * (var(--p-t) + var(--tt,0px)));bottom:calc(-1 * (var(--p-b) + var(--tb,0px)));
+      left:calc(-1 * (var(--p-l) + var(--tl,0px)));width:calc(var(--p-l) + var(--tl,0px) + 40%);background:var(--acc)}
+    .layer{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
+    .over{position:absolute;inset:0;color:var(--acc-fg);clip-path:inset(0 60% 0 0)}
+    .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
+    .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
+      font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
+    .big{--fs:1.9rem}
+    .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
+    .layer:not(.over) .st{color:var(--dim)} .on .layer .st{color:var(--ink)}`; }
+  _accent() {
+    const c = this._config, a = c.accent || JB_COLOR[c.color];
+    return JB_ACC[a] ? a : null;
+  }
+  _tap() {
+    const c = this._config, d = (c.entity || "").split(".")[0];
+    if (c.tap_action) return c.tap_action;
+    if (d === "scene" || d === "script") return {action: "perform-action", perform_action: d + ".turn_on", data: {entity_id: c.entity}};
+    if (c.entity && toggleable(c.entity)) return {action: "toggle"};
+    return {action: c.entity ? "more-info" : "none"};
+  }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), d = (c.entity || "").split(".")[0];
+    const on = !!s && s.state === "on" && JB_ON.has(d), acc = on ? null : this._accent();
+    const un = !!c.entity && (!s || UNAVAILABLE.has(s.state));
+    const name = c.name || friendly(h, c.entity) || "";
+    const {root, face} = this.paper(c.entity || name || c.icon, {edges: "rb", depth: 3, cut: true,
+      cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
+    root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", name);
+    if (s && JB_ON.has(d)) root.setAttribute("aria-pressed", on ? "true" : "false");
+    bindActions(root, () => this._hass, {...c, tap_action: this._tap()}, c.entity);
+    const k = el("div", "k");
+    /* Font fits the longest word into the key width, so labels wrap by word and never mid-word. */
+    k.style.setProperty("--fit", Math.max(4, ...String(name).split(/\s+/).map(w => w.length)));
+    const layer = cls => {
+      const L = el("div", "layer" + cls), i = icon(c.icon || (s && s.attributes.icon));
+      if (i) { i.classList.add("ic"); L.append(i); }
+      if (name) L.append(el("div", "lbl", name));
+      if (c.show_state && s) L.append(el("div", "st num", fmtState(h, s)));
+      return L;
+    };
+    if (acc) {
+      root.style.setProperty("--acc", JB_ACC[acc][0]); root.style.setProperty("--acc-fg", JB_ACC[acc][1]);
+      const blk = el("div", "blk"), over = layer(" over");
+      blk.setAttribute("aria-hidden", "true"); over.setAttribute("aria-hidden", "true");
+      k.append(blk, layer(""), over);
+    } else k.append(layer(""));
+    face.append(k);
+    b.append(root);
+    this._fit(k);
+  }
+  /* Safety net for fallback fonts: shrink a label that still overflows its key (a word never breaks). */
+  _fit(k) {
+    if (this._ro) this._ro.disconnect();
+    let w = -1;
+    const fit = () => {
+      if (!k.isConnected || k.clientWidth === w) return;
+      w = k.clientWidth;
+      for (const l of k.querySelectorAll(".lbl")) {
+        l.style.fontSize = "";
+        if (l.scrollWidth > l.clientWidth + 0.5) l.style.fontSize = (parseFloat(getComputedStyle(l).fontSize) * l.clientWidth / l.scrollWidth - 0.3).toFixed(2) + "px";
+      }
+    };
+    if (window.ResizeObserver) { this._ro = new ResizeObserver(fit); this._ro.observe(k); }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { w = -1; fit(); });
+  }
+  getCardSize() { return this._config.size === "big" ? 3 : 2; }
+  getGridOptions() { return {columns: 3, rows: this._config.size === "big" ? 2 : "auto", min_columns: 2}; }
+}
+register("jam-button", JamButton, "Jam Button", "Chunky cut-paper key for launchers, scenes, scripts and openers.");
+
 /* ---------- jam-choice: select / input_select as cut paper chips ----------
    {type: custom:jam-choice, entity, name?, options?: [subset/order], columns?} */
 class JamChoice extends JamBase {
@@ -350,6 +441,499 @@ class JamChoice extends JamBase {
   getCardSize() { return 3; }
 }
 register("jam-choice", JamChoice, "Jam Choice", "Select / input_select options as chunky chips.");
+
+/* ---------- jam-gauge: half-disc of cut wedges (or a cut strip) with a big numeral, read-only ----------
+   {type: custom:jam-gauge, entity, name?, min?: 0, max?: 100, unit?, severity?: {green, yellow, red} (band starts, HA
+    semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?}
+   Bands green/yellow/red -> teal/ochre/red; without severity one ochre band. Values outside min..max are clamped
+   (the numeral still shows the real value). Unavailable / non-numeric -> red "Unavailable", no fill. */
+const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
+const JG_SVG = "http://www.w3.org/2000/svg";
+function jgFmt(v) { return String(Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10); }
+class JamGauge extends JamBase {
+  validate(c) { if (!c.entity) throw new Error("jam-gauge: entity is required"); }
+  watched() { return [this._config.entity]; }
+  css() { return `
+    .g{display:grid;gap:6px;align-content:start;justify-items:center;text-align:center}
+    .g .label{justify-self:stretch;text-align:left}
+    svg{display:block;width:100%;max-width:260px;height:auto}
+    .big{font-family:var(--display);font-weight:900;font-size:2.8rem;line-height:.9;text-transform:uppercase}
+    .u{font:500 .95rem/1 var(--body);color:var(--dim);margin-left:4px;text-transform:none}
+    .un{font-size:1.7rem}
+    .bar{display:grid;gap:10px;align-content:start}
+    .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+    .bar .big{font-size:1.9rem}
+    .track{position:relative;height:32px}
+    .strip{position:absolute;inset:0;background:var(--line)}
+    .fill{position:absolute;inset:0 auto 0 0}`; }
+  _bands(min, max) {
+    const sv = this._config.severity;
+    const st = sv ? Object.keys(JG_TONE).filter(k => sv[k] !== undefined && sv[k] !== null && !isNaN(Number(sv[k])))
+      .map(k => ({from: Math.min(max, Math.max(min, Number(sv[k]))), col: JG_TONE[k]})).sort((a, b) => a.from - b.from) : [];
+    if (!st.length) return [{from: min, to: max, col: "ochre"}];
+    st[0].from = min; /* below the first band start HA has no colour; the first band covers it */
+    st.forEach((x, i) => { x.to = i + 1 < st.length ? st[i + 1].from : max; });
+    return st.filter(x => x.to > x.from);
+  }
+  _model() {
+    const c = this._config, s = stateObj(this._hass, c.entity);
+    const min = Number(c.min ?? 0), max = Number(c.max ?? 100), v = s ? Number(s.state) : NaN;
+    const ok = !!s && !UNAVAILABLE.has(s.state) && s.state !== "" && !isNaN(v) && max > min;
+    return {s, min, max, ok, v, cv: ok ? Math.max(min, Math.min(max, v)) : min,
+      unit: c.unit ?? (s && s.attributes.unit_of_measurement) ?? ""};
+  }
+  _numeral(m, parent) {
+    if (!m.ok) { parent.append(el("div", "big un c-alert", "Unavailable")); return; }
+    const n = el("div", "big num", jgFmt(m.v));
+    if (m.unit) n.append(el("span", "u", m.unit));
+    parent.append(n);
+  }
+  _meter(node, m) {
+    node.setAttribute("role", "meter");
+    node.setAttribute("aria-valuemin", m.min); node.setAttribute("aria-valuemax", m.max);
+    if (m.ok) { node.setAttribute("aria-valuenow", m.cv); node.setAttribute("aria-valuetext", jgFmt(m.v) + (m.unit ? " " + m.unit : "")); }
+    else node.setAttribute("aria-valuetext", "Unavailable");
+  }
+  _arc(face, m, sd) {
+    const svg = document.createElementNS(JG_SVG, "svg"), r = rng(sd);
+    svg.setAttribute("viewBox", "-2 -2 204 104");
+    const frac = v => (v - m.min) / (m.max - m.min);
+    const pt = (f, rad) => { const a = Math.PI * (1 - f); return `${(100 + rad * Math.cos(a)).toFixed(2)} ${(100 - rad * Math.sin(a)).toFixed(2)}`; };
+    const wedge = (f0, f1, rad, fill) => {
+      if (f1 - f0 < 0.0005) return;
+      const p = document.createElementNS(JG_SVG, "path");
+      p.setAttribute("d", `M100 100L${pt(f0, rad)}A${rad} ${rad} 0 0 1 ${pt(f1, rad)}Z`);
+      p.style.fill = fill; svg.append(p);
+    };
+    const GAP = 0.006, fv = frac(m.cv);
+    for (const bd of this._bands(m.min, m.max)) {
+      const f0 = frac(bd.from) + (bd.from > m.min ? GAP : 0), f1 = frac(bd.to) - (bd.to < m.max ? GAP : 0);
+      const rad = 88 + r() * 6; /* each band a separately cut piece */
+      if (m.ok && fv > f0) wedge(f0, Math.min(f1, fv), rad, `var(--${bd.col})`);
+      wedge(m.ok ? Math.max(f0, fv) : f0, f1, rad, "var(--line)");
+    }
+    if (m.ok) { /* the value "needle": a bold paper wedge cut through the disc */
+      const d = 0.014, a = Math.max(0, Math.min(1 - 2 * d, fv - d));
+      const w = document.createElementNS(JG_SVG, "path");
+      w.setAttribute("class", "cut");
+      w.setAttribute("d", `M100 100L${pt(a, 100)}L${pt(a + 2 * d, 100)}Z`);
+      w.style.fill = "var(--fg)"; svg.append(w);
+    }
+    /* Vertigo spiral hub, cut out of the disc. */
+    const hub = document.createElementNS(JG_SVG, "circle");
+    hub.setAttribute("cx", "100"); hub.setAttribute("cy", "100"); hub.setAttribute("r", "15"); hub.style.fill = "var(--slab)";
+    const sp = document.createElementNS(JG_SVG, "path"), pts = [];
+    for (let t = 0; t <= 2.6 * 2 * Math.PI; t += 0.25) { const rr = 1 + t * 0.75; pts.push(`${(100 + rr * Math.cos(t)).toFixed(2)} ${(100 - rr * Math.sin(t)).toFixed(2)}`); }
+    sp.setAttribute("d", "M" + pts.join("L"));
+    sp.style.fill = "none"; sp.style.stroke = "var(--fg)"; sp.setAttribute("stroke-width", "2.2"); sp.setAttribute("stroke-linecap", "square");
+    svg.append(hub, sp);
+    svg.setAttribute("aria-hidden", "true");
+    const box = el("div"); box.style.width = "100%"; box.style.display = "flex"; box.style.justifyContent = "center";
+    this._meter(box, m); box.append(svg); face.append(box);
+    this._numeral(m, face);
+  }
+  _bar(face, m, sd) {
+    const row = el("div", "row");
+    row.append(el("div", "label", this._name()));
+    this._numeral(m, row); face.append(row);
+    const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
+    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
+    this._meter(track, m);
+    if (m.ok) {
+      const band = this._bands(m.min, m.max).filter(x => m.cv >= x.from).pop();
+      fill.style.background = `var(--${band ? band.col : "ochre"})`;
+      fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
+      fill.style.width = ((m.cv - m.min) / (m.max - m.min)) * 100 + "%";
+      strip.append(fill);
+    }
+    track.append(strip); face.append(track);
+  }
+  _name() { return this._config.name || friendly(this._hass, this._config.entity); }
+  render(b) {
+    const c = this._config, m = this._model(), bar = c.style === "bar";
+    const {root, face} = this.paper(c.entity, {edges: bar ? "rb" : "b", cls: "press",
+      face: bar ? "bar" : "g"});
+    root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", this._name());
+    bindActions(root, () => this._hass, c, c.entity);
+    const sd = seed("jam-gauge|" + c.entity);
+    if (bar) this._bar(face, m, sd);
+    else { face.append(el("div", "label", this._name())); this._arc(face, m, sd); }
+    b.append(root);
+  }
+  getCardSize() { return this._config.style === "bar" ? 2 : 4; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
+}
+register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a cut strip with a big numeral (replaces gauge).");
+
+/* ---------- jam-graph: history chart from the recorder (line / step / bars), 1-5 series ----------
+   {type: custom:jam-graph, title?, entities: [id | {entity, name?}] (1-5), hours_to_show? (24), style?: line|step|bars,
+    show_current? (true), min?, max?, refresh_minutes? (5)}
+   One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
+   series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
+   at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
+   Config errors (e.g. a 6th series) render in the card instead of throwing. */
+const JAM_GRAPH_MAX_PTS = 240, JAM_GRAPH_GAP = 60e3, JAM_GRAPH_NS = "http://www.w3.org/2000/svg";
+const JAM_GRAPH_STYLES = ["line", "step", "bars"];
+function jamGraphSvg(tag, attrs, cls) {
+  const e = document.createElementNS(JAM_GRAPH_NS, tag);
+  if (cls) e.setAttribute("class", cls);
+  for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
+  return e;
+}
+class JamGraph extends JamBase {
+  constructor() { super(); this._tok = 0; this._last = 0; this._lastQ = null; this._data = null; this._hover = null; }
+  /* Never throws: a broken config renders as an in-card error (one bad card must not break a dashboard). */
+  validate(c) {
+    this._err = null; this._ents = [];
+    const list = c.entities;
+    if (!Array.isArray(list) || !list.length) { this._err = "entities: list 1-5 sensors"; return; }
+    if (list.length > 5) { this._err = `${list.length} series: max 5 — fold into fewer series`; return; }
+    for (const x of list) {
+      const id = typeof x === "string" ? x : x && x.entity;
+      if (typeof id !== "string" || !id.includes(".")) { this._err = "entities: each item is an entity id or {entity, name}"; return; }
+      this._ents.push({entity: id, name: typeof x === "object" ? x.name : undefined});
+    }
+    if (c.style !== undefined && !JAM_GRAPH_STYLES.includes(c.style)) { this._err = "style: line, step or bars"; return; }
+    if (c.hours_to_show !== undefined && !(+c.hours_to_show > 0)) { this._err = "hours_to_show: a positive number"; return; }
+  }
+  setConfig(c) {
+    super.setConfig(c);
+    const q = this._err ? null : JSON.stringify([this._ents.map(e => e.entity), this._hours(), this._style()]);
+    if (q !== this._q) { this._q = q; this._data = null; this._tok++; this._render(false); }
+    if (this.isConnected) { this._arm(); this._kick(); }
+  }
+  set hass(h) {
+    const first = !this._hass, before = this._sig;
+    super.hass = h;
+    if (first || this._sig !== before) this._kick(); /* a watched state changed: refetch (throttled) */
+  }
+  get hass() { return super.hass; }
+  watched() { return this._err ? [] : this._ents.map(e => e.entity); }
+  _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
+  _style() { return this._config.style || "line"; }
+  connectedCallback() {
+    if (!this._ro && window.ResizeObserver) this._ro = new ResizeObserver(() => { if (this._plot && Math.round(this._plot.clientWidth) !== this._w) this._draw(); });
+    if (this._ro) this._ro.observe(this);
+    this._arm();
+    if (!this._data || Date.now() - this._last > this._every()) this._kick();
+  }
+  disconnectedCallback() {
+    clearInterval(this._iv); this._iv = null;
+    clearTimeout(this._pending); this._pending = null;
+    if (this._ro) this._ro.disconnect();
+  }
+  _every() { return Math.max(1, +this._config.refresh_minutes || 5) * 60e3; }
+  _arm() {
+    clearInterval(this._iv); this._iv = null;
+    if (this._config && !this._err) this._iv = setInterval(() => this._kick(), this._every());
+  }
+  /* Fetch now, or once the one-minute gap since the last fetch of the same query has passed (coalesced). */
+  _kick() {
+    if (!this._hass || !this._config || this._err || !this.isConnected) return;
+    const wait = this._q === this._lastQ ? this._last + JAM_GRAPH_GAP - Date.now() : 0;
+    if (wait <= 0) { clearTimeout(this._pending); this._pending = null; this._fetch(); return; }
+    if (!this._pending) this._pending = setTimeout(() => { this._pending = null; this._kick(); }, wait);
+  }
+  async _fetch() {
+    const ids = this._ents.map(e => e.entity), tok = ++this._tok, style = this._style();
+    const t1 = Date.now(), t0 = t1 - this._hours() * 3600e3;
+    this._last = t1; this._lastQ = this._q;
+    let res;
+    try {
+      if (typeof this._hass.callWS !== "function") throw new Error("no callWS");
+      res = await this._hass.callWS({type: "history/history_during_period", start_time: new Date(t0).toISOString(), end_time: new Date(t1).toISOString(),
+        entity_ids: ids, minimal_response: true, no_attributes: true, significant_changes_only: false});
+    } catch (e) { res = null; }
+    if (tok !== this._tok) return; /* config changed meanwhile */
+    this._data = {t0, t1, series: ids.map(id => JamGraph.prep(res && res[id], t0, t1, style, this._hours()))};
+    this._render(false);
+  }
+  /* History rows -> [[ms, value]] sorted, numeric only, clamped to [t0, t1]; downsampled to ≤240 points. Line/step get a
+     final point at t1 (the state holds until now); bars get one time-weighted mean per hour (null where nothing known). */
+  static prep(rows, t0, t1, style, hours) {
+    const raw = [];
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const s = r.s !== undefined ? r.s : r.state;
+      if (typeof s !== "string" || s.trim() === "" || UNAVAILABLE.has(s)) continue;
+      const v = Number(s);
+      if (!isFinite(v)) continue;
+      const ts = r.lu != null ? r.lu * 1000 : r.lc != null ? r.lc * 1000 : Date.parse(r.last_updated || r.last_changed);
+      if (!isFinite(ts)) continue;
+      raw.push([Math.min(t1, Math.max(t0, ts)), v]);
+    }
+    raw.sort((a, b) => a[0] - b[0]);
+    if (!raw.length) return [];
+    if (style === "bars") {
+      const per = Math.max(1, Math.ceil(hours / JAM_GRAPH_MAX_PTS)) * 3600e3, n = Math.ceil((t1 - t0) / per);
+      const sum = new Array(n).fill(0), cov = new Array(n).fill(0);
+      for (let j = 0; j < raw.length; j++) {
+        let a = raw[j][0]; const b = j + 1 < raw.length ? raw[j + 1][0] : t1, v = raw[j][1];
+        while (a < b) {
+          const i = Math.min(n - 1, Math.floor((a - t0) / per)), e = Math.min(b, t0 + (i + 1) * per);
+          if (e <= a) break;
+          sum[i] += v * (e - a); cov[i] += e - a; a = e;
+        }
+      }
+      return sum.map((s, i) => [t0 + i * per, cov[i] ? s / cov[i] : null]);
+    }
+    let pts = raw;
+    const cap = JAM_GRAPH_MAX_PTS - 1;
+    if (raw.length > cap) {
+      const w = (t1 - t0) / cap, acc = new Map();
+      for (const [t, v] of raw) {
+        const i = Math.min(cap - 1, Math.floor((t - t0) / w));
+        const b = acc.get(i) || {n: 0, t: 0, v: 0, first: t};
+        b.n++; b.t += t; b.v += v; acc.set(i, b);
+      }
+      pts = [...acc.values()].map(b => [style === "step" ? b.first : b.t / b.n, b.v / b.n]);
+    }
+    if (pts[pts.length - 1][0] < t1) pts = [...pts, [t1, pts[pts.length - 1][1]]];
+    return pts;
+  }
+  /* Value of a series at time t: held (step), interpolated (line) or the bucket mean (bars). */
+  static at(pts, t, style, t0, per) {
+    if (!pts.length) return null;
+    if (style === "bars") { const i = Math.floor((t - t0) / per); return pts[i] ? pts[i][1] : null; }
+    if (t < pts[0][0]) return null;
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (pts[m][0] <= t) lo = m; else hi = m - 1; }
+    const a = pts[lo], b = pts[lo + 1];
+    if (style === "step" || !b || b[0] === a[0]) return a[1];
+    return a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]);
+  }
+  /* 3-4 nice ticks covering [lo, hi]. fixLo/fixHi (configured min/max) keep that end as the domain edge. */
+  static ticks(lo, hi, fixLo, fixHi) {
+    if (!(hi > lo)) { const d = Math.abs(lo) * .05 || 1; if (!fixLo) lo -= d; if (!fixHi) hi += d; if (!(hi > lo)) hi = lo + 2 * d; }
+    const raw = (hi - lo) / 3, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    let step = mag * 10;
+    for (const m of [1, 2, 2.5, 5, 10]) {
+      const s = m * mag, n = Math.round(Math.ceil(hi / s - 1e-9) - Math.floor(lo / s + 1e-9)) + 1;
+      if (n <= 4) { step = s; break; }
+    }
+    const a = (fixLo ? Math.ceil(lo / step - 1e-9) : Math.floor(lo / step + 1e-9)) * step;
+    const b = (fixHi ? Math.floor(hi / step + 1e-9) : Math.ceil(hi / step - 1e-9)) * step;
+    const ticks = [];
+    for (let v = a; v <= b + step * 1e-6; v += step) ticks.push(+v.toPrecision(12));
+    const dec = Math.min(3, ((String(+step.toPrecision(6)).split(".")[1]) || "").length);
+    return {lo: fixLo ? lo : a, hi: fixHi ? hi : b, ticks, dec};
+  }
+  _lang() { const h = this._hass; return (h && h.locale && h.locale.language) || (h && h.language) || undefined; }
+  _num(id, v) {
+    const e = this._hass && this._hass.entities && this._hass.entities[id];
+    const p = e && typeof e.display_precision === "number" ? e.display_precision : null;
+    const d = p !== null ? p : Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2;
+    return v.toLocaleString(this._lang(), {minimumFractionDigits: p !== null ? p : 0, maximumFractionDigits: d});
+  }
+  _unit(id) { const s = stateObj(this._hass, id); return (s && s.attributes.unit_of_measurement) || ""; }
+  _name(e) { return e.name || friendly(this._hass, e.entity); }
+  css() { return `
+    .g{display:grid;gap:10px}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 14px;flex-wrap:wrap;min-width:0}
+    .top .label{overflow-wrap:anywhere}
+    .cur{font-family:var(--display);font-weight:900;font-size:3rem;line-height:.86;letter-spacing:-.005em;cursor:pointer;white-space:nowrap}
+    .cur small{font:600 .9rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:4px}
+    .one{display:grid;gap:6px;min-width:0}
+    .lg{display:flex;flex-wrap:wrap;gap:6px 14px}
+    .lg button{display:inline-flex;align-items:center;gap:6px;font:600 .7rem/1.2 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);max-width:100%}
+    .lg .v{color:var(--fg);letter-spacing:.04em}
+    .sq{display:inline-block;width:10px;height:10px;flex:none;background:var(--c)}
+    .plot{position:relative;min-width:0;outline:none}
+    .plot:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .plot svg{display:block;width:100%;touch-action:pan-y}
+    .ax{font:500 .72rem var(--body);fill:var(--dim)}
+    .rule{stroke:var(--line);stroke-width:1;shape-rendering:crispEdges}
+    .ln{fill:none;stroke-width:3;stroke-linecap:square;stroke-linejoin:miter}
+    .xh{stroke:var(--dim);stroke-width:1;shape-rendering:crispEdges}
+    .mk{stroke:var(--slab);stroke-width:2}
+    .empty{display:flex;align-items:center;justify-content:center}
+    .empty .arm{--acc:var(--dim)}
+    .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;box-shadow:3px 3px 0 var(--shadow);
+      pointer-events:none;font:500 .74rem/1.35 var(--body);display:grid;grid-template-columns:auto auto auto;gap:2px 8px;align-items:center;white-space:nowrap}
+    .tip[hidden]{display:none}
+    .tip .label{grid-column:1/-1}
+    .tip .v{text-align:right;font-weight:600}
+    .err{display:grid;gap:6px}`; }
+  render(b) {
+    const c = this._config, h = this._hass;
+    this._plot = null;
+    if (this._err) {
+      const {root, face} = this.paper("error", {face: "err stripe s-alert"});
+      face.append(el("div", "label", "Jam graph · config error"), el("div", "", this._err));
+      b.append(root); return;
+    }
+    const {root, face} = this.paper(c.title || this._ents[0].entity, {face: "g"});
+    const multi = this._ents.length > 1, show = c.show_current !== false;
+    if (!multi) {
+      const e = this._ents[0], s = stateObj(h, e.entity);
+      const top = el("div", "top"), one = el("div", "one");
+      one.append(el("div", "label", c.title || this._name(e)));
+      top.append(one);
+      if (show && s) {
+        const v = Number(s.state), num = s.state !== "" && isFinite(v);
+        const cur = el("button", "cur num", num ? this._num(e.entity, v) : fmtState(h, s));
+        if (num && this._unit(e.entity)) cur.append(el("small", "", this._unit(e.entity)));
+        cur.title = this._name(e); cur.onclick = () => moreInfo(this, e.entity);
+        top.append(cur);
+      }
+      face.append(top);
+    } else {
+      if (c.title) face.append(el("div", "label", c.title));
+      const lg = el("div", "lg");
+      this._ents.forEach((e, i) => {
+        const s = stateObj(h, e.entity), btn = el("button");
+        const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`); sq.setAttribute("aria-hidden", "true");
+        btn.append(sq, el("span", "", this._name(e)));
+        if (show && s) {
+          const v = Number(s.state);
+          btn.append(el("span", "v num", s.state !== "" && isFinite(v) ? `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}` : fmtState(h, s)));
+        }
+        btn.onclick = () => moreInfo(this, e.entity);
+        lg.append(btn);
+      });
+      face.append(lg);
+    }
+    const H = multi ? 170 : 140, plot = el("div", "plot");
+    plot.style.height = H + "px";
+    face.append(plot);
+    b.append(root);
+    const d = this._data;
+    if (!d) { plot.classList.add("empty"); plot.append(armBars("jam-graph|" + this._q)); plot.setAttribute("aria-busy", "true"); return; }
+    if (!d.series.some(s => s.some(p => p[1] !== null))) { plot.classList.add("empty"); plot.append(el("div", "label", "No data")); return; }
+    this._plot = plot; this._H = H;
+    plot.tabIndex = 0;
+    plot.setAttribute("role", "img");
+    plot.setAttribute("aria-label", `${c.title || this._ents.map(e => this._name(e)).join(", ")}: last ${this._hours()} h`);
+    plot.addEventListener("pointermove", e => this._point(e.clientX));
+    plot.addEventListener("pointerdown", e => this._point(e.clientX));
+    plot.addEventListener("pointerleave", e => { if (e.pointerType !== "touch") this._hide(); });
+    plot.addEventListener("blur", () => this._hide());
+    plot.addEventListener("keydown", e => {
+      const step = (d.t1 - d.t0) / 48;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const t = this._hover === null ? d.t1 : this._hover + (e.key === "ArrowLeft" ? -step : step);
+        this._show(Math.min(d.t1, Math.max(d.t0, t)));
+      } else if (e.key === "Escape") this._hide();
+    });
+    this._draw();
+  }
+  /* Geometry for the current width: margins, scales, bars bucket size. */
+  _geo() {
+    const c = this._config, d = this._data, style = this._style(), W = this._w, H = this._H;
+    let lo = Infinity, hi = -Infinity;
+    for (const s of d.series) for (const p of s) if (p[1] !== null) { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }
+    if (style === "bars") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+    const num = v => v !== undefined && v !== null && v !== "" && isFinite(+v);
+    const fixLo = num(c.min), fixHi = num(c.max);
+    if (fixLo) lo = +c.min;
+    if (fixHi) hi = +c.max;
+    const tk = JamGraph.ticks(lo, hi, fixLo, fixHi);
+    const fmt = v => v.toLocaleString(this._lang(), {minimumFractionDigits: tk.dec, maximumFractionDigits: tk.dec});
+    const ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * 7, mr = 4, mt = 8, mb = 20;
+    const per = Math.max(1, Math.ceil(this._hours() / JAM_GRAPH_MAX_PTS)) * 3600e3;
+    const x = t => ml + (t - d.t0) / (d.t1 - d.t0) * (W - ml - mr);
+    const y = v => mt + (tk.hi - Math.min(tk.hi, Math.max(tk.lo, v))) / (tk.hi - tk.lo) * (H - mt - mb);
+    return {W, H, ml, mr, mt, mb, x, y, tk, fmt, per, style};
+  }
+  _draw() {
+    const plot = this._plot, d = this._data;
+    if (!plot || !d) return;
+    this._w = Math.round(plot.clientWidth);
+    if (!this._w) return;
+    const g = this._geo(), {W, H, ml, mr, mt, mb, x, y} = g;
+    const svg = jamGraphSvg("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, "aria-hidden": "true"});
+    for (const v of g.tk.ticks) {
+      const yy = Math.round(y(v)) + .5;
+      svg.append(jamGraphSvg("line", {x1: ml, x2: W - mr, y1: yy, y2: yy}, "rule"));
+      const t = jamGraphSvg("text", {x: ml - 8, y: yy, "text-anchor": "end", "dominant-baseline": "middle"}, "ax");
+      t.textContent = g.fmt(v); svg.append(t);
+    }
+    /* x labels: 3-4 local-time marks (HH:00, or weekday for spans over two days). */
+    const span = (d.t1 - d.t0) / 3600e3, xs = [1, 2, 3, 6, 12, 24, 48, 72, 168, 336].find(s => span / s <= 4) || 720;
+    const m = new Date(d.t0); m.setMinutes(0, 0, 0);
+    for (let k = 0; k < 800 && (xs < 24 ? m.getHours() % xs : m.getHours()) !== 0; k++) m.setHours(m.getHours() + 1);
+    for (let k = 0; k < 8 && +m <= d.t1; k++, m.setHours(m.getHours() + xs)) {
+      const xx = x(+m);
+      if (+m < d.t0 || xx < ml + 18 || xx > W - mr - 18) continue;
+      const t = jamGraphSvg("text", {x: xx, y: H - 4, "text-anchor": "middle"}, "ax");
+      t.textContent = xs < 24 ? m.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"}) : m.toLocaleDateString(this._lang(), {weekday: "short"});
+      svg.append(t);
+    }
+    const n = d.series.length;
+    d.series.forEach((pts, i) => {
+      const col = `var(--s${i + 1})`;
+      if (g.style === "bars") {
+        const gp = jamGraphSvg("g", {fill: col, "data-n": pts.length}, "bars");
+        const base = y(Math.min(g.tk.hi, Math.max(g.tk.lo, 0)));
+        for (const [t, v] of pts) {
+          if (v === null) continue;
+          const x0 = x(t), x1 = x(Math.min(d.t1, t + g.per)), bw = (x1 - x0 - 2) / n;
+          if (bw <= 0) continue;
+          const yv = y(v);
+          gp.append(jamGraphSvg("rect", {x: (x0 + 1 + i * bw).toFixed(1), y: Math.min(yv, base).toFixed(1), width: bw.toFixed(1), height: Math.abs(base - yv).toFixed(1)}));
+        }
+        svg.append(gp); return;
+      }
+      if (!pts.length) return;
+      let p = `M${x(pts[0][0]).toFixed(1)} ${y(pts[0][1]).toFixed(1)}`;
+      for (let j = 1; j < pts.length; j++) {
+        const xx = x(pts[j][0]).toFixed(1), yy = y(pts[j][1]).toFixed(1);
+        p += g.style === "step" ? `H${xx}V${yy}` : `L${xx} ${yy}`;
+      }
+      if (pts.length === 1) p += `H${(x(pts[0][0]) + .1).toFixed(1)}`;
+      svg.append(jamGraphSvg("path", {d: p, stroke: col, "data-n": pts.length}, "ln"));
+    });
+    const xh = jamGraphSvg("g", {visibility: "hidden"}, "cross");
+    xh.append(jamGraphSvg("line", {y1: mt, y2: H - mb}, "xh"));
+    d.series.forEach((_, i) => xh.append(jamGraphSvg("rect", {width: 8, height: 8, fill: `var(--s${i + 1})`}, "mk")));
+    svg.append(xh);
+    plot.textContent = "";
+    plot.append(svg);
+    this._g = g; this._xh = xh;
+    this._tip = el("div", "tip"); this._tip.hidden = true; this._tip.setAttribute("role", "status");
+    plot.append(this._tip);
+    if (this._hover !== null) this._show(this._hover);
+  }
+  _point(cx) {
+    if (!this._g) return;
+    const g = this._g, d = this._data, r = this._plot.getBoundingClientRect();
+    const px = Math.min(g.W - g.mr, Math.max(g.ml, cx - r.left));
+    this._show(d.t0 + (px - g.ml) / (g.W - g.ml - g.mr) * (d.t1 - d.t0));
+  }
+  _show(t) {
+    const g = this._g, d = this._data;
+    if (!g || !this._tip) return;
+    if (g.style === "bars") t = Math.min(d.t1, d.t0 + (Math.floor((t - d.t0) / g.per) + .5) * g.per);
+    this._hover = t;
+    const xx = Math.round(g.x(t)) + .5;
+    const line = this._xh.querySelector("line"); line.setAttribute("x1", xx); line.setAttribute("x2", xx);
+    const tip = this._tip, opt = {hour: "2-digit", minute: "2-digit"};
+    tip.textContent = "";
+    let when = new Date(t).toLocaleTimeString(this._lang(), opt);
+    if (g.style === "bars") { const a = d.t0 + Math.floor((t - d.t0) / g.per) * g.per; when = `${new Date(a).toLocaleTimeString(this._lang(), opt)}–${new Date(Math.min(d.t1, a + g.per)).toLocaleTimeString(this._lang(), opt)}`; }
+    tip.append(el("div", "label num", when));
+    const marks = this._xh.querySelectorAll("rect");
+    d.series.forEach((pts, i) => {
+      const e = this._ents[i], v = JamGraph.at(pts, t, g.style, d.t0, g.per);
+      const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`);
+      tip.append(sq, el("span", "", this._name(e)), el("span", "v num", v === null ? "—" : `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}`));
+      if (v === null) marks[i].setAttribute("visibility", "hidden");
+      else { marks[i].removeAttribute("visibility"); marks[i].setAttribute("x", xx - 4); marks[i].setAttribute("y", Math.round(g.y(v)) - 4); }
+    });
+    this._xh.setAttribute("visibility", "visible");
+    tip.hidden = false;
+    const tw = tip.offsetWidth, left = xx + 12 + tw <= g.W ? xx + 12 : Math.max(0, xx - 12 - tw);
+    tip.style.left = left + "px";
+  }
+  _hide() {
+    this._hover = null;
+    if (this._xh) this._xh.setAttribute("visibility", "hidden");
+    if (this._tip) this._tip.hidden = true;
+  }
+  getCardSize() { return this._ents && this._ents.length > 1 ? 5 : 4; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-graph", JamGraph, "Jam Graph", "History chart (line, step or bars) for 1-5 numeric sensors with a crosshair tooltip.");
 
 /* ---------- jam-heading: section label + big title over a torn accent rule ----------
    {type: custom:jam-heading, title, kicker?, accent?: ochre|red|teal, entities?: [ids shown as chips],
@@ -456,6 +1040,225 @@ class JamHero extends JamBase {
   getCardSize() { return 4; }
 }
 register("jam-hero", JamHero, "Jam Hero", "Paper slab with clipped corner: big title from an entity, meta line and chips.");
+
+/* ---------- jam-light: light with ON key, brightness strip, colour-temp chips and colour swatches ----------
+   {type: custom:jam-light, entity (light.*), name?, icon?, tap_action? (ON key; default toggle), hold_action?,
+    show_brightness? (default true when the light dims), show_color_temp? (default: color_temp supported),
+    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}]}
+   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off). */
+const LIGHT_TEMPS = [["Candle", 2200], ["Warm", 2700], ["Neutral", 4000], ["Day", 6000]];
+const LIGHT_SWATCHES = [["Ochre", [229, 163, 27]], ["Red", [212, 58, 28]], ["Teal", [63, 154, 165]],
+  ["Paper", [236, 226, 201]], ["Violet", [166, 108, 196]], ["Green", [127, 155, 42]]];
+const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
+/* Local helpers: rgb distance (swatch/preset "active" match) and the light's dimmability. */
+const rgbDist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : Infinity);
+function lightModes(s) { return (s && s.attributes.supported_color_modes) || []; }
+function lightDims(s) {
+  const m = lightModes(s);
+  return m.length ? m.some(x => x !== "onoff") : !!(s && s.attributes.brightness != null);
+}
+class JamLight extends JamBase {
+  validate(c) { if (!c.entity || !/^light\./.test(c.entity)) throw new Error("jam-light: entity must be a light"); }
+  watched() { return [this._config.entity]; }
+  css() { return `
+    .wrap{--p-l:30px;display:grid;gap:12px;align-content:start}
+    .swatch{position:absolute;left:0;top:0;bottom:0;width:14px;background:var(--line)}
+    .head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 10px}
+    .nm{display:flex;align-items:center;gap:8px;min-width:0}
+    .nm h3{font-size:1.45rem;overflow-wrap:anywhere}
+    .nm ha-icon{--mdc-icon-size:22px;flex:none;color:var(--dim)}
+    .pw{flex:none;min-width:64px}
+    .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+    .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
+    .track{position:relative;height:32px;touch-action:none}
+    .track[role=slider]{cursor:pointer}
+    .strip{position:absolute;inset:0;background:var(--line)}
+    .fill{position:absolute;inset:0 auto 0 0;background:var(--ochre)}
+    .track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:8px}
+    .chips .key{min-width:0} .chips .key > .face{--p-l:6px;--p-r:6px;font-size:.68rem;letter-spacing:.1em}
+    .sws{display:flex;flex-wrap:wrap;gap:10px}
+    .sw{min-width:0;width:40px} .sw > .face{height:34px;padding:0}
+    .sw.on > .face,.sw[aria-pressed=true] > .face{border-color:var(--fg)}`; }
+  _render(force) {
+    // A hass update mid-drag would rebuild the strip under the pointer; render once the drag ends instead.
+    if (this._drag && !force) { this._pending = true; return; }
+    super._render(force);
+  }
+  _on(data) { this._hass.callService("light", "turn_on", {entity_id: this._config.entity, ...data}); }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
+    const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", modes = lightModes(s);
+    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: "wrap"});
+    const sw = el("div", "swatch"); sw.setAttribute("aria-hidden", "true");
+    const rgb = Array.isArray(a.rgb_color) ? a.rgb_color : null;
+    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--ochre)";
+    wrap.append(sw);
+    // Header: name + cut ON/OFF key (tap_action, default toggle; hold_action).
+    const head = el("div", "head"), nm = el("div", "nm");
+    const ic = icon(c.icon); if (ic) nm.append(ic);
+    nm.append(el("h3", "disp", c.name || friendly(h, c.entity)));
+    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""));
+    key.setAttribute("aria-pressed", on ? "true" : "false");
+    key.setAttribute("aria-label", `${c.name || friendly(h, c.entity)}: ${on ? "on" : dead ? "unavailable" : "off"}`);
+    key.disabled = dead;
+    bindActions(key, () => this._hass, {tap_action: c.tap_action || {action: "toggle"}, hold_action: c.hold_action}, c.entity);
+    head.append(nm, key); wrap.append(head);
+    b.append(root);
+    if (!s) return;
+    if (c.show_brightness !== false && lightDims(s)) this._brightness(wrap, on ? Math.round((a.brightness || 0) / 2.55) : 0, dead);
+    if (!on) return;
+    if (c.show_color_temp ?? modes.includes("color_temp")) this._temps(wrap, a);
+    if (c.show_color ?? modes.some(m => COLOR_MODES.includes(m))) this._swatches(wrap, a);
+    if (Array.isArray(c.presets) && c.presets.length) this._presets(wrap, a);
+  }
+  _brightness(wrap, v0, dead) {
+    const c = this._config, sd = seed("jam-light|" + c.entity);
+    const row = el("div", "row"), val = el("div", "v num", dead ? "—" : v0 + "%");
+    row.append(el("div", "label", "Brightness"), val);
+    const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
+    strip.style.clipPath = tornPath(sd + 3, {edges: "tb", depth: 3, step: 5});
+    fill.style.clipPath = tornPath(sd + 5, {edges: "r", depth: 9, step: 12});
+    fill.style.width = (dead ? 0 : v0) + "%";
+    strip.append(fill); track.append(strip); wrap.append(row, track);
+    if (dead) return;
+    track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", "Brightness");
+    track.setAttribute("aria-valuemin", "0"); track.setAttribute("aria-valuemax", "100"); track.setAttribute("aria-valuenow", v0);
+    let cur = v0;
+    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; val.textContent = cur + "%"; track.setAttribute("aria-valuenow", cur); };
+    const at = e => { const r = track.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
+    const send = () => {
+      if (cur > 0) this._on({brightness_pct: cur});
+      else if (v0 > 0) this._hass.callService("light", "turn_off", {entity_id: c.entity});
+    };
+    const end = () => { this._drag = false; if (this._pending) { this._pending = false; this._render(false); } };
+    track.onpointerdown = e => { track.setPointerCapture(e.pointerId); this._drag = true; show(at(e)); };
+    track.onpointermove = e => { if (this._drag) show(at(e)); };
+    track.onpointerup = e => { if (!this._drag) return; show(at(e)); send(); end(); };
+    track.onpointercancel = () => { show(v0); end(); };
+    track.onkeydown = e => {
+      const k = {ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 10, PageDown: -10, Home: -100, End: 100}[e.key];
+      if (!k) return; e.preventDefault(); show(cur + k); send();
+    };
+  }
+  _temps(wrap, a) {
+    const c = this._config, lo = a.min_color_temp_kelvin || 2000, hi = a.max_color_temp_kelvin || 6500;
+    // Clamp the four presets to the light's range; presets that clamp to the same kelvin keep the nearest name.
+    const by = new Map();
+    for (const [name, k] of LIGHT_TEMPS) {
+      const kv = Math.max(lo, Math.min(hi, k)), prev = by.get(kv);
+      if (!prev || Math.abs(prev.k - kv) > Math.abs(k - kv)) by.set(kv, {name, k, kv});
+    }
+    const list = [...by.values()].sort((x, y) => x.kv - y.kv);
+    const cur = a.color_mode === "color_temp" || !a.color_mode ? a.color_temp_kelvin : null;
+    let best = null;
+    if (typeof cur === "number") for (const t of list) if (!best || Math.abs(t.kv - cur) < Math.abs(best.kv - cur)) best = t;
+    const box = el("div", "chips"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour temperature");
+    for (const t of list) {
+      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "");
+      k.title = t.kv + " K"; k.setAttribute("aria-pressed", t === best ? "true" : "false");
+      k.onclick = () => this._on({color_temp_kelvin: t.kv});
+      box.append(k);
+    }
+    wrap.append(el("div", "label", "White"), box);
+  }
+  _swatches(wrap, a) {
+    const c = this._config, rgb = a.color_mode !== "color_temp" ? a.rgb_color : null;
+    const box = el("div", "sws"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour");
+    for (const [name, col] of LIGHT_SWATCHES) {
+      const act = rgbDist(rgb, col) < 40;
+      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {edges: "rb", depth: 2.5, step: 20, cls: "key press sw"});
+      root.type = "button"; root.title = name; root.setAttribute("aria-label", name);
+      root.setAttribute("aria-pressed", act ? "true" : "false");
+      face.style.background = `rgb(${col.join(",")})`;
+      root.onclick = () => this._on({rgb_color: col.slice()});
+      box.append(root);
+    }
+    wrap.append(el("div", "label", "Colour"), box);
+  }
+  _presets(wrap, a) {
+    const c = this._config, box = el("div", "chips");
+    box.setAttribute("role", "group"); box.setAttribute("aria-label", "Presets");
+    for (const p of c.presets) {
+      const data = {};
+      if (p.color_temp_kelvin != null) data.color_temp_kelvin = Number(p.color_temp_kelvin);
+      else if (Array.isArray(p.rgb_color)) data.rgb_color = p.rgb_color.map(Number);
+      if (p.brightness_pct != null) data.brightness_pct = Number(p.brightness_pct);
+      const act = data.color_temp_kelvin != null
+        ? a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - data.color_temp_kelvin) < 60
+        : a.color_mode !== "color_temp" && rgbDist(a.rgb_color, data.rgb_color) < 40;
+      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "");
+      k.setAttribute("aria-pressed", act ? "true" : "false");
+      k.onclick = () => this._on(data);
+      box.append(k);
+    }
+    wrap.append(el("div", "label", "Presets"), box);
+  }
+  getCardSize() { return 3; }
+}
+register("jam-light", JamLight, "Jam Light", "Light with an ON key, brightness strip, colour-temp chips and colour swatches.");
+
+/* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
+   {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true}
+   Row tap = more-info. Toggleable on/off rows get a cut ON/OFF key; device_tracker/person home/not_home = HOME/AWAY;
+   ISO timestamps (uptime, last boot) read as relative time. */
+function jlRel(iso) {
+  const t = Date.parse(iso);
+  if (isNaN(t)) return iso;
+  const sec = (t - Date.now()) / 1000, a = Math.abs(sec);
+  const [n, u] = a < 60 ? [sec, "second"] : a < 3600 ? [sec / 60, "minute"] : a < 86400 ? [sec / 3600, "hour"] : [sec / 86400, "day"];
+  try { return new Intl.RelativeTimeFormat(undefined, {numeric: "auto"}).format(Math.round(n), u); } catch (e) { return iso; }
+}
+class JamList extends JamBase {
+  validate(c) { if (!Array.isArray(c.entities) || !c.entities.length) throw new Error("jam-list: entities is required"); }
+  _rows() { return this._config.entities.map(e => (typeof e === "string" ? {entity: e} : e)).filter(r => r && r.entity); }
+  watched() { return this._rows().map(r => r.entity); }
+  css() { return `
+    .sheet{display:grid;align-content:start}
+    .ttl{font-size:1.6rem;margin:0 0 6px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;min-height:48px;cursor:pointer}
+    .row + .row{border-top:2px solid var(--line)}
+    .nm{flex:1 1 auto;min-width:0;font:500 .95rem/1.25 var(--body);overflow-wrap:anywhere}
+    .sub{display:block;font-size:.75rem;color:var(--dim)}
+    .v{flex:0 1 auto;min-width:0;text-align:right;font-family:var(--display);font-weight:900;font-size:1.35rem;line-height:1;
+      text-transform:uppercase;overflow-wrap:break-word}
+    .sw{flex:none;min-width:58px}`; }
+  _val(s) {
+    const st = s.state, d = s.entity_id.split(".")[0];
+    if ((d === "device_tracker" || d === "person") && (st === "home" || st === "not_home")) return st === "home" ? "Home" : "Away";
+    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(st) && !isNaN(Date.parse(st))) return jlRel(st);
+    return fmtState(this._hass, s);
+  }
+  render(b) {
+    const c = this._config, h = this._hass, rows = this._rows();
+    const {root, face} = this.paper(c.title || rows[0].entity, {edges: "rb", face: "sheet"});
+    if (c.title) face.append(el("h2", "disp ttl", c.title));
+    for (const r of rows) {
+      const s = stateObj(h, r.entity), row = el("div", "row focusable");
+      row.tabIndex = 0; row.setAttribute("role", "button");
+      bindActions(row, () => this._hass, {tap_action: {action: "more-info"}}, r.entity);
+      const nm = el("div", "nm", r.name || friendly(h, r.entity));
+      if (r.secondary_info === "last-changed" && s) nm.append(el("span", "sub num", jlRel(s.last_changed)));
+      row.append(nm);
+      if (s && toggleable(r.entity) && (s.state === "on" || s.state === "off")) {
+        const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""));
+        key.setAttribute("aria-pressed", on ? "true" : "false");
+        key.setAttribute("aria-label", `${r.name || friendly(h, r.entity)}: ${on ? "on" : "off"}`);
+        key.onclick = e => { e.stopPropagation(); this._hass.callService("homeassistant", "toggle", {entity_id: r.entity}); };
+        row.append(key);
+      } else {
+        const t = tone(s);
+        const v = el("div", "v num" + (c.state_color === false ? "" : ` c-${t === "off" ? "dim" : t}`), s ? this._val(s) : "—");
+        if (!s || UNAVAILABLE.has(s.state)) row.classList.add("unavail");
+        row.append(v);
+      }
+      face.append(row);
+    }
+    b.append(root);
+  }
+  getCardSize() { return 1 + this._rows().length; }
+}
+register("jam-list", JamList, "Jam List", "Paper sheet of entity rows with ON/OFF keys for switchable rows (replaces entities).");
 
 /* ---------- jam-media (v2): now playing as a duotone print + transport, volume, sources, players, group ----------
    {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop],
@@ -633,6 +1436,236 @@ class JamMedia extends JamBase {
   getCardSize() { return 5; }
 }
 register("jam-media", JamMedia, "Jam Media", "Now playing as a duotone print, transport, volume, sources, player switch and grouping.");
+
+/* ---------- jam-popup: full-screen ink veil + torn paper sheet that opens on a URL hash ----------
+   {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: ochre|red|teal (default ochre),
+    spiral? (Vertigo flash on open, default true), cards: [card configs]}
+   Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
+   Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag). */
+const POPUP_CSS = `
+  /* Zero footprint when closed: the host is a 0-height block; the overlay is position:fixed. Whether a sections
+     grid adds a gap/row for a 0-height card is verified in real HA in the clone step. */
+  :host{display:block;height:0;overflow:visible}
+  .pop{position:fixed;inset:0;z-index:9999;display:none}
+  .pop.open{display:block}
+  .veil{position:absolute;inset:0;background:var(--ink)}
+  .spiral{position:absolute;left:50%;top:50%;width:min(92vmin,720px);height:min(92vmin,720px);transform:translate(-50%,-50%);
+    visibility:hidden;pointer-events:none;color:var(--acc)}
+  .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
+  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto;--sh:6px}
+  .sheet > .face{--p-t:16px;--p-r:18px;--p-b:18px;--p-l:18px;height:auto;max-height:88vh;display:flex;flex-direction:column;gap:12px;
+    background:var(--slab2);outline:none}
+  .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .t{display:grid;gap:4px;min-width:0}
+  .t .label{color:var(--acc)}
+  .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
+  .rule{flex:none;height:6px;background:var(--acc)}
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0}
+  .body > *{display:block;min-width:0}
+  .close{flex:none}
+  .pop.opening .wipe{animation:jam-wipe 160ms steps(4,start) backwards}
+  .pop.opening .spiral{animation:jam-flash 120ms steps(1,end) both}
+  @keyframes jam-wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes jam-flash{from{visibility:visible}to{visibility:hidden}}
+  @keyframes jam-wipe-up{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @media (max-width:600px){
+    .stage{align-items:flex-end;padding:0}
+    .sheet{max-width:none;--sh:0px}
+    .sheet > .face{clip-path:var(--clip-m);--tr:0px;--tb:0px;--tl:0px;padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
+    .sheet > .shadow{display:none}
+    .pop.opening .wipe{animation-name:jam-wipe-up}
+  }
+  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
+
+/* Local helper: Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
+function vertigoSpiral() {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
+  svg.setAttribute("viewBox", "-100 -100 200 200"); svg.setAttribute("aria-hidden", "true");
+  const pts = [];
+  for (let t = 0; t <= Math.PI * 10; t += 0.12) { const r = 2 + t * 3; pts.push((r * Math.cos(t)).toFixed(1) + " " + (r * Math.sin(t)).toFixed(1)); }
+  path.setAttribute("d", "M" + pts.join(" L"));
+  path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "7"); path.setAttribute("stroke-linecap", "square"); path.setAttribute("stroke-linejoin", "miter");
+  svg.append(path);
+  return svg;
+}
+/* Local helper: the deepest focused element across shadow roots (to restore focus on close). */
+function deepActive() {
+  let a = document.activeElement;
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  return a;
+}
+
+/* Local helper: index of the current history entry (Navigation API), or null where the API is missing. */
+function navIndex() {
+  try { const e = window.navigation && window.navigation.currentEntry; return e && typeof e.index === "number" && e.index >= 0 ? e.index : null; }
+  catch (err) { return null; }
+}
+
+class JamPopup extends JamBase {
+  constructor() {
+    super();
+    this._open = false; this._kids = []; this._cardsSig = null; this._last = null; this._build = 0;
+    this._onLoc = () => this._sync(false);
+    this._onKey = e => { if (this._open && e.key === "Escape") { e.preventDefault(); this.close(); } };
+  }
+  validate(c) {
+    if (!c.hash || !/^#./.test(c.hash)) throw new Error('jam-popup: hash is required, e.g. "#lights-popup"');
+    if (c.cards && !Array.isArray(c.cards)) throw new Error("jam-popup: cards must be a list");
+  }
+  setConfig(config) {
+    if (!config) throw new Error("Invalid configuration");
+    this.validate(config);
+    this._config = config;
+    this._shell();
+    const sig = JSON.stringify(config.cards || []);
+    if (sig !== this._cardsSig) { this._cardsSig = sig; this._makeKids(config.cards || []); }
+    if (this.isConnected) this._sync(true);
+  }
+  set hass(h) {
+    this._hass = h;
+    for (const k of this._kids) { try { k.hass = h; } catch (e) { /* child without hass setter */ } }
+  }
+  get hass() { return this._hass; }
+  connectedCallback() {
+    window.addEventListener("location-changed", this._onLoc);
+    window.addEventListener("hashchange", this._onLoc);
+    window.addEventListener("popstate", this._onLoc);
+    document.addEventListener("keydown", this._onKey);
+    this._sync(true);
+  }
+  disconnectedCallback() {
+    window.removeEventListener("location-changed", this._onLoc);
+    window.removeEventListener("hashchange", this._onLoc);
+    window.removeEventListener("popstate", this._onLoc);
+    document.removeEventListener("keydown", this._onKey);
+    if (this._open) this._hide(false);
+  }
+  /* Static DOM: veil, spiral, sheet (paper, torn all round on desktop, torn top only as a bottom sheet on phones). */
+  _shell() {
+    const c = this._config, root = this.shadowRoot;
+    root.textContent = "";
+    const st = el("style"); st.textContent = BASE_CSS + POPUP_CSS;
+    const pop = el("div", "pop"); pop.style.setProperty("--acc", `var(--${c.accent || "ochre"})`);
+    const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
+    veil.onclick = () => this.close();
+    const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+    if (c.spiral === false) spiral.hidden = true;
+    const stage = el("div", "stage");
+    const key = "jam-popup|" + c.hash;
+    const {root: sheet, face} = this.paper(key, {edges: "trbl", depth: 6, step: 5, cut: true, cls: "sheet wipe"});
+    const s = seed(this.localName + "|" + key);
+    sheet.style.setProperty("--clip-m", tornPath(s + 2, {edges: "t", depth: 7, step: 4}));
+    face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
+    face.setAttribute("aria-label", c.title || c.kicker || "Pop-up");
+    const head = el("div", "head"), t = el("div", "t");
+    if (c.kicker) t.append(el("div", "label", c.kicker));
+    if (c.title) t.append(el("h2", "disp", c.title));
+    const close = cutKey("Close ×", key + "|close", "close");
+    close.setAttribute("aria-label", "Close");
+    close.onclick = () => this.close();
+    head.append(t, close);
+    const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
+    rule.style.clipPath = tornPath(s + 9, {edges: "b", depth: 3, step: 4});
+    this._bodyEl = el("div", "body");
+    for (const k of this._kids) this._bodyEl.append(k);
+    face.append(head, rule, this._bodyEl);
+    stage.append(sheet);
+    pop.append(veil, spiral, stage);
+    root.append(st, pop);
+    this._pop = pop; this._face = face;
+    if (this._open) pop.classList.add("open");
+  }
+  async _makeKids(cards) {
+    const gen = ++this._build;
+    let helpers = null;
+    try { helpers = window.loadCardHelpers ? await window.loadCardHelpers() : null; } catch (e) { helpers = null; }
+    if (gen !== this._build) return; // a newer config arrived while the helpers loaded
+    this._kids = cards.map(cfg => this._makeKid(cfg, helpers));
+    if (this._bodyEl) { this._bodyEl.textContent = ""; for (const k of this._kids) this._bodyEl.append(k); }
+    if (this._hass) this.hass = this._hass;
+  }
+  _makeKid(cfg, helpers) {
+    try {
+      if (helpers && helpers.createCardElement) {
+        const k = helpers.createCardElement(cfg);
+        // HA swaps in an error card while a custom card is still loading and fires ll-rebuild once it is defined.
+        k.addEventListener("ll-rebuild", ev => {
+          ev.stopPropagation();
+          const i = this._kids.indexOf(k), n = this._makeKid(cfg, helpers);
+          if (i < 0) return;
+          this._kids[i] = n;
+          if (k.parentNode) k.replaceWith(n);
+          if (this._hass) n.hass = this._hass;
+        }, {once: true});
+        return k;
+      }
+      const type = String((cfg && cfg.type) || "");
+      const tag = type.startsWith("custom:") ? type.slice(7) : `hui-${type}-card`;
+      if (!customElements.get(tag)) throw new Error(`Unknown card type: ${type}`);
+      const k = document.createElement(tag);
+      k.setConfig(cfg);
+      return k;
+    } catch (e) {
+      const d = el("div", "label c-alert", e.message || String(e));
+      d.style.padding = "8px 0";
+      return d;
+    }
+  }
+  _sync(initial) {
+    if (!this._config) return;
+    const want = location.hash === this._config.hash;
+    if (!want) clearTimeout(this._backT);
+    if (!want) this._last = {len: history.length, idx: navIndex(), path: location.pathname + location.search};
+    if (want && !this._open) this._show(!initial);
+    else if (!want && this._open) this._hide(true);
+  }
+  _show(animate) {
+    this._open = true; clearTimeout(this._backT);
+    // history.back() is only safe when the hash was pushed onto this same page: we saw the page without the hash and
+    // the hash entry is the very next one (Navigation API index; else history.length grew by one). Otherwise
+    // (deep link, replace navigation, unknown history) close() clears the hash in place.
+    const l = this._last, idx = navIndex();
+    this._viaNav = !!l && l.path === location.pathname + location.search &&
+      (idx != null && l.idx != null ? idx === l.idx + 1 : history.length === l.len + 1);
+    this._prevFocus = deepActive();
+    const de = document.documentElement, bd = document.body;
+    this._scroll = [de.style.overflow, bd.style.overflow];
+    de.style.overflow = "hidden"; bd.style.overflow = "hidden";
+    this._pop.classList.add("open");
+    this._pop.classList.remove("opening");
+    if (animate) { void this._pop.offsetWidth; this._pop.classList.add("opening"); }
+    this._face.scrollTop = 0; this._bodyEl.scrollTop = 0;
+    try { this._face.focus({preventScroll: true}); } catch (e) { this._face.focus(); }
+  }
+  _hide(restoreFocus) {
+    this._open = false;
+    this._pop.classList.remove("open", "opening");
+    if (this._scroll) {
+      document.documentElement.style.overflow = this._scroll[0]; document.body.style.overflow = this._scroll[1];
+      this._scroll = null;
+    }
+    const f = this._prevFocus; this._prevFocus = null;
+    if (restoreFocus && f && f.isConnected && typeof f.focus === "function") { try { f.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
+  }
+  /* Close: back out of the navigation that opened us; if that did not clear the hash (deep link, odd history),
+     drop the hash in place and tell HA's router. */
+  close() {
+    if (!this._open) return;
+    const hash = this._config.hash, back = this._viaNav;
+    this._hide(true);
+    const clear = () => {
+      if (location.hash !== hash) return;
+      history.replaceState(null, "", location.pathname + location.search);
+      window.dispatchEvent(new CustomEvent("location-changed", {detail: {replace: true}}));
+    };
+    // Fallback if back() did not remove the hash; cancelled once the hash is gone or the pop-up reopens.
+    if (back) { history.back(); clearTimeout(this._backT); this._backT = setTimeout(clear, 300); } else clear();
+  }
+  getCardSize() { return 0; }
+  getGridOptions() { return {columns: 12, rows: "auto"}; }
+}
+register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a torn paper sheet of cards, opened by a URL hash.");
 
 /* ---------- jam-remote: TV remote (cut-paper d-pad cross + cut keys) ----------
    {type: custom:jam-remote, entity (remote.*), media_player? (title/state), name?,
@@ -890,6 +1923,229 @@ class JamTile extends JamBase {
   getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
 }
 register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status stripe and an optional on/off, lock or press key.");
+
+/* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
+   {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
+    temperature_entity?, show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
+   Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
+   `forecast` attribute when the subscription fails. Glyphs are flat cut shapes (≤6 each), no animation. */
+const JAM_WX_NS = "http://www.w3.org/2000/svg";
+const JAM_WX_TYPES = ["daily", "hourly", "twice_daily"];
+const JAM_WX_WORDS = {
+  "clear-night": "Clear night", cloudy: "Cloudy", exceptional: "Alert", fog: "Fog", hail: "Hail", lightning: "Lightning",
+  "lightning-rainy": "Storm", partlycloudy: "Partly cloudy", pouring: "Pouring", rainy: "Rain", snowy: "Snow",
+  "snowy-rainy": "Sleet", sunny: "Sunny", windy: "Windy", "windy-variant": "Windy",
+};
+/* Shapes in a 48x48 box. Classes pick the colour: s = sun (ochre), p = paper, r = rain (teal), b = bolt (red), g = cut (face colour). */
+const JAM_WX_CLOUD = ["polygon", {points: "4,36 5,29 10,25 13,26 15,19 21,15 26,14 31,17 34,22 39,21 43,25 45,30 44,36"}, "p"];
+const JAM_WX_SUN = [
+  ["polygon", {points: "24,1 27,10 34,3 33,13 44,10 37,18 47,22 38,26 46,33 36,33 39,44 31,37 26,47 22,38 14,46 15,35 4,38 10,30 1,24 11,20 4,12 14,13 12,3 20,10"}, "s"],
+  ["circle", {cx: 24, cy: 24, r: 12}, "g"],
+  ["circle", {cx: 24, cy: 24, r: 9}, "s"],
+];
+const JAM_WX_MOON = [["circle", {cx: 22, cy: 25, r: 17}, "p"], ["circle", {cx: 31, cy: 17, r: 14}, "g"]];
+const jamWxUp = (shape, dy) => ["g", {transform: `translate(0 ${dy})`}, null, [shape]];
+const jamWxSmall = shapes => ["g", {transform: "translate(-2 -3) scale(.62)"}, null, shapes];
+const jamWxSlash = x => ["polygon", {points: `${x},33 ${x + 4},33 ${x - 1},45 ${x - 5},45`}, "r"];
+const jamWxSquare = (x, y) => ["rect", {x, y, width: 5, height: 5}, "p"];
+const jamWxStrip = (x, y, l) => ["polygon", {points: `${x},${y} ${x + l},${y} ${x + l - 5},${y + 5} ${x - 5},${y + 5}`}, "p"];
+const JAM_WX_GLYPHS = {
+  sunny: JAM_WX_SUN,
+  "clear-night": JAM_WX_MOON,
+  cloudy: [JAM_WX_CLOUD],
+  partlycloudy: [jamWxSmall(JAM_WX_SUN), JAM_WX_CLOUD],
+  rainy: [jamWxUp(JAM_WX_CLOUD, -8), jamWxSlash(14), jamWxSlash(24), jamWxSlash(34)],
+  pouring: [jamWxUp(JAM_WX_CLOUD, -8), jamWxSlash(9), jamWxSlash(17), jamWxSlash(25), jamWxSlash(33), jamWxSlash(41)],
+  lightning: [jamWxUp(JAM_WX_CLOUD, -8), ["polygon", {points: "26,24 17,37 23,37 18,47 32,32 26,32 30,24"}, "b"]],
+  "lightning-rainy": [jamWxUp(JAM_WX_CLOUD, -8), ["polygon", {points: "26,24 17,37 23,37 18,47 32,32 26,32 30,24"}, "b"], jamWxSlash(12), jamWxSlash(40)],
+  snowy: [jamWxUp(JAM_WX_CLOUD, -8), jamWxSquare(11, 34), jamWxSquare(22, 40), jamWxSquare(33, 34)],
+  "snowy-rainy": [jamWxUp(JAM_WX_CLOUD, -8), jamWxSquare(10, 35), jamWxSlash(22), jamWxSquare(29, 40), jamWxSlash(42)],
+  hail: [jamWxUp(JAM_WX_CLOUD, -8), ["polygon", {points: "13,33 17,37 13,41 9,37"}, "p"], ["polygon", {points: "24,38 28,42 24,46 20,42"}, "p"], ["polygon", {points: "35,33 39,37 35,41 31,37"}, "p"]],
+  fog: [["rect", {x: 6, y: 11, width: 34, height: 5}, "p"], ["rect", {x: 11, y: 19, width: 32, height: 5}, "p"], ["rect", {x: 4, y: 27, width: 36, height: 5}, "p"], ["rect", {x: 12, y: 35, width: 26, height: 5}, "p"]],
+  windy: [jamWxStrip(8, 12, 30), jamWxStrip(14, 22, 30), jamWxStrip(6, 32, 24)],
+  "windy-variant": [jamWxUp(JAM_WX_CLOUD, -10), jamWxStrip(12, 32, 30), jamWxStrip(6, 40, 22)],
+  exceptional: [["polygon", {points: "24,4 45,43 3,43"}, "b"], ["rect", {x: 22, y: 17, width: 4, height: 14}, "g"], ["rect", {x: 22, y: 35, width: 4, height: 4}, "g"]],
+};
+/* Night variants (state clear-night is its own glyph): sun -> moon. */
+const JAM_WX_NIGHT = {sunny: JAM_WX_MOON, partlycloudy: [jamWxSmall(JAM_WX_MOON), JAM_WX_CLOUD]};
+function jamWxGlyph(cond, night) {
+  const shapes = (night && JAM_WX_NIGHT[cond]) || JAM_WX_GLYPHS[cond] || [["rect", {x: 12, y: 12, width: 24, height: 24}, "u"]];
+  const svg = document.createElementNS(JAM_WX_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 48 48"); svg.setAttribute("class", "gl"); svg.setAttribute("aria-hidden", "true");
+  const add = (parent, [tag, attrs, cls, kids]) => {
+    const e = document.createElementNS(JAM_WX_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (cls) e.setAttribute("class", "g-" + cls);
+    for (const k of kids || []) add(e, k);
+    parent.append(e);
+  };
+  for (const s of shapes) add(svg, s);
+  return svg;
+}
+class JamWeather extends JamBase {
+  constructor() { super(); this._fc = null; this._subKey = null; this._unsubP = null; }
+  validate(c) {
+    this._err = null;
+    if (typeof c.entity !== "string" || !c.entity.startsWith("weather.")) this._err = "entity: a weather.* entity is required";
+    else if (c.forecast_type !== undefined && !JAM_WX_TYPES.includes(c.forecast_type)) this._err = "forecast_type: daily, hourly or twice_daily";
+  }
+  setConfig(c) {
+    super.setConfig(c);
+    if (this.isConnected) { this._sub(); this._arm(); }
+  }
+  set hass(h) { super.hass = h; this._sub(); }
+  get hass() { return super.hass; }
+  watched() { const c = this._config; return this._err ? [] : [c.entity, c.temperature_entity, "sun.sun"].filter(Boolean); }
+  _type() { return this._config.forecast_type || "daily"; }
+  _days() { return Math.max(1, Math.min(12, Math.round(+this._config.days) || 5)); }
+  connectedCallback() { this._sub(); this._arm(); }
+  disconnectedCallback() { this._unsub(); clearTimeout(this._tick); this._tick = null; }
+  /* One live forecast subscription per (entity, forecast_type); none when show_forecast is false. */
+  _sub() {
+    const c = this._config, h = this._hass;
+    const want = this.isConnected && h && c && !this._err && c.show_forecast !== false ? `${c.entity}|${this._type()}` : null;
+    if (want === this._subKey) return;
+    this._unsub();
+    this._subKey = want;
+    if (!want) return;
+    this._fc = null;
+    const legacy = () => { const s = stateObj(this._hass, c.entity); return s && Array.isArray(s.attributes.forecast) ? s.attributes.forecast : []; };
+    try {
+      if (!h.connection || typeof h.connection.subscribeMessage !== "function") throw new Error("no connection");
+      const p = h.connection.subscribeMessage(ev => {
+        if (this._subKey !== want) return;
+        this._fc = ev && Array.isArray(ev.forecast) ? ev.forecast : [];
+        this._render(false);
+      }, {type: "weather/subscribe_forecast", entity_id: c.entity, forecast_type: this._type()});
+      this._unsubP = Promise.resolve(p);
+      this._unsubP.catch(() => { if (this._subKey === want) { this._fc = legacy(); this._render(false); } });
+    } catch (e) { this._fc = legacy(); }
+  }
+  _unsub() {
+    const p = this._unsubP;
+    this._unsubP = null; this._subKey = null;
+    if (p) p.then(u => { if (typeof u === "function") return u(); }).catch(() => {});
+  }
+  /* Clock: re-set the time text at each minute boundary (no full re-render). */
+  _arm() {
+    clearTimeout(this._tick); this._tick = null;
+    if (!this._config || this._err || !this._config.clock || !this.isConnected) return;
+    const run = () => { this._clock(); this._tick = setTimeout(run, 60e3 - (Date.now() % 60e3) + 50); };
+    this._tick = setTimeout(run, 60e3 - (Date.now() % 60e3) + 50);
+  }
+  _lang() { const h = this._hass; return (h && h.locale && h.locale.language) || (h && h.language) || undefined; }
+  _clock() {
+    if (!this._time) return;
+    const d = new Date();
+    this._time.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    this._date.textContent = d.toLocaleDateString(this._lang(), {weekday: "long", day: "numeric", month: "long"});
+  }
+  css() { return `
+    .w{display:grid;gap:14px;align-content:start}
+    .clock{display:grid;gap:6px}
+    .time{font-size:4.4rem;line-height:.82;letter-spacing:-.005em}
+    .date{font:600 .82rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
+    .now{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+    .gl{display:block;flex:none;--g-bg:var(--slab)}
+    .now .gl{width:68px;height:68px}
+    .g-s{fill:var(--g-sun,var(--ochre))} .g-p{fill:var(--g-paper,var(--paper))} .g-r{fill:var(--g-rain,var(--teal))}
+    .g-b{fill:var(--g-bolt,var(--red))} .g-g{fill:var(--g-bg)} .g-u{fill:var(--line)}
+    .temp{font-size:4rem;line-height:.82;white-space:nowrap}
+    .temp small{font:600 1rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:3px;vertical-align:top;text-transform:none}
+    .cond{display:grid;gap:5px;min-width:0;flex:1 1 110px}
+    .word{font-size:1.45rem;line-height:.9;overflow-wrap:anywhere}
+    .meta{display:flex;flex-wrap:wrap;gap:2px 12px}
+    .fc{display:grid;gap:6px}
+    .col{--sh:3px}
+    .col > .face{--p-t:8px;--p-r:3px;--p-b:8px;--p-l:3px;background:var(--slab2);display:grid;justify-items:center;gap:5px;text-align:center}
+    .col .gl{width:30px;height:30px;--g-bg:var(--slab2)}
+    .col .label{font-size:.64rem;letter-spacing:.1em;overflow-wrap:anywhere}
+    .hi,.lo{font-family:var(--display);font-weight:900;font-size:1.25rem;line-height:1}
+    .lo{color:var(--dim)}
+    .span{position:relative;width:8px;height:56px}
+    .span::before{content:"";position:absolute;left:3px;width:2px;top:0;bottom:0;background:var(--line)}
+    .bar{position:absolute;left:0;width:8px;background:var(--ochre);min-height:4px}
+    .col.today > .face{background:var(--ochre);color:var(--ink);--g-sun:var(--ink);--g-paper:var(--ink);--g-rain:var(--ink);--g-bolt:var(--ink);--g-bg:var(--ochre)}
+    .col.today .label,.col.today .lo{color:var(--ink)}
+    .col.today .span::before,.col.today .bar{background:var(--ink)}
+    .none{grid-column:1/-1}
+    .err{display:grid;gap:6px}`; }
+  _temp(v) { return Math.round(v * 10) / 10; }
+  render(b) {
+    const c = this._config, h = this._hass;
+    this._time = this._date = null;
+    if (this._err) {
+      const {root, face} = this.paper("error", {face: "err stripe s-alert"});
+      face.append(el("div", "label", "Jam weather · config error"), el("div", "", this._err));
+      b.append(root); return;
+    }
+    const s = stateObj(h, c.entity), off = !s || UNAVAILABLE.has(s.state), a = (s && s.attributes) || {};
+    const {root, face} = this.paper(c.entity, {edges: "rb", cls: "press", face: "w"});
+    root.tabIndex = 0; root.setAttribute("role", "button");
+    root.setAttribute("aria-label", friendly(h, c.entity));
+    bindActions(root, () => this._hass, c, c.entity);
+    if (c.clock) {
+      const ck = el("div", "clock");
+      this._time = el("div", "time disp num"); this._date = el("div", "date");
+      ck.append(this._time, this._date); face.append(ck);
+      this._clock();
+    }
+    /* Current: temperature_entity (numeric) wins over the weather entity's temperature. */
+    let temp = Number(a.temperature), unit = a.temperature_unit || (h.config && h.config.unit_system && h.config.unit_system.temperature) || "";
+    const ts = c.temperature_entity ? stateObj(h, c.temperature_entity) : null;
+    if (ts && ts.state !== "" && isFinite(Number(ts.state))) { temp = Number(ts.state); unit = ts.attributes.unit_of_measurement || unit; }
+    const sun = stateObj(h, "sun.sun"), night = s && s.state !== "clear-night" && sun && sun.state === "below_horizon";
+    const now = el("div", "now");
+    now.append(jamWxGlyph(off ? null : s.state, night));
+    const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
+    if (isFinite(temp) && unit) t.append(el("small", "", unit));
+    const cond = el("div", "cond");
+    cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
+    const meta = el("div", "meta label num");
+    if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
+    if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));
+    if (meta.childNodes.length) cond.append(meta);
+    now.append(t, cond);
+    face.append(now);
+    if (c.show_forecast !== false) face.append(this._strip());
+    b.append(root);
+  }
+  /* Forecast strip: N torn paper columns; one shared low->high scale for every day's bar. */
+  _strip() {
+    const c = this._config, type = this._type(), fc = (this._fc || []).slice(0, this._days());
+    const box = el("div", "fc");
+    box.style.gridTemplateColumns = `repeat(${Math.max(1, fc.length || this._days())},minmax(0,1fr))`;
+    if (!this._fc) { box.append(el("div", "label none", "Forecast…")); return box; }
+    if (!fc.length) { box.append(el("div", "label none", "No forecast")); return box; }
+    const num = v => v !== null && v !== undefined && v !== "" && isFinite(Number(v));
+    let lo = Infinity, hi = -Infinity;
+    for (const f of fc) for (const v of [f.temperature, f.templow]) if (num(v)) { lo = Math.min(lo, +v); hi = Math.max(hi, +v); }
+    const rng = hi > lo ? hi - lo : 1, today = new Date().toDateString();
+    fc.forEach((f, i) => {
+      const d = new Date(f.datetime), valid = !isNaN(d);
+      const isToday = valid && (type === "daily" ? d.toDateString() === today : i === 0);
+      const {root, face} = paper("div", `jam-weather|${c.entity}|${type}|${i}`, {edges: "b", depth: 3, step: 25, cls: "col" + (isToday ? " today" : "")});
+      let name = "";
+      if (valid) name = type === "hourly" ? d.toLocaleTimeString(this._lang(), {hour: "2-digit", minute: "2-digit"})
+        : type === "twice_daily" && f.is_daytime === false ? "Night" : d.toLocaleDateString(this._lang(), {weekday: "short"});
+      face.append(el("div", "label", name));
+      face.append(jamWxGlyph(f.condition, f.is_daytime === false));
+      const high = num(f.temperature) ? +f.temperature : null, low = num(f.templow) ? +f.templow : null;
+      face.append(el("div", "hi num", high === null ? "—" : Math.round(high) + "°"));
+      const span = el("div", "span"), bar = el("div", "bar");
+      span.setAttribute("aria-hidden", "true");
+      const top = high === null ? low : high, bot = low === null ? high : low;
+      if (top !== null) { bar.style.top = ((hi - top) / rng * 100).toFixed(1) + "%"; bar.style.bottom = ((bot - lo) / rng * 100).toFixed(1) + "%"; span.append(bar); }
+      face.append(span);
+      if (low !== null) face.append(el("div", "lo num", Math.round(low) + "°"));
+      box.append(root);
+    });
+    return box;
+  }
+  getCardSize() { return (this._config && this._config.clock ? 3 : 0) + (this._config && this._config.show_forecast === false ? 2 : 5); }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-weather", JamWeather, "Jam Weather", "Big temperature, condition word and cut-paper glyph, forecast strip, optional clock.");
 
 console.info(`%c JAM CARDS %c ${VERSION} `, "background:#d43a1c;color:#ece2c9;font-weight:900", "background:#141210;color:#e5a31b");
 })();
