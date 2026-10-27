@@ -1,10 +1,10 @@
-const FONT_HREF = "https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&display=swap";
-
+/* Fonts are bundled (FONT_CSS, generated from fonts/*.woff2 by tools/bundle.mjs). @font-face only works at document
+   level, not inside shadow roots, so the rules go into document.head once. */
 function loadFonts() {
-  if (document.head.querySelector('link[data-jam-fonts]')) return;
-  const l = document.createElement("link");
-  l.rel = "stylesheet"; l.href = FONT_HREF; l.dataset.jamFonts = "1";
-  document.head.append(l);
+  if (document.head.querySelector("style[data-jam-fonts]")) return;
+  const s = document.createElement("style");
+  s.dataset.jamFonts = "1"; s.textContent = FONT_CSS;
+  document.head.append(s);
 }
 
 /* Shared tokens + primitives. Every card gets this in its shadow root. */

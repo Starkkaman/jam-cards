@@ -24,15 +24,27 @@ const server = http.createServer((req, res) => {
   const base = `http://127.0.0.1:${server.address().port}/preview/index.html`;
   fs.mkdirSync(path.join(__dirname, "shots"), {recursive: true});
   const browser = await chromium.launch();
-  const errors = [];
+  const errors = [], fontRequests = [];
   try {
     for (const mode of ["dark", "light"]) {
       for (const width of [390, 1280]) {
         const page = await browser.newPage({viewport: {width, height: 900}});
         page.on("pageerror", e => errors.push(`${mode}/${width}: ${e.message}`));
+        page.on("request", r => { if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) fontRequests.push(r.url()); });
         await page.goto(`${base}?mode=${mode}`);
         await page.waitForFunction(() => window.__ready);
-        await page.waitForTimeout(1500); // web fonts
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(1500); // layout settles
+        // Fonts are bundled: both faces load from the data: URIs that core injects once into document.head.
+        const fonts = await page.evaluate(async () => {
+          await Promise.all(['900 1em "Londrina Solid"', '400 1em "Jost"', '600 1em "Jost"'].map(f => document.fonts.load(f)));
+          await document.fonts.ready;
+          const faces = [...document.fonts].filter(f => f.status === "loaded").map(f => f.family.replace(/"/g, "") + " " + f.weight);
+          return {londrina: document.fonts.check('900 1em "Londrina Solid"'), jost: document.fonts.check('400 1em "Jost"') && document.fonts.check('600 1em "Jost"'),
+            styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length, faces};
+        });
+        check(fonts.londrina && fonts.jost && fonts.faces.includes("Londrina Solid 900") && fonts.faces.includes("Jost 400 600") && fonts.styles === 1 && fonts.links === 0,
+          `${mode}/${width}: bundled fonts loaded (${fonts.faces.join(", ")}), one font style in head, no Google Fonts link`);
         await page.screenshot({path: path.join(__dirname, "shots", `${mode}-${width}.png`), fullPage: true});
         // Layout: every card's paper stays inside the card box; no face overflows sideways.
         const layout = await page.evaluate(() => {
@@ -91,7 +103,7 @@ const server = http.createServer((req, res) => {
           });
           check(core.cuts && core.br, "JamCards.CUTS / cutPath: card br14, key tr12, chip br6, hero br22, sheet tr18");
           check(core.names, "accent names + room aliases resolve (living→ochre, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
-          check(core.api && core.version === "0.3.0", `window.JamCards exports the helper API (version ${core.version})`);
+          check(core.api && core.version === "0.3.1", `window.JamCards exports the helper API (version ${core.version})`);
           // A rendered card resolves an alias: accent kitchen -> teal heading rule; no accent -> ochre; the fixture rooms differ.
           const rule = await page.evaluate(() => {
             const mk = accent => { const e = document.createElement("jam-heading"); e.setConfig({type: "custom:jam-heading", title: "T", ...(accent ? {accent} : {})});
@@ -119,6 +131,7 @@ const server = http.createServer((req, res) => {
         await page.close();
       }
     }
+    check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));
   } finally { await browser.close(); server.close(); }
   process.exit(failures ? 1 : 0);

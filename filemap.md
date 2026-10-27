@@ -5,13 +5,14 @@
 - docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list (0.3 work is planned in ../jam-home/docs/PLAN.md)
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
-- src/core.js — fonts, BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), edge/cut system, openSheet, JamBase, window.JamCards, register()
+- src/core.js — loadFonts (injects the generated FONT_CSS into document.head once), BASE_CSS, helpers, colour (accent) system, light colour helpers (kelvinToRgb, lightRgb, fullRgb, inkOn), weather words (conditionWord), edge/cut system, openSheet, JamBase, window.JamCards, register()
 - src/cards/jam-*.js — 22 cards (alerts, button, choice, fan, gauge, graph, heading, hero, house, light, list, media, panel, popup, remote, scenes, screensaver, slider, tabs, tile, tv, weather), one class each, ends with register(tag, Class, name, description); jam-media.js also holds jamCardSheet / JamSheetHost (used by jam-tv)
 - src/footer.js — console banner, closes the IIFE
-- tools/bundle.mjs — builds jam-cards.js + preview/fixtures/index.js; --check exits 1 if stale
+- fonts/ — bundled web fonts (latin subset from Google Fonts): londrina-solid-900-latin.woff2, jost-var-latin.woff2 (variable, used as 400-600) + OFL-LondrinaSolid.txt, OFL-Jost.txt
+- tools/bundle.mjs — builds jam-cards.js (adds a generated FONT_CSS chunk: @font-face rules with base64 woff2 data: URIs from fonts/) + preview/fixtures/index.js; --check exits 1 if stale
 - preview/index.html — fake hass + theme tokens; renders all fixtures
 - preview/fixtures/NN-*.js — jamPreview.add({states, sections}); index.js is GENERATED
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
-- preview/shoot.js — runs bundle, screenshots, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
+- preview/shoot.js — runs bundle, screenshots, bundled-font + no-Google-Fonts-request checks, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
 - preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 80-control, 90-kiosk (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same ten names
 - preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png); with JAM_SHOTS=<dir> the 70-tv checks also write nerveos-sheet-390 / tv-remote-sheet-390

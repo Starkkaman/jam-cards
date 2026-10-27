@@ -12,8 +12,8 @@ with one cut corner, one accent colour per card (per room), heavy uppercase disp
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
 All options are YAML. Unknown or unavailable entities render as unavailable instead of throwing.
-The cards load their two fonts (Londrina Solid, Jost) from Google Fonts; nothing else is fetched from outside Home
-Assistant (the screensaver's `images.index` is whatever URL you configure).
+Fonts bundled (OFL): Londrina Solid and Jost are embedded in `jam-cards.js` (latin subset, licences in `fonts/`), so
+nothing is fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
 
 ## Colours
 Every card takes `accent:` — `ochre` (default), `teal`, `blue`, `pink`, `violet`, `green`, `red`, or a room alias:
