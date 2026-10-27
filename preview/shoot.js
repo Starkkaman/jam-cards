@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
               version: J.VERSION, api: ["seed", "rng", "tornPath", "paper", "cutKey", "armBars", "icon", "bindActions", "runAction"].every(k => typeof J[k] === "function")};
           });
           check(edge.same && edge.poly && edge.diff, "tornPath is stable per seed, differs across seeds, uses calc() jitter");
-          check(edge.api && edge.version === "0.2.0-dev", `window.JamCards exports the helper API (version ${edge.version})`);
+          check(edge.api && edge.version === "0.2.0", `window.JamCards exports the helper API (version ${edge.version})`);
 
 
           const helpers = {

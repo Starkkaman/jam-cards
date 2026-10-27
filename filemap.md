@@ -6,11 +6,12 @@
 - jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
 - src/header.js — banner comment, opens the IIFE, VERSION
 - src/core.js — fonts, BASE_CSS, helpers, edge/paper system, JamBase, window.JamCards, register()
-- src/cards/jam-*.js — one card class each, ends with register(tag, Class, name, description)
+- src/cards/jam-*.js — 14 cards (button, choice, gauge, graph, heading, hero, light, list, media, popup, remote, slider, tile, weather), one class each, ends with register(tag, Class, name, description)
 - src/footer.js — console banner, closes the IIFE
 - tools/bundle.mjs — builds jam-cards.js + preview/fixtures/index.js; --check exits 1 if stale
 - preview/index.html — fake hass + theme tokens; renders all fixtures
 - preview/fixtures/NN-*.js — jamPreview.add({states, sections}); index.js is GENERATED
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
 - preview/shoot.js — runs bundle, screenshots, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
-- preview/shots/ — screenshots written by shoot.js
+- preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av (+ generated index.js); preview/checks/: same six names
+- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-dark-390, popup-light-390 (.png)
