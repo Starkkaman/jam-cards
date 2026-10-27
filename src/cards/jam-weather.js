@@ -1,8 +1,9 @@
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
-    temperature_entity?, show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
+    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
-   `forecast` attribute when the subscription fails. Glyphs are flat cut shapes (≤6 each), no animation. */
+   `forecast` attribute when the subscription fails. show_current: false hides the temperature/condition block.
+   Glyphs are flat cut shapes (≤6 each), no animation. */
 const JAM_WX_NS = "http://www.w3.org/2000/svg";
 /* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
    "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
@@ -192,18 +193,20 @@ class JamWeather extends JamBase {
     const ts = c.temperature_entity ? stateObj(h, c.temperature_entity) : null;
     if (ts && ts.state !== "" && isFinite(Number(ts.state))) { temp = Number(ts.state); unit = ts.attributes.unit_of_measurement || unit; }
     const sun = stateObj(h, "sun.sun"), night = s && s.state !== "clear-night" && sun && sun.state === "below_horizon";
-    const now = el("div", "now");
-    now.append(jamWxGlyph(off ? null : s.state, night));
-    const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
-    if (isFinite(temp) && unit) t.append(el("small", "", unit));
-    const cond = el("div", "cond");
-    cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
-    const meta = el("div", "meta label num");
-    if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
-    if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));
-    if (meta.childNodes.length) cond.append(meta);
-    now.append(t, cond);
-    face.append(now);
+    if (c.show_current !== false) {
+      const now = el("div", "now");
+      now.append(jamWxGlyph(off ? null : s.state, night));
+      const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
+      if (isFinite(temp) && unit) t.append(el("small", "", unit));
+      const cond = el("div", "cond");
+      cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
+      const meta = el("div", "meta label num");
+      if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
+      if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));
+      if (meta.childNodes.length) cond.append(meta);
+      now.append(t, cond);
+      face.append(now);
+    }
     if (c.show_forecast !== false) face.append(this._strip());
     b.append(root);
   }
@@ -240,7 +243,7 @@ class JamWeather extends JamBase {
     });
     return box;
   }
-  getCardSize() { return (this._config && this._config.clock ? 3 : 0) + (this._config && this._config.show_forecast === false ? 2 : 5); }
+  getCardSize() { const c = this._config || {}; return Math.max(1, (c.clock ? 3 : 0) + (c.show_current === false ? 0 : 2) + (c.show_forecast === false ? 0 : 3)); }
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
 }
 register("jam-weather", JamWeather, "Jam Weather", "Big temperature, condition word and cut-paper glyph, forecast strip, optional clock.");

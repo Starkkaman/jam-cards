@@ -1,6 +1,7 @@
 /* ---------- jam-hero: torn paper slab with a cut corner and Golden Arm bars ----------
    {type: custom:jam-hero, kicker?, title?, title_entity?, meta_entities?: [ids], power_entity?, off_title?, off_text?,
-    chips?: [{entity, name?, show_state?: "on", hide_value?}], accent?} */
+    chips?: [{entity, name?, show_state?: "on", hide_value?, tone?: red|ochre|teal|paper}], accent?}
+   A chip is hot (accent colour) when its entity is on; tone overrides the hot colour (paper = paper-fg block, still .hot). */
 class JamHero extends JamBase {
   watched() {
     const c = this._config;
@@ -15,7 +16,7 @@ class JamHero extends JamBase {
     .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc,var(--red));margin:0 12px 1px 0;vertical-align:middle}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .chips .chip{background:var(--paper-fg);color:var(--paper);border-color:var(--paper-fg);padding:4px 8px}
-    .chips .chip.hot{background:var(--acc,var(--red));border-color:var(--acc,var(--red));color:var(--paper)}
+    .chips .chip.hot{background:var(--hot,var(--acc,var(--red)));border-color:var(--hot,var(--acc,var(--red)));color:var(--paper)}
     .off h1{color:var(--paper-dim)}`; }
   render(b) {
     const c = this._config, h = this._hass;
@@ -48,6 +49,9 @@ class JamHero extends JamBase {
         if (!s) continue;
         if (ch.show_state && s.state !== ch.show_state) continue;
         const btn = el("button", `chip${tone(s) === "on" ? " hot" : ""}`, ch.name ? `${ch.name}${ch.hide_value ? "" : " · " + fmtState(h, s)}` : fmtState(h, s));
+        if (tone(s) === "on" && ["red", "ochre", "teal", "paper"].includes(ch.tone)) {
+          btn.dataset.tone = ch.tone; btn.style.setProperty("--hot", ch.tone === "paper" ? "var(--paper-fg)" : `var(--${ch.tone})`);
+        }
         btn.onclick = () => moreInfo(this, ch.entity);
         chips.append(btn);
       }

@@ -3,7 +3,9 @@
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
     labels?: {key: text}}
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
-   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms). */
+   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
+   Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
+   app_name, else the remote's current_activity; JAM_REMOTE_APPS, null = skip), else name / the media_player's friendly_name. */
 const JAM_REMOTE_ROWS = [["power", "back", "home", "menu"], ["dpad"], ["prev", "play_pause", "next"], ["vol_down", "mute", "vol_up"]];
 const JAM_REMOTE_CMDS = {
   up: "DPAD_UP", down: "DPAD_DOWN", left: "DPAD_LEFT", right: "DPAD_RIGHT", ok: "DPAD_CENTER",
@@ -14,6 +16,17 @@ const JAM_REMOTE_LABELS = {
   power: "Power", back: "Back", home: "Home", menu: "Menu", prev: "Prev", next: "Next", play_pause: "Play",
   mute: "Mute", vol_up: "Vol +", vol_down: "Vol −", ok: "OK", up: "Up", down: "Down", left: "Left", right: "Right",
 };
+/* Package id -> short title; null = never show (fall through to the name). Prefix keys end with "." */
+const JAM_REMOTE_APPS = {
+  "com.spocky.projengmenu": "Home", "org.jellyfin.androidtv": "Jellyfin", "com.jellywatch.tv": "Jellywatch",
+  "com.google.android.youtube.tv": "YouTube", "com.netflix.ninja": "Netflix", "com.nintendo.": null,
+};
+function jamRemoteApp(id) {
+  if (typeof id !== "string" || !id) return undefined;
+  if (id in JAM_REMOTE_APPS) return JAM_REMOTE_APPS[id];
+  for (const k in JAM_REMOTE_APPS) if (k.endsWith(".") && id.startsWith(k)) return JAM_REMOTE_APPS[k];
+  return undefined;
+}
 const JAM_REMOTE_REPEAT = new Set(["up", "down", "left", "right", "vol_up", "vol_down"]);
 
 class JamRemote extends JamBase {
@@ -93,13 +106,20 @@ class JamRemote extends JamBase {
     });
     return pad;
   }
+  _title(s, mp) {
+    const c = this._config, a = (mp && mp.attributes) || {};
+    if (a.media_title) return String(a.media_title);
+    if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
+    const t = jamRemoteApp(a.app_id || a.app_name || (s && s.attributes.current_activity)); /* the current app's package */
+    if (t) return t;
+    return c.name || friendly(this._hass, c.media_player || c.entity) || "—";
+  }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
     const off = !s || UNAVAILABLE.has(s.state);
     const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const a = (mp && mp.attributes) || {};
-    const title = a.media_title || a.app_name || (mp && !UNAVAILABLE.has(mp.state) ? fmtState(h, mp) : (s ? fmtState(h, s) : "—"));
+    const title = this._title(s, mp);
     const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
     wrap.append(tt);
     for (const row of c.rows || JAM_REMOTE_ROWS) {

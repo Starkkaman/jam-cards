@@ -68,6 +68,21 @@ module.exports = async (page, check) => {
   check(thr.refetch, "jam-graph: changing the entities refetches at once");
   check(thr.throttled && thr.pending && /79[.,]7/.test(thr.cur), `jam-graph: state change within a minute of the last fetch is deferred, live value still updates (${thr.cur})`);
 
+  // Unavailable / non-numeric current value: "—" in --dim, no unit.
+  const na = await page.evaluate(() => {
+    const g = [...document.querySelectorAll("jam-graph")].find(x => x._config.style === "step"), h = window.__hass, id = "sensor.office_sensor_temperature", keep = h.states[id], out = [];
+    for (const st of ["unavailable", "unknown", "n/a"]) {
+      h.states[id] = {...keep, state: st, last_updated: "na" + st}; g.hass = {...h};
+      const c = g.shadowRoot.querySelector(".cur"), probe = document.createElement("span");
+      probe.style.color = "var(--jam-dim, #9a8f7c)"; g.shadowRoot.append(probe);
+      out.push({t: c.textContent, unit: !!c.querySelector("small"), dim: getComputedStyle(c).color === getComputedStyle(probe).color});
+      probe.remove();
+    }
+    h.states[id] = keep; g.hass = {...h};
+    return out;
+  });
+  check(na.every(x => x.t === "—" && !x.unit && x.dim), `jam-graph: unavailable/unknown/non-numeric current = dim "—", no unit (${na.map(x => x.t + (x.unit ? "+unit" : "") + (x.dim ? "" : " not dim")).join(", ")})`);
+
   // Loading motif before data, then a 6th series is an in-card config error (no throw).
   const tmp = await page.evaluate(() => {
     const g = document.createElement("jam-graph");
@@ -148,4 +163,16 @@ module.exports = async (page, check) => {
   check(life.a, "jam-weather: hourly card subscribes with forecast_type hourly");
   check(life.b, "jam-weather: config change unsubscribes the old forecast and subscribes the new type");
   check(life.removed, "jam-weather: removing the card unsubscribes");
+
+  // show_current: false hides the temperature/condition block; clock and forecast remain.
+  const sc = await page.evaluate(async () => {
+    const w = document.createElement("jam-weather");
+    w.setConfig({type: "custom:jam-weather", entity: "weather.bungalo_weather", clock: true, show_current: false});
+    w.hass = window.__hass; document.body.append(w);
+    await new Promise(r => setTimeout(r, 60));
+    const r = w.shadowRoot, out = {now: !!r.querySelector(".now, .temp, .word"), clock: !!r.querySelector(".time"), fc: !!r.querySelector(".fc")};
+    w.remove();
+    return out;
+  });
+  check(!sc.now && sc.clock && sc.fc, `jam-weather: show_current false hides temp/condition, keeps clock + forecast (${JSON.stringify(sc)})`);
 };

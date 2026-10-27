@@ -1,14 +1,17 @@
 /* ---------- jam-button: chunky cut-paper key for launchers, scenes, scripts, stereo keys and openers ----------
    {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
     show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
-   Default tap: scene./script. -> <domain>.turn_on, toggleable entity -> toggle, other entity -> more-info.
-   Accent = flat cut block in the top-left of the face (~42% wide, ~46% of the key height, torn bottom/right) carrying
+   Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, toggleable entity -> toggle,
+   other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
+   "unknown" and a timestamp are their normal states.
+   Accent = flat cut block in the top-left of the face (min(42%, 112px) wide, big 136px; 40/56px high, torn bottom/right) carrying
    the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
 const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
 const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
   paper: ["var(--paper)", "var(--paper-fg)"]};
 const JB_ON = new Set(["light", "switch", "fan", "input_boolean"]);
+const JB_STATELESS = new Set(["button", "input_button", "scene", "script"]);
 class JamButton extends JamBase {
   validate(c) { if (!c.entity && !c.name && !c.icon) throw new Error("jam-button: entity, name or icon is required"); }
   watched() { return this._config.entity ? [this._config.entity] : []; }
@@ -20,8 +23,8 @@ class JamButton extends JamBase {
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
     .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
       margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
-      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + 42%)}
-    .big .blk{height:56px}
+      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + min(42%, var(--blk-max,112px)))}
+    .big .blk{height:56px;--blk-max:136px}
     .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
@@ -37,13 +40,14 @@ class JamButton extends JamBase {
     const c = this._config, d = (c.entity || "").split(".")[0];
     if (c.tap_action) return c.tap_action;
     if (d === "scene" || d === "script") return {action: "perform-action", perform_action: d + ".turn_on", data: {entity_id: c.entity}};
+    if (d === "button" || d === "input_button") return {action: "perform-action", perform_action: d + ".press", data: {entity_id: c.entity}};
     if (c.entity && toggleable(c.entity)) return {action: "toggle"};
     return {action: c.entity ? "more-info" : "none"};
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), d = (c.entity || "").split(".")[0];
     const on = !!s && s.state === "on" && JB_ON.has(d), acc = on ? null : this._accent();
-    const un = !!c.entity && (!s || UNAVAILABLE.has(s.state));
+    const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
     const {root, face} = this.paper(c.entity || name || c.icon, {edges: "rb", depth: 3, cut: true,
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});

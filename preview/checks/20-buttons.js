@@ -15,6 +15,25 @@ module.exports = async (page, check, {callsNow}) => {
   // Scene default: scene.turn_on.
   n = (await callsNow()).length; await btn("Movie Time").click(); c = await since(n);
   check(c.length === 1 && c[0].domain === "scene" && c[0].service === "turn_on" && c[0].data.entity_id === "scene.movie_time", "scene button calls scene.turn_on");
+  // Stateless domains: "unknown" / timestamp states are normal (not greyed); default tap presses; only "unavailable" greys.
+  const greyed = name => btn(name).locator(".kf.unavail").count();
+  check(await greyed("Restart TV") === 0 && await greyed("Porch Chime") === 0 && await greyed("Movie Time") === 0,
+    "jam-button: stateless button/input_button 'unknown' and scene timestamp are not greyed");
+  n = (await callsNow()).length; await btn("Restart TV").click(); c = await since(n);
+  check(c.length === 1 && c[0].domain === "button" && c[0].service === "press" && c[0].data.entity_id === "button.hisense_tv_restart", "jam-button: button.* default tap = button.press");
+  n = (await callsNow()).length; await btn("Porch Chime").click(); c = await since(n);
+  check(c.length === 1 && c[0].domain === "input_button" && c[0].service === "press" && c[0].data.entity_id === "input_button.porch_chime", "jam-button: input_button default tap = input_button.press");
+  await push("jam-button", "button.hisense_tv_restart", {state: "unavailable"});
+  check(await greyed("Restart TV") === 1, "jam-button: stateless button greys only when unavailable");
+  await push("jam-button", "button.hisense_tv_restart", {state: "unknown"});
+  // Accent block width capped on wide keys: min(42%, 112px), big 136px (height unchanged 40/56).
+  const blk = async name => btn(name).locator(".blk").evaluate(b => {
+    const r = b.getBoundingClientRect(), k = b.parentElement.getBoundingClientRect();
+    return {w: r.width - parseFloat(getComputedStyle(b).paddingLeft), h: r.height, k: k.width};
+  });
+  const bn = await blk("Restart TV"), bb = await blk("Porch Chime"), bs = await blk("Movie Time");
+  check(bn.w <= 112.5 && bn.k * 0.42 > 112 && bn.h === 40 && bb.w <= 136.5 && bb.w > 112.5 && bb.h === 56 && bs.w <= bs.k * 0.42 + 0.5,
+    `jam-button: accent block capped on wide keys (normal ${bn.w.toFixed(0)}px of ${bn.k.toFixed(0)}, big ${bb.w.toFixed(0)}px, narrow ${bs.w.toFixed(0)}px of ${bs.k.toFixed(0)})`);
   // Toggleable default: toggle; "on" switch prints a full ochre face.
   check(await btn("Dehumidifier").locator(".kf.on").count() === 1, "on switch button has the ochre face");
   n = (await callsNow()).length; await btn("Dehumidifier").click(); c = await since(n);

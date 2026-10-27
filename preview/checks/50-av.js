@@ -50,6 +50,21 @@ module.exports = async (page, check, {callsNow}) => {
   const r2 = (await callsNow()).filter(x => x.data.command === "DPAD_RIGHT").length;
   check(r1 >= 2 && r2 === r1, `hold d-pad right repeats and stops on leave (${r1} -> ${r2})`);
 
+  // Remote title: media_title > app_name without dots > known package > card name; never a raw package id.
+  const rtitle = await page.evaluate(() => {
+    const h = window.__hass, id = "media_player.living_room_phoster_android_tv", keep = h.states[id], r = document.querySelector("jam-remote"), out = {};
+    for (const [k, a] of Object.entries({title: {app_name: "JellyWatch Player", media_title: "Lost"}, app: {app_name: "Plex"},
+      home: {app_name: "com.spocky.projengmenu"}, yt: {app_id: "com.google.android.youtube.tv", app_name: "com.google.android.youtube.tv"},
+      nintendo: {app_name: "com.nintendo.zelda"}, unknown: {app_name: "com.example.thing"}})) {
+      h.states[id] = {...keep, attributes: {friendly_name: "Phoster", ...a}, last_updated: "rt" + k};
+      r.hass = {...h}; out[k] = r.shadowRoot.querySelector(".title").textContent;
+    }
+    h.states[id] = keep; r.hass = {...h};
+    return out;
+  });
+  check(rtitle.title === "Lost" && rtitle.app === "Plex" && rtitle.home === "Home" && rtitle.yt === "YouTube" && rtitle.nintendo === "Phoster" && rtitle.unknown === "Phoster",
+    `jam-remote: title never shows a package id (${Object.values(rtitle).join(" | ")})`);
+
   // jam-media v1 config (00-tv) still renders: title, transport, no art-less crash.
   const v1 = page.locator("jam-media").first();
   check((await v1.locator(".title").textContent()) === "Close Encounters of the Third Kind", "jam-media v1 config renders its title");

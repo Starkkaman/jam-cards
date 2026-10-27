@@ -14,6 +14,21 @@ module.exports = async (page, check, {tile, callsNow}) => {
   check(calls.some(c => c.service === "toggle" && c.data.entity_id === "switch.hisense_tv_power"), "tile button toggles power");
   check(calls.some(c => c.domain === "number" && c.service === "set_value" && c.data.value === 50), "slider click at 50% sets 50");
   check(calls.some(c => c.service === "media_play_pause"), "media play/pause");
+  // Hero chip tone overrides the hot colour; paper = paper-fg block like a cold chip but still .hot.
+  const tones = await page.evaluate(() => {
+    const e = document.createElement("jam-hero"), on = "binary_sensor.hisense_tv_signal_present";
+    e.setConfig({type: "custom:jam-hero", title: "Tones", accent: "red", chips: [{entity: on, name: "A"}, {entity: on, name: "B", tone: "teal"},
+      {entity: on, name: "C", tone: "paper"}, {entity: on, name: "D", tone: "ochre"}, {entity: "binary_sensor.hisense_tv_game_signal", name: "E", tone: "teal"}]});
+    e.hass = window.__hass; document.body.append(e);
+    const r = e.shadowRoot, col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+    const ch = [...r.querySelectorAll(".chip")].map(c => ({hot: c.classList.contains("hot"), bg: getComputedStyle(c).backgroundColor, fg: getComputedStyle(c).color}));
+    const want = {red: col("var(--red)"), teal: col("var(--teal)"), ochre: col("var(--ochre)"), pfg: col("var(--paper-fg)"), paper: col("var(--paper)")};
+    e.remove();
+    return {ch, want};
+  });
+  const [ta, tb, tc, td, te] = tones.ch, W = tones.want;
+  check(ta.hot && ta.bg === W.red && tb.hot && tb.bg === W.teal && tc.hot && tc.bg === W.pfg && tc.fg === W.paper && td.bg === W.ochre && !te.hot && te.bg === W.pfg,
+    `jam-hero: chip tone overrides the hot colour (default ${ta.bg}, teal ${tb.bg}, paper ${tc.bg}/${tc.fg}, ochre ${td.bg}, cold ${te.bg})`);
   // Off state of the hero.
   await page.evaluate(() => { const h = window.__hass; h.states["switch.hisense_tv_power"] = {...h.states["switch.hisense_tv_power"], state: "off", last_updated: "x"};
     document.querySelector("jam-hero").hass = {...h}; });

@@ -23,6 +23,8 @@ jamPreview.add({
     st("sensor.system_monitor_processor_use", "9", {friendly_name: "System Monitor Processor use", unit_of_measurement: "%"}),
     st("sensor.system_monitor_memory_usage", "48.2", {friendly_name: "System Monitor Memory usage", unit_of_measurement: "%"}),
     st("device_tracker.smol_boi", "home", {friendly_name: "Smol Boi"}),
+    st("button.hisense_tv_restart", "unknown", {friendly_name: "Restart TV", icon: "mdi:restart"}),
+    st("input_button.porch_chime", "unknown", {friendly_name: "Porch Chime", icon: "mdi:bell-ring"}),
   ],
   sections: [
     ["", [
@@ -38,6 +40,9 @@ jamPreview.add({
       ["q", {type: "custom:jam-button", entity: "scene.movie_time", accent: "red"}],
       ["q", {type: "custom:jam-button", entity: "scene.vibes", accent: "teal"}],
       ["q", {type: "custom:jam-button", entity: "scene.spring_vibes", accent: "paper"}],
+      // Stateless keys in their normal "unknown" state (default tap = <domain>.press) on wide keys: accent block capped.
+      {type: "custom:jam-button", entity: "input_button.porch_chime", accent: "ochre", size: "big"},
+      {type: "custom:jam-button", entity: "button.hisense_tv_restart", accent: "teal"},
     ]],
     ["", [
       {type: "custom:jam-heading", kicker: "Readings", title: "Gauges"},

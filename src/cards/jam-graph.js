@@ -4,7 +4,8 @@
    One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
    series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
    at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
-   Config errors (e.g. a 6th series) render in the card instead of throwing. */
+   Config errors (e.g. a 6th series) render in the card instead of throwing. Current value of an unavailable / unknown /
+   non-numeric entity = "—" in --dim, no unit. */
 const JAM_GRAPH_MAX_PTS = 240, JAM_GRAPH_GAP = 60e3, JAM_GRAPH_NS = "http://www.w3.org/2000/svg";
 const JAM_GRAPH_STYLES = ["line", "step", "bars"];
 /* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
@@ -181,6 +182,7 @@ class JamGraph extends JamBase {
     .top{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 14px;flex-wrap:wrap;min-width:0}
     .top .label{overflow-wrap:anywhere}
     .cur{font-family:var(--display);font-weight:900;font-size:3rem;line-height:.86;letter-spacing:-.005em;cursor:pointer;white-space:nowrap}
+    .cur.none{color:var(--dim)}
     .cur small{font:600 .9rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:4px}
     .one{display:grid;gap:6px;min-width:0}
     .lg{display:flex;flex-wrap:wrap;gap:6px 14px}
@@ -220,7 +222,7 @@ class JamGraph extends JamBase {
       top.append(one);
       if (show && s) {
         const v = Number(s.state), num = s.state !== "" && isFinite(v);
-        const cur = el("button", "cur num", num ? this._num(e.entity, v) : fmtState(h, s));
+        const cur = el("button", "cur num" + (num ? "" : " none"), num ? this._num(e.entity, v) : "—");
         if (num && this._unit(e.entity)) cur.append(el("small", "", this._unit(e.entity)));
         cur.title = this._name(e); cur.onclick = () => moreInfo(this, e.entity);
         top.append(cur);

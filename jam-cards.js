@@ -315,14 +315,17 @@ function register(tag, cls, name, description) {
 /* ---------- jam-button: chunky cut-paper key for launchers, scenes, scripts, stereo keys and openers ----------
    {type: custom:jam-button, entity?, name?, icon?, accent?: ochre|red|teal|paper|ink, color?: HA colour name,
     show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
-   Default tap: scene./script. -> <domain>.turn_on, toggleable entity -> toggle, other entity -> more-info.
-   Accent = flat cut block in the top-left of the face (~42% wide, ~46% of the key height, torn bottom/right) carrying
+   Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, toggleable entity -> toggle,
+   other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
+   "unknown" and a timestamp are their normal states.
+   Accent = flat cut block in the top-left of the face (min(42%, 112px) wide, big 136px; 40/56px high, torn bottom/right) carrying
    the icon in the block's ink; the label sits below it, never over it. light/switch/fan/input_boolean "on" = full ochre face. ink (and HA grey colours) = plain key without a block. */
 const JB_COLOR = {red: "red", pink: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   blue: "teal", "light-blue": "teal", cyan: "teal", teal: "teal", green: "teal", indigo: "teal", purple: "teal", "light-grey": "ink", grey: "ink"};
 const JB_ACC = {ochre: ["var(--ochre)", "var(--ink)"], red: ["var(--red)", "var(--ink)"], teal: ["var(--teal)", "var(--ink)"],
   paper: ["var(--paper)", "var(--paper-fg)"]};
 const JB_ON = new Set(["light", "switch", "fan", "input_boolean"]);
+const JB_STATELESS = new Set(["button", "input_button", "scene", "script"]);
 class JamButton extends JamBase {
   validate(c) { if (!c.entity && !c.name && !c.icon) throw new Error("jam-button: entity, name or icon is required"); }
   watched() { return this._config.entity ? [this._config.entity] : []; }
@@ -334,8 +337,8 @@ class JamButton extends JamBase {
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
     .blk{flex:none;display:flex;align-items:center;height:40px;background:var(--acc);color:var(--acc-fg);
       margin:calc(-1 * (var(--p-t) + var(--tt,0px))) 0 0 calc(-1 * (var(--p-l) + var(--tl,0px)));
-      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + 42%)}
-    .big .blk{height:56px}
+      padding:4px 6px 4px calc(var(--p-l) + var(--tl,0px));width:calc(var(--p-l) + var(--tl,0px) + min(42%, var(--blk-max,112px)))}
+    .big .blk{height:56px;--blk-max:136px}
     .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
     .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
@@ -351,13 +354,14 @@ class JamButton extends JamBase {
     const c = this._config, d = (c.entity || "").split(".")[0];
     if (c.tap_action) return c.tap_action;
     if (d === "scene" || d === "script") return {action: "perform-action", perform_action: d + ".turn_on", data: {entity_id: c.entity}};
+    if (d === "button" || d === "input_button") return {action: "perform-action", perform_action: d + ".press", data: {entity_id: c.entity}};
     if (c.entity && toggleable(c.entity)) return {action: "toggle"};
     return {action: c.entity ? "more-info" : "none"};
   }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), d = (c.entity || "").split(".")[0];
     const on = !!s && s.state === "on" && JB_ON.has(d), acc = on ? null : this._accent();
-    const un = !!c.entity && (!s || UNAVAILABLE.has(s.state));
+    const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
     const {root, face} = this.paper(c.entity || name || c.icon, {edges: "rb", depth: 3, cut: true,
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
@@ -572,7 +576,8 @@ register("jam-gauge", JamGauge, "Jam Gauge", "Half-disc of cut wedges or a cut s
    One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
    series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
    at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
-   Config errors (e.g. a 6th series) render in the card instead of throwing. */
+   Config errors (e.g. a 6th series) render in the card instead of throwing. Current value of an unavailable / unknown /
+   non-numeric entity = "—" in --dim, no unit. */
 const JAM_GRAPH_MAX_PTS = 240, JAM_GRAPH_GAP = 60e3, JAM_GRAPH_NS = "http://www.w3.org/2000/svg";
 const JAM_GRAPH_STYLES = ["line", "step", "bars"];
 /* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
@@ -749,6 +754,7 @@ class JamGraph extends JamBase {
     .top{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 14px;flex-wrap:wrap;min-width:0}
     .top .label{overflow-wrap:anywhere}
     .cur{font-family:var(--display);font-weight:900;font-size:3rem;line-height:.86;letter-spacing:-.005em;cursor:pointer;white-space:nowrap}
+    .cur.none{color:var(--dim)}
     .cur small{font:600 .9rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:4px}
     .one{display:grid;gap:6px;min-width:0}
     .lg{display:flex;flex-wrap:wrap;gap:6px 14px}
@@ -788,7 +794,7 @@ class JamGraph extends JamBase {
       top.append(one);
       if (show && s) {
         const v = Number(s.state), num = s.state !== "" && isFinite(v);
-        const cur = el("button", "cur num", num ? this._num(e.entity, v) : fmtState(h, s));
+        const cur = el("button", "cur num" + (num ? "" : " none"), num ? this._num(e.entity, v) : "—");
         if (num && this._unit(e.entity)) cur.append(el("small", "", this._unit(e.entity)));
         cur.title = this._name(e); cur.onclick = () => moreInfo(this, e.entity);
         top.append(cur);
@@ -1000,7 +1006,8 @@ register("jam-heading", JamHeading, "Jam Heading", "Section title slab with an a
 
 /* ---------- jam-hero: torn paper slab with a cut corner and Golden Arm bars ----------
    {type: custom:jam-hero, kicker?, title?, title_entity?, meta_entities?: [ids], power_entity?, off_title?, off_text?,
-    chips?: [{entity, name?, show_state?: "on", hide_value?}], accent?} */
+    chips?: [{entity, name?, show_state?: "on", hide_value?, tone?: red|ochre|teal|paper}], accent?}
+   A chip is hot (accent colour) when its entity is on; tone overrides the hot colour (paper = paper-fg block, still .hot). */
 class JamHero extends JamBase {
   watched() {
     const c = this._config;
@@ -1015,7 +1022,7 @@ class JamHero extends JamBase {
     .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc,var(--red));margin:0 12px 1px 0;vertical-align:middle}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .chips .chip{background:var(--paper-fg);color:var(--paper);border-color:var(--paper-fg);padding:4px 8px}
-    .chips .chip.hot{background:var(--acc,var(--red));border-color:var(--acc,var(--red));color:var(--paper)}
+    .chips .chip.hot{background:var(--hot,var(--acc,var(--red)));border-color:var(--hot,var(--acc,var(--red)));color:var(--paper)}
     .off h1{color:var(--paper-dim)}`; }
   render(b) {
     const c = this._config, h = this._hass;
@@ -1048,6 +1055,9 @@ class JamHero extends JamBase {
         if (!s) continue;
         if (ch.show_state && s.state !== ch.show_state) continue;
         const btn = el("button", `chip${tone(s) === "on" ? " hot" : ""}`, ch.name ? `${ch.name}${ch.hide_value ? "" : " · " + fmtState(h, s)}` : fmtState(h, s));
+        if (tone(s) === "on" && ["red", "ochre", "teal", "paper"].includes(ch.tone)) {
+          btn.dataset.tone = ch.tone; btn.style.setProperty("--hot", ch.tone === "paper" ? "var(--paper-fg)" : `var(--${ch.tone})`);
+        }
         btn.onclick = () => moreInfo(this, ch.entity);
         chips.append(btn);
       }
@@ -1694,7 +1704,9 @@ register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a torn 
     rows?: [[key, ...], ["dpad"], ...], commands?: {key: send_command value}, actions?: {key: action object},
     labels?: {key: text}}
    A key runs actions[key] if set, else remote.send_command commands[key] (Android TV defaults);
-   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms). */
+   power without a command = remote.toggle. D-pad arms and volume keys repeat while held (400 ms, then every 180 ms).
+   Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
+   app_name, else the remote's current_activity; JAM_REMOTE_APPS, null = skip), else name / the media_player's friendly_name. */
 const JAM_REMOTE_ROWS = [["power", "back", "home", "menu"], ["dpad"], ["prev", "play_pause", "next"], ["vol_down", "mute", "vol_up"]];
 const JAM_REMOTE_CMDS = {
   up: "DPAD_UP", down: "DPAD_DOWN", left: "DPAD_LEFT", right: "DPAD_RIGHT", ok: "DPAD_CENTER",
@@ -1705,6 +1717,17 @@ const JAM_REMOTE_LABELS = {
   power: "Power", back: "Back", home: "Home", menu: "Menu", prev: "Prev", next: "Next", play_pause: "Play",
   mute: "Mute", vol_up: "Vol +", vol_down: "Vol −", ok: "OK", up: "Up", down: "Down", left: "Left", right: "Right",
 };
+/* Package id -> short title; null = never show (fall through to the name). Prefix keys end with "." */
+const JAM_REMOTE_APPS = {
+  "com.spocky.projengmenu": "Home", "org.jellyfin.androidtv": "Jellyfin", "com.jellywatch.tv": "Jellywatch",
+  "com.google.android.youtube.tv": "YouTube", "com.netflix.ninja": "Netflix", "com.nintendo.": null,
+};
+function jamRemoteApp(id) {
+  if (typeof id !== "string" || !id) return undefined;
+  if (id in JAM_REMOTE_APPS) return JAM_REMOTE_APPS[id];
+  for (const k in JAM_REMOTE_APPS) if (k.endsWith(".") && id.startsWith(k)) return JAM_REMOTE_APPS[k];
+  return undefined;
+}
 const JAM_REMOTE_REPEAT = new Set(["up", "down", "left", "right", "vol_up", "vol_down"]);
 
 class JamRemote extends JamBase {
@@ -1784,13 +1807,20 @@ class JamRemote extends JamBase {
     });
     return pad;
   }
+  _title(s, mp) {
+    const c = this._config, a = (mp && mp.attributes) || {};
+    if (a.media_title) return String(a.media_title);
+    if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
+    const t = jamRemoteApp(a.app_id || a.app_name || (s && s.attributes.current_activity)); /* the current app's package */
+    if (t) return t;
+    return c.name || friendly(this._hass, c.media_player || c.entity) || "—";
+  }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), mp = stateObj(h, c.media_player);
     const off = !s || UNAVAILABLE.has(s.state);
     const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const a = (mp && mp.attributes) || {};
-    const title = a.media_title || a.app_name || (mp && !UNAVAILABLE.has(mp.state) ? fmtState(h, mp) : (s ? fmtState(h, s) : "—"));
+    const title = this._title(s, mp);
     const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.media_player || c.entity);
     wrap.append(tt);
     for (const row of c.rows || JAM_REMOTE_ROWS) {
@@ -1948,9 +1978,10 @@ register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status str
 
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),
-    temperature_entity?, show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
+    temperature_entity?, show_current? (true), show_forecast? (true), tap_action?, hold_action?, double_tap_action?}
    Forecast via weather/subscribe_forecast (unsubscribed on disconnect / config change); falls back to the legacy
-   `forecast` attribute when the subscription fails. Glyphs are flat cut shapes (≤6 each), no animation. */
+   `forecast` attribute when the subscription fails. show_current: false hides the temperature/condition block.
+   Glyphs are flat cut shapes (≤6 each), no animation. */
 const JAM_WX_NS = "http://www.w3.org/2000/svg";
 /* HA time format (hass.locale.time_format): "12" | "24" force it; "language" lets Intl decide for hass.locale.language,
    "system" for the browser default. Returns {loc, h12} for toLocaleTimeString(loc, {hour12: h12}). */
@@ -2140,18 +2171,20 @@ class JamWeather extends JamBase {
     const ts = c.temperature_entity ? stateObj(h, c.temperature_entity) : null;
     if (ts && ts.state !== "" && isFinite(Number(ts.state))) { temp = Number(ts.state); unit = ts.attributes.unit_of_measurement || unit; }
     const sun = stateObj(h, "sun.sun"), night = s && s.state !== "clear-night" && sun && sun.state === "below_horizon";
-    const now = el("div", "now");
-    now.append(jamWxGlyph(off ? null : s.state, night));
-    const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
-    if (isFinite(temp) && unit) t.append(el("small", "", unit));
-    const cond = el("div", "cond");
-    cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
-    const meta = el("div", "meta label num");
-    if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
-    if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));
-    if (meta.childNodes.length) cond.append(meta);
-    now.append(t, cond);
-    face.append(now);
+    if (c.show_current !== false) {
+      const now = el("div", "now");
+      now.append(jamWxGlyph(off ? null : s.state, night));
+      const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
+      if (isFinite(temp) && unit) t.append(el("small", "", unit));
+      const cond = el("div", "cond");
+      cond.append(el("div", "word disp", off ? "No data" : JAM_WX_WORDS[s.state] || s.state.replace(/[-_]/g, " ")));
+      const meta = el("div", "meta label num");
+      if (!off && isFinite(Number(a.humidity)) && a.humidity !== null) meta.append(el("span", "", `Humidity ${Math.round(a.humidity)}%`));
+      if (!off && isFinite(Number(a.wind_speed)) && a.wind_speed !== null) meta.append(el("span", "", `Wind ${Math.round(a.wind_speed)}${a.wind_speed_unit ? " " + a.wind_speed_unit : ""}`));
+      if (meta.childNodes.length) cond.append(meta);
+      now.append(t, cond);
+      face.append(now);
+    }
     if (c.show_forecast !== false) face.append(this._strip());
     b.append(root);
   }
@@ -2188,7 +2221,7 @@ class JamWeather extends JamBase {
     });
     return box;
   }
-  getCardSize() { return (this._config && this._config.clock ? 3 : 0) + (this._config && this._config.show_forecast === false ? 2 : 5); }
+  getCardSize() { const c = this._config || {}; return Math.max(1, (c.clock ? 3 : 0) + (c.show_current === false ? 0 : 2) + (c.show_forecast === false ? 0 : 3)); }
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
 }
 register("jam-weather", JamWeather, "Jam Weather", "Big temperature, condition word and cut-paper glyph, forecast strip, optional clock.");
