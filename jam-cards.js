@@ -301,6 +301,163 @@ function armBars(key) {
   return box;
 }
 
+/* ---------- light colour helpers ---------- */
+/* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
+function kelvinToRgb(k) {
+  const t = Math.max(1000, Math.min(40000, Number(k) || 2700)) / 100;
+  let r, g, b;
+  if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661; b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+  else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); b = 255; }
+  return [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))));
+}
+/* WCAG relative luminance of [r,g,b] (0..1). */
+function luminance(c) {
+  const l = c.map(v => { v = Math.max(0, Math.min(255, Number(v) || 0)) / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+  return .2126 * l[0] + .7152 * l[1] + .0722 * l[2];
+}
+/* Text on a flat [r,g,b] fill: ink on light colours (luminance > .18), paper on dark ones. */
+function inkOn(c) { return luminance(c) > .18 ? "#141210" : "#ece2c9"; }
+/* A light's actual output colour as [r,g,b], or null: kelvin -> rgb in color_temp mode, else rgb_color. */
+function lightRgb(s) {
+  const a = (s && s.attributes) || {};
+  if (a.color_mode === "color_temp" && a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
+  if (Array.isArray(a.rgb_color) && a.rgb_color.length >= 3) return a.rgb_color.slice(0, 3).map(Number);
+  if (a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
+  return null;
+}
+const rgbCss = c => `rgb(${c.slice(0, 3).map(v => Math.round(Number(v) || 0)).join(",")})`;
+
+/* ---------- sheet (pop-up) helpers ---------- */
+/* Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
+function vertigoSpiral() {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
+  svg.setAttribute("viewBox", "-100 -100 200 200"); svg.setAttribute("aria-hidden", "true");
+  const pts = [];
+  for (let t = 0; t <= Math.PI * 10; t += 0.12) { const r = 2 + t * 3; pts.push((r * Math.cos(t)).toFixed(1) + " " + (r * Math.sin(t)).toFixed(1)); }
+  path.setAttribute("d", "M" + pts.join(" L"));
+  path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "7"); path.setAttribute("stroke-linecap", "square"); path.setAttribute("stroke-linejoin", "miter");
+  svg.append(path);
+  return svg;
+}
+/* The deepest focused element across shadow roots (to restore focus on close). */
+function deepActive() {
+  let a = document.activeElement;
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  return a;
+}
+/* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>). */
+const SHEET_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
+  "violet", "green", "on-fg", "shadow", "s1", "s2", "s3", "s4", "s5", "display", "body", "accent"].map(n => "--jam-" + n);
+const SHEET_CSS = `
+  .pop{position:fixed;inset:0;z-index:10000;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
+  .veil{position:absolute;inset:0;background:var(--ink)}
+  .spiral{position:absolute;left:50%;top:50%;width:min(92vmin,720px);height:min(92vmin,720px);transform:translate(-50%,-50%);
+    visibility:hidden;pointer-events:none;color:var(--acc)}
+  .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
+  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
+  .sheet > .face{--p-t:14px;--p-r:16px;--p-b:18px;--p-l:16px;height:auto;max-height:90vh;display:flex;flex-direction:column;gap:12px;
+    background:var(--slab);outline:none}
+  .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .t{display:grid;gap:4px;min-width:0}
+  .t h2{font-size:clamp(1.7rem,6vw,2.2rem);overflow-wrap:anywhere}
+  .rule{flex:none;height:5px;background:var(--acc)}
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0}
+  .close{flex:none}
+  .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
+  .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
+  @keyframes jam-sheet-up{from{transform:translateY(30%)}to{transform:none}}
+  @keyframes jam-sheet-flash{from{visibility:visible}to{visibility:hidden}}
+  @media (max-width:600px){
+    .stage{align-items:flex-end;padding:0}
+    .sheet{max-width:none}
+    .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
+  }
+  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
+const SHEET_STACK = [];
+/* Opens a modal cut sheet (kind "sheet", top-right 18px; a bottom sheet on phones) over a full-screen ink veil, appended to
+   document.body in its own shadow root (so a clipped ancestor, e.g. a jam-popup sheet, cannot clip it).
+   opts: {from (element whose --jam-* theme tokens are copied), title, kicker, label (dialog name), accent (CSS colour for
+   --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
+   cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
+   onClose()}.
+   Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
+   Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
+function openSheet(opts = {}) {
+  const o = opts, holder = el("div", "jam-sheet-host"), sr = holder.attachShadow({mode: "open"});
+  if (o.from) {
+    try {
+      const cs = getComputedStyle(o.from);
+      for (const t of SHEET_TOKENS) { const v = cs.getPropertyValue(t).trim(); if (v) holder.style.setProperty(t, v); }
+    } catch (e) { /* tokens fall back to the dark palette */ }
+  }
+  const st = el("style"); st.textContent = BASE_CSS + SHEET_CSS + (o.css || "");
+  const pop = el("div", "pop" + (o.cls ? " " + o.cls : ""));
+  if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
+  const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
+  const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+  if (o.flash === false) spiral.hidden = true; else if (o.flash) spiral.style.color = o.flash;
+  const stage = el("div", "stage");
+  const {root: sheet, face} = paper("div", "jam-sheet", {kind: "sheet", cls: "sheet wipe"});
+  face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
+  face.setAttribute("aria-label", o.label || o.title || o.kicker || "Pop-up");
+  const head = el("div", "head"), t = el("div", "t");
+  if (o.kicker) t.append(el("div", "label kick", o.kicker));
+  if (o.title) t.append(el("h2", "disp", o.title));
+  const close = cutKey("Close ×", "jam-sheet|close", "close", "chip");
+  close.setAttribute("aria-label", "Close");
+  head.append(t, close);
+  const body = el("div", "body");
+  face.append(head);
+  if (o.rule !== false) { const r = el("div", "rule"); r.setAttribute("aria-hidden", "true"); face.append(r); }
+  face.append(body);
+  stage.append(sheet); pop.append(veil, spiral, stage); sr.append(st, pop);
+
+  const id = "jam-sheet-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  let open = true, pushed = false;
+  const prevFocus = deepActive(), de = document.documentElement, bd = document.body;
+  const scroll = [de.style.overflow, bd.style.overflow];
+  const onKey = e => {
+    if (e.key !== "Escape" || SHEET_STACK[SHEET_STACK.length - 1] !== api) return;
+    e.preventDefault(); e.stopPropagation(); api.close();
+  };
+  const onPop = () => { if (!(history.state && history.state.jamSheet === id)) hide(); };
+  function hide() {
+    if (!open) return;
+    open = false;
+    window.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onPop);
+    const i = SHEET_STACK.indexOf(api); if (i >= 0) SHEET_STACK.splice(i, 1);
+    holder.remove();
+    if (!SHEET_STACK.length) { de.style.overflow = scroll[0]; bd.style.overflow = scroll[1]; }
+    if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === "function") { try { prevFocus.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
+    if (typeof o.onClose === "function") o.onClose();
+  }
+  const api = {
+    root: holder, pop, face, body,
+    isOpen: () => open,
+    /* close({silent}): hide; step back out of our history entry unless silent (e.g. the card was removed). */
+    close({silent = false} = {}) {
+      if (!open) return;
+      const back = pushed && !silent && history.state && history.state.jamSheet === id;
+      hide();
+      if (back) history.back();
+    },
+  };
+  veil.onclick = () => api.close();
+  close.onclick = () => api.close();
+  if (o.history !== false) {
+    try { history.pushState(Object.assign({}, history.state || {}, {jamSheet: id}), ""); pushed = true; } catch (e) { pushed = false; }
+  }
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("popstate", onPop);
+  SHEET_STACK.push(api);
+  de.style.overflow = "hidden"; bd.style.overflow = "hidden";
+  document.body.append(holder);
+  pop.classList.add("opening");
+  try { face.focus({preventScroll: true}); } catch (e) { face.focus(); }
+  return api;
+}
+
 /* ---------- base class ---------- */
 class JamBase extends HTMLElement {
   constructor() {
@@ -350,6 +507,7 @@ window.JamCards = Object.freeze({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
+  kelvinToRgb, luminance, inkOn, lightRgb, vertigoSpiral, deepActive, openSheet,
 });
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */
@@ -614,6 +772,116 @@ class JamChoice extends JamBase {
   getCardSize() { return 3; }
 }
 register("jam-choice", JamChoice, "Jam Choice", "Select / input_select options as chunky chips.");
+
+/* ---------- jam-fan: fan / air purifier with on/off pill, speed steps and preset chips ----------
+   {type: custom:jam-fan, entity (fan.*), name?, speeds?: [percent, ...] (default from percentage_step, e.g. 25 -> 25/50/75/100;
+    none when the fan cannot set a speed), presets?: [mode, ...] (default the fan's preset_modes),
+    sensor?: id | {entity, name?} (kicker, e.g. air quality "Excellent"), extra_sensor?: id | {entity, name?}
+    (kicker, "PM2.5 1 µg/m³"; name defaults from the device class), accent? (DESIGN "Colour system")}
+   Slab card: name + On/Off pill (accent when on; fan.turn_on / turn_off), segmented speed keys (active = accent;
+   fan.set_percentage), preset chips (active = accent; fan.set_preset_mode). While a preset runs no speed is active.
+   Pill, speed keys and preset chips use the chip cut (bottom-right 6px). Unavailable = red pill, controls disabled. */
+const JAM_FAN_SET_SPEED = 1, JAM_FAN_PRESET = 8;
+const JAM_FAN_DC = {pm25: "PM2.5", pm10: "PM10", pm1: "PM1", carbon_dioxide: "CO₂", volatile_organic_compounds: "VOC", aqi: "AQI"};
+class JamFan extends JamBase {
+  validate(c) {
+    if (!c.entity || !c.entity.startsWith("fan.")) throw new Error("jam-fan: entity must be a fan");
+    for (const k of ["speeds", "presets"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-fan: ${k} must be a list`);
+  }
+  _sid(x) { return (x && x.entity) || (typeof x === "string" ? x : null); }
+  watched() { const c = this._config; return [c.entity, this._sid(c.sensor), this._sid(c.extra_sensor)].filter(Boolean); }
+  css() { return `
+    .wrap{display:grid;gap:10px;align-content:start}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .nm{display:grid;gap:5px;min-width:0}
+    .nm h3{font-size:1.45rem;overflow-wrap:anywhere;cursor:pointer}
+    .nm .label .nc{text-transform:none;letter-spacing:.06em}
+    .pill{flex:none;min-width:64px;height:auto}
+    .pill > .face{--p-t:10px;--p-b:10px}
+    .seg{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:4px}
+    .seg .key{min-width:0}
+    .seg .key > .face{--p-t:14px;--p-b:14px;--p-l:4px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chips .key{min-width:0}
+    .chips .key > .face{--p-t:10px;--p-b:10px;--p-l:12px;--p-r:12px;min-height:38px;display:flex;align-items:center;font-size:.66rem}`; }
+  _speeds(a) {
+    const c = this._config;
+    if (Array.isArray(c.speeds)) return c.speeds.map(Number).filter(v => v > 0 && v <= 100);
+    const step = Number(a.percentage_step), feat = Number(a.supported_features) || 0;
+    if (step > 0 && step < 100 && 100 / step <= 10) {
+      const out = [];
+      for (let v = step; v < 100 - 0.5; v += step) out.push(Math.round(v));
+      return [...out, 100];
+    }
+    return (feat & JAM_FAN_SET_SPEED) || a.percentage != null ? [25, 50, 75, 100] : [];
+  }
+  _kicker() {
+    const c = this._config, h = this._hass, k = el("div", "label");
+    const part = (x, isExtra) => {
+      const id = this._sid(x), st = stateObj(h, id);
+      if (!st || UNAVAILABLE.has(st.state)) return null;
+      const name = (x && x.name) || (isExtra ? JAM_FAN_DC[st.attributes.device_class] : null);
+      const span = el("span");
+      if (name) span.append(el("span", "", name + " "));
+      span.append(el("span", isExtra ? "nc" : "", fmtState(h, st)));
+      return span;
+    };
+    const parts = [part(c.sensor, false), part(c.extra_sensor, true)].filter(Boolean);
+    parts.forEach((p, i) => { if (i) k.append(document.createTextNode(" · ")); k.append(p); });
+    return parts.length ? k : null;
+  }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
+    const bad = !s || UNAVAILABLE.has(s.state), on = !bad && s.state === "on", feat = Number(a.supported_features) || 0;
+    const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (bad ? " unavail" : "")});
+    const call = (svc, data) => h.callService("fan", svc, {entity_id: c.entity, ...data});
+
+    const head = el("div", "head"), nm = el("div", "nm");
+    const t = el("h3", "disp", c.name || friendly(h, c.entity)); t.onclick = () => moreInfo(this, c.entity);
+    nm.append(t);
+    const kick = this._kicker(); if (kick) nm.append(kick);
+    const pill = cutKey(bad ? "N/A" : on ? "On" : "Off", `jam-fan|${c.entity}|pill`, "pill" + (bad ? " alert" : on ? " on" : ""), "chip");
+    pill.dataset.key = "power"; pill.disabled = bad; pill.setAttribute("aria-pressed", on ? "true" : "false");
+    pill.setAttribute("aria-label", `${c.name || friendly(h, c.entity)} power`);
+    pill.onclick = () => call(on ? "turn_off" : "turn_on");
+    head.append(nm, pill); wrap.append(head);
+
+    const speeds = this._speeds(a);
+    if (speeds.length) {
+      const pct = Number(a.percentage), preset = a.preset_mode;
+      let act = null;
+      if (on && !preset && pct > 0) {
+        act = speeds.reduce((m, v) => (Math.abs(v - pct) < Math.abs(m - pct) ? v : m), speeds[0]);
+        const gap = speeds.length > 1 ? Math.min(...speeds.slice(1).map((v, i) => v - speeds[i])) : 100;
+        if (Math.abs(act - pct) > gap / 2) act = null;
+      }
+      const seg = el("div", "seg"); seg.style.setProperty("--n", speeds.length);
+      for (const v of speeds) {
+        const k = cutKey(v + "%", `jam-fan|${c.entity}|speed|${v}`, v === act ? "on" : "", "chip");
+        k.dataset.pct = String(v); k.disabled = bad; k.setAttribute("aria-pressed", v === act ? "true" : "false");
+        k.onclick = () => call("set_percentage", {percentage: v});
+        seg.append(k);
+      }
+      wrap.append(seg);
+    }
+
+    const presets = Array.isArray(c.presets) ? c.presets : (feat & JAM_FAN_PRESET) || a.preset_modes ? a.preset_modes || [] : [];
+    if (presets.length) {
+      const row = el("div", "chips");
+      for (const p of presets) {
+        const act = on && a.preset_mode === p;
+        const k = cutKey(String(p), `jam-fan|${c.entity}|preset|${p}`, act ? "on" : "", "chip");
+        k.dataset.preset = String(p); k.disabled = bad; k.setAttribute("aria-pressed", act ? "true" : "false");
+        k.onclick = () => call("set_preset_mode", {preset_mode: p});
+        row.append(k);
+      }
+      wrap.append(row);
+    }
+    b.append(root);
+  }
+  getCardSize() { return 3; }
+}
+register("jam-fan", JamFan, "Jam Fan", "Fan / air purifier: on/off pill, speed steps, preset chips and an air-quality kicker.");
 
 /* ---------- jam-gauge: half-disc of cut wedges (or a strip) with a big numeral, read-only ----------
    {type: custom:jam-gauge, entity, name?, min?: 0, max?: 100, unit?, severity?: {green, yellow, red} (band starts, HA
@@ -1348,159 +1616,496 @@ class JamHouse extends JamBase {
 }
 register("jam-house", JamHouse, "Jam House", "House strip: inside and outside temperature, door lock chip, who's home, alerts.");
 
-/* ---------- jam-light: light with ON key, brightness strip, colour-temp chips and colour swatches ----------
-   {type: custom:jam-light, entity (light.*), name?, icon?, tap_action? (ON key; default toggle), hold_action?,
-    show_brightness? (default true when the light dims), show_color_temp? (default: color_temp supported),
-    show_color? (default: hs/xy/rgb* supported), presets?: [{name, color_temp_kelvin | rgb_color}],
-    accent? (DESIGN "Colour system": ON pill, brightness fill, active temp/preset chip, swatch block of a white light)}
-   Off: only the ON key + brightness (dragging brightness turns it on; releasing at 0 turns it off).
-   The ON key, temp/preset chips and colour swatches are chips (bottom-right 6px cut); unavailable = red swatch + key. */
-const LIGHT_TEMPS = [["Candle", 2200], ["Warm", 2700], ["Neutral", 4000], ["Day", 6000]];
-const LIGHT_SWATCHES = [["Ochre", [229, 163, 27]], ["Red", [212, 58, 28]], ["Teal", [63, 154, 165]],
-  ["Paper", [236, 226, 201]], ["Violet", [166, 108, 196]], ["Green", [127, 155, 42]]];
+/* ---------- jam-light (v2): light card in the light's own colour + light pop-up ----------
+   {type: custom:jam-light, entity (light.*), name?, icon?, accent? (fill when the light reports no colour),
+    kicker? (pop-up kicker; default the entity's area), whites?: [{name, kelvin}, {name, kelvin}] (default Cozy 2200 /
+    Clean 4000, clamped to the light's range), preset_entity? (select.*, e.g. WLED presets: replaces the whites with
+    preview cards), timer_script? (default script.jam_light_off_in; the off-timer row hides when it does not exist),
+    presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}] (extra chips in the pop-up),
+    show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
+    tap_action? (default toggle), hold_action? (default: open the pop-up)}
+   Card: when on the face is the light's real output colour (rgb_color; kelvin -> rgb in color_temp mode; else the accent),
+   text ink or paper by luminance; big brightness number; 12px strip along the bottom; 46px corner trigger (⋯).
+   Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
+   vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
+   ←/→ = ±10 %, M or Shift+Enter = pop-up.
+   Pop-up (openSheet in core): 72px brightness bar, whites or preset cards, hue strip (12 bands, hs_color [hue, 90]),
+   "Your colours" (per HA user: frontend/get_user_data + set_user_data key jam_colors, max 12; in memory if that fails),
+   group members (attributes.entity_id), off-timer 15/30/60 min (script.turn_on with variables {entity_id, minutes}).
+   Changed in v2 (0.3.0): the ON key, the brightness strip row, the colour-temp chips (Candle/Warm/Neutral/Day) and the six
+   fixed colour swatches are gone from the card; show_color_temp now means the two whites in the pop-up, show_color the hue
+   strip + your colours, presets are pop-up chips; tap_action moved from the ON key to the whole card, hold_action
+   replaces the default hold (pop-up). */
 const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
-/* Local helpers: rgb distance (swatch/preset "active" match) and the light's dimmability. */
+const LIGHT_WHITES = [{name: "Cozy", kelvin: 2200}, {name: "Clean", kelvin: 4000}];
+const LIGHT_TIMERS = [[15, "15 min"], [30, "30 min"], [60, "1 h"]];
+const LIGHT_TIMER_SCRIPT = "script.jam_light_off_in";
+const LIGHT_PAPER = [236, 226, 201], LIGHT_INK = [20, 18, 16];
+/* Preset preview looks keyed by (lower-case) name: two stripe colours, or "rainbow". Others get a look from the name hash. */
+const LIGHT_LOOKS = {
+  "bright vibes": [[255, 90, 200], [90, 160, 255]], "halloween": [[255, 110, 0], [120, 40, 200]],
+  "movie time": [[60, 20, 120], [20, 10, 40]], "rainbow": "rainbow", "spring": [[120, 220, 120], [255, 180, 220]],
+  "standard": [[255, 190, 120], [255, 190, 120]], "vibes": [[140, 60, 255], [255, 60, 140]], "vibes (warm)": [[255, 120, 40], [200, 40, 90]],
+  "normal": [[255, 190, 120], [255, 190, 120]],
+};
+/* Per-user saved colours (shared by every jam-light on the page): null = not loaded yet. */
+let LIGHT_COLORS = null, LIGHT_COLORS_LOAD = null;
+/* Local helpers. */
 const rgbDist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : Infinity);
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function lightModes(s) { return (s && s.attributes.supported_color_modes) || []; }
 function lightDims(s) {
   const m = lightModes(s);
   return m.length ? m.some(x => x !== "onoff") : !!(s && s.attributes.brightness != null);
 }
+function lightPct(s) { return s && s.state === "on" ? clampN(Math.round((s.attributes.brightness || 0) / 2.55), 0, 100) : 0; }
+function hslRgb(h, s, l) {
+  const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return [f(0), f(8), f(4)];
+}
+const mixInk = (c, t) => c.map((v, i) => Math.round(v * (1 - t) + LIGHT_INK[i] * t));
+function lightLook(name) {
+  const l = LIGHT_LOOKS[String(name).trim().toLowerCase()];
+  if (l) return l;
+  const h = seed(name) % 360;
+  return [hslRgb(h, .8, .56), hslRgb((h + 150) % 360, .7, .42)];
+}
+/* Flat preview of a preset: diagonal stripes (or rainbow bands) with a darker band under the name. */
+function lightPreview(name) {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), look = lightLook(name);
+  svg.setAttribute("viewBox", "0 0 160 74"); svg.setAttribute("preserveAspectRatio", "none"); svg.setAttribute("aria-hidden", "true");
+  const poly = (pts, c) => { const p = document.createElementNS(NS, "polygon"); p.setAttribute("points", pts); p.setAttribute("fill", rgbCss(c)); svg.append(p); };
+  if (look === "rainbow") {
+    for (let k = 0; k < 8; k++) {
+      const c = hslRgb(k * 45, .8, .55), x = k * 20;
+      poly(`${x},0 ${x + 20},0 ${x + 20},44 ${x},44`, c);
+      poly(`${x},44 ${x + 20},44 ${x + 20},74 ${x},74`, mixInk(c, .55));
+    }
+    return svg;
+  }
+  const [a, b] = look;
+  for (let k = 0; k <= 10; k++) {
+    const x = k * 22, c = k % 2 ? b : a;
+    poly(`${x - 30},74 ${x},0 ${x + 22},0 ${x - 8},74`, c);
+    poly(`${(x - 17.84).toFixed(2)},44 ${(x + 4.16).toFixed(2)},44 ${x - 8},74 ${x - 30},74`, mixInk(c, .55));
+  }
+  return svg;
+}
+const LIGHT_SHEET_CSS = `
+  .body{padding:6px}
+  .lsheet .t .kick{color:var(--dim)}
+  .sec{display:grid;gap:8px}
+  .bwrap{position:relative;cursor:ew-resize;touch-action:none}
+  .bigbar{position:relative;height:72px;background:var(--slab2);clip-path:${cutPath("br", 14)}}
+  .bigbar i{position:absolute;inset:0 auto 0 0;background:var(--lc);clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%)}
+  .bigbar b{position:absolute;right:18px;top:50%;transform:translateY(-50%);font:900 2.2rem/1 var(--display);color:var(--fg)}
+  .bigbar.hi b{color:var(--lc-fg)}
+  .bwrap[aria-disabled=true]{cursor:default}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .wt > .face{--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px;text-align:left;display:grid;gap:4px}
+  .wt b{display:block;font:900 1.2rem/.95 var(--display);text-transform:uppercase}
+  .wt small,.wp small{font:600 .6rem/1 var(--body);letter-spacing:.12em}
+  .wt.on > .face{outline:3px solid var(--fg);outline-offset:-3px}
+  .wp.on > .face::after{content:"";position:absolute;inset:0;border:3px solid var(--fg)}
+  .wp > .face{padding:0;height:74px;background:var(--slab2);position:relative;overflow:hidden}
+  .wp svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .wp b{position:absolute;left:8px;right:16px;bottom:8px;font:900 1.05rem/.9 var(--display);text-transform:uppercase;color:#ece2c9;text-align:left;overflow-wrap:anywhere}
+  .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px}
+  .chips .key{min-width:0}
+  .hwrap{position:relative;cursor:crosshair;touch-action:none}
+  .hb{display:flex;height:64px;clip-path:${cutPath("br", 12)}}
+  .hb span{flex:1}
+  .mk{position:absolute;top:-6px;bottom:-6px;width:10px;margin-left:-5px;background:var(--fg);outline:3px solid var(--ink);pointer-events:none}
+  .sws{display:flex;flex-wrap:wrap;gap:6px}
+  .sw{width:42px;min-width:0} .sw > .face{height:34px;padding:0}
+  .sw.add > .face{background:transparent;outline:2px dashed var(--line);outline-offset:-2px;color:var(--dim);font:900 1.1rem/34px var(--body);text-align:center}
+  .sw.add:disabled{cursor:default}
+  .mem{display:grid;gap:6px;border-top:2px solid var(--line);padding-top:8px}
+  .mrow{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;min-height:32px}
+  .mrow .n{font:900 1.05rem/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;min-width:0}
+  .mrow .chip{padding:8px 10px}
+  .mtrack{position:relative;height:22px;touch-action:none;cursor:ew-resize}
+  .mtrack .mb{position:absolute;left:0;right:0;top:6px;height:10px;background:var(--slab2)}
+  .mtrack .mb i{position:absolute;inset:0 auto 0 0}
+  .timer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .timer .tc{display:flex;gap:6px}
+  .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`;
+
 class JamLight extends JamBase {
-  validate(c) { if (!c.entity || !/^light\./.test(c.entity)) throw new Error("jam-light: entity must be a light"); }
-  watched() { return [this._config.entity]; }
+  validate(c) {
+    if (!c.entity || !/^light\./.test(c.entity)) throw new Error("jam-light: entity must be a light");
+    if (c.whites != null && !Array.isArray(c.whites)) throw new Error("jam-light: whites must be a list of {name, kelvin}");
+    if (c.preset_entity != null && !/^(input_)?select\./.test(c.preset_entity)) throw new Error("jam-light: preset_entity must be a select");
+  }
+  watched() {
+    const c = this._config, s = stateObj(this._hass, c.entity);
+    const kids = s && Array.isArray(s.attributes.entity_id) ? s.attributes.entity_id : [];
+    return [c.entity, ...kids, c.preset_entity, this._timerScript()].filter(Boolean);
+  }
+  disconnectedCallback() { if (this._sheet) this._sheet.close({silent: true}); }
+  _timerScript() { return this._config.timer_script || LIGHT_TIMER_SCRIPT; }
+  _name() { return this._config.name || friendly(this._hass, this._config.entity); }
+  _sub(s) {
+    const ids = s && s.attributes.entity_id;
+    if (Array.isArray(ids) && ids.length) return `Group · ${ids.length} ${ids.length === 1 ? "bulb" : "bulbs"}`;
+    return this._config.preset_entity ? "WLED" : "";
+  }
+  _area() {
+    const h = this._hass, e = h && h.entities && h.entities[this._config.entity];
+    let a = e && e.area_id;
+    if (!a && e && e.device_id && h.devices && h.devices[e.device_id]) a = h.devices[e.device_id].area_id;
+    return a && h.areas && h.areas[a] ? h.areas[a].name : "";
+  }
+  /* Fill colour [css, text css] for a light state; the accent when it is on without a colour. */
+  _paint(s) {
+    const rgb = lightRgb(s);
+    return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
+  }
   css() { return `
-    .wrap{--p-l:30px;display:grid;gap:12px;align-content:start}
-    .swatch{position:absolute;left:0;top:0;bottom:0;width:14px;background:var(--line)}
-    .head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 10px}
-    .nm{display:flex;align-items:center;gap:8px;min-width:0}
-    .nm h3{font-size:1.45rem;overflow-wrap:anywhere}
-    .nm ha-icon{--mdc-icon-size:22px;flex:none;color:var(--dim)}
-    .pw{flex:none;min-width:64px;height:auto}
-    .pw.alert:disabled > .face{color:var(--on-fg)}
-    .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px}
-    .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track[role=slider]{cursor:pointer}
-    .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:8px}
-    .chips .key{min-width:0} .chips .key > .face{--p-l:6px;--p-r:6px;font-size:.68rem;letter-spacing:.1em}
-    .sws{display:flex;flex-wrap:wrap;gap:10px}
-    .sw{min-width:0;width:40px} .sw > .face{height:30px;padding:0}
-    .sw.on > .face,.sw[aria-pressed=true] > .face{border-color:var(--fg)}`; }
+    .lc{height:100%;min-height:112px;-webkit-user-select:none;user-select:none}
+    .lc > .face{--p-t:0px;--p-r:0px;--p-b:0px;--p-l:0px;overflow:hidden}
+    .lc.on > .face{background:var(--lc);color:var(--lc-fg)}
+    .lc.dead > .face{color:var(--dim)}
+    .tap{position:relative;height:100%;min-height:112px;padding:10px 12px 18px;display:flex;flex-direction:column;justify-content:space-between;
+      gap:6px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
+    .lc.dead .tap{cursor:default}
+    .nm{display:flex;align-items:center;gap:6px;padding-right:40px;font:900 1.05rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
+    .nm ha-icon{--mdc-icon-size:18px;flex:none}
+    .sub{font:600 .56rem/1.1 var(--body);letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-top:3px}
+    .pct{font:900 2.3rem/.8 var(--display)}
+    .pct small{font-size:1rem;text-transform:uppercase}
+    .lc.dead .pct small{color:var(--red)}
+    .bs{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(0,0,0,.18);pointer-events:none}
+    .bs i{position:absolute;inset:0 auto 0 0;background:currentColor;clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
+    .lc:not(.on) .bs{display:none}
+    .more{position:absolute;right:0;top:0;width:46px;height:46px;z-index:1}
+    .more .tri{position:absolute;inset:0;background:var(--slab2);color:var(--fg);clip-path:polygon(0 0,100% 0,100% 100%)}
+    .more .tri span{position:absolute;right:6px;top:4px;font:900 1.1rem/1 var(--body)}
+    .lc.on .more .tri{background:var(--lc-fg);color:var(--lc)}
+    .more:disabled{cursor:default} .more:disabled .tri{color:var(--dim)}
+    .more:focus-visible,.tap:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
+    @supports selector(:has(a)){
+      .tap:focus-visible{outline:none}
+      .lc:has(.tap:focus-visible){outline:3px solid var(--ochre);outline-offset:2px}
+    }`; }
   _render(force) {
-    // A hass update mid-drag would rebuild the strip under the pointer; render once the drag ends instead.
-    if (this._drag && !force) { this._pending = true; return; }
+    // A hass update mid-drag would rebuild the card/sheet under the pointer; render once the drag ends instead.
+    if ((this._drag || this._sdrag) && !force) { this._pending = true; return; }
     super._render(force);
   }
-  _on(data) { this._hass.callService("light", "turn_on", {entity_id: this._config.entity, ...data}); }
+  _endDrag() {
+    this._drag = false; this._sdrag = false;
+    if (this._pending) { this._pending = false; this._render(false); }
+  }
+  _call(domain, service, data) { this._hass.callService(domain, service, data); }
+  _setPct(id, v) {
+    if (v > 0) this._call("light", "turn_on", {entity_id: id, brightness_pct: v});
+    else this._call("light", "turn_off", {entity_id: id});
+  }
+
+  /* ---------- card ---------- */
   render(b) {
-    const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
-    const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", modes = lightModes(s);
-    const {root, face: wrap} = this.paper(c.entity, {face: "wrap"});
-    const sw = el("div", "swatch"); sw.setAttribute("aria-hidden", "true");
-    const rgb = Array.isArray(a.rgb_color) ? a.rgb_color : null;
-    sw.style.background = dead ? "var(--red)" : !on ? "var(--line)" : rgb ? `rgb(${rgb.map(Number).join(",")})` : "var(--acc)";
-    wrap.append(sw);
-    // Header: name + cut ON/OFF key (tap_action, default toggle; hold_action).
-    const head = el("div", "head"), nm = el("div", "nm");
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity);
+    const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", pct = lightPct(s), name = this._name();
+    const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off")});
+    const [fill, ink] = this._paint(s);
+    root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", ink);
+    const tap = el("div", "tap"), top = el("div"), nm = el("h3", "nm");
     const ic = icon(c.icon); if (ic) nm.append(ic);
-    nm.append(el("h3", "disp", c.name || friendly(h, c.entity)));
-    const key = cutKey(dead ? (s ? "N/A" : "Missing") : on ? "On" : "Off", `jam-light|${c.entity}|key`, "pw" + (on ? " on" : dead ? " alert" : ""), "chip");
-    key.setAttribute("aria-pressed", on ? "true" : "false");
-    key.setAttribute("aria-label", `${c.name || friendly(h, c.entity)}: ${on ? "on" : dead ? "unavailable" : "off"}`);
-    key.disabled = dead;
-    bindActions(key, () => this._hass, {tap_action: c.tap_action || {action: "toggle"}, hold_action: c.hold_action}, c.entity);
-    head.append(nm, key); wrap.append(head);
+    nm.append(document.createTextNode(name));
+    top.append(nm);
+    const sub = this._sub(s); if (sub) top.append(el("div", "sub", sub));
+    const num = el("div", "pct num");
+    const bs = el("div", "bs"), bi = el("i"); bs.append(bi); bs.setAttribute("aria-hidden", "true");
+    const show = (v, isOn) => {
+      num.textContent = "";
+      if (dead) num.append(el("small", null, s ? "N/A" : "Missing"));
+      else if (isOn) num.append(document.createTextNode(String(v)), el("small", null, "%"));
+      else num.append(el("small", null, "Off"));
+      bi.style.width = (isOn ? v : 0) + "%";
+      tap.setAttribute("aria-label", `${name}: ${dead ? "unavailable" : isOn ? v + "%" : "off"}`);
+    };
+    show(pct, on);
+    tap.append(top, num);
+    tap.tabIndex = dead ? -1 : 0; tap.setAttribute("role", "button");
+    tap.setAttribute("aria-pressed", on ? "true" : "false");
+    if (dead) tap.setAttribute("aria-disabled", "true");
+    const more = el("button", "more"); more.type = "button";
+    more.setAttribute("aria-label", "More controls for " + name); more.setAttribute("aria-haspopup", "dialog");
+    const tri = el("span", "tri"); tri.append(el("span", null, "⋯")); more.append(tri);
+    more.disabled = dead;
+    more.onclick = () => this._openSheet();
+    face.append(tap, bs, more);
     b.append(root);
-    if (!s) return;
-    if (c.show_brightness !== false && lightDims(s)) this._brightness(wrap, on ? Math.round((a.brightness || 0) / 2.55) : 0, dead);
-    if (!on) return;
-    if (c.show_color_temp ?? modes.includes("color_temp")) this._temps(wrap, a);
-    if (c.show_color ?? modes.some(m => COLOR_MODES.includes(m))) this._swatches(wrap, a);
-    if (Array.isArray(c.presets) && c.presets.length) this._presets(wrap, a);
+    if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
+    if (this._sheet && this._sheet.isOpen()) this._fillSheet();
   }
-  _brightness(wrap, v0, dead) {
+  _tap() { runAction(this, this._hass, this._config.tap_action || {action: "toggle"}, this._config.entity); }
+  _hold() {
+    if (this._config.hold_action) runAction(this, this._hass, this._config.hold_action, this._config.entity);
+    else this._openSheet();
+  }
+  _gestures(tap, root, st0) {
     const c = this._config;
-    const row = el("div", "row"), val = el("div", "v num", dead ? "—" : v0 + "%");
-    row.append(el("div", "label", "Brightness"), val);
-    const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
-    fill.style.width = (dead ? 0 : v0) + "%";
-    strip.append(fill); track.append(strip); wrap.append(row, track);
-    if (dead) return;
-    track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", "Brightness");
-    track.setAttribute("aria-valuemin", "0"); track.setAttribute("aria-valuemax", "100"); track.setAttribute("aria-valuenow", v0);
-    let cur = v0;
-    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; val.textContent = cur + "%"; track.setAttribute("aria-valuenow", cur); };
-    const at = e => { const r = track.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
-    const send = () => {
-      if (cur > 0) this._on({brightness_pct: cur});
-      else if (v0 > 0) this._hass.callService("light", "turn_off", {entity_id: c.entity});
-    };
-    const end = () => { this._drag = false; if (this._pending) { this._pending = false; this._render(false); } };
-    track.onpointerdown = e => { track.setPointerCapture(e.pointerId); this._drag = true; show(at(e)); };
-    track.onpointermove = e => { if (this._drag) show(at(e)); };
-    track.onpointerup = e => { if (!this._drag) return; show(at(e)); send(); end(); };
-    track.onpointercancel = () => { show(v0); end(); };
-    track.onkeydown = e => {
-      const k = {ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 10, PageDown: -10, Home: -100, End: 100}[e.key];
-      if (!k) return; e.preventDefault(); show(cur + k); send();
+    let p = null; // current press: {x, y, mode: press|drag|scroll, held, v, timer}
+    const preview = v => { root.classList.add("on"); root.classList.remove("off"); st0.show(v, true); };
+    const revert = () => { root.classList.toggle("on", st0.on); root.classList.toggle("off", !st0.on); st0.show(st0.pct, st0.on); };
+    tap.addEventListener("contextmenu", e => e.preventDefault());
+    tap.addEventListener("pointerdown", e => {
+      if (e.button || (p && p.mode === "drag")) return;
+      p = {x: e.clientX, y: e.clientY, mode: "press", held: false, v: null};
+      try { tap.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+      const me = p;
+      p.timer = setTimeout(() => { if (p === me && me.mode === "press") { me.held = true; this._hold(); } }, 500);
+    });
+    tap.addEventListener("pointermove", e => {
+      if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      if (p.mode === "press" && !p.held) {
+        if (st0.dims && Math.abs(dx) > 7 && Math.abs(dx) >= Math.abs(dy)) { p.mode = "drag"; clearTimeout(p.timer); this._drag = true; }
+        else if (Math.abs(dy) > 7 || Math.abs(dx) > 7) { p.mode = "scroll"; clearTimeout(p.timer); }
+      }
+      if (p.mode === "drag") {
+        const r = root.getBoundingClientRect();
+        p.v = clampN(Math.round(((e.clientX - r.left) / r.width) * 100), 1, 100);
+        preview(p.v);
+      }
+    });
+    tap.addEventListener("pointerup", () => {
+      if (!p) return;
+      const q = p; p = null; clearTimeout(q.timer);
+      if (q.mode === "drag") { if (q.v != null) this._setPct(c.entity, q.v); this._endDrag(); }
+      else if (q.mode === "press" && !q.held) this._tap();
+    });
+    tap.addEventListener("pointercancel", () => {
+      if (!p) return;
+      const q = p; p = null; clearTimeout(q.timer);
+      if (q.mode === "drag") { revert(); this._endDrag(); }
+    });
+    tap.addEventListener("keydown", e => {
+      if (e.target !== tap) return;
+      if (e.key === "m" || e.key === "M" || (e.key === "Enter" && e.shiftKey)) { e.preventDefault(); this._openSheet(); return; }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) this._tap(); return; }
+      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && st0.dims) {
+        e.preventDefault();
+        const cur = st0.on ? st0.pct : 0, v = clampN(cur + (e.key === "ArrowRight" ? 10 : -10), 1, 100);
+        st0.pct = v; st0.on = true; preview(v);
+        this._setPct(c.entity, v);
+      }
+    });
+  }
+
+  /* ---------- pop-up ---------- */
+  _openSheet() {
+    if (this._sheet && this._sheet.isOpen()) return;
+    const s = stateObj(this._hass, this._config.entity);
+    if (!s || UNAVAILABLE.has(s.state)) return;
+    const [fill] = this._paint(s), acc = this._body ? getComputedStyle(this._body).getPropertyValue("--acc").trim() : "";
+    const kicker = [this._config.kicker || this._area(), this._sub(s)].filter(Boolean).join(" · ") || "Light";
+    this._sheet = openSheet({from: this, title: this._name(), kicker, accent: acc || null, flash: fill === "var(--acc)" ? (acc || null) : fill,
+      rule: false, cls: "lsheet", css: LIGHT_SHEET_CSS, onClose: () => { this._sheet = null; this._sdrag = false; }});
+    this._fillSheet();
+    this._loadColors();
+  }
+  _loadColors() {
+    if (LIGHT_COLORS !== null || LIGHT_COLORS_LOAD) return;
+    const h = this._hass;
+    if (!h || typeof h.callWS !== "function") { LIGHT_COLORS = []; return; }
+    LIGHT_COLORS_LOAD = Promise.resolve().then(() => h.callWS({type: "frontend/get_user_data", key: "jam_colors"}))
+      .then(r => { const v = r && r.value; LIGHT_COLORS = Array.isArray(v) ? v.filter(x => Array.isArray(x) && x.length >= 3).slice(-12) : []; })
+      .catch(() => { LIGHT_COLORS = LIGHT_COLORS || []; })
+      .then(() => { LIGHT_COLORS_LOAD = null; if (this._sheet && this._sheet.isOpen()) this._fillSheet(); });
+  }
+  _saveColor(rgb) {
+    const list = (LIGHT_COLORS || []).filter(x => rgbDist(x, rgb) > 6);
+    list.push(rgb.slice(0, 3).map(v => Math.round(Number(v)))); LIGHT_COLORS = list.slice(-12);
+    const h = this._hass;
+    if (h && typeof h.callWS === "function") {
+      try { Promise.resolve(h.callWS({type: "frontend/set_user_data", key: "jam_colors", value: LIGHT_COLORS})).catch(() => { /* kept in memory */ }); }
+      catch (e) { /* kept in memory */ }
+    }
+    this._fillSheet();
+  }
+  _fillSheet() {
+    const sh = this._sheet; if (!sh || !sh.isOpen()) return;
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), body = sh.body;
+    const act = deepActive(), focusK = act && act.dataset ? act.dataset.k : null, scroll = body.scrollTop;
+    const [fill, ink] = this._paint(s);
+    sh.pop.style.setProperty("--lc", fill); sh.pop.style.setProperty("--lc-fg", ink);
+    body.textContent = "";
+    if (!s || UNAVAILABLE.has(s.state)) { body.append(el("div", "label c-alert", "Unavailable")); return; }
+    const a = s.attributes, modes = lightModes(s), on = s.state === "on";
+    const sec = (label, ...kids) => { const d = el("div", "sec"); if (label) d.append(el("div", "label", label)); d.append(...kids); body.append(d); return d; };
+    if (c.show_brightness !== false && lightDims(s)) sec("Brightness", this._bigBar(s));
+    const ps = c.preset_entity && stateObj(h, c.preset_entity);
+    if (c.preset_entity) { if (ps && ps.state !== "unavailable") this._presetCards(sec, ps); } // WLED reports "unknown" when no preset is active
+    else if (c.show_color_temp ?? modes.includes("color_temp")) this._whites(sec, a);
+    if (Array.isArray(c.presets) && c.presets.length) this._chips(sec, a);
+    if (c.show_color ?? modes.some(m => COLOR_MODES.includes(m))) { this._hue(sec, a, on); this._colors(sec, a, on); }
+    if (c.show_members !== false && Array.isArray(a.entity_id) && a.entity_id.length) this._members(sec, a.entity_id);
+    if (stateObj(h, this._timerScript())) this._timer(body);
+    body.scrollTop = scroll;
+    if (focusK) { const f = body.querySelector(`[data-k="${CSS.escape(focusK)}"]`); if (f) try { f.focus({preventScroll: true}); } catch (e) { f.focus(); } }
+  }
+  /* Drag/keyboard slider on node: at(e) -> value, show(v) preview, send(v) on release/keys. */
+  _slide(node, {v0, at, show, send, step = 5, min = 0, max = 100, flag = "_sdrag"}) {
+    let cur = v0, drag = false;
+    const set = v => { cur = clampN(Math.round(v), min, max); show(cur); node.setAttribute("aria-valuenow", cur); };
+    node.tabIndex = 0; node.setAttribute("role", "slider");
+    node.setAttribute("aria-valuemin", min); node.setAttribute("aria-valuemax", max); node.setAttribute("aria-valuenow", cur);
+    node.onpointerdown = e => { if (e.button) return; try { node.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } drag = true; this[flag] = true; set(at(e)); };
+    node.onpointermove = e => { if (drag) set(at(e)); };
+    node.onpointerup = e => { if (!drag) return; drag = false; set(at(e)); send(cur); this._endDrag(); };
+    node.onpointercancel = () => { if (!drag) return; drag = false; set(v0); this._endDrag(); };
+    node.onkeydown = e => {
+      const k = {ArrowRight: step, ArrowUp: step, ArrowLeft: -step, ArrowDown: -step, PageUp: step * 2, PageDown: -step * 2, Home: -1e6, End: 1e6}[e.key];
+      if (!k) return; e.preventDefault(); set(cur + k); send(cur);
     };
   }
-  _temps(wrap, a) {
+  _bigBar(s) {
+    const id = this._config.entity, v0 = lightPct(s);
+    const wrap = el("div", "bwrap"), bar = el("div", "bigbar"), fi = el("i"), val = el("b", "num");
+    bar.append(fi, val); wrap.append(bar);
+    wrap.dataset.k = "bright"; wrap.setAttribute("aria-label", "Brightness");
+    const show = v => { fi.style.width = v + "%"; val.textContent = v ? v + "%" : "Off"; bar.classList.toggle("hi", v >= 78); };
+    show(v0);
+    const at = e => { const r = wrap.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
+    this._slide(wrap, {v0, at, show, send: v => this._setPct(id, v)});
+    return wrap;
+  }
+  _presetCards(sec, ps) {
+    const opts = Array.isArray(ps.attributes.options) ? ps.attributes.options : [];
+    if (!opts.length) return;
+    const g = el("div", "two"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "Presets");
+    for (const o of opts) {
+      const cur = ps.state === o;
+      const {root, face} = paper("button", "jam-light|preset|" + o, {kind: "card", cls: "press wp" + (cur ? " on" : "")});
+      root.type = "button"; root.dataset.k = "p|" + o; root.setAttribute("aria-pressed", cur ? "true" : "false");
+      face.append(lightPreview(o), el("b", null, o));
+      root.onclick = () => this._call(ps.entity_id.split(".")[0], "select_option", {entity_id: ps.entity_id, option: o});
+      g.append(root);
+    }
+    sec("Presets", g);
+  }
+  _whites(sec, a) {
     const c = this._config, lo = a.min_color_temp_kelvin || 2000, hi = a.max_color_temp_kelvin || 6500;
-    // Clamp the four presets to the light's range; presets that clamp to the same kelvin keep the nearest name.
-    const by = new Map();
-    for (const [name, k] of LIGHT_TEMPS) {
-      const kv = Math.max(lo, Math.min(hi, k)), prev = by.get(kv);
-      if (!prev || Math.abs(prev.k - kv) > Math.abs(k - kv)) by.set(kv, {name, k, kv});
-    }
-    const list = [...by.values()].sort((x, y) => x.kv - y.kv);
-    const cur = a.color_mode === "color_temp" || !a.color_mode ? a.color_temp_kelvin : null;
-    let best = null;
-    if (typeof cur === "number") for (const t of list) if (!best || Math.abs(t.kv - cur) < Math.abs(best.kv - cur)) best = t;
-    const box = el("div", "chips"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour temperature");
-    for (const t of list) {
-      const k = cutKey(t.name, `jam-light|${c.entity}|t|${t.name}`, t === best ? "on" : "", "chip");
-      k.title = t.kv + " K"; k.setAttribute("aria-pressed", t === best ? "true" : "false");
-      k.onclick = () => this._on({color_temp_kelvin: t.kv});
-      box.append(k);
-    }
-    wrap.append(el("div", "label", "White"), box);
+    const list = (Array.isArray(c.whites) && c.whites.length ? c.whites : LIGHT_WHITES).slice(0, 2);
+    const g = el("div", "two"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "White");
+    list.forEach((w, i) => {
+      const k = Math.round(clampN(Number(w.kelvin) || 2700, lo, hi)), rgb = kelvinToRgb(k);
+      const cur = a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60;
+      const {root, face} = paper("button", "jam-light|white|" + i, {kind: "card", cls: "press wt" + (cur ? " on" : "")});
+      root.type = "button"; root.dataset.k = "w|" + i; root.setAttribute("aria-pressed", cur ? "true" : "false");
+      face.style.background = rgbCss(rgb); face.style.color = inkOn(rgb);
+      face.append(el("b", null, w.name || "White"), el("small", "num", k + " K"));
+      root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, color_temp_kelvin: k});
+      g.append(root);
+    });
+    sec("White", g);
   }
-  _swatches(wrap, a) {
-    const c = this._config, rgb = a.color_mode !== "color_temp" ? a.rgb_color : null;
-    const box = el("div", "sws"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Colour");
-    for (const [name, col] of LIGHT_SWATCHES) {
-      const act = rgbDist(rgb, col) < 40;
-      const {root, face} = paper("button", `jam-light|${c.entity}|c|${name}`, {kind: "chip", cls: "key press sw"});
-      root.type = "button"; root.title = name; root.setAttribute("aria-label", name);
-      root.setAttribute("aria-pressed", act ? "true" : "false");
-      face.style.background = `rgb(${col.join(",")})`;
-      root.onclick = () => this._on({rgb_color: col.slice()});
-      box.append(root);
-    }
-    wrap.append(el("div", "label", "Colour"), box);
-  }
-  _presets(wrap, a) {
+  _chips(sec, a) {
     const c = this._config, box = el("div", "chips");
     box.setAttribute("role", "group"); box.setAttribute("aria-label", "Presets");
-    for (const p of c.presets) {
-      const data = {};
+    c.presets.forEach((p, i) => {
+      const data = {entity_id: c.entity};
       if (p.color_temp_kelvin != null) data.color_temp_kelvin = Number(p.color_temp_kelvin);
       else if (Array.isArray(p.rgb_color)) data.rgb_color = p.rgb_color.map(Number);
       if (p.brightness_pct != null) data.brightness_pct = Number(p.brightness_pct);
-      const act = data.color_temp_kelvin != null
+      const cur = data.color_temp_kelvin != null
         ? a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - data.color_temp_kelvin) < 60
-        : a.color_mode !== "color_temp" && rgbDist(a.rgb_color, data.rgb_color) < 40;
-      const k = cutKey(p.name || "Preset", `jam-light|${c.entity}|p|${p.name}`, act ? "on" : "", "chip");
-      k.setAttribute("aria-pressed", act ? "true" : "false");
-      k.onclick = () => this._on(data);
+        : !!data.rgb_color && a.color_mode !== "color_temp" && rgbDist(a.rgb_color, data.rgb_color) < 40;
+      const k = cutKey(p.name || "Preset", "jam-light|chip|" + i, cur ? "on" : "", "chip");
+      k.dataset.k = "c|" + i; k.setAttribute("aria-pressed", cur ? "true" : "false");
+      k.onclick = () => this._call("light", "turn_on", data);
       box.append(k);
-    }
-    wrap.append(el("div", "label", "Presets"), box);
+    });
+    sec(c.preset_entity ? "Shortcuts" : "Presets", box);
   }
-  getCardSize() { return 3; }
+  _hue(sec, a, on) {
+    const c = this._config, wrap = el("div", "hwrap"), hb = el("div", "hb"), mk = el("div", "mk");
+    for (let k = 0; k < 12; k++) { const b = el("span"); b.style.background = `hsl(${k * 30},90%,58%)`; hb.append(b); }
+    const colourMode = on && COLOR_MODES.includes(a.color_mode) && Array.isArray(a.hs_color);
+    const band0 = colourMode ? Math.round(Number(a.hs_color[0]) / 30) % 12 : null;
+    wrap.append(hb, mk); wrap.dataset.k = "hue"; wrap.setAttribute("aria-label", "Hue");
+    const show = band => {
+      mk.hidden = band == null;
+      if (band != null) mk.style.left = ((band + .5) / 12) * 100 + "%";
+      wrap.setAttribute("aria-valuetext", band == null ? "none" : band * 30 + "°");
+    };
+    show(band0);
+    const at = e => { const r = wrap.getBoundingClientRect(); return clampN(Math.floor(((e.clientX - r.left) / r.width) * 12), 0, 11); };
+    this._slide(wrap, {v0: band0 == null ? 0 : band0, at, show, step: 1, min: 0, max: 11,
+      send: band => this._call("light", "turn_on", {entity_id: c.entity, hs_color: [band * 30, 90]})});
+    if (band0 == null) show(null);
+    sec("Colour", wrap);
+  }
+  _colors(sec, a, on) {
+    const c = this._config, box = el("div", "sws");
+    box.setAttribute("role", "group"); box.setAttribute("aria-label", "Your colours");
+    const cur = on && a.color_mode !== "color_temp" && Array.isArray(a.rgb_color) ? a.rgb_color : null;
+    (LIGHT_COLORS || []).forEach((col, i) => {
+      const {root, face} = paper("button", "jam-light|sw|" + i, {kind: "chip", cls: "key press sw"});
+      root.type = "button"; root.dataset.k = "s|" + col.join(","); root.setAttribute("aria-label", `Saved colour ${i + 1}`);
+      root.setAttribute("aria-pressed", rgbDist(cur, col) < 12 ? "true" : "false");
+      face.style.background = rgbCss(col);
+      root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, rgb_color: col.slice(0, 3).map(Number)});
+      box.append(root);
+    });
+    const save = on && Array.isArray(a.rgb_color) ? a.rgb_color : null;
+    const {root: add, face} = paper("button", "jam-light|sw|add", {kind: "chip", cls: "key press sw add"});
+    add.type = "button"; add.dataset.k = "s|add"; face.textContent = "+";
+    add.setAttribute("aria-label", "Save the current colour"); add.disabled = !save;
+    add.onclick = () => { if (save) this._saveColor(save); };
+    box.append(add);
+    sec("Your colours", box);
+  }
+  _members(sec, ids) {
+    const h = this._hass, d = el("div", "sec");
+    d.append(el("div", "label", "In this group"));
+    for (const id of ids) {
+      const s = stateObj(h, id), dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", v0 = lightPct(s);
+      const [fill, ink] = this._paint(s), m = el("div", "mem");
+      const row = el("button", "mrow"); row.type = "button"; row.dataset.k = "m|" + id; row.disabled = dead;
+      const n = el("span", "n", friendly(h, id)), pill = el("span", "chip num");
+      const pshow = v => {
+        pill.textContent = dead ? "N/A" : v ? v + "%" : "Off";
+        pill.style.background = !dead && v ? fill : ""; pill.style.color = !dead && v ? ink : dead ? "var(--red)" : "";
+      };
+      pshow(on ? v0 : 0);
+      row.append(n, pill);
+      row.setAttribute("aria-pressed", on ? "true" : "false");
+      row.setAttribute("aria-label", `${friendly(h, id)}: ${dead ? "unavailable" : on ? v0 + "%" : "off"}`);
+      row.onclick = () => this._call("light", "toggle", {entity_id: id});
+      m.append(row);
+      if (!dead && lightDims(s)) {
+        const tr = el("div", "mtrack"), mb = el("div", "mb"), fi = el("i");
+        fi.style.background = fill; mb.append(fi); tr.append(mb);
+        tr.dataset.k = "mb|" + id; tr.setAttribute("aria-label", friendly(h, id) + " brightness");
+        const show = v => { fi.style.width = v + "%"; pshow(v); };
+        show(on ? v0 : 0);
+        const at = e => { const r = tr.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
+        this._slide(tr, {v0: on ? v0 : 0, at, show, step: 10, send: v => this._setPct(id, v)});
+        m.append(tr);
+      }
+      d.append(m);
+    }
+    this._sheet.body.append(d);
+  }
+  _timer(body) {
+    const c = this._config, row = el("div", "timer"), tc = el("div", "tc");
+    row.append(el("div", "label", "Off in"), tc);
+    for (const [min, label] of LIGHT_TIMERS) {
+      const k = cutKey(label, "jam-light|timer|" + min, "", "chip");
+      k.dataset.k = "t|" + min; k.setAttribute("aria-label", `Turn off in ${min} minutes`);
+      k.onclick = () => this._call("script", "turn_on", {entity_id: this._timerScript(), variables: {entity_id: c.entity, minutes: min}});
+      tc.append(k);
+    }
+    body.append(row);
+  }
+  getCardSize() { return 2; }
+  getGridOptions() { return {columns: 6, rows: 2, min_columns: 4, min_rows: 2}; }
 }
-register("jam-light", JamLight, "Jam Light", "Light with an ON key, brightness strip, colour-temp chips and colour swatches.");
+register("jam-light", JamLight, "Jam Light", "Light card in the light's own colour: tap toggles, drag dims, hold or ⋯ opens the light pop-up.");
 
 /* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
    {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true,
@@ -1570,14 +2175,70 @@ register("jam-list", JamList, "Jam List", "Paper sheet of entity rows with ON/OF
     show_art? (true), show_volume? (default: when the player supports volume), sources?: true | [subset],
     players?: [media_player ids] (chip row switching the controlled player, kept in memory),
     group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
-    hidden unless both have the GROUPING feature bit), accent? (DESIGN "Colour system")}
+    hidden unless both have the GROUPING feature bit), accent? (DESIGN "Colour system"),
+    compact? (mini layout: 52px art, title, sub line, one key = ⋯ with `more`, else play/pause),
+    more?: {title?, kicker?, cards: [card configs]} (⋯ key opening a sheet with these cards; they get this card's hass),
+    title_entity?, state_entity?, picture_entity?, sub_entities?: [id | {entity, name?}] (players without a media_player,
+    e.g. NerveOS: title = title_entity's state, on/paused/off tone = state_entity, art = picture_entity's entity_picture,
+    sub line = name · each sub entity "name value"; `entity` is optional then and transport/volume need it)}
    Accent = art block (paused: dim), play key, volume fill, active chips. Transport keys and chips use the chip cut.
    v1 configs (entity, name, controls) render unchanged in meaning. */
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
-class JamMedia extends JamBase {
+/* Local helpers (also used by jam-tv): child cards in a core openSheet() sheet.
+   jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs]}) opens a sheet (theme tokens copied from host, back /
+   Esc / veil / CLOSE close it) whose body holds the cards, created with HA's card helpers (preview: by tag). They get
+   host.hass, and later updates through sheet.hass(h) (JamSheetHost does that). A configured accent becomes the sheet accent
+   and the children's --jam-accent. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
+function jamMakeCard(cfg, helpers, onRebuild) {
+  try {
+    if (helpers && helpers.createCardElement) {
+      const k = helpers.createCardElement(cfg);
+      // HA swaps in an error card while a custom card is still loading and fires ll-rebuild once it is defined.
+      k.addEventListener("ll-rebuild", ev => { ev.stopPropagation(); onRebuild(k, jamMakeCard(cfg, helpers, onRebuild)); }, {once: true});
+      return k;
+    }
+    const type = String((cfg && cfg.type) || "");
+    const tag = type.startsWith("custom:") ? type.slice(7) : `hui-${type}-card`;
+    if (!customElements.get(tag)) throw new Error(`Unknown card type: ${type}`);
+    const k = document.createElement(tag);
+    k.setConfig(cfg);
+    return k;
+  } catch (e) {
+    const d = el("div", "label c-alert", e.message || String(e));
+    d.style.padding = "8px 0";
+    return d;
+  }
+}
+function jamCardSheet(host, opts) {
+  if (host._jamSheet) host._jamSheet.close({silent: true});
+  const o = opts || {}, acc = accentVar(o.accent);
+  let kids = [], hass = host.hass, done = false;
+  const sheet = openSheet({from: host, title: o.title, kicker: o.kicker, accent: acc || undefined, accentFg: acc ? accentFg(o.accent) : undefined,
+    css: ".body > *{display:block;min-width:0}", onClose: () => { done = true; if (host._jamSheet === api) host._jamSheet = null; }});
+  const body = sheet.body;
+  if (acc) body.style.setProperty("--jam-accent", acc);
+  const feed = k => { if (hass) { try { k.hass = hass; } catch (e) { /* child without hass setter */ } } };
+  const rebuild = (old, n) => { const i = kids.indexOf(old); if (i < 0 || done) return; kids[i] = n; if (old.parentNode) old.replaceWith(n); feed(n); };
+  const build = helpers => { kids = (o.cards || []).map(cfg => jamMakeCard(cfg, helpers, rebuild)); body.textContent = ""; body.append(...kids); kids.forEach(feed); };
+  if (window.loadCardHelpers) window.loadCardHelpers().then(hp => { if (!done) build(hp); }, () => { if (!done) build(null); });
+  else build(null);
+  const api = {sheet, hass(h) { hass = h; kids.forEach(feed); }, close: a => sheet.close(a)};
+  host._jamSheet = api;
+  return api;
+}
+/* Card plumbing for jamCardSheet: forward hass to an open sheet, close it on setConfig / disconnect. */
+const JamSheetHost = Base => class extends Base {
+  setConfig(c) { if (this._jamSheet) this._jamSheet.close({silent: true}); super.setConfig(c); }
+  set hass(h) { super.hass = h; if (this._jamSheet) this._jamSheet.hass(h); }
+  get hass() { return this._hass; }
+  disconnectedCallback() { if (this._jamSheet) this._jamSheet.close({silent: true}); }
+};
+class JamMedia extends JamSheetHost(JamBase) {
   validate(c) {
-    if (!c.entity || !c.entity.startsWith("media_player.")) throw new Error("jam-media: entity must be a media_player");
+    if (c.entity ? !c.entity.startsWith("media_player.") : !c.title_entity) throw new Error("jam-media: entity must be a media_player (or set title_entity)");
+    if (c.sub_entities !== undefined && !Array.isArray(c.sub_entities)) throw new Error("jam-media: sub_entities must be a list");
+    if (c.more !== undefined && !(c.more && Array.isArray(c.more.cards))) throw new Error("jam-media: more needs cards: [card configs]");
     for (const k of ["players", "group"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-media: ${k} must be a list of media_player ids`);
   }
   setConfig(c) {
@@ -1586,7 +2247,11 @@ class JamMedia extends JamBase {
   }
   /* The player the card currently controls: the in-memory pick from `players`, else `entity`. */
   get _id() { return this._active || this._config.entity; }
-  watched() { const c = this._config; return [...new Set([this._id, c.entity, ...(c.players || []), ...(c.group || [])])]; }
+  watched() {
+    const c = this._config, subs = (c.sub_entities || []).map(x => (x && x.entity) || x);
+    return [...new Set([this._id, c.entity, ...(c.players || []), ...(c.group || []), c.title_entity, c.state_entity, c.picture_entity, ...subs])]
+      .filter(x => typeof x === "string" && x);
+  }
   css() { return `
     .wrap{display:grid;gap:12px;align-content:start;container-type:inline-size}
     .np{display:grid;grid-template-columns:minmax(84px,min(36%,200px)) minmax(0,1fr);gap:14px;align-items:start}
@@ -1612,7 +2277,15 @@ class JamMedia extends JamBase {
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0;max-width:100%;height:auto}
-    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:.66rem;letter-spacing:.12em;overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}`; }
+    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:.66rem;letter-spacing:.12em;overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}
+    .ctl .more > .face{font-size:1rem;letter-spacing:0}
+    .mini{--p-t:10px;--p-r:14px;--p-b:14px;--p-l:10px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center}
+    .mini .art{width:52px}
+    .mini .art .arm{gap:3px} .mini .art .arm span{max-width:7px}
+    .mini .title{font-size:1.05rem;line-height:.95}
+    .mini .sub{font-size:.74rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .mini .one{width:48px;min-width:48px;height:48px}
+    .mini .one > .face{padding:0;display:grid;place-items:center;font:900 1.05rem/1 var(--body);letter-spacing:0}`; }
   _url(u) {
     if (!u) return null;
     const h = this._hass;
@@ -1632,12 +2305,71 @@ class JamMedia extends JamBase {
     }
     return g;
   }
+  /* What is playing: the media_player's attributes, or (title_entity / state_entity / picture_entity) for players without one. */
+  _np() {
+    const c = this._config, h = this._hass, id = this._id, s = stateObj(h, id), a = (s && s.attributes) || {};
+    const ss = c.state_entity ? stateObj(h, c.state_entity) : s;
+    const ts = c.title_entity ? stateObj(h, c.title_entity) : null;
+    const ps = c.picture_entity ? stateObj(h, c.picture_entity) : null;
+    const off = !ss || UNAVAILABLE.has(ss.state);
+    const tv = ts && !UNAVAILABLE.has(ts.state) && String(ts.state).trim() ? String(ts.state) : null;
+    const name = (id === c.entity && c.name) || (!id && c.name) || friendly(h, id || c.state_entity || c.title_entity);
+    const title = c.title_entity ? (tv || name || "—") : (a.media_title || a.app_name || (s ? fmtState(h, s) : "—"));
+    const pic = c.picture_entity ? (ps && !UNAVAILABLE.has(ps.state) ? ps.attributes.entity_picture : null) : (a.entity_picture_local || a.entity_picture);
+    const paused = !!ss && (ss.state === "paused" || (!!c.state_entity && !off && tone(ss) !== "on"));
+    return {s, a, ss, off, name, title, pic, paused, playing: !!s && s.state === "playing"};
+  }
+  _art(np, size) {
+    const id = this._id || this._config.state_entity || this._config.title_entity;
+    const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: "chip", cls: "art" + (np.paused ? " paused" : "")});
+    art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, id);
+    const src = this._url(np.pic);
+    if (src && !np.off) {
+      const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
+      img.onerror = () => { img.remove(); face.append(armBars("jam-media|" + id)); };
+      face.append(img);
+    } else face.append(armBars("jam-media|" + id));
+    return art;
+  }
+  /* Sub line: media_player = artist / album lines; title_entity players = name · "name value" per sub entity. */
+  _subParts(np) {
+    const c = this._config, h = this._hass;
+    return (c.sub_entities || []).map(x => {
+      const e = (x && x.entity) || x, st = stateObj(h, e);
+      if (!st || UNAVAILABLE.has(st.state)) return null;
+      return ((x && x.name) ? x.name + " " : "") + fmtState(h, st);
+    }).filter(Boolean);
+  }
+  _moreKey(cls) {
+    const c = this._config, m = c.more;
+    const k = cutKey("⋯", `jam-media|${c.entity || c.title_entity}|more`, "more" + (cls ? " " + cls : ""), "chip");
+    k.dataset.key = "more"; k.setAttribute("aria-label", (m.title || c.name || "Player") + " controls");
+    k.onclick = () => jamCardSheet(this, {title: m.title || this._np().name, kicker: m.kicker, accent: c.accent, cards: m.cards});
+    return k;
+  }
+  _compact(b) {
+    const c = this._config, np = this._np(), id = this._id;
+    const {root, face: wrap} = this.paper(c.entity || c.title_entity, {face: `mini${np.off ? " unavail" : ""}`});
+    const txt = el("div", "txt");
+    const tt = el("div", "title", np.title); tt.onclick = () => moreInfo(this, id || c.title_entity);
+    const parts = c.title_entity ? [np.name, ...this._subParts(np)] : [np.a.media_artist, np.name];
+    txt.append(tt, el("div", "sub", parts.filter(Boolean).join(" · ")));
+    wrap.append(c.show_art === false ? el("span") : this._art(np), txt);
+    if (c.more) wrap.append(this._moreKey("one on"));
+    else if (id) {
+      const k = cutKey(np.playing ? "❚❚" : "▶", `jam-media|${c.entity}|play_pause`, "one on main", "chip");
+      k.dataset.key = "play_pause"; k.setAttribute("aria-label", np.playing ? "Pause" : "Play");
+      k.disabled = np.off; k.onclick = () => this._call("media_play_pause");
+      wrap.append(k);
+    }
+    b.append(root);
+  }
   render(b) {
-    const c = this._config, h = this._hass, id = this._id, s = stateObj(h, id);
-    const off = !s || UNAVAILABLE.has(s.state);
-    const a = (s && s.attributes) || {}, feat = Number(a.supported_features) || 0;
-    const {root, face: wrap} = this.paper(c.entity, {face: `wrap stripe s-${tone(s)}${off ? " unavail" : ""}`});
-    wrap.append(el("div", "label", (id === c.entity && c.name) || friendly(h, id)));
+    if (this._config.compact) { this._compact(b); return; }
+    const c = this._config, h = this._hass, id = this._id, np = this._np(), s = np.s, off = np.off;
+    const a = np.a, feat = Number(a.supported_features) || 0;
+    const {root, face: wrap} = this.paper(c.entity || c.title_entity, {face: `wrap stripe s-${tone(np.ss)}${off ? " unavail" : ""}`});
+    wrap.append(el("div", "label", np.name));
 
     // Player switch (in memory).
     if (c.players && c.players.length) wrap.append(this._chipRow("Player", c.players.map(p => ({
@@ -1646,26 +2378,17 @@ class JamMedia extends JamBase {
     })), "players"));
 
     // Now playing: duotone art + title / artist / album.
-    const np = el("div", "np"), showArt = c.show_art !== false;
-    if (showArt) {
-      const paused = s && s.state === "paused";
-      const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: "chip", cls: "art" + (paused ? " paused" : "")});
-      art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, id);
-      const src = this._url(a.entity_picture_local || a.entity_picture);
-      if (src && !off) {
-        const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
-        img.onerror = () => { img.remove(); face.append(armBars("jam-media|" + id)); };
-        face.append(img);
-      } else face.append(armBars("jam-media|" + id));
-      np.append(art);
-    } else np.classList.add("noart");
+    const np2 = el("div", "np"), showArt = c.show_art !== false;
+    if (showArt) np2.append(this._art(np)); else np2.classList.add("noart");
     const txt = el("div", "txt");
-    const tt = el("div", "title", a.media_title || a.app_name || (s ? fmtState(h, s) : "—"));
-    tt.onclick = () => moreInfo(this, id);
+    const tt = el("div", "title", np.title);
+    tt.onclick = () => moreInfo(this, id || c.title_entity);
     txt.append(tt);
     if (a.media_artist) { const sb = el("div", "sub"); sb.append(el("b", "", a.media_artist)); txt.append(sb); }
     if (a.media_album_name) txt.append(el("div", "sub", a.media_album_name));
-    np.append(txt); wrap.append(np);
+    const subs = c.title_entity ? this._subParts(np) : [];
+    if (subs.length) txt.append(el("div", "sub", subs.join(" · ")));
+    np2.append(txt); wrap.append(np2);
 
     // Transport.
     const ctl = el("div", "ctl");
@@ -1674,21 +2397,22 @@ class JamMedia extends JamBase {
       prev: ["Prev", "media_previous_track"], next: ["Next", "media_next_track"], stop: ["Stop", "media_stop"],
       play_pause: [playing ? "Pause" : "Play", "media_play_pause"],
     };
-    for (const k of c.controls || ["prev", "play_pause", "next"]) {
+    for (const k of id ? c.controls || ["prev", "play_pause", "next"] : []) {
       const m = map[k]; if (!m) continue;
       const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "", "chip");
       btn.dataset.key = k; btn.disabled = off;
       btn.onclick = () => this._call(m[1]);
       ctl.append(btn);
     }
-    wrap.append(ctl);
+    if (c.more) ctl.append(this._moreKey());
+    if (id || ctl.children.length) wrap.append(ctl);
 
     // Volume strip + mute.
     const hasVol = !!(feat & JAM_MEDIA_VOLUME_SET) || a.volume_level !== undefined;
-    if (c.show_volume === true || (c.show_volume !== false && hasVol)) wrap.append(this._volume(id, a, feat, off));
+    if (id && (c.show_volume === true || (c.show_volume !== false && hasVol))) wrap.append(this._volume(id, a, feat, off));
 
     // Sources.
-    if (c.sources) {
+    if (id && c.sources) {
       const all = a.source_list || [];
       const list = Array.isArray(c.sources) ? (all.length ? c.sources.filter(x => all.includes(x)) : c.sources) : all;
       if (list.length) wrap.append(this._chipRow("Source", list.map(x => ({
@@ -1883,24 +2607,7 @@ const POPUP_CSS = `
   }
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
 
-/* Local helper: Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
-function vertigoSpiral() {
-  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
-  svg.setAttribute("viewBox", "-100 -100 200 200"); svg.setAttribute("aria-hidden", "true");
-  const pts = [];
-  for (let t = 0; t <= Math.PI * 10; t += 0.12) { const r = 2 + t * 3; pts.push((r * Math.cos(t)).toFixed(1) + " " + (r * Math.sin(t)).toFixed(1)); }
-  path.setAttribute("d", "M" + pts.join(" L"));
-  path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "7"); path.setAttribute("stroke-linecap", "square"); path.setAttribute("stroke-linejoin", "miter");
-  svg.append(path);
-  return svg;
-}
-/* Local helper: the deepest focused element across shadow roots (to restore focus on close). */
-function deepActive() {
-  let a = document.activeElement;
-  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
-  return a;
-}
+/* vertigoSpiral() and deepActive() live in src/core.js (shared with openSheet / jam-light). */
 
 /* Local helper: index of the current history entry (Navigation API), or null where the API is missing. */
 function navIndex() {
@@ -2849,6 +3556,182 @@ class JamTile extends JamBase {
   getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
 }
 register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status stripe and an optional on/off, lock or press key.");
+
+/* ---------- jam-tv: smart TV card (Android TV media_player + remote): now playing, or app launchers ----------
+   {type: custom:jam-tv, media_player (media_player.*), remote? (remote.*), name? (kicker; default the player's name),
+    launchers?: [{name, icon?, color? (accent name, room alias or HA colour name; default the card accent),
+                  tap_action, hold_action?}],
+    keys?: [power | stereo | remote | {name, tap_action, hold_action?}] (idle row; default [power, stereo, remote]),
+    power_action? (default remote.toggle, else media_player toggle), stereo_action? (the Stereo key; hidden without it),
+    remote_card? (jam-remote config for the Remote sheet, merged over the default: entity = remote, media_player,
+      rows d-pad / back home settings / vol − mute vol +; commands and labels are merged), remote_title? ("Remote"),
+    accent? (DESIGN "Colour system")}
+   Playing (playing / paused / buffering, or on with a media_title): art (entity_picture as a duotone print, else Golden Arm
+   bars in the accent), title, app (friendly name, never a package id) · position / duration, keys Prev / Play-Pause /
+   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (flat colour square + name), then the keys
+   row. Off / unavailable: launchers (their actions wake the TV) + Power. Remote = a sheet with a jam-remote
+   (jamCardSheet, jam-media.js). Keys use the key cut (top-right 12px); Play-Pause is the accent key. */
+const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
+const JAM_TV_REMOTE = {
+  rows: [["dpad"], ["back", "home", "settings"], ["vol_down", "mute", "vol_up"]],
+  commands: {settings: "SETTINGS"}, labels: {settings: "Settings"},
+};
+/* h:mm when the duration is an hour or more, else m:ss. */
+function jamTvTime(sec, long) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return long ? `${h}:${String(m).padStart(2, "0")}` : `${Math.floor(sec / 60)}:${String(s).padStart(2, "0")}`;
+}
+class JamTv extends JamSheetHost(JamBase) {
+  validate(c) {
+    if (!c.media_player || !c.media_player.startsWith("media_player.")) throw new Error("jam-tv: media_player must be a media_player");
+    if (c.remote && !c.remote.startsWith("remote.")) throw new Error("jam-tv: remote must be a remote");
+    for (const k of ["launchers", "keys"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-tv: ${k} must be a list`);
+  }
+  watched() { return [this._config.media_player, this._config.remote].filter(Boolean); }
+  css() { return `
+    .wrap{display:grid;gap:10px;align-content:start;container-type:inline-size}
+    .top{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center}
+    .art{aspect-ratio:1;height:auto;cursor:pointer}
+    .art > .face{padding:0;background:var(--acc);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+    .art.paused > .face{background:var(--dim)}
+    .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
+    .art .arm{height:62%;padding-bottom:10%;gap:3px} .art .arm span{background:var(--acc-fg);max-width:7px}
+    .txt{display:grid;gap:4px;min-width:0}
+    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.2rem,.95rem + 2.4cqi,1.8rem);line-height:.92;text-transform:uppercase;
+      overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+    .sub{font:500 .8rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
+    .keys{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:6px}
+    .keys .key{min-width:0}
+    .keys .key > .face{--p-t:14px;--p-b:13px;--p-l:4px;--p-r:4px;min-height:48px;display:flex;align-items:center;justify-content:center;
+      font-size:.66rem;overflow-wrap:anywhere}
+    .apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+    .apps .key{min-width:0}
+    .apps .key > .face{--p-t:14px;--p-b:10px;--p-l:4px;--p-r:4px;min-height:76px;display:flex;flex-direction:column;align-items:center;
+      justify-content:flex-start;gap:7px;font-size:.62rem;letter-spacing:.1em;line-height:1.15;overflow-wrap:anywhere}
+    .sq{flex:none;display:grid;place-items:center;width:24px;height:24px;background:var(--app,var(--acc));color:var(--on-fg);
+      clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
+    .sq ha-icon{--mdc-icon-size:16px;display:block;width:16px;height:16px}`; }
+  _remoteCfg() {
+    const c = this._config, rc = c.remote_card || {};
+    return {type: "custom:jam-remote", entity: c.remote, media_player: c.media_player, name: c.name, rows: JAM_TV_REMOTE.rows, ...rc,
+      commands: {...JAM_TV_REMOTE.commands, ...(rc.commands || {})}, labels: {...JAM_TV_REMOTE.labels, ...(rc.labels || {})}};
+  }
+  /* Current app as a friendly name: app_name unless it is a package id, else a known package (jam-remote's list). */
+  _app(a) {
+    if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
+    return jamRemoteApp(a.app_id || a.app_name) || null;
+  }
+  _pos(s) {
+    const a = s.attributes, dur = Number(a.media_duration);
+    if (!(dur > 0) || a.media_position == null) return null;
+    let pos = Number(a.media_position) || 0;
+    const at = Date.parse(a.media_position_updated_at || "");
+    if (s.state === "playing" && at) pos += (Date.now() - at) / 1000;
+    const long = dur >= 3600;
+    return `${jamTvTime(Math.min(pos, dur), long)} / ${jamTvTime(dur, long)}`;
+  }
+  _openRemote() {
+    const c = this._config;
+    jamCardSheet(this, {kicker: c.name || friendly(this._hass, c.media_player), title: c.remote_title || "Remote", accent: c.accent, cards: [this._remoteCfg()]});
+  }
+  _key(label, id, cls, run, disabled) {
+    const k = cutKey(label, `jam-tv|${this._config.media_player}|${id}`, cls);
+    k.dataset.key = id; k.disabled = !!disabled; k.onclick = run;
+    return k;
+  }
+  _row(keys) { const r = el("div", "keys"); r.style.setProperty("--n", Math.max(1, keys.length)); r.append(...keys); return r; }
+  _power() {
+    const c = this._config, h = this._hass;
+    if (c.power_action) runAction(this, h, c.power_action, c.remote || c.media_player);
+    else if (c.remote) h.callService("remote", "toggle", {entity_id: c.remote});
+    else h.callService("media_player", "toggle", {entity_id: c.media_player});
+  }
+  /* Idle / off row: power, stereo (only with stereo_action), remote (only with a remote entity), custom keys. */
+  _keys(off) {
+    const c = this._config, h = this._hass, out = [], canRemote = !!this._remoteCfg().entity;
+    for (const k of c.keys || ["power", "stereo", "remote"]) {
+      if (k === "power") out.push(this._key("Power", "power", "", () => this._power()));
+      else if (off) continue;
+      else if (k === "stereo") { if (c.stereo_action) out.push(this._key("Stereo", "stereo", "", () => runAction(this, h, c.stereo_action))); }
+      else if (k === "remote") { if (canRemote) out.push(this._key("Remote", "remote", "", () => this._openRemote())); }
+      else if (k && typeof k === "object") {
+        const b = cutKey(k.name || "", `jam-tv|${c.media_player}|${k.name}`, "");
+        b.dataset.key = "custom"; bindActions(b, () => this._hass, k, k.entity);
+        out.push(b);
+      }
+    }
+    return out;
+  }
+  _launchers(off) {
+    const c = this._config, g = el("div", "apps");
+    for (const l of c.launchers || []) {
+      if (!l) continue;
+      const b = cutKey("", `jam-tv|${c.media_player}|app|${l.name}`, "app");
+      const face = b.firstChild; face.textContent = "";
+      const sq = el("span", "sq"); sq.setAttribute("aria-hidden", "true");
+      const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]);
+      if (col) sq.style.setProperty("--app", col);
+      const ic = icon(l.icon); if (ic) sq.append(ic);
+      face.append(sq, el("span", "nm", l.name || ""));
+      b.dataset.app = l.name || ""; if (l.name) b.setAttribute("aria-label", l.name + (off ? " (wakes the TV)" : ""));
+      bindActions(b, () => this._hass, {tap_action: l.tap_action || {action: "none"}, hold_action: l.hold_action}, l.entity);
+      g.append(b);
+    }
+    return g;
+  }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.media_player), a = (s && s.attributes) || {};
+    const off = !s || UNAVAILABLE.has(s.state) || s.state === "off";
+    const playing = !off && (JAM_TV_PLAYING.has(s.state) || !!a.media_title);
+    const mode = off ? "off" : playing ? "playing" : "idle";
+    const {root, face: wrap} = this.paper(c.media_player, {face: `wrap ${mode}`});
+    root.dataset.mode = mode;
+    const name = c.name || friendly(h, c.media_player);
+    wrap.append(el("div", "label", off ? `${name} · ${s && s.state !== "off" ? "Unavailable" : "Off"}` : name));
+
+    if (playing) {
+      const top = el("div", "top");
+      const paused = s.state !== "playing";
+      const {root: art, face} = paper("div", "jam-tv-art|" + c.media_player, {kind: "chip", cls: "art" + (paused ? " paused" : "")});
+      art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, c.media_player);
+      const src = jamTvUrl(h, a.entity_picture_local || a.entity_picture);
+      if (src) {
+        const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
+        img.onerror = () => { img.remove(); face.append(armBars("jam-tv|" + c.media_player)); };
+        face.append(img);
+      } else face.append(armBars("jam-tv|" + c.media_player));
+      const txt = el("div", "txt");
+      const tt = el("div", "title", a.media_title || this._app(a) || fmtState(h, s)); tt.onclick = () => moreInfo(this, c.media_player);
+      txt.append(tt);
+      const sub = [a.media_title ? this._app(a) : null, this._pos(s)].filter(Boolean).join(" · ");
+      if (sub) txt.append(el("div", "sub", sub));
+      top.append(art, txt);
+      const call = svc => () => h.callService("media_player", svc, {entity_id: c.media_player});
+      const keys = [
+        this._key("Prev", "prev", "", call("media_previous_track")),
+        this._key(s.state === "playing" ? "Pause" : "Play", "play_pause", "on main", call("media_play_pause")),
+        this._key("Next", "next", "", call("media_next_track")),
+      ];
+      if (this._remoteCfg().entity) keys.push(this._key("Remote", "remote", "", () => this._openRemote()));
+      wrap.append(top, this._row(keys));
+    } else {
+      if ((c.launchers || []).length) wrap.append(this._launchers(off));
+      const keys = this._keys(off);
+      if (keys.length) wrap.append(this._row(keys));
+    }
+    b.append(root);
+  }
+  getCardSize() { return 4; }
+}
+/* Local helper: entity_picture -> absolute URL (hass.hassUrl in HA; data:/http(s): as is). */
+function jamTvUrl(h, u) {
+  if (!u) return null;
+  if (/^(https?:|data:|blob:)/i.test(u)) return u;
+  try { if (h && typeof h.hassUrl === "function") return h.hassUrl(u); } catch (e) { /* fall through */ }
+  return u;
+}
+register("jam-tv", JamTv, "Jam TV", "Smart TV: now playing with transport, or app launchers + power / stereo / remote keys; remote in a sheet.");
 
 /* ---------- jam-weather: big temperature + condition word + cut-paper glyph, forecast strip, optional clock ----------
    {type: custom:jam-weather, entity (weather.*), forecast_type?: daily|hourly|twice_daily, days? (5), clock? (false),

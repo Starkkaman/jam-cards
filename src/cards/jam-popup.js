@@ -39,24 +39,7 @@ const POPUP_CSS = `
   }
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
 
-/* Local helper: Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
-function vertigoSpiral() {
-  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
-  svg.setAttribute("viewBox", "-100 -100 200 200"); svg.setAttribute("aria-hidden", "true");
-  const pts = [];
-  for (let t = 0; t <= Math.PI * 10; t += 0.12) { const r = 2 + t * 3; pts.push((r * Math.cos(t)).toFixed(1) + " " + (r * Math.sin(t)).toFixed(1)); }
-  path.setAttribute("d", "M" + pts.join(" L"));
-  path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "7"); path.setAttribute("stroke-linecap", "square"); path.setAttribute("stroke-linejoin", "miter");
-  svg.append(path);
-  return svg;
-}
-/* Local helper: the deepest focused element across shadow roots (to restore focus on close). */
-function deepActive() {
-  let a = document.activeElement;
-  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
-  return a;
-}
+/* vertigoSpiral() and deepActive() live in src/core.js (shared with openSheet / jam-light). */
 
 /* Local helper: index of the current history entry (Navigation API), or null where the API is missing. */
 function navIndex() {

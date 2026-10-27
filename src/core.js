@@ -287,6 +287,163 @@ function armBars(key) {
   return box;
 }
 
+/* ---------- light colour helpers ---------- */
+/* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
+function kelvinToRgb(k) {
+  const t = Math.max(1000, Math.min(40000, Number(k) || 2700)) / 100;
+  let r, g, b;
+  if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661; b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+  else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); b = 255; }
+  return [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))));
+}
+/* WCAG relative luminance of [r,g,b] (0..1). */
+function luminance(c) {
+  const l = c.map(v => { v = Math.max(0, Math.min(255, Number(v) || 0)) / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+  return .2126 * l[0] + .7152 * l[1] + .0722 * l[2];
+}
+/* Text on a flat [r,g,b] fill: ink on light colours (luminance > .18), paper on dark ones. */
+function inkOn(c) { return luminance(c) > .18 ? "#141210" : "#ece2c9"; }
+/* A light's actual output colour as [r,g,b], or null: kelvin -> rgb in color_temp mode, else rgb_color. */
+function lightRgb(s) {
+  const a = (s && s.attributes) || {};
+  if (a.color_mode === "color_temp" && a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
+  if (Array.isArray(a.rgb_color) && a.rgb_color.length >= 3) return a.rgb_color.slice(0, 3).map(Number);
+  if (a.color_temp_kelvin) return kelvinToRgb(a.color_temp_kelvin);
+  return null;
+}
+const rgbCss = c => `rgb(${c.slice(0, 3).map(v => Math.round(Number(v) || 0)).join(",")})`;
+
+/* ---------- sheet (pop-up) helpers ---------- */
+/* Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
+function vertigoSpiral() {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
+  svg.setAttribute("viewBox", "-100 -100 200 200"); svg.setAttribute("aria-hidden", "true");
+  const pts = [];
+  for (let t = 0; t <= Math.PI * 10; t += 0.12) { const r = 2 + t * 3; pts.push((r * Math.cos(t)).toFixed(1) + " " + (r * Math.sin(t)).toFixed(1)); }
+  path.setAttribute("d", "M" + pts.join(" L"));
+  path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "7"); path.setAttribute("stroke-linecap", "square"); path.setAttribute("stroke-linejoin", "miter");
+  svg.append(path);
+  return svg;
+}
+/* The deepest focused element across shadow roots (to restore focus on close). */
+function deepActive() {
+  let a = document.activeElement;
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  return a;
+}
+/* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>). */
+const SHEET_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
+  "violet", "green", "on-fg", "shadow", "s1", "s2", "s3", "s4", "s5", "display", "body", "accent"].map(n => "--jam-" + n);
+const SHEET_CSS = `
+  .pop{position:fixed;inset:0;z-index:10000;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
+  .veil{position:absolute;inset:0;background:var(--ink)}
+  .spiral{position:absolute;left:50%;top:50%;width:min(92vmin,720px);height:min(92vmin,720px);transform:translate(-50%,-50%);
+    visibility:hidden;pointer-events:none;color:var(--acc)}
+  .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none}
+  .sheet{pointer-events:auto;width:100%;max-width:560px;height:auto}
+  .sheet > .face{--p-t:14px;--p-r:16px;--p-b:18px;--p-l:16px;height:auto;max-height:90vh;display:flex;flex-direction:column;gap:12px;
+    background:var(--slab);outline:none}
+  .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .t{display:grid;gap:4px;min-width:0}
+  .t h2{font-size:clamp(1.7rem,6vw,2.2rem);overflow-wrap:anywhere}
+  .rule{flex:none;height:5px;background:var(--acc)}
+  .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0}
+  .close{flex:none}
+  .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
+  .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
+  @keyframes jam-sheet-up{from{transform:translateY(30%)}to{transform:none}}
+  @keyframes jam-sheet-flash{from{visibility:visible}to{visibility:hidden}}
+  @media (max-width:600px){
+    .stage{align-items:flex-end;padding:0}
+    .sheet{max-width:none}
+    .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
+  }
+  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
+const SHEET_STACK = [];
+/* Opens a modal cut sheet (kind "sheet", top-right 18px; a bottom sheet on phones) over a full-screen ink veil, appended to
+   document.body in its own shadow root (so a clipped ancestor, e.g. a jam-popup sheet, cannot clip it).
+   opts: {from (element whose --jam-* theme tokens are copied), title, kicker, label (dialog name), accent (CSS colour for
+   --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
+   cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
+   onClose()}.
+   Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
+   Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
+function openSheet(opts = {}) {
+  const o = opts, holder = el("div", "jam-sheet-host"), sr = holder.attachShadow({mode: "open"});
+  if (o.from) {
+    try {
+      const cs = getComputedStyle(o.from);
+      for (const t of SHEET_TOKENS) { const v = cs.getPropertyValue(t).trim(); if (v) holder.style.setProperty(t, v); }
+    } catch (e) { /* tokens fall back to the dark palette */ }
+  }
+  const st = el("style"); st.textContent = BASE_CSS + SHEET_CSS + (o.css || "");
+  const pop = el("div", "pop" + (o.cls ? " " + o.cls : ""));
+  if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
+  const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
+  const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+  if (o.flash === false) spiral.hidden = true; else if (o.flash) spiral.style.color = o.flash;
+  const stage = el("div", "stage");
+  const {root: sheet, face} = paper("div", "jam-sheet", {kind: "sheet", cls: "sheet wipe"});
+  face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
+  face.setAttribute("aria-label", o.label || o.title || o.kicker || "Pop-up");
+  const head = el("div", "head"), t = el("div", "t");
+  if (o.kicker) t.append(el("div", "label kick", o.kicker));
+  if (o.title) t.append(el("h2", "disp", o.title));
+  const close = cutKey("Close ×", "jam-sheet|close", "close", "chip");
+  close.setAttribute("aria-label", "Close");
+  head.append(t, close);
+  const body = el("div", "body");
+  face.append(head);
+  if (o.rule !== false) { const r = el("div", "rule"); r.setAttribute("aria-hidden", "true"); face.append(r); }
+  face.append(body);
+  stage.append(sheet); pop.append(veil, spiral, stage); sr.append(st, pop);
+
+  const id = "jam-sheet-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  let open = true, pushed = false;
+  const prevFocus = deepActive(), de = document.documentElement, bd = document.body;
+  const scroll = [de.style.overflow, bd.style.overflow];
+  const onKey = e => {
+    if (e.key !== "Escape" || SHEET_STACK[SHEET_STACK.length - 1] !== api) return;
+    e.preventDefault(); e.stopPropagation(); api.close();
+  };
+  const onPop = () => { if (!(history.state && history.state.jamSheet === id)) hide(); };
+  function hide() {
+    if (!open) return;
+    open = false;
+    window.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onPop);
+    const i = SHEET_STACK.indexOf(api); if (i >= 0) SHEET_STACK.splice(i, 1);
+    holder.remove();
+    if (!SHEET_STACK.length) { de.style.overflow = scroll[0]; bd.style.overflow = scroll[1]; }
+    if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === "function") { try { prevFocus.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
+    if (typeof o.onClose === "function") o.onClose();
+  }
+  const api = {
+    root: holder, pop, face, body,
+    isOpen: () => open,
+    /* close({silent}): hide; step back out of our history entry unless silent (e.g. the card was removed). */
+    close({silent = false} = {}) {
+      if (!open) return;
+      const back = pushed && !silent && history.state && history.state.jamSheet === id;
+      hide();
+      if (back) history.back();
+    },
+  };
+  veil.onclick = () => api.close();
+  close.onclick = () => api.close();
+  if (o.history !== false) {
+    try { history.pushState(Object.assign({}, history.state || {}, {jamSheet: id}), ""); pushed = true; } catch (e) { pushed = false; }
+  }
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("popstate", onPop);
+  SHEET_STACK.push(api);
+  de.style.overflow = "hidden"; bd.style.overflow = "hidden";
+  document.body.append(holder);
+  pop.classList.add("opening");
+  try { face.focus({preventScroll: true}); } catch (e) { face.focus(); }
+  return api;
+}
+
 /* ---------- base class ---------- */
 class JamBase extends HTMLElement {
   constructor() {
@@ -336,6 +493,7 @@ window.JamCards = Object.freeze({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
   el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
+  kelvinToRgb, luminance, inkOn, lightRgb, vertigoSpiral, deepActive, openSheet,
 });
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */
