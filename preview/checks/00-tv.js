@@ -8,7 +8,7 @@ module.exports = async (page, check, {tile, callsNow}) => {
   const box = await track.boundingBox();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
   await page.mouse.down(); await page.mouse.up();
-  await page.locator("jam-media button.main").click();
+  await page.locator("jam-media").first().locator("button.main").click(); // first = the v1-config card (50-av adds a v2 one)
   const calls = await page.evaluate(() => window.__calls);
   check(calls.some(c => c.domain === "select" && c.service === "select_option" && c.data.option === "HDMI 3"), "choice chip calls select.select_option HDMI 3");
   check(calls.some(c => c.service === "toggle" && c.data.entity_id === "switch.hisense_tv_power"), "tile button toggles power");
