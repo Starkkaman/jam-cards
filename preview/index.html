@@ -9,12 +9,14 @@
   :root{
     --jam-ink:#141210; --jam-slab:#1f1c19; --jam-slab2:#2a2622; --jam-paper:#ece2c9; --jam-paper-fg:#141210;
     --jam-paper-dim:#5c5446; --jam-fg:#ece2c9; --jam-dim:#9a8f7c; --jam-line:#34302a;
-    --jam-ochre:#e5a31b; --jam-red:#d43a1c; --jam-teal:#3f9aa5;
+    --jam-ochre:#e5a31b; --jam-red:#d43a1c; --jam-teal:#3f9aa5; --jam-shadow:#0a0908;
+    --jam-s1:#bd8000; --jam-s2:#1f9fb0; --jam-s3:#d43a1c; --jam-s4:#a66cc4; --jam-s5:#7f9b2a;
   }
   :root.light{
     --jam-ink:#141210; --jam-slab:#f6efdd; --jam-slab2:#e9dfc4; --jam-paper:#141210; --jam-paper-fg:#ece2c9;
     --jam-paper-dim:#9a8f7c; --jam-fg:#141210; --jam-dim:#6b6152; --jam-line:#d3c7a8;
-    --jam-ochre:#c98a0c; --jam-red:#c2361a; --jam-teal:#2f7f89;
+    --jam-ochre:#c98a0c; --jam-red:#c2361a; --jam-teal:#2f7f89; --jam-shadow:#c9bb98;
+    --jam-s1:#a86e00; --jam-s2:#00879c; --jam-s3:#c2361a; --jam-s4:#8a52ad; --jam-s5:#5f7d1c;
   }
   html,body{margin:0;background:#141210} :root.light body{background:#ece2c9}
   .view{max-width:1200px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
@@ -46,6 +48,11 @@ const states = {};
   st("number.hisense_tv_backlight", "100", {friendly_name: "Backlight", min: 0, max: 100, step: 1, unit_of_measurement: "%"}),
   st("select.hisense_tv_audio_output", "Optical", {friendly_name: "Audio output", options: ["Speaker", "Optical", "Bluetooth"]}),
   st("select.hisense_tv_sound_mode", "Standard", {friendly_name: "Sound mode", options: ["Standard", "Theater", "Music", "Speech", "Late Night"]}),
+  st("lock.front_door", "locked", {friendly_name: "Front door"}),
+  st("lock.back_door", "jammed", {friendly_name: "Back door"}),
+  st("input_button.doorbell_test", "2026-10-26T17:02:00+00:00", {friendly_name: "Doorbell test"}),
+  st("fan.bedroom", "on", {friendly_name: "Bedroom fan", percentage: 40, percentage_step: 1}),
+  st("light.reading_lamp", "on", {friendly_name: "Reading lamp", brightness: 128}),
   st("media_player.living_room_phoster_android_tv", "playing", {friendly_name: "Phoster", app_name: "JellyWatch Player", media_title: "Close Encounters of the Third Kind"}),
 ].forEach(s => states[s.entity_id] = s);
 window.__calls = [];
@@ -82,6 +89,16 @@ const layout = [
     {type: "custom:jam-tile", entity: "sensor.hisense_tv_input_signal", name: "Resolution & rate"},
     ["half", {type: "custom:jam-tile", entity: "sensor.hisense_tv_vrr_refresh_rate", name: "VRR"}],
     ["half", {type: "custom:jam-tile", entity: "binary_sensor.hisense_tv_game_signal", name: "Game signal"}],
+  ]],
+  ["", [
+    {type: "custom:jam-heading", kicker: "House", title: "Doors & air", accent: "ochre"},
+    ["half", {type: "custom:jam-tile", entity: "lock.front_door"}],
+    ["half", {type: "custom:jam-tile", entity: "lock.back_door"}],
+    {type: "custom:jam-tile", entity: "input_button.doorbell_test", label: "Ring"},
+    {type: "custom:jam-tile", entity: "light.reading_lamp", name: "Lamp (hold = full, double = toggle)",
+      hold_action: {action: "perform-action", perform_action: "light.turn_on", data: {entity_id: "light.reading_lamp", brightness_pct: 100}},
+      double_tap_action: {action: "toggle", confirmation: {text: "Toggle the lamp?"}}},
+    {type: "custom:jam-slider", entity: "fan.bedroom", name: "Fan speed"},
   ]],
 ];
 const view = document.getElementById("view");
