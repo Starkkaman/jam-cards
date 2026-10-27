@@ -19,112 +19,197 @@ module.exports = async (page, check, {callsNow}) => {
     for (const e of document.querySelectorAll("jam-tv, jam-media, jam-fan")) e.hass = nh;
   }, [id, patch]);
 
-  const tv = page.locator("jam-tv").nth(0), idle = page.locator("jam-tv").nth(1);
+  const tv = page.locator("jam-tv").nth(0), idle = page.locator("jam-tv").nth(1), offc = page.locator("jam-tv").nth(2);
   const mode = loc => loc.locator(".paper[data-mode]").first().getAttribute("data-mode");
+  const tab = loc => loc.locator(".paper[data-tab]").first().getAttribute("data-tab");
+  const tok = v => page.evaluate(v => { const p = document.createElement("span"); p.style.color = `var(${v})`; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; }, v);
+  const [RED, OCHRE, VIOLET, PINK, TEAL, INK, FG, SLAB2] = await Promise.all(["--jam-red", "--jam-ochre", "--jam-violet", "--jam-pink", "--jam-teal", "--jam-on-fg", "--jam-fg", "--jam-slab2"].map(tok));
+  const bg = loc => loc.evaluate(e => getComputedStyle(e).backgroundColor);
 
-  // Playing layout.
-  check(await mode(tv) === "playing", "jam-tv: playing state -> playing layout");
-  check((await tv.locator(".title").textContent()) === "Close Encounters of the Third Kind", "jam-tv: title = media_title");
-  const sub = await tv.locator(".sub").textContent();
-  check(sub === "Jellyfin · 1:12 / 2:17", `jam-tv: sub = app · position / duration (${sub})`);
-  check(await tv.locator(".art .arm").count() === 1 && await tv.locator(".apps").count() === 0, "jam-tv: no picture -> Golden Arm bars; no launchers while playing");
-  const pk = await tv.locator(".keys button").evaluateAll(bs => bs.map(b => b.dataset.key + (b.classList.contains("on") ? "*" : "")));
-  check(pk.join(",") === "prev,play_pause*,next,remote", `jam-tv: playing keys Prev / Play-Pause (accent) / Next / Remote (${pk})`);
+  // Playing: poster (118px, 16px bottom-right cut), kicker = app, title, sub = position / duration, progress strip.
+  check(await mode(tv) === "playing" && await tab(tv) === "now", "jam-tv: playing -> playing layout, Now playing tab by default");
+  const po = tv.locator(".poster");
+  const pg = await po.evaluate(p => ({cut: p.dataset.cut, h: Math.round(p.getBoundingClientRect().height), clip: getComputedStyle(p).getPropertyValue("--clip"),
+    kick: p.querySelector(".kick").textContent, title: p.querySelector(".title").textContent, sub: p.querySelector(".sub").textContent,
+    prog: p.querySelector(".prog i") ? p.querySelector(".prog i").style.width : null, bars: !!p.querySelector(".arm"), bg: getComputedStyle(p.querySelector(".face")).backgroundColor}));
+  check(pg.h === 118 && /100% - 16px/.test(pg.clip) && pg.cut === "poster", `jam-tv: poster 118px with a 16px cut (${pg.h}, ${pg.clip})`);
+  check(pg.kick === "Jellyfin" && pg.title === "Close Encounters of the Third Kind" && pg.sub === "1:12 / 2:17", `jam-tv: poster kicker / title / sub (${pg.kick} | ${pg.title} | ${pg.sub})`);
+  check(pg.prog === "52.6%" && pg.bars && pg.bg === OCHRE, `jam-tv: progress strip ${pg.prog}; no art -> accent poster + Golden Arm bars (${pg.bg})`);
+  const pwOn = await tv.locator("button.pw").evaluate(b => ({bg: getComputedStyle(b).backgroundColor, w: b.getBoundingClientRect().width, clip: getComputedStyle(b).clipPath}));
+  check(pwOn.bg === INK && pwOn.w === 44 && /polygon/.test(pwOn.clip), `jam-tv: power triangle 44px, ink when on (${pwOn.bg})`);
+  const pk = await tv.locator(".pane .keys").first().locator("button").evaluateAll(bs => bs.map(b => b.dataset.key + (b.classList.contains("on") ? "*" : "")));
+  check(pk.join(",") === "prev,play_pause*,next,remote", `jam-tv: row 1 Prev / Play-Pause (accent) / Next / Remote (${pk})`);
+  const vk = await tv.locator(".pane .keys").nth(1).locator("button").evaluateAll(bs => bs.map(b => b.dataset.key));
+  check(vk.join(",") === "vol_down,mute,vol_up", `jam-tv: row 2 Vol − / Mute / Vol + (${vk})`);
+  check(await tv.locator('button[data-key="stereo"]').count() === 0 && await tv.locator(".apps").count() === 0, "jam-tv: no Stereo key, no old launcher layout");
   for (const [k, svc] of [["prev", "media_previous_track"], ["play_pause", "media_play_pause"], ["next", "media_next_track"]]) {
     await reset(); await tv.locator(`button[data-key="${k}"]`).click();
     const c = await callsNow();
     check(c.length === 1 && c[0].domain === "media_player" && c[0].service === svc && c[0].data.entity_id === TV, `jam-tv: ${k} calls media_player.${svc}`);
   }
-
-  // Idle layout: 7 launchers 4-up, then Power / Stereo / Remote.
-  check(await mode(idle) === "idle", "jam-tv: on without a title -> idle layout");
-  const apps = idle.locator(".apps button");
-  check(await apps.count() === 7, "jam-tv: idle shows the 7 launchers");
-  const ys = await apps.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
-  check(ys.slice(0, 4).every(y => y === ys[0]) && ys[4] > ys[0], `jam-tv: launchers are 4-up (${ys.join(",")})`);
-  // Narrow card (300 px): 3-up, names wrap on word boundaries only (each word fits on one line, max 2 lines).
-  await idle.evaluate(e => { e.style.display = "block"; e.style.width = "300px"; });
-  const nys = await apps.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
-  check(nys.slice(0, 3).every(y => y === nys[0]) && nys[3] > nys[0], `jam-tv: 300 px card -> launchers 3-up (${nys.join(",")})`);
-  const names = await apps.evaluateAll(bs => bs.map(b => {
-    const nm = b.querySelector(".nm"), lh = parseFloat(getComputedStyle(nm).lineHeight) || 10;
-    let wordsFit = true;
-    for (const w of nm.textContent.split(/\s+/)) {   // a word wider than the box would be clipped or broken
-      const probe = document.createElement("span"); probe.textContent = w; probe.style.whiteSpace = "nowrap";
-      nm.append(probe); if (probe.getBoundingClientRect().width > nm.clientWidth + 0.5) wordsFit = false; probe.remove();
-    }
-    return {n: nm.textContent, wordsFit, lines: Math.round(nm.getBoundingClientRect().height / lh)};
-  }));
-  const badNames = names.filter(x => !x.wordsFit || x.lines > 2);
-  check(badNames.length === 0, `jam-tv: 300 px launcher names fit whole words, max 2 lines (${names.map(x => x.n + ":" + x.lines + (x.wordsFit ? "" : "!")).join(", ")})`);
-  await idle.evaluate(e => { e.style.display = ""; e.style.width = ""; });
-  const sq = await apps.first().locator(".sq").evaluate(e => getComputedStyle(e).backgroundColor);
-  const violet = await page.evaluate(() => { const p = document.createElement("span"); p.style.color = "var(--jam-violet)"; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c; });
-  check(sq === violet, `jam-tv: launcher colour square is a flat jam colour (Jellyfin violet ${sq})`);
-  const ik = await idle.locator(".keys button").evaluateAll(bs => bs.map(b => b.dataset.key));
-  check(ik.join(",") === "power,stereo,remote", `jam-tv: idle keys Power / Stereo / Remote (${ik})`);
-  await reset(); await apps.filter({hasText: "Jellyfin"}).click();
+  await reset(); await tv.locator('button[data-key="mute"]').click();
   let c = await callsNow();
-  check(c.length === 1 && c[0].domain === "automation" && c[0].service === "trigger" && c[0].target.entity_id === "automation.launch_jellyfin" && c[0].data.skip_condition === true,
-    "jam-tv: Jellyfin launcher triggers automation.launch_jellyfin");
-  await reset(); await apps.filter({hasText: "Dropout"}).click();
+  check(c.length === 1 && c[0].domain === "button" && c[0].service === "press" && c[0].target.entity_id === "button.stereo_volume_mute", "jam-tv: Mute runs mute_action");
+  await reset();
+  const vb0 = await tv.locator('button[data-key="vol_up"]').boundingBox();
+  await page.mouse.move(vb0.x + vb0.width / 2, vb0.y + vb0.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  const heldUp = (await callsNow()).filter(x => x.domain === "script" && x.service === "stereo_volume_up").length;
+  check(heldUp >= 3, `jam-tv: holding Vol + repeats volume_up_action (${heldUp} calls)`);
+  await reset(); await tv.locator('button.pw').click({position: {x: 34, y: 10}});
   c = await callsNow();
-  check(c.length === 1 && c[0].domain === "select" && c[0].service === "select_option" && c[0].data.option === "Dropout" && c[0].target.entity_id === "select.hisense_tv_launch_app",
-    "jam-tv: Dropout launcher selects the launch_app option");
-  await reset(); await idle.locator('button[data-key="power"]').click();
-  c = await callsNow();
-  check(c.length === 1 && c[0].domain === "remote" && c[0].service === "toggle" && c[0].data.entity_id === RC, "jam-tv: Power = remote.toggle");
-  await idle.locator('button[data-key="stereo"]').click();
-  check(await page.evaluate(() => location.hash) === "#stereo-popup", "jam-tv: Stereo runs stereo_action (navigate #stereo-popup)");
-  await page.evaluate(() => history.replaceState(null, "", location.pathname + location.search));
+  check(c.length === 1 && c[0].domain === "remote" && c[0].service === "toggle" && c[0].data.entity_id === RC, "jam-tv: power triangle = remote.toggle (default power_action)");
 
-  // State switch: a title arrives -> playing; off -> launchers + Power only.
+  // Switch: Source tab = 3-up tiles; the user's choice survives state updates while on.
+  await tv.locator('.seg button[data-tab="source"]').click();
+  check(await tab(tv) === "source", "jam-tv: Source tab opens the source grid");
+  const tiles = tv.locator(".src button");
+  check(await tiles.count() === 6, "jam-tv: 6 source tiles");
+  const ty = await tiles.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
+  check(ty.slice(0, 3).every(y => y === ty[0]) && ty[3] > ty[0], `jam-tv: sources 3-up (${ty.join(",")})`);
+  check(await tv.locator(".src button.on").count() === 0, "jam-tv: no source matches Jellyfin / JellyWatch / Switch 2 -> none filled");
+  await push(TV, {attributes: {media_position: 4400}});
+  check(await tab(tv) === "source", "jam-tv: tab choice kept across state updates");
+  // Highlight from the select state (tap option match) and by name.
+  await push("select.hisense_tv_launch_app", {state: "Dropout"});
+  let on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
+  const onBg = await bg(tv.locator(".src button.on > .face"));
+  check(on.join(",") === "Dropout" && onBg === PINK, `jam-tv: select.hisense_tv_launch_app "Dropout" fills the Dropout tile pink (${on} ${onBg})`);
+  await push("select.hisense_tv_launch_app", {state: "HDMI 2"});
+  on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
+  check(on.join(",") === "Nerv//OS", `jam-tv: launch_app "HDMI 2" -> Nerv//OS via its tap option (${on})`);
+  await push(TV, {attributes: {app_name: "YouTube"}});
+  on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
+  check(on.join(",") === "YouTube", `jam-tv: media_player app_name wins over the selects (${on})`);
+  await push(TV, {attributes: {app_name: "Jellyfin"}});
+  await push("select.hisense_tv_launch_app", {state: "JellyWatch Player"});
+  // Source tap actions.
+  for (const [n, ent, opt] of [["Switch", "select.hisense_tv_input", "HDMI 1"], ["Nerv//OS", "select.hisense_tv_launch_app", "HDMI 2"], ["Corridor Digital", "select.hisense_tv_launch_app", "Corridor TV"]]) {
+    await reset(); await tiles.filter({hasText: n}).click();
+    c = await callsNow();
+    check(c.length === 1 && c[0].domain === "select" && c[0].service === "select_option" && c[0].target.entity_id === ent && c[0].data.option === opt, `jam-tv: ${n} tile selects ${ent} ${opt}`);
+  }
+  const sq = await tiles.first().locator(".sq").evaluate(e => getComputedStyle(e).backgroundColor);
+  check(sq === TEAL, `jam-tv: source colour square is a flat jam colour (Nerv//OS teal ${sq})`);
+  await tv.locator('.seg button[data-tab="now"]').click();
+
+  // Idle (on, no title): poster names the app; default tab Now playing.
+  check(await mode(idle) === "idle" && await tab(idle) === "now" && (await idle.locator(".title").textContent()) === "Home", "jam-tv: idle -> poster title = app (Home), Now playing tab");
+  // Off: slab2 poster, TV off, red power, Source tab by default, custom label.
+  check(await mode(offc) === "off" && await tab(offc) === "source", "jam-tv: off -> Source tab by default");
+  const og = await offc.locator(".poster").evaluate(p => ({bg: getComputedStyle(p.querySelector(".face")).backgroundColor, t: p.querySelector(".title").textContent,
+    s: p.querySelector(".sub").textContent, pw: getComputedStyle(p.querySelector(".pw")).backgroundColor, pwc: getComputedStyle(p.querySelector(".pw")).color}));
+  check(og.bg === SLAB2 && og.t === "TV off" && og.s === "Pick a source to start", `jam-tv: off poster slab2, "TV off", "Pick a source to start" (${og.bg})`);
+  check(og.pw === RED && og.pwc === INK, `jam-tv: power is red with an ink glyph when off (${og.pw} / ${og.pwc})`);
+  check((await offc.locator('.seg button[data-tab="source"]').textContent()) === "Watch" && (await tv.locator('.seg button[data-tab="source"]').textContent()) === "Source",
+    "jam-tv: source_label renames the switch (default Source)");
+  check(await offc.locator(".src button.on").count() === 0, "jam-tv: off -> no source filled");
+  // Memory: choose Now playing while off, turn on (kept), choose Source, turn off -> reset to default (Source), turn on -> Now playing.
+  await offc.locator('.seg button[data-tab="now"]').click();
+  check(await tab(offc) === "now" && await offc.locator('button[data-key="prev"]').isDisabled(), "jam-tv: Now playing while off: transport disabled");
+  await push("media_player.preview_tv_off", {state: "on"});
+  check(await tab(offc) === "now", "jam-tv: choice kept off -> on");
+  await offc.locator('.seg button[data-tab="source"]').click();
+  await push("media_player.preview_tv_off", {state: "off"});
+  check(await tab(offc) === "source", "jam-tv: on -> off resets to the default (Source)");
+  await push("media_player.preview_tv_off", {state: "on"});
+  check(await tab(offc) === "now", "jam-tv: then on -> default Now playing");
+  await push("media_player.preview_tv_off", {state: "off"});
+  // Idle -> playing when a title arrives; package id shown as YouTube.
   await push("media_player.preview_tv_idle", {attributes: {media_title: "Lobby", app_id: "com.google.android.youtube.tv", app_name: "com.google.android.youtube.tv"}});
-  check(await mode(idle) === "playing" && (await idle.locator(".sub").textContent()) === "YouTube", "jam-tv: idle -> playing when a title arrives (package id shown as YouTube)");
-  await push("media_player.preview_tv_idle", {state: "off", attributes: {media_title: null}});
-  const ok = await idle.locator(".keys button").evaluateAll(bs => bs.map(b => b.dataset.key));
-  check(await mode(idle) === "off" && await apps.count() === 7 && ok.join(",") === "power", `jam-tv: off shows launchers + Power only (${ok})`);
-  check((await idle.locator(".label").first().textContent()).endsWith("· Off"), "jam-tv: off kicker says Off");
-  await push("media_player.preview_tv_idle", {state: "on"});
-  // A picture becomes a duotone print.
-  await push(TV, {attributes: {entity_picture: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"}});
-  check(await tv.locator(".art img").count() === 1, "jam-tv: entity_picture shows as the art image");
+  check(await mode(idle) === "playing" && (await idle.locator(".kick").textContent()) === "YouTube", "jam-tv: idle -> playing when a title arrives (package id shown as YouTube)");
+  await push("media_player.preview_tv_idle", {attributes: {media_title: null, app_id: "com.spocky.projengmenu", app_name: null}});
+  // Art: image cover, text colour by luminance (light art -> ink text), busy -> ink band.
+  const svg = col => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='${col}'/></svg>`);
+  await push(TV, {attributes: {entity_picture: svg("#f4f0e0")}});
+  await page.waitForTimeout(150);
+  const art1 = await po.evaluate(p => ({img: !!p.querySelector("img"), cls: p.className, fg: getComputedStyle(p.querySelector(".face")).color, fit: getComputedStyle(p.querySelector("img")).objectFit, bars: !!p.querySelector(".arm")}));
+  check(art1.img && art1.fit === "cover" && !art1.bars && /light/.test(art1.cls) && art1.fg === INK, `jam-tv: light art -> cover image, ink text (${art1.cls} ${art1.fg})`);
+  await push(TV, {attributes: {entity_picture: svg("#101418")}});
+  await page.waitForTimeout(150);
+  const art2 = await po.evaluate(p => ({cls: p.className, band: getComputedStyle(p.querySelector(".txt")).backgroundColor}));
+  check(/dark/.test(art2.cls) && /rgba?\(0, 0, 0, 0\)|transparent/.test(art2.band), `jam-tv: dark art -> paper text, no band (${art2.cls})`);
+  const busy = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'>" +
+    Array.from({length: 64}, (_, i) => `<rect x='${(i % 8) * 5}' y='${Math.floor(i / 8) * 5}' width='5' height='5' fill='${(i + Math.floor(i / 8)) % 2 ? "#fff" : "#000"}'/>`).join("") + "</svg>");
+  await push(TV, {attributes: {entity_picture: busy}});
+  await page.waitForTimeout(150);
+  const art3 = await po.evaluate(p => ({cls: p.className, band: getComputedStyle(p.querySelector(".txt")).backgroundColor}));
+  check(/busy/.test(art3.cls) && /0\.5\)|\/ 0\.5\)/.test(art3.band), `jam-tv: busy art -> flat 50% ink band behind the text (${art3.band})`);
+  if (process.env.JAM_SHOTS) {
+    await page.setViewportSize({width: 390, height: 844});
+    await tv.scrollIntoViewIfNeeded();
+    await tv.screenshot({path: path.join(process.env.JAM_SHOTS, "tv-art-busy-390.png")});
+    await push(TV, {attributes: {entity_picture: svg("#c43a2a")}});
+    await page.waitForTimeout(150);
+    await tv.screenshot({path: path.join(process.env.JAM_SHOTS, "tv-art-390.png")});
+    await page.setViewportSize({width: 1280, height: 900});
+  }
   await push(TV, {attributes: {entity_picture: null}});
 
-  // Remote sheet: a jam-remote with the merged config sends remote commands / the custom volume actions.
+  // Remote sheet: keyboard glyph in the header, TV + Stereo sections.
   await tv.locator('button[data-key="remote"]').click();
   const sheet = page.locator(".jam-sheet-host .pop");
   check(await sheet.count() === 1 && (await sheet.locator("h2").textContent()) === "Remote" && await sheet.locator('.paper[data-cut="sheet"]').count() === 1,
     "jam-tv: Remote opens a sheet (sheet cut)");
   const rem = sheet.locator("jam-remote");
   check(await rem.count() === 1 && await rem.evaluate(r => !!r.hass && r.hass.states !== undefined), "jam-tv: the sheet holds a jam-remote with hass");
-  await reset(); await rem.locator('button[data-key="up"]').click();
+  const kbk = sheet.locator('.head .acts button[data-key="keyboard"]');
+  const kh = await sheet.locator(".head .acts").evaluate(a => { const [k, cl] = a.querySelectorAll("button");
+    return {k: Math.round(k.getBoundingClientRect().height), c: Math.round(cl.getBoundingClientRect().height), order: k.nextElementSibling === cl, svg: !!k.querySelector("svg rect"),
+      txt: k.textContent.trim(), aria: k.getAttribute("aria-label"), fg: getComputedStyle(k.firstChild).color, bg: getComputedStyle(k.firstChild).backgroundColor,
+      rx: [...k.querySelectorAll("rect")].some(r => r.getAttribute("rx"))}; });
+  check(await kbk.count() === 1 && kh.order && kh.k === kh.c && kh.svg && !kh.txt && kh.aria === "Keyboard" && !kh.rx,
+    `jam-tv: keyboard glyph key in the sheet header left of Close, same height (${kh.k}/${kh.c}), aria-label Keyboard`);
+  check(kh.fg === OCHRE, `jam-tv: keyboard glyph in the TV accent (${kh.fg} on ${kh.bg})`);
+  const secs = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll(".sec")].map(s => ({t: s.dataset.section, rule: getComputedStyle(s.querySelector(".rule")).backgroundColor,
+    rh: s.querySelector(".rule").getBoundingClientRect().height, kick: s.querySelector(".label").textContent,
+    keys: [...s.querySelectorAll("button[data-key]")].map(b => b.dataset.key + (b.classList.contains("alert") ? "!" : b.classList.contains("on") ? "*" : "")).join(","),
+    labels: [...s.querySelectorAll(".row button")].map(b => b.textContent).join("/"),
+    ok: s.querySelector(".ok > .face") ? getComputedStyle(s.querySelector(".ok > .face")).backgroundColor : null,
+    face: getComputedStyle(s.querySelector(".face")).backgroundColor, key: getComputedStyle(s.querySelector(".row .key > .face")).backgroundColor})));
+  const [S1, S2] = secs;
+  check(secs.length === 2 && S1.t === "TV" && S2.t === "Stereo" && S1.kick === "TV" && S2.kick === "Stereo" && S1.rh === 5 && S2.rh === 5, `jam-tv: remote sheet has TV + Stereo sections with 5px rules (${secs.map(s => s.t)})`);
+  check(S1.keys === "power!,back,home,settings,up,left,ok,right,down,prev,play_pause,next,captions,audio_track,source", `jam-tv: TV section keys (${S1.keys})`);
+  check(S1.labels.startsWith("Power/Back/Home/Settings/Prev/Play/Next/Subs/Audio/Input"), `jam-tv: TV labels incl. Subs / Audio / Input (${S1.labels})`);
+  check(S1.rule === OCHRE && S1.ok === OCHRE && S2.rule === VIOLET, `jam-tv: TV accent ochre (rule + OK), Stereo violet (${S1.rule} ${S1.ok} ${S2.rule})`);
+  check(S2.keys === "power!,input_0*,input_1,input_2,vol_down,mute,vol_up" && S2.labels === "Power/TV/Turntable/Music sync/Vol −/Mute/Vol +", `jam-tv: Stereo section Power / inputs (TV active) / volume (${S2.keys} ${S2.labels})`);
+  check(S1.face !== S1.key, `jam-tv: section face and its keys are different surfaces (${S1.face} / ${S1.key})`);
+  const actBg = await rem.evaluate(r => getComputedStyle(r.shadowRoot.querySelector('.sec[data-section="Stereo"] button[data-key="input_0"] > .face')).backgroundColor);
+  check(actBg === VIOLET, `jam-tv: active stereo input filled violet (${actBg})`);
+  await push("input_select.preview_stereo_source", {state: "BLUETOOTH"});
+  const act2 = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll('.sec[data-section="Stereo"] button.on')].map(b => b.dataset.key).join(","));
+  check(act2 === "input_2", `jam-tv: input_entity BLUETOOTH -> Music sync active via match (${act2})`);
+  await push("input_select.preview_stereo_source", {state: "TV"});
+  const sk = k => rem.locator(`.sec[data-section="Stereo"] button[data-key="${k}"]`), tk = k => rem.locator(`.sec[data-section="TV"] button[data-key="${k}"]`);
+  for (const [k, svc] of [["power", "stereo_power"], ["input_0", "stereo_input_select_video"], ["input_1", "stereo_input_select_turntable"], ["input_2", "stereo_input_select_music_sync"], ["vol_down", "stereo_volume_down"]]) {
+    await reset(); await sk(k).click();
+    const cc = await callsNow();
+    check(cc.length >= 1 && cc.every(x => x.domain === "script" && x.service === svc), `jam-tv stereo: ${k} runs script.${svc}`);
+  }
+  await reset(); await sk("mute").click();
+  check((await callsNow()).some(x => x.domain === "button" && x.service === "press" && x.target.entity_id === "button.stereo_volume_mute"), "jam-tv stereo: Mute presses button.stereo_volume_mute");
+  await reset();
+  const vb = await sk("vol_up").boundingBox();
+  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  const held = (await callsNow()).filter(x => x.service === "stereo_volume_up").length;
+  check(held >= 3, `jam-tv stereo: holding Vol + repeats (${held} calls)`);
+  await reset(); await tk("up").click();
   c = await callsNow();
   check(c.length === 1 && c[0].domain === "remote" && c[0].service === "send_command" && c[0].data.entity_id === RC && c[0].data.command === "DPAD_UP",
     "jam-tv: sheet d-pad up = remote.send_command DPAD_UP");
-  await reset(); await rem.locator('button[data-key="settings"]').click();
+  await reset(); await tk("settings").click();
   check((await callsNow()).some(x => x.service === "send_command" && x.data.command === "HOME"), "jam-tv: Settings key sends the configured command (HOME)");
-  await reset(); await rem.locator('button[data-key="vol_up"]').click();
-  check((await callsNow()).some(x => x.domain === "script" && x.service === "stereo_volume_up"), "jam-tv: remote_card actions are merged (vol + = script.stereo_volume_up)");
-  await reset(); await rem.locator('button[data-key="tv"]').click();
-  check((await callsNow()).some(x => x.domain === "script" && x.service === "stereo_input_select_video"), "jam-tv: TV key runs script.stereo_input_select_video");
   for (const [k, cmd] of [["captions", "CAPTIONS"], ["audio_track", "MEDIA_AUDIO_TRACK"], ["source", "TV_INPUT"], ["prev", "MEDIA_PREVIOUS"], ["back", "BACK"]]) {
-    await reset(); await rem.locator(`button[data-key="${k}"]`).click();
+    await reset(); await tk(k).click();
     const cc = await callsNow();
     check(cc.length === 1 && cc[0].service === "send_command" && cc[0].data.command === cmd && cc[0].data.entity_id === RC, `jam-tv remote: ${k} sends ${cmd}`);
   }
-  await reset(); await rem.locator('button[data-key="power"]').click();
-  check((await callsNow()).some(x => x.domain === "remote" && x.service === "toggle" && x.data.entity_id === RC), "jam-tv remote: Power = remote.toggle");
-  // Volume repeats while held (pointer down -> one send, then repeats after 400 ms).
-  await reset();
-  const vb = await rem.locator('button[data-key="vol_down"]').boundingBox();
-  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
-  const held = (await callsNow()).filter(x => x.service === "stereo_volume_down").length;
-  check(held >= 3, `jam-tv remote: holding Vol − repeats script.stereo_volume_down (${held} calls)`);
-  // Keyboard key: a second sheet with a text field; Send = text:<field>, Backspace = DEL, Enter = ENTER.
-  await rem.locator('button[data-key="keyboard"]').click();
+  await reset(); await tk("power").click();
+  c = await callsNow();
+  check(c.length === 1 && c[0].domain === "remote" && c[0].service === "toggle" && c[0].data.entity_id === RC, "jam-tv remote: TV Power = remote.toggle (not the stereo)");
+  // Keyboard (header key): a second sheet with a text field; Send = text:<field>, Backspace = DEL, Enter = ENTER.
+  await kbk.click();
   await page.waitForTimeout(80);
-  check(await page.locator(".jam-sheet-host").count() === 2, "jam-tv remote: Keyboard opens a sheet over the remote sheet");
+  check(await page.locator(".jam-sheet-host").count() === 2, "jam-tv: header Keyboard key opens the keyboard sheet over the remote sheet");
   const kb = page.locator(".jam-sheet-host").nth(1).locator(".pop");
   check((await kb.locator("h2").textContent()) === "Keyboard" && await kb.locator("input").count() === 1 &&
     (await kb.locator(".kb button").evaluateAll(bs => bs.map(b => b.dataset.key).join(","))) === "send,backspace,enter", "keyboard sheet: text field + Send / Backspace / Enter");
@@ -157,11 +242,8 @@ module.exports = async (page, check, {callsNow}) => {
   });
   check(lay.full === "power,back,home,settings,tv,vol_down,vol_up,up,left,ok,right,down,prev,play_pause,next,keyboard,captions,audio_track,source" && lay.rows === "home",
     `jam-remote layout full rows; rows override layout (${lay.rows})`);
-  const remHead = await rem.evaluate(r => r.shadowRoot.querySelectorAll(".label, .title").length);
+  const remHead = await rem.evaluate(r => r.shadowRoot.querySelectorAll(".wrap > .label, .title").length);
   check(remHead === 0 && await rem.evaluate(r => r._config.hide_title === true), `jam-tv: the jam-remote in the sheet hides its own name/title (${remHead})`);
-  const rows = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll("button[data-key]")].map(b => b.dataset.key).join(","));
-  check(rows === "power,back,home,settings,tv,vol_down,vol_up,up,left,ok,right,down,prev,play_pause,next,keyboard,captions,audio_track,source",
-    `jam-tv: remote sheet uses layout full (${rows})`);
   for (const w of [360, 390]) {
     await page.setViewportSize({width: w, height: 844}); await page.waitForTimeout(60);
     const broken = await rem.evaluate(r => [...r.shadowRoot.querySelectorAll(".row .key")].filter(b => {
@@ -172,9 +254,17 @@ module.exports = async (page, check, {callsNow}) => {
     check(broken.length === 0, `jam-tv remote sheet ${w}px: row key labels fit, no mid-word breaks (${broken.join(", ") || "ok"})`);
   }
   await page.setViewportSize({width: 1280, height: 900});
-  const defLayout = await page.evaluate(() => { const t = document.createElement("jam-tv");
-    t.setConfig({type: "custom:jam-tv", media_player: "media_player.living_room_phoster_android_tv", remote: "remote.living_room_phoster_android_tv"}); return t._remoteCfg().layout; });
-  check(defLayout === "full", `jam-tv: remote sheet defaults to layout full (${defLayout})`);
+  const defCfg = await page.evaluate(() => {
+    const mk = extra => { const t = document.createElement("jam-tv");
+      t.setConfig({type: "custom:jam-tv", media_player: "media_player.living_room_phoster_android_tv", remote: "remote.living_room_phoster_android_tv", ...extra}); return t._remoteCfg(); };
+    const a = mk({}), b = mk({remote_card: {layout: "full"}});
+    return {secs: a.sections.map(s => s.title).join(","), full: !b.sections && b.layout};
+  });
+  check(defCfg.secs === "TV" && defCfg.full === "full", `jam-tv: no stereo -> TV section only; remote_card layout replaces the sections (${defCfg.secs} / ${defCfg.full})`);
+  const alias = await page.evaluate(() => { const t = document.createElement("jam-tv");
+    t.setConfig({type: "custom:jam-tv", media_player: "media_player.preview_tv_off", launchers: [{name: "Old", color: "pink"}]}); t.hass = window.__hass;
+    return [...t.shadowRoot.querySelectorAll(".src button")].map(b => b.dataset.app).join(","); });
+  check(alias === "Old", `jam-tv: launchers still work as an alias of sources (${alias})`);
   await page.keyboard.press("Escape");
   check(await page.locator(".jam-sheet-host").count() === 0, "jam-tv: Esc closes the sheet");
 
@@ -229,6 +319,9 @@ module.exports = async (page, check, {callsNow}) => {
   if (process.env.JAM_SHOTS) {
     await tv.locator('button[data-key="remote"]').click();
     await page.screenshot({path: path.join(process.env.JAM_SHOTS, "tv-remote-sheet-390.png")});
+    await page.setViewportSize({width: 390, height: 1800}); await page.waitForTimeout(260);
+    await page.screenshot({path: path.join(process.env.JAM_SHOTS, "tv-remote-sheet-tall-390.png")});
+    await page.setViewportSize({width: 390, height: 844});
     await page.keyboard.press("Escape");
     await tv.scrollIntoViewIfNeeded();
     await page.locator("#view > .sec", {has: page.locator("jam-tv")}).screenshot({path: path.join(process.env.JAM_SHOTS, "watch-play-390.png")});

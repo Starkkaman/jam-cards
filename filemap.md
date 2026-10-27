@@ -15,4 +15,4 @@
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
 - preview/shoot.js — runs bundle, screenshots, bundled-font + no-Google-Fonts-request checks, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
 - preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 80-control, 90-kiosk (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same ten names
-- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png); with JAM_SHOTS=<dir> the 70-tv checks also write nerveos-sheet-390 / tv-remote-sheet-390
+- preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png); with JAM_SHOTS=<dir> the 70-tv checks also write nerveos-sheet-390, tv-remote-sheet(-tall)-390, tv-keyboard-sheet-390, tv-art(-busy)-390, watch-play-390

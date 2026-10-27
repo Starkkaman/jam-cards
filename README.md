@@ -271,30 +271,43 @@ media_player: media_player.living_room_tv
 | `commands` | Map of key → `send_command` value |
 | `actions` | Map of key → action object (overrides the command) |
 | `labels` | Map of key → label text |
+| `sections` | Colour-coded blocks instead of rows: `[{title, accent, rows, entity, actions, commands, labels, active_entity, active_match}]`; each block has a 5px rule in its accent; `entity: null` = keys run actions only; a key fills with the accent when `active_entity`'s state equals `active_match[key]` (else its label) |
 
 The `keyboard` key opens a small sheet: a text field with Send (`send_command` `text:<text>`), Backspace (`DEL`) and
 Enter (`ENTER`), as universal-remote-card's Android TV keyboard. Volume and d-pad keys repeat while held.
 
 ### jam-tv
-Smart TV (Android TV media_player + remote): now playing with transport, or app launchers when idle; Remote opens a
-sheet with a jam-remote.
+Smart TV (Android TV media_player + remote): an artwork poster (power in its corner) over a **Now playing | Source**
+switch. Now playing = Prev / Play-Pause / Next / Remote + volume; Source = 3-up tiles, the one on screen filled with its
+colour. Remote opens a sheet with a jam-remote in colour-coded TV and Stereo sections and a keyboard key in the header.
 ```yaml
 type: custom:jam-tv
 media_player: media_player.living_room_tv
 remote: remote.living_room_tv
-launchers:
-  - {name: YouTube, icon: mdi:youtube, color: red, tap_action: {action: perform-action, perform_action: script.tv_youtube}}
+sources:
+  - {name: YouTube, color: red, tap_action: {action: perform-action, perform_action: select.select_option,
+     target: {entity_id: select.tv_launch_app}, data: {option: YouTube}}}
+source_entities: [select.tv_launch_app]
+volume_up_action: {action: perform-action, perform_action: script.stereo_volume_up}
+volume_down_action: {action: perform-action, perform_action: script.stereo_volume_down}
+stereo:
+  power_action: {action: perform-action, perform_action: script.stereo_power}
+  inputs:
+    - {name: TV, tap_action: {action: perform-action, perform_action: script.stereo_input_tv}}
 ```
 | Option | Description |
 |---|---|
 | `media_player` | media_player (required) |
 | `remote` | remote entity (Remote sheet, power) |
-| `name` | Label (default the player's name) |
-| `launchers` | `{name, icon, color, tap_action, hold_action}`: 4-up (3-up in narrow cards), names wrap by word |
-| `keys` | Idle key row: `power`, `stereo`, `remote` or `{name, tap_action, hold_action}` (default all three) |
-| `power_action`, `stereo_action` | Power key action (default `remote.toggle`); Stereo key action (hidden without it) |
-| `remote_card`, `remote_title` | jam-remote config merged over the default (`layout: full`); sheet title (default "Remote") |
-| `accent` | Play key, art block (see Colours) |
+| `name` | Kicker when idle / off (default the player's name) |
+| `sources` | `{name, color, tap_action, hold_action, match}` tiles, 3-up (`launchers` still works as an alias) |
+| `source_label` | Name of the switch's second tab (default "Source") |
+| `source_entities` | select entities whose state tells which source is on screen (after the media_player's app_name / source); a source matches by name, `match`, or its tap_action's select option |
+| `power_action` | Power triangle action (default `remote.toggle`) |
+| `volume_up_action`, `volume_down_action`, `mute_action` | Volume row on the card (keys without an action are left out; Vol keys repeat while held) |
+| `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo section of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
+| `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them); sheet title (default "Remote") |
+| `accent` | Poster, Play key, TV section (see Colours) |
 
 ### jam-fan
 Fan or air purifier: On/Off pill, speed steps, preset chips, air-quality sensors in the label.

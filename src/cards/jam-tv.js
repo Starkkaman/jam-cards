@@ -1,87 +1,176 @@
-/* ---------- jam-tv: smart TV card (Android TV media_player + remote): now playing, or app launchers ----------
-   {type: custom:jam-tv, media_player (media_player.*), remote? (remote.*), name? (kicker; default the player's name),
-    launchers?: [{name, icon?, color? (accent name, room alias or HA colour name; default the card accent),
-                  tap_action, hold_action?}],
-    keys?: [power | stereo | remote | {name, tap_action, hold_action?}] (idle row; default [power, stereo, remote]),
-    power_action? (default remote.toggle, else media_player toggle), stereo_action? (the Stereo key; hidden without it),
-    remote_card? (jam-remote config for the Remote sheet, merged over the default: entity = remote, media_player,
-      layout "full" (0.3.2: power back home settings / tv vol − vol + / d-pad / prev play next / keyboard captions audio input;
-      set rows to replace it); commands and labels are merged), remote_title? ("Remote"),
+/* ---------- jam-tv: smart TV card (Android TV media_player + remote): poster + Now playing / Source switch ----------
+   {type: custom:jam-tv, media_player (media_player.*), remote? (remote.*), name? (off kicker; default the player's name),
+    sources?: [{name, color? (accent name, room alias or HA colour name; default the card accent), tap_action, hold_action?,
+                match? (string or list: extra state text that means this source is on screen)}]  (`launchers` = alias),
+    source_label? ("Source"), source_entities?: [select.* ids] (their state tells which source is on screen),
+    power_action? (default remote.toggle, else media_player toggle),
+    volume_up_action?, volume_down_action?, mute_action? (row Vol − / Mute / Vol +; keys without an action are left out;
+      vol keys repeat while held),
+    stereo?: {power_action, inputs: [{name, tap_action, match?}], volume_up_action, volume_down_action, mute_action, input_entity?,
+      title? ("Stereo"), accent? ("violet")} (Stereo section of the Remote sheet; hidden without it),
+    remote_card? (jam-remote config merged over the default: entity = remote, media_player, sections TV (+ Stereo); set rows /
+      layout / sections there to replace them; commands / labels / actions are merged), remote_title? ("Remote"),
     accent? (DESIGN "Colour system")}
-   Playing (playing / paused / buffering, or on with a media_title): art (entity_picture as a duotone print, else Golden Arm
-   bars in the accent), title, app (friendly name, never a package id) · position / duration, keys Prev / Play-Pause /
-   Next / Remote. Idle (on / idle / standby without a title): launchers 4-up (3-up in cards narrower than ≈340px; names wrap on
-   word boundaries, max 2 lines) (flat colour square + name), then the keys
-   row. Off / unavailable: launchers (their actions wake the TV) + Power. Remote = a sheet with a jam-remote
-   (jamCardSheet, jam-media.js). Keys use the key cut (top-right 12px); Play-Pause is the accent key. */
+   Poster (118px, bottom-right 16px cut): artwork (entity_picture, cover) or a flat accent block with Golden Arm bars; kicker =
+   app / source, title = media_title (2 lines), sub = position / duration, 5px progress strip. Text over art is ink or paper by
+   the art's luminance; busy art gets a flat 50% ink band behind the text. Power = the top-right corner triangle (ink, accent
+   glyph; red with an ink glyph when the TV is off). Idle (on, no title): title = the source on screen, else the app. Off: slab2 poster, "TV off", "Pick a source to start".
+   Switch row "Now playing" | source_label: default Now playing when on, Source when off; the choice is kept in memory until
+   the TV goes on -> off. Now playing = Prev / Play-Pause (accent) / Next / Remote, then the volume row. Source = 3-up tiles
+   (flat colour square + name); the source on screen (media_player app_name / source, then each source_entities state, matched
+   case-insensitively against the name, `match`, or the tap_action's select option for that entity) fills with its colour.
+   Remote = a sheet (jamCardSheet) with a jam-remote in colour-coded sections: TV (card accent) and Stereo (violet); the
+   keyboard key sits in the sheet header (keyboard glyph, opens jamRemoteKeyboard). */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
-const JAM_TV_REMOTE = {layout: "full", commands: {}, labels: {}};
+const JAM_TV_TV_ROWS = [["power", "back", "home", "settings"], ["dpad"], ["prev", "play_pause", "next"], ["captions", "audio_track", "source"]];
+const JAM_TV_KB_SVG = '<svg viewBox="0 0 26 17" aria-hidden="true" focusable="false" fill="currentColor" shape-rendering="crispEdges">' +
+  [1, 5, 9, 13, 17, 21].map(x => `<rect x="${x}" y="1" width="3" height="3"/>`).join("") +
+  [3, 7, 11, 15, 19].map(x => `<rect x="${x}" y="6.5" width="3" height="3"/>`).join("") +
+  '<rect x="6" y="12" width="14" height="3"/></svg>';
+const JAM_TV_POWER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="3" ' +
+  'stroke-linecap="square"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>';
 /* h:mm when the duration is an hour or more, else m:ss. */
 function jamTvTime(sec, long) {
   sec = Math.max(0, Math.floor(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   return long ? `${h}:${String(m).padStart(2, "0")}` : `${Math.floor(sec / 60)}:${String(s).padStart(2, "0")}`;
 }
+/* Art analysis cache: src -> {light, busy} (luminance of the text area + its spread). */
+const JAM_TV_ART = new Map();
 class JamTv extends JamSheetHost(JamBase) {
   validate(c) {
     if (!c.media_player || !c.media_player.startsWith("media_player.")) throw new Error("jam-tv: media_player must be a media_player");
     if (c.remote && !c.remote.startsWith("remote.")) throw new Error("jam-tv: remote must be a remote");
-    for (const k of ["launchers", "keys"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-tv: ${k} must be a list`);
+    for (const k of ["sources", "launchers", "source_entities"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-tv: ${k} must be a list`);
+    if (c.stereo !== undefined && (!c.stereo || typeof c.stereo !== "object")) throw new Error("jam-tv: stereo must be an object");
   }
-  watched() { return [this._config.media_player, this._config.remote].filter(Boolean); }
+  setConfig(c) { this._tab = null; super.setConfig(c); }
+  watched() {
+    const c = this._config, st = c.stereo || {};
+    return [c.media_player, c.remote, ...(c.source_entities || []), st.input_entity].filter(x => typeof x === "string" && x);
+  }
+  get _sources() { const c = this._config; return (c.sources || c.launchers || []).filter(Boolean); }
   css() { return `
-    .wrap{display:grid;gap:10px;align-content:start;container-type:inline-size}
-    .top{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center}
-    .art{aspect-ratio:1;height:auto;cursor:pointer}
-    .art > .face{padding:0;background:var(--acc);overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
-    .art.paused > .face{background:var(--dim)}
-    .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
-    .art .arm{height:62%;padding-bottom:10%;gap:3px} .art .arm span{background:var(--acc-fg);max-width:7px}
-    .txt{display:grid;gap:4px;min-width:0}
-    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.2rem,.95rem + 2.4cqi,1.8rem);line-height:.92;text-transform:uppercase;
+    .wrap{display:grid;gap:9px;align-content:start;--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px}
+    .poster{height:118px;cursor:default}
+    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:var(--acc-fg)}
+    .poster.off > .face{background:var(--slab2);color:var(--fg)}
+    .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .poster.art.light > .face{color:var(--on-fg)} /* Paper text over art is the fixed paper colour (theme --paper flips in light mode). */
+    .poster.art.dark > .face,.poster.art.busy > .face{color:#ece2c9}
+    .poster .arm{position:absolute;right:12px;bottom:0;height:84%;gap:7px;align-items:flex-end}
+    .poster .arm span{background:var(--acc-fg)}
+    .poster .txt{position:absolute;left:0;right:0;bottom:5px;padding:8px 56px 7px 12px;display:grid;gap:3px;min-width:0}
+    .poster.bars .txt{padding-right:96px}
+    .poster.art.busy .txt{background:color-mix(in srgb,var(--ink) 50%,transparent)}
+    .poster .kick{font:600 .6rem/1.1 var(--body);letter-spacing:.16em;text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .poster .title{font-family:var(--display);font-weight:900;font-size:1.55rem;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
-    .sub{font:500 .8rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
+    .poster .sub{font:500 .72rem/1.2 var(--body)}
+    .poster .prog{position:absolute;left:0;right:0;bottom:0;height:5px}
+    .poster.art .prog{background:color-mix(in srgb,var(--ink) 50%,transparent)}
+    .poster .prog i{position:absolute;inset:0 auto 0 0;background:currentColor}
+    .pw{position:absolute;z-index:2;right:0;top:0;width:44px;height:44px;background:var(--on-fg);color:var(--acc);clip-path:polygon(0 0,100% 0,100% 100%)}
+    .pw.off{background:var(--red);color:var(--on-fg)}
+    .pw svg{position:absolute;right:5px;top:5px;width:16px;height:16px}
+    .pw:focus-visible{outline-offset:-3px}
+    .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .seg .key > .face{--p-t:10px;--p-b:10px;--p-l:6px;--p-r:8px;font-size:.62rem;letter-spacing:.14em}
+    .seg .key.sel > .face{background:var(--fg);color:var(--slab)}
+    .pane{display:grid;gap:6px}
     .keys{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:6px}
     .keys .key{min-width:0}
-    .keys .key > .face{--p-t:14px;--p-b:13px;--p-l:4px;--p-r:4px;min-height:48px;display:flex;align-items:center;justify-content:center;
-      font-size:.66rem;overflow-wrap:anywhere}
-    .apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-    .apps .key{min-width:0}
-    .apps .key > .face{--p-t:14px;--p-b:10px;--p-l:4px;--p-r:4px;min-height:76px;display:flex;flex-direction:column;align-items:center;
-      justify-content:flex-start;gap:7px;font-size:clamp(.54rem,2.6cqi,.62rem);letter-spacing:.1em;line-height:1.15}
-    /* Names wrap on word boundaries only (max 2 lines), never mid-word; narrow cards drop to 3-up. */
-    .apps .nm{max-width:100%;overflow-wrap:normal;word-break:normal;hyphens:none;text-align:center;
+    .keys .key > .face{--p-t:13px;--p-b:12px;--p-l:3px;--p-r:5px;min-height:44px;display:flex;align-items:center;justify-content:center;
+      font-size:.62rem;overflow-wrap:normal;word-break:normal}
+    .src{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .src .key{min-width:0}
+    .src .key > .face{--p-t:10px;--p-b:9px;--p-l:4px;--p-r:6px;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+      gap:6px;font:900 .76rem/1 var(--display);letter-spacing:.01em;text-transform:uppercase}
+    .src .key.on > .face{background:var(--app);color:var(--on-fg)}
+    .src .nm{max-width:100%;text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    @container (max-width:310px){.apps{grid-template-columns:repeat(3,minmax(0,1fr))}}
-    .sq{flex:none;display:grid;place-items:center;width:24px;height:24px;background:var(--app,var(--acc));color:var(--on-fg);
-      clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
-    .sq ha-icon{--mdc-icon-size:16px;display:block;width:16px;height:16px}`; }
+    .sq{flex:none;width:20px;height:20px;background:var(--app)}
+    .src .key.on .sq{background:var(--on-fg)}`; }
+  /* Remote sheet config: jam-remote with a TV section (card accent) and, with `stereo`, a Stereo section (violet). */
   _remoteCfg() {
-    const c = this._config, rc = c.remote_card || {};
-    return {type: "custom:jam-remote", entity: c.remote, media_player: c.media_player, name: c.name, layout: JAM_TV_REMOTE.layout, ...rc,
-      commands: {...JAM_TV_REMOTE.commands, ...(rc.commands || {})}, labels: {...JAM_TV_REMOTE.labels, ...(rc.labels || {})}};
+    const c = this._config, rc = c.remote_card || {}, sections = [];
+    if (rc.rows === undefined && rc.layout === undefined) {
+      sections.push({title: "TV", accent: accentName(c.accent) || "ochre", rows: JAM_TV_TV_ROWS, labels: {captions: "Subs"}});
+      const st = c.stereo;
+      if (st) {
+        const ins = (st.inputs || []).filter(Boolean).slice(0, 3), actions = {}, labels = {}, match = {};
+        if (st.power_action) actions.power = st.power_action;
+        ins.forEach((x, i) => { actions["input_" + i] = x.tap_action; labels["input_" + i] = x.name || `Input ${i + 1}`; if (x.match) match["input_" + i] = x.match; });
+        const vol = [["vol_down", st.volume_down_action], ["mute", st.mute_action], ["vol_up", st.volume_up_action]].filter(([, a]) => a);
+        vol.forEach(([k, a]) => { actions[k] = a; });
+        const rows = [["power", ...ins.map((x, i) => "input_" + i)]];
+        if (vol.length) rows.push(vol.map(([k]) => k));
+        sections.push({title: st.title || "Stereo", accent: st.accent || "violet", entity: null, rows, actions, labels,
+          active_entity: st.input_entity, active_match: match});
+      }
+    }
+    const cfg = {type: "custom:jam-remote", entity: c.remote, media_player: c.media_player, name: c.name, ...rc,
+      commands: {...(rc.commands || {})}, labels: {...(rc.labels || {})}, actions: {...(rc.actions || {})}};
+    if (sections.length && !rc.sections) cfg.sections = sections;
+    return cfg;
   }
   /* Current app as a friendly name: app_name unless it is a package id, else a known package (jam-remote's list). */
   _app(a) {
     if (a.app_name && !String(a.app_name).includes(".")) return String(a.app_name);
     return jamRemoteApp(a.app_id || a.app_name) || null;
   }
-  _pos(s) {
+  _posParts(s) {
     const a = s.attributes, dur = Number(a.media_duration);
     if (!(dur > 0) || a.media_position == null) return null;
     let pos = Number(a.media_position) || 0;
     const at = Date.parse(a.media_position_updated_at || "");
     if (s.state === "playing" && at) pos += (Date.now() - at) / 1000;
+    pos = Math.min(pos, dur);
     const long = dur >= 3600;
-    return `${jamTvTime(Math.min(pos, dur), long)} / ${jamTvTime(dur, long)}`;
+    return {text: `${jamTvTime(pos, long)} / ${jamTvTime(dur, long)}`, frac: pos / dur};
+  }
+  /* The source on screen: candidates from the media_player (app_name, friendly app, source), then each source_entities state. */
+  _activeSource(s) {
+    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, low = v => String(v).trim().toLowerCase();
+    const cands = [];
+    for (const v of [this._app(a), a.app_name, a.source]) if (v) cands.push({v: low(v)});
+    for (const id of c.source_entities || []) { const e = stateObj(h, id); if (e && !UNAVAILABLE.has(e.state)) cands.push({v: low(e.state), id}); }
+    const keys = src => {
+      const out = [src.name, ...[].concat(src.match || [])].filter(Boolean).map(low);
+      const t = src.tap_action || {}, tgt = (t.target && t.target.entity_id) || (t.data && t.data.entity_id);
+      const opt = t.data && t.data.option;
+      return {names: out, tgt: [].concat(tgt || []), opt: opt ? low(opt) : null};
+    };
+    const list = this._sources.map(x => ({x, k: keys(x)}));
+    for (const cd of cands) {
+      const hit = list.find(({k}) => k.names.includes(cd.v) || (cd.id && k.opt === cd.v && k.tgt.includes(cd.id)));
+      if (hit) return hit.x;
+    }
+    return null;
   }
   _openRemote() {
-    const c = this._config;
-    jamCardSheet(this, {kicker: c.name || friendly(this._hass, c.media_player), title: c.remote_title || "Remote", accent: c.accent, cards: [this._remoteCfg()]});
+    const c = this._config, name = c.name || friendly(this._hass, c.media_player), rc = this._remoteCfg();
+    const extra = [];
+    const kbOk = rc.entity && !(rc.actions && rc.actions.keyboard) && rc.sections;
+    if (kbOk) {
+      const kb = cutKey("", `jam-tv|${c.media_player}|kb`, "kbd", "chip");
+      kb.dataset.key = "keyboard"; kb.setAttribute("aria-label", "Keyboard");
+      kb.firstChild.innerHTML = JAM_TV_KB_SVG; // static markup, no data
+      kb.onclick = () => {
+        if (this._kb && this._kb.isOpen()) return;
+        this._kb = jamRemoteKeyboard(this._body || this, {entity: rc.entity, name, title: (rc.labels && rc.labels.keyboard) || "Keyboard",
+          accent: c.accent, hass: () => this._hass, onClose: () => { this._kb = null; }});
+      };
+      extra.push(kb);
+    }
+    jamCardSheet(this, {kicker: name, title: c.remote_title || "Remote", accent: c.accent, cards: [rc], headerActions: extra, rule: rc.sections ? false : undefined,
+      css: `.kbd > .face{--p-t:6px;--p-b:6px;--p-l:10px;--p-r:12px;height:100%;display:flex;align-items:center;justify-content:center;color:var(--acc)}
+        .kbd svg{display:block;width:26px;height:17px}`});
   }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._kb) this._kb.close({silent: true}); }
   _key(label, id, cls, run, disabled) {
     const k = cutKey(label, `jam-tv|${this._config.media_player}|${id}`, cls);
-    k.dataset.key = id; k.disabled = !!disabled; k.onclick = run;
+    k.dataset.key = id; k.disabled = !!disabled; if (run) k.onclick = run;
     return k;
   }
   _row(keys) { const r = el("div", "keys"); r.style.setProperty("--n", Math.max(1, keys.length)); r.append(...keys); return r; }
@@ -91,34 +180,98 @@ class JamTv extends JamSheetHost(JamBase) {
     else if (c.remote) h.callService("remote", "toggle", {entity_id: c.remote});
     else h.callService("media_player", "toggle", {entity_id: c.media_player});
   }
-  /* Idle / off row: power, stereo (only with stereo_action), remote (only with a remote entity), custom keys. */
-  _keys(off) {
-    const c = this._config, h = this._hass, out = [], canRemote = !!this._remoteCfg().entity;
-    for (const k of c.keys || ["power", "stereo", "remote"]) {
-      if (k === "power") out.push(this._key("Power", "power", "", () => this._power()));
-      else if (off) continue;
-      else if (k === "stereo") { if (c.stereo_action) out.push(this._key("Stereo", "stereo", "", () => runAction(this, h, c.stereo_action))); }
-      else if (k === "remote") { if (canRemote) out.push(this._key("Remote", "remote", "", () => this._openRemote())); }
-      else if (k && typeof k === "object") {
-        const b = cutKey(k.name || "", `jam-tv|${c.media_player}|${k.name}`, "");
-        b.dataset.key = "custom"; bindActions(b, () => this._hass, k, k.entity);
-        out.push(b);
-      }
+  /* Text colour over art: sample the text area (lower 60%, left 75%) on a small canvas; cross-origin art -> busy (band). */
+  _artTone(img, poster) {
+    let r = JAM_TV_ART.get(img.src);
+    if (!r) {
+      try {
+        const W = 16, H = 10, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+        const x = cv.getContext("2d");
+        x.drawImage(img, 0, img.naturalHeight * .4, img.naturalWidth * .75, img.naturalHeight * .6, 0, 0, W, H);
+        const d = x.getImageData(0, 0, W, H).data, ls = [];
+        for (let i = 0; i < d.length; i += 4) ls.push(luminance([d[i], d[i + 1], d[i + 2]]));
+        const m = ls.reduce((p, v) => p + v, 0) / ls.length, sd = Math.sqrt(ls.reduce((p, v) => p + (v - m) ** 2, 0) / ls.length);
+        r = {light: m > .18, busy: sd > .14 || (m > .1 && m < .3)};
+      } catch (e) { r = {light: false, busy: true}; }
+      JAM_TV_ART.set(img.src, r);
     }
-    return out;
+    poster.classList.remove("light", "dark", "busy");
+    poster.classList.add(r.busy ? "busy" : r.light ? "light" : "dark");
   }
-  _launchers(off) {
-    const c = this._config, g = el("div", "apps");
-    for (const l of c.launchers || []) {
-      if (!l) continue;
-      const b = cutKey("", `jam-tv|${c.media_player}|app|${l.name}`, "app");
+  _poster(s, off, playing) {
+    const c = this._config, h = this._hass, a = (s && s.attributes) || {};
+    const name = c.name || friendly(h, c.media_player);
+    const {root, face} = paper("div", "jam-tv|poster|" + c.media_player, {kind: "poster", cls: "poster" + (off ? " off" : "")});
+    const src = !off && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
+    const bars = () => { root.classList.add("bars"); face.prepend(armBars("jam-tv|" + c.media_player)); };
+    if (src) {
+      root.classList.add("art", "busy");
+      const img = el("img"); img.alt = ""; img.decoding = "async";
+      const cached = JAM_TV_ART.get(src);
+      if (cached) this._artTone({src}, root);
+      img.onload = () => this._artTone(img, root);
+      img.onerror = () => { img.remove(); root.classList.remove("art", "busy", "light", "dark"); bars(); };
+      img.src = src; face.append(img);
+    } else if (!off) bars();
+    const txt = el("div", "txt"), act = !off ? this._activeSource(s) : null;
+    let kick, title, sub = null, frac = null;
+    if (off) { kick = name; title = s && s.state !== "off" ? "Unavailable" : "TV off"; sub = "Pick a source to start"; }
+    else {
+      const app = this._app(a) || (act && act.name) || (a.source ? String(a.source) : null);
+      const p = playing ? this._posParts(s) : null;
+      if (a.media_title) { kick = app || name; title = a.media_title; }
+      else { kick = name; title = (act && act.name) || app || fmtState(h, s); } // idle: the source on screen beats the launcher app
+      if (p) { sub = p.text; frac = p.frac; }
+    }
+    txt.append(el("div", "kick", kick));
+    const tt = el("div", "title", title); tt.onclick = () => moreInfo(this, c.media_player);
+    txt.append(tt);
+    if (sub) txt.append(el("div", "sub", sub));
+    face.append(txt);
+    if (frac !== null) {
+      const pr = el("div", "prog"), i = el("i"); pr.setAttribute("aria-hidden", "true");
+      i.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%"; pr.append(i); face.append(pr);
+    }
+    const pw = el("button", "pw" + (off ? " off" : "")); pw.type = "button"; pw.dataset.key = "power";
+    pw.setAttribute("aria-label", off ? "Power on" : "Power off");
+    pw.innerHTML = JAM_TV_POWER_SVG; // static markup, no data
+    pw.onclick = () => this._power();
+    face.append(pw);
+    return root;
+  }
+  _nowPane(s, off) {
+    const c = this._config, h = this._hass, pane = el("div", "pane");
+    const call = svc => () => h.callService("media_player", svc, {entity_id: c.media_player});
+    const keys = [
+      this._key("Prev", "prev", "", call("media_previous_track"), off),
+      this._key(s && s.state === "playing" ? "Pause" : "Play", "play_pause", "on main", call("media_play_pause"), off),
+      this._key("Next", "next", "", call("media_next_track"), off),
+    ];
+    if (this._remoteCfg().entity) keys.push(this._key("Remote", "remote", "", () => this._openRemote()));
+    pane.append(this._row(keys));
+    const vol = [["vol_down", "Vol −", c.volume_down_action, true], ["mute", "Mute", c.mute_action, false], ["vol_up", "Vol +", c.volume_up_action, true]]
+      .filter(([, , a]) => a).map(([id, label, a, rep]) => {
+        const k = this._key(label, id, "");
+        const run = () => runAction(this, this._hass, a, c.media_player);
+        if (rep) jamHoldRepeat(k, run, this); else k.onclick = run;
+        return k;
+      });
+    if (vol.length) pane.append(this._row(vol));
+    return pane;
+  }
+  _sourcePane(s, off) {
+    const c = this._config, g = el("div", "src"), act = off ? null : this._activeSource(s);
+    for (const l of this._sources) {
+      const on = l === act;
+      const b = cutKey("", `jam-tv|${c.media_player}|src|${l.name}`, on ? "on" : "", "chip");
       const face = b.firstChild; face.textContent = "";
+      const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]) || "var(--acc)";
+      b.style.setProperty("--app", col);
       const sq = el("span", "sq"); sq.setAttribute("aria-hidden", "true");
-      const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]);
-      if (col) sq.style.setProperty("--app", col);
-      const ic = icon(l.icon); if (ic) sq.append(ic);
       face.append(sq, el("span", "nm", l.name || ""));
-      b.dataset.app = l.name || ""; if (l.name) b.setAttribute("aria-label", l.name + (off ? " (wakes the TV)" : ""));
+      b.dataset.app = l.name || "";
+      if (l.name) b.setAttribute("aria-label", l.name + (on ? " (on screen)" : off ? " (wakes the TV)" : ""));
+      if (on) b.setAttribute("aria-current", "true");
       bindActions(b, () => this._hass, {tap_action: l.tap_action || {action: "none"}, hold_action: l.hold_action}, l.entity);
       g.append(b);
     }
@@ -129,44 +282,23 @@ class JamTv extends JamSheetHost(JamBase) {
     const off = !s || UNAVAILABLE.has(s.state) || s.state === "off";
     const playing = !off && (JAM_TV_PLAYING.has(s.state) || !!a.media_title);
     const mode = off ? "off" : playing ? "playing" : "idle";
+    if (off && this._wasOn) this._tab = null; // on -> off forgets the user's tab choice
+    this._wasOn = !off;
+    const tab = this._tab || (off ? "source" : "now");
     const {root, face: wrap} = this.paper(c.media_player, {face: `wrap ${mode}`});
-    root.dataset.mode = mode;
-    const name = c.name || friendly(h, c.media_player);
-    wrap.append(el("div", "label", off ? `${name} · ${s && s.state !== "off" ? "Unavailable" : "Off"}` : name));
-
-    if (playing) {
-      const top = el("div", "top");
-      const paused = s.state !== "playing";
-      const {root: art, face} = paper("div", "jam-tv-art|" + c.media_player, {kind: "chip", cls: "art" + (paused ? " paused" : "")});
-      art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, c.media_player);
-      const src = jamTvUrl(h, a.entity_picture_local || a.entity_picture);
-      if (src) {
-        const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
-        img.onerror = () => { img.remove(); face.append(armBars("jam-tv|" + c.media_player)); };
-        face.append(img);
-      } else face.append(armBars("jam-tv|" + c.media_player));
-      const txt = el("div", "txt");
-      const tt = el("div", "title", a.media_title || this._app(a) || fmtState(h, s)); tt.onclick = () => moreInfo(this, c.media_player);
-      txt.append(tt);
-      const sub = [a.media_title ? this._app(a) : null, this._pos(s)].filter(Boolean).join(" · ");
-      if (sub) txt.append(el("div", "sub", sub));
-      top.append(art, txt);
-      const call = svc => () => h.callService("media_player", svc, {entity_id: c.media_player});
-      const keys = [
-        this._key("Prev", "prev", "", call("media_previous_track")),
-        this._key(s.state === "playing" ? "Pause" : "Play", "play_pause", "on main", call("media_play_pause")),
-        this._key("Next", "next", "", call("media_next_track")),
-      ];
-      if (this._remoteCfg().entity) keys.push(this._key("Remote", "remote", "", () => this._openRemote()));
-      wrap.append(top, this._row(keys));
-    } else {
-      if ((c.launchers || []).length) wrap.append(this._launchers(off));
-      const keys = this._keys(off);
-      if (keys.length) wrap.append(this._row(keys));
+    root.dataset.mode = mode; root.dataset.tab = tab;
+    wrap.append(this._poster(s, off, playing));
+    const seg = el("div", "seg"), label = c.source_label || "Source";
+    for (const [id, text] of [["now", "Now playing"], ["source", label]]) {
+      const k = cutKey(text, `jam-tv|${c.media_player}|tab|${id}`, id === tab ? "sel" : "", "chip");
+      k.dataset.tab = id; k.setAttribute("aria-pressed", String(id === tab));
+      k.onclick = () => { this._tab = id; this._render(false); };
+      seg.append(k);
     }
+    wrap.append(seg, tab === "now" ? this._nowPane(s, off) : this._sourcePane(s, off));
     b.append(root);
   }
-  getCardSize() { return 4; }
+  getCardSize() { return 5; }
 }
 /* Local helper: entity_picture -> absolute URL (hass.hassUrl in HA; data:/http(s): as is). */
 function jamTvUrl(h, u) {
@@ -175,4 +307,4 @@ function jamTvUrl(h, u) {
   try { if (h && typeof h.hassUrl === "function") return h.hassUrl(u); } catch (e) { /* fall through */ }
   return u;
 }
-register("jam-tv", JamTv, "Jam TV", "Smart TV: now playing with transport, or app launchers + power / stereo / remote keys; remote in a sheet.");
+register("jam-tv", JamTv, "Jam TV", "Smart TV: artwork poster with power, Now playing / Source switch, volume; remote with TV + Stereo sections in a sheet.");

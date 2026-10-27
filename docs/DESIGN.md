@@ -78,6 +78,7 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
   | `chip` | bottom-right | 6px | pills (ON/OFF, lock, press), option/temp/preset/source chips, transport keys, colour swatches, forecast columns, media art, popup close |
   | `hero` | bottom-right | 22px | jam-hero |
   | `sheet` | top-right | 18px | jam-popup sheet (desktop and phone bottom sheet) |
+  | `poster` | bottom-right | 16px | jam-tv poster (0.3.4) |
 - `cutPath(corner, size)` → a 5-point CSS `polygon()`. `paper(tag, key, {kind, cls, face})` → `{root, face}`: root
   `.paper` with `data-cut=kind` and `--clip`, face `.face` clipped by it. `cutKey(label, key, cls, kind = "key")` → a
   real `<button>` on it. The `key` argument and the v0.2 options (edges/depth/step/cut) are accepted and ignored.
@@ -109,9 +110,9 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 | jam-button | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or HA `color` names), accent face when entity on, tap/hold/double_tap actions, confirmation |
 | jam-light (v2) | mushroom-light | card face = the light's hue at full value (`fullRgb`: rgb_color scaled so the max channel is 255, kelvin → rgb in color_temp mode, else the accent), ink/paper text by luminance of that colour; 84px tall (grid rows auto), big % (1.7rem), 10px brightness strip, drag to dim, 40px corner ⋯ / hold = light pop-up (openSheet): 72px brightness bar, whites or WLED preset cards, hue strip, "Your colours" (HA user data), group members (pills + bars in each member's full-value colour), off-timer |
 | jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet (slab face; children one surface step up), title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
-| jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows (`layout: full` = the universal-remote-card set); keyboard key = text sheet (`text:` / DEL / ENTER); `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets) |
+| jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows (`layout: full` = the universal-remote-card set); keyboard key = text sheet (`text:` / DEL / ENTER); `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets); `sections` (0.3.4) = colour-coded blocks (slab face, 5px accent rule, kicker; per-section entity/actions/labels, active key filled from `active_entity`) |
 | jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image multiplied over a flat accent block: flat print, not a gradient), title, artist, transport, volume, sources, players, group; `compact` mini layout; `more` ⋯ sheet of child cards (jamCardSheet); title_entity players without a media_player |
-| jam-tv | Android TV media cards | now playing (art, title, app, position) + Prev/Play/Next/Remote, or idle launchers 4-up (3-up below ≈340px card width; names wrap by word, max 2 lines) + Power/Stereo/Remote; Remote = sheet with a jam-remote (`layout: full` by default) |
+| jam-tv | Android TV media cards | 0.3.4 poster (118px, `poster` cut: artwork cover or accent + Golden Arm bars; ink/paper text by art luminance, flat 50% ink band on busy art; app kicker, title, position, 5px progress strip; power = 44px top-right triangle, red when off) + Now playing / Source switch (selected = fg fill, remembered until on → off) + transport/volume rows or 3-up source tiles (on-screen source filled with its colour, via app_name / source_entities); Remote = sheet with a jam-remote in TV (card accent) + Stereo (violet) sections, keyboard glyph key in the sheet header |
 | jam-fan | fan tile, purifier cards | On/Off pill, speed steps (fan.set_percentage), preset chips (`presets: false` hides them), air-quality kicker sensors |
 | jam-weather | clock-weather, weather-forecast | big temp numeral, condition word (`conditionWord`), cut-paper glyph, forecast strip, optional clock (`clock_size` normal/big/huge) |
 | jam-graph | mini-graph, statistics-graph | SVG step/line chart from history, 1-5 series in `--jam-s*`, legend chips, crosshair + tooltip, current value big |
@@ -131,7 +132,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`.
-- Sheets: `openSheet({from, title, kicker, accent, …})` → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it; child
+- Sheets: `openSheet({from, title, kicker, accent, headerActions, …})` (headerActions = nodes left of CLOSE, same height) → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it; child
   cards in `body` get the surface tokens one step up),
   `vertigoSpiral`, `deepActive`. jam-media's `jamCardSheet` puts child cards in one (used by jam-tv and jam-media `more`).
 

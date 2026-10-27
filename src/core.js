@@ -208,7 +208,7 @@ function setAccent(node, a) {
 
 /* ---------- edge system (DESIGN "Edge system") ---------- */
 /* Fixed cut per element kind: [corner, size px]. Every surface is a straight rectangle with exactly one 45° cut corner. */
-const CUTS = Object.freeze({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18]});
+const CUTS = Object.freeze({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18], poster: ["br", 16]});
 /* CSS polygon() (5 points) for a rectangle with one corner ("tl"|"tr"|"br"|"bl") cut by a size px diagonal. */
 function cutPath(corner = "br", size = 14) {
   const z = +size + "px", n = `calc(100% - ${+size}px)`;
@@ -266,7 +266,7 @@ function tornPath(s, {edges = "b", depth = 5, step = 7, cut = null} = {}) {
   tear("l", (q, d) => P(0, d, 100 - q, 0));
   return `polygon(${pts.join(",")})`;
 }
-/* Cut block: <tag class="paper cls" data-cut=kind> > <.face faceCls>. kind: card (default) | key | chip | hero | sheet
+/* Cut block: <tag class="paper cls" data-cut=kind> > <.face faceCls>. kind: card (default) | key | chip | hero | sheet | poster
    (see CUTS). `key` is kept for API compatibility (v0.2 seeded the torn edges with it); the shape no longer depends on it,
    and the v0.2 options edges/depth/step/cut are ignored. Returns {root, face}; put content in face. */
 function paper(tag, key, {kind = "card", cls = "", face = ""} = {}) {
@@ -380,6 +380,8 @@ const SHEET_CSS = `
   .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0;
     --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .close{flex:none}
+  .acts{flex:none;display:flex;align-items:stretch;gap:6px}
+  .acts > .key{min-width:0;height:auto}
   .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
   .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
   @keyframes jam-sheet-up{from{transform:translateY(30%)}to{transform:none}}
@@ -396,7 +398,7 @@ const SHEET_STACK = [];
    opts: {from (element whose --jam-* theme tokens are copied), title, kicker, label (dialog name), accent (CSS colour for
    --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
    cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
-   onClose()}.
+   headerActions ([nodes] put in the header left of CLOSE, stretched to its height; 0.3.4), onClose()}.
    Child cards appended to `body` get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3), so their
    faces and keys stay visible on the slab sheet face.
    Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
@@ -424,7 +426,10 @@ function openSheet(opts = {}) {
   if (o.title) t.append(el("h2", "disp", o.title));
   const close = cutKey("Close ×", "jam-sheet|close", "close", "chip");
   close.setAttribute("aria-label", "Close");
-  head.append(t, close);
+  const acts = el("div", "acts");
+  for (const n of o.headerActions || []) if (n) acts.append(n);
+  acts.append(close);
+  head.append(t, acts);
   const body = el("div", "body");
   face.append(head);
   if (o.rule !== false) { const r = el("div", "rule"); r.setAttribute("aria-hidden", "true"); face.append(r); }

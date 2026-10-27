@@ -1,29 +1,34 @@
-// Preview fixture: Watch & play — jam-tv (playing + idle), NerveOS as a compact jam-media with a ⋯ sheet, a compact
-// speaker, and jam-fan (Vital 200S air purifier). Launcher actions are the ones the living-room dashboards use today.
+// Preview fixture: Watch & play — jam-tv (playing + idle + off), NerveOS as a compact jam-media with a ⋯ sheet, a compact
+// speaker, and jam-fan (Vital 200S air purifier). Sources are the ones the living-room dashboards use.
 { // block scope: every fixture file may declare its own st
 const {st} = jamPreview;
 const TV = "media_player.living_room_phoster_android_tv", RC = "remote.living_room_phoster_android_tv";
 const NV = "living_room_nerveos_aero_15";
 const auto = id => ({action: "perform-action", perform_action: "automation.trigger", target: {entity_id: id}, data: {skip_condition: true}});
 const app = option => ({action: "perform-action", perform_action: "select.select_option", target: {entity_id: "select.hisense_tv_launch_app"}, data: {option}});
-const launchers = [
-  {name: "Jellyfin", icon: "mdi:jellyfish", color: "violet", tap_action: auto("automation.launch_jellyfin")},
-  {name: "YouTube", icon: "mdi:youtube", color: "red", tap_action: auto("automation.launch_youtube")},
-  {name: "Switch", icon: "mdi:nintendo-switch", color: "red", tap_action: auto("automation.nintendo_input")},
-  {name: "Batocera", icon: "mdi:gamepad-variant", color: "teal", tap_action: auto("automation.batocera_input")},
-  {name: "Jamfin", icon: "mdi:disc-player", color: "ochre", tap_action: app("Jamfin")},
-  {name: "Dropout", icon: "mdi:television-play", color: "pink", tap_action: app("Dropout")},
-  {name: "Corridor Digital", icon: "mdi:movie-open", color: "blue", tap_action: app("Corridor TV")},
+const sel = (entity_id, option) => ({action: "perform-action", perform_action: "select.select_option", target: {entity_id}, data: {option}});
+const script = id => ({action: "perform-action", perform_action: id});
+// The user's sources (jam-home dashboards, F5).
+const sources = [
+  {name: "Nerv//OS", color: "teal", tap_action: app("HDMI 2")},
+  {name: "Switch", color: "red", tap_action: sel("select.hisense_tv_input", "HDMI 1")},
+  {name: "YouTube", color: "red", tap_action: app("YouTube")},
+  {name: "Jamfin", color: "ochre", tap_action: app("Jamfin")},
+  {name: "Dropout", color: "pink", tap_action: app("Dropout")},
+  {name: "Corridor Digital", color: "blue", tap_action: app("Corridor TV")},
 ];
 const tv = {
-  remote: RC, launchers, keys: ["power", "stereo", "remote"],
-  stereo_action: {action: "navigate", navigation_path: "#stereo-popup"},
-  // Remote sheet = jam-remote layout "full" (jam-tv default) with the user's stereo actions; Settings sends HOME in their setup.
-  remote_card: {layout: "full", commands: {settings: "HOME"}, actions: {
-    vol_up: {action: "perform-action", perform_action: "script.stereo_volume_up"},
-    vol_down: {action: "perform-action", perform_action: "script.stereo_volume_down"},
-    tv: {action: "perform-action", perform_action: "script.stereo_input_select_video"},
-  }},
+  remote: RC, sources, source_entities: ["select.hisense_tv_launch_app", "select.hisense_tv_input"],
+  volume_up_action: script("script.stereo_volume_up"), volume_down_action: script("script.stereo_volume_down"),
+  mute_action: {action: "perform-action", perform_action: "button.press", target: {entity_id: "button.stereo_volume_mute"}},
+  stereo: {power_action: script("script.stereo_power"), input_entity: "input_select.preview_stereo_source",
+    inputs: [{name: "TV", tap_action: script("script.stereo_input_select_video")},
+      {name: "Turntable", tap_action: script("script.stereo_input_select_turntable"), match: "AUX"},
+      {name: "Music sync", tap_action: script("script.stereo_input_select_music_sync"), match: "BLUETOOTH"}],
+    volume_up_action: script("script.stereo_volume_up"), volume_down_action: script("script.stereo_volume_down"),
+    mute_action: {action: "perform-action", perform_action: "button.press", target: {entity_id: "button.stereo_volume_mute"}}},
+  // Settings sends HOME in their setup.
+  remote_card: {commands: {settings: "HOME"}},
 };
 const press = (name, id, extra) => ({type: "custom:jam-button", name, tap_action: {action: "perform-action", perform_action: "button.press", target: {entity_id: id}}, ...extra});
 jamPreview.add({
@@ -31,6 +36,8 @@ jamPreview.add({
     // Overrides the 00-tv state (same title, app now Jellyfin, position/duration); no volume features, like the real entity.
     st(TV, "playing", {friendly_name: "Phoster", app_name: "Jellyfin", media_title: "Close Encounters of the Third Kind",
       media_position: 4320, media_duration: 8220, supported_features: 153529}),
+    st("media_player.preview_tv_off", "off", {friendly_name: "Phoster", supported_features: 153529}),
+    st("input_select.preview_stereo_source", "TV", {friendly_name: "Stereo source", options: ["TV", "AUX", "BLUETOOTH"]}),
     st("media_player.preview_tv_idle", "on", {friendly_name: "Phoster", app_id: "com.spocky.projengmenu", supported_features: 153529}),
     st(`sensor.${NV}_now_playing`, "Hades II", {friendly_name: "NervOS (Aero 15) Now playing"}),
     st(`sensor.${NV}_power`, "on", {friendly_name: "NervOS (Aero 15) Power"}),
@@ -50,6 +57,7 @@ jamPreview.add({
       {type: "custom:jam-heading", kicker: "Living room", title: "Watch & play"},
       ["full", {type: "custom:jam-tv", media_player: TV, name: "TV · Phoster", ...tv}],
       ["full", {type: "custom:jam-tv", media_player: "media_player.preview_tv_idle", name: "TV · Phoster (idle)", ...tv}],
+      ["full", {type: "custom:jam-tv", media_player: "media_player.preview_tv_off", name: "TV · Phoster", source_label: "Watch", ...tv}],
       ["full", {type: "custom:jam-media", compact: true, name: "NerveOS", accent: "kitchen",
         title_entity: `sensor.${NV}_now_playing`, state_entity: `sensor.${NV}_power`, picture_entity: `image.${NV}_cover_art`,
         sub_entities: [{entity: `number.${NV}_volume`, name: "vol"}],
