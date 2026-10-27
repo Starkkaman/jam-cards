@@ -1,3 +1,4 @@
+/* GENERATED from src/ by tools/bundle.mjs — edit src/, then run node tools/bundle.mjs */
 /* Jam Cards: Saul Bass styled Lovelace cards (same look as the JamBoard / Crew Hub card).
    Rules: flat colour, no gradients, no blur, no rounded corners; heavy uppercase display type; hard cuts.
    No build step, no dependencies. Entity names/states are rendered with textContent only.
@@ -8,6 +9,7 @@
    Shared helpers (edge system, paper blocks, actions) are exported on window.JamCards for cards added later. */
 (() => {
 const VERSION = "0.2.0-dev";
+
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&display=swap";
 
 function loadFonts() {
@@ -298,6 +300,57 @@ class JamBase extends HTMLElement {
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 3}; }
 }
 
+/* Shared API for cards (src/cards/) and for debugging. */
+window.JamCards = Object.freeze({
+  VERSION, BASE_CSS, JamBase, seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
+  el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
+});
+window.customCards = window.customCards || [];
+/* Every card file ends with register(tag, Class, name, description). */
+function register(tag, cls, name, description) {
+  if (!customElements.get(tag)) customElements.define(tag, cls);
+  if (!window.customCards.some(c => c.type === tag)) window.customCards.push({type: tag, name, description, preview: false});
+}
+
+/* ---------- jam-choice: select / input_select as cut paper chips ----------
+   {type: custom:jam-choice, entity, name?, options?: [subset/order], columns?} */
+class JamChoice extends JamBase {
+  validate(c) {
+    if (!c.entity || !/^(input_)?select\./.test(c.entity)) throw new Error("jam-choice: entity must be a select or input_select");
+  }
+  watched() { return [this._config.entity]; }
+  css() { return `
+    .wrap{display:grid;gap:10px;align-content:start}
+    .opts{display:grid;grid-template-columns:repeat(var(--cols,auto-fill),minmax(var(--min,92px),1fr));gap:8px}
+    .opt{text-align:left}
+    .opt > .face{--p-t:12px;--p-b:12px;--p-l:10px;--p-r:10px;min-height:46px;display:flex;align-items:center;
+      font-size:.76rem;letter-spacing:.08em;overflow-wrap:break-word;min-width:0}
+    .opt.busy > .face{border-color:var(--ochre)}`; }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity);
+    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${s && !UNAVAILABLE.has(s.state) ? "on" : "alert"}`});
+    wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
+    const box = el("div", "opts");
+    if (c.columns) box.style.setProperty("--cols", String(c.columns));
+    const all = (s && s.attributes.options) || [];
+    const list = c.options ? c.options.filter(o => all.includes(o)) : all;
+    const dom = c.entity.split(".")[0];
+    for (const o of list) {
+      const on = !!s && s.state === o;
+      const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""));
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.disabled = !s || UNAVAILABLE.has(s.state);
+      btn.onclick = () => { btn.classList.add("busy"); h.callService(dom, "select_option", {entity_id: c.entity, option: o}); };
+      box.append(btn);
+    }
+    if (!list.length) box.append(el("div", "c-dim", s ? "No options" : "Entity not found"));
+    wrap.append(box);
+    b.append(root);
+  }
+  getCardSize() { return 3; }
+}
+register("jam-choice", JamChoice, "Jam Choice", "Select / input_select options as chunky chips.");
+
 /* ---------- jam-heading: section label + big title over a torn accent rule ----------
    {type: custom:jam-heading, title, kicker?, accent?: ochre|red|teal, entities?: [ids shown as chips],
     tap_action?, hold_action?, double_tap_action?} */
@@ -341,6 +394,7 @@ class JamHeading extends JamBase {
   }
   getCardSize() { return 1; }
 }
+register("jam-heading", JamHeading, "Jam Heading", "Section title slab with an accent rule and optional state chips.");
 
 /* ---------- jam-hero: torn paper slab with a cut corner and Golden Arm bars ----------
    {type: custom:jam-hero, kicker?, title?, title_entity?, meta_entities?: [ids], power_entity?, off_title?, off_text?,
@@ -401,108 +455,49 @@ class JamHero extends JamBase {
   }
   getCardSize() { return 4; }
 }
+register("jam-hero", JamHero, "Jam Hero", "Paper slab with clipped corner: big title from an entity, meta line and chips.");
 
-/* ---------- jam-tile: entity block with status stripe ----------
-   {type: custom:jam-tile, entity, name?, label?, control?: auto|toggle|lock|press|none, tones?: {state: on|alert|calm|off},
-    tap_action?, hold_action?, double_tap_action?, show_last_changed?}
-   control auto: lock.* -> lock, button./input_button. -> press, on/off toggleable entities -> toggle. */
-class JamTile extends JamBase {
-  validate(c) { if (!c.entity) throw new Error("jam-tile: entity is required"); }
-  watched() { return [this._config.entity]; }
-  css() { return `
-    .tile{--p-r:12px;display:grid;gap:4px;min-height:78px;align-content:center}
-    .row{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center}
-    .main{flex:1 1 0;max-width:100%}
-    .name{font:600 .74rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow-wrap:anywhere}
-    .val{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:.95;text-transform:uppercase;overflow-wrap:break-word}
-    .sw{flex:none;min-width:64px}
-    .sub{color:var(--dim);font-size:.8rem}`; }
-  _control(s) {
-    const c = this._config, d = c.entity.split(".")[0], ctl = c.control || "auto";
-    if (ctl !== "auto") return ctl;
-    if (d === "lock") return "lock";
-    if (d === "button" || d === "input_button") return "press";
-    return toggleable(c.entity) && s && (s.state === "on" || s.state === "off") ? "toggle" : "none";
-  }
-  _key(s) {
-    const c = this._config, h = this._hass, d = c.entity.split(".")[0], ctl = this._control(s);
-    if (!s) return null;
-    const k = `jam-tile|${c.entity}|key`;
-    let key, call;
-    if (ctl === "toggle") {
-      const on = s.state === "on";
-      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""));
-      key.setAttribute("aria-pressed", on ? "true" : "false");
-      call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
-    } else if (ctl === "lock") {
-      const locked = s.state === "locked";
-      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""));
-      call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
-    } else if (ctl === "press") {
-      key = cutKey("Press", k, "sw");
-      call = () => h.callService(d, "press", {entity_id: c.entity});
-    } else return null;
-    if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);
-    key.onclick = e => { e.stopPropagation(); call(); };
-    return key;
-  }
-  render(b) {
-    const c = this._config, h = this._hass, s = stateObj(h, c.entity);
-    const t = tone(s, c.tones);
-    const {root, face} = this.paper(c.entity, {cls: "press", face: `tile stripe s-${t}${!s || UNAVAILABLE.has(s.state) ? " unavail" : ""}`});
-    root.tabIndex = 0; root.setAttribute("role", "button");
-    bindActions(root, () => this._hass, c, c.entity);
-    const row = el("div", "row");
-    const left = el("div", "main"); /* basis 0: the key wraps below only when the longest value word needs the room */
-    left.append(el("div", "name", c.name || friendly(h, c.entity)));
-    left.append(el("div", `val num c-${t === "off" ? "dim" : t}`, c.label || fmtState(h, s)));
-    row.append(left);
-    const key = this._key(s);
-    if (key) row.append(key);
-    face.append(row);
-    if (c.show_last_changed && s) face.append(el("div", "sub num", new Date(s.last_changed).toLocaleString([], {hour: "2-digit", minute: "2-digit", month: "short", day: "numeric"})));
-    b.append(root);
-  }
-  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
-}
-
-/* ---------- jam-choice: select / input_select as cut paper chips ----------
-   {type: custom:jam-choice, entity, name?, options?: [subset/order], columns?} */
-class JamChoice extends JamBase {
-  validate(c) {
-    if (!c.entity || !/^(input_)?select\./.test(c.entity)) throw new Error("jam-choice: entity must be a select or input_select");
-  }
+/* ---------- jam-media: now playing + transport keys ----------
+   {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop]} */
+class JamMedia extends JamBase {
+  validate(c) { if (!c.entity || !c.entity.startsWith("media_player.")) throw new Error("jam-media: entity must be a media_player"); }
   watched() { return [this._config.entity]; }
   css() { return `
     .wrap{display:grid;gap:10px;align-content:start}
-    .opts{display:grid;grid-template-columns:repeat(var(--cols,auto-fill),minmax(var(--min,92px),1fr));gap:8px}
-    .opt{text-align:left}
-    .opt > .face{--p-t:12px;--p-b:12px;--p-l:10px;--p-r:10px;min-height:46px;display:flex;align-items:center;
-      font-size:.76rem;letter-spacing:.08em;overflow-wrap:break-word;min-width:0}
-    .opt.busy > .face{border-color:var(--ochre)}`; }
+    .title{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:.95;text-transform:uppercase;overflow-wrap:anywhere}
+    .sub{color:var(--dim);overflow-wrap:anywhere}
+    .ctl{display:flex;gap:8px;flex-wrap:wrap}
+    .ctl .key{min-width:72px}
+    .ctl .key > .face{--p-t:12px;--p-b:12px;--p-l:14px;--p-r:14px}`; }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${s && !UNAVAILABLE.has(s.state) ? "on" : "alert"}`});
+    const t = tone(s);
+    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${t}${!s || UNAVAILABLE.has(s.state) ? " unavail" : ""}`});
     wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const box = el("div", "opts");
-    if (c.columns) box.style.setProperty("--cols", String(c.columns));
-    const all = (s && s.attributes.options) || [];
-    const list = c.options ? c.options.filter(o => all.includes(o)) : all;
-    const dom = c.entity.split(".")[0];
-    for (const o of list) {
-      const on = !!s && s.state === o;
-      const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""));
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    const a = (s && s.attributes) || {};
+    const title = a.media_title || a.app_name || (s ? fmtState(h, s) : "—");
+    const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.entity);
+    wrap.append(tt);
+    const sub = [a.media_artist, a.media_album_name].filter(Boolean).join(" · ");
+    if (sub) wrap.append(el("div", "sub", sub));
+    const ctl = el("div", "ctl");
+    const playing = s && s.state === "playing";
+    const map = {
+      prev: ["Prev", "media_previous_track"], next: ["Next", "media_next_track"], stop: ["Stop", "media_stop"],
+      play_pause: [playing ? "Pause" : "Play", "media_play_pause"],
+    };
+    for (const k of c.controls || ["prev", "play_pause", "next"]) {
+      const m = map[k]; if (!m) continue;
+      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "");
       btn.disabled = !s || UNAVAILABLE.has(s.state);
-      btn.onclick = () => { btn.classList.add("busy"); h.callService(dom, "select_option", {entity_id: c.entity, option: o}); };
-      box.append(btn);
+      btn.onclick = () => h.callService("media_player", m[1], {entity_id: c.entity});
+      ctl.append(btn);
     }
-    if (!list.length) box.append(el("div", "c-dim", s ? "No options" : "Entity not found"));
-    wrap.append(box);
+    wrap.append(ctl);
     b.append(root);
   }
-  getCardSize() { return 3; }
 }
+register("jam-media", JamMedia, "Jam Media", "Now playing and transport buttons for a media player.");
 
 /* ---------- jam-slider: cut paper strip for number / input_number / light brightness / media volume / fan speed ----------
    {type: custom:jam-slider, entity, name?, min?, max?, step?} */
@@ -569,65 +564,72 @@ class JamSlider extends JamBase {
     };
   }
 }
+register("jam-slider", JamSlider, "Jam Slider", "Cut paper strip for numbers, light brightness, media volume or fan speed.");
 
-/* ---------- jam-media: now playing + transport keys ----------
-   {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop]} */
-class JamMedia extends JamBase {
-  validate(c) { if (!c.entity || !c.entity.startsWith("media_player.")) throw new Error("jam-media: entity must be a media_player"); }
+/* ---------- jam-tile: entity block with status stripe ----------
+   {type: custom:jam-tile, entity, name?, label?, control?: auto|toggle|lock|press|none, tones?: {state: on|alert|calm|off},
+    tap_action?, hold_action?, double_tap_action?, show_last_changed?}
+   control auto: lock.* -> lock, button./input_button. -> press, on/off toggleable entities -> toggle. */
+class JamTile extends JamBase {
+  validate(c) { if (!c.entity) throw new Error("jam-tile: entity is required"); }
   watched() { return [this._config.entity]; }
   css() { return `
-    .wrap{display:grid;gap:10px;align-content:start}
-    .title{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:.95;text-transform:uppercase;overflow-wrap:anywhere}
-    .sub{color:var(--dim);overflow-wrap:anywhere}
-    .ctl{display:flex;gap:8px;flex-wrap:wrap}
-    .ctl .key{min-width:72px}
-    .ctl .key > .face{--p-t:12px;--p-b:12px;--p-l:14px;--p-r:14px}`; }
+    .tile{--p-r:12px;display:grid;gap:4px;min-height:78px;align-content:center}
+    .row{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center}
+    .main{flex:1 1 0;max-width:100%}
+    .name{font:600 .74rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow-wrap:anywhere}
+    .val{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:.95;text-transform:uppercase;overflow-wrap:break-word}
+    .sw{flex:none;min-width:64px}
+    .sub{color:var(--dim);font-size:.8rem}`; }
+  _control(s) {
+    const c = this._config, d = c.entity.split(".")[0], ctl = c.control || "auto";
+    if (ctl !== "auto") return ctl;
+    if (d === "lock") return "lock";
+    if (d === "button" || d === "input_button") return "press";
+    return toggleable(c.entity) && s && (s.state === "on" || s.state === "off") ? "toggle" : "none";
+  }
+  _key(s) {
+    const c = this._config, h = this._hass, d = c.entity.split(".")[0], ctl = this._control(s);
+    if (!s) return null;
+    const k = `jam-tile|${c.entity}|key`;
+    let key, call;
+    if (ctl === "toggle") {
+      const on = s.state === "on";
+      key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""));
+      key.setAttribute("aria-pressed", on ? "true" : "false");
+      call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
+    } else if (ctl === "lock") {
+      const locked = s.state === "locked";
+      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""));
+      call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
+    } else if (ctl === "press") {
+      key = cutKey("Press", k, "sw");
+      call = () => h.callService(d, "press", {entity_id: c.entity});
+    } else return null;
+    if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);
+    key.onclick = e => { e.stopPropagation(); call(); };
+    return key;
+  }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
-    const t = tone(s);
-    const {root, face: wrap} = this.paper(c.entity, {edges: "rb", face: `wrap stripe s-${t}${!s || UNAVAILABLE.has(s.state) ? " unavail" : ""}`});
-    wrap.append(el("div", "label", c.name || friendly(h, c.entity)));
-    const a = (s && s.attributes) || {};
-    const title = a.media_title || a.app_name || (s ? fmtState(h, s) : "—");
-    const tt = el("div", "title", title); tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, c.entity);
-    wrap.append(tt);
-    const sub = [a.media_artist, a.media_album_name].filter(Boolean).join(" · ");
-    if (sub) wrap.append(el("div", "sub", sub));
-    const ctl = el("div", "ctl");
-    const playing = s && s.state === "playing";
-    const map = {
-      prev: ["Prev", "media_previous_track"], next: ["Next", "media_next_track"], stop: ["Stop", "media_stop"],
-      play_pause: [playing ? "Pause" : "Play", "media_play_pause"],
-    };
-    for (const k of c.controls || ["prev", "play_pause", "next"]) {
-      const m = map[k]; if (!m) continue;
-      const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "");
-      btn.disabled = !s || UNAVAILABLE.has(s.state);
-      btn.onclick = () => h.callService("media_player", m[1], {entity_id: c.entity});
-      ctl.append(btn);
-    }
-    wrap.append(ctl);
+    const t = tone(s, c.tones);
+    const {root, face} = this.paper(c.entity, {cls: "press", face: `tile stripe s-${t}${!s || UNAVAILABLE.has(s.state) ? " unavail" : ""}`});
+    root.tabIndex = 0; root.setAttribute("role", "button");
+    bindActions(root, () => this._hass, c, c.entity);
+    const row = el("div", "row");
+    const left = el("div", "main"); /* basis 0: the key wraps below only when the longest value word needs the room */
+    left.append(el("div", "name", c.name || friendly(h, c.entity)));
+    left.append(el("div", `val num c-${t === "off" ? "dim" : t}`, c.label || fmtState(h, s)));
+    row.append(left);
+    const key = this._key(s);
+    if (key) row.append(key);
+    face.append(row);
+    if (c.show_last_changed && s) face.append(el("div", "sub num", new Date(s.last_changed).toLocaleString([], {hour: "2-digit", minute: "2-digit", month: "short", day: "numeric"})));
     b.append(root);
   }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
 }
+register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status stripe and an optional on/off, lock or press key.");
 
-const CARDS = [
-  ["jam-heading", JamHeading, "Jam Heading", "Section title slab with an accent rule and optional state chips."],
-  ["jam-hero", JamHero, "Jam Hero", "Paper slab with clipped corner: big title from an entity, meta line and chips."],
-  ["jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status stripe and an optional on/off, lock or press key."],
-  ["jam-choice", JamChoice, "Jam Choice", "Select / input_select options as chunky chips."],
-  ["jam-slider", JamSlider, "Jam Slider", "Cut paper strip for numbers, light brightness, media volume or fan speed."],
-  ["jam-media", JamMedia, "Jam Media", "Now playing and transport buttons for a media player."],
-];
-/* Shared API for cards added later (in this file) and for debugging. */
-window.JamCards = Object.freeze({
-  VERSION, BASE_CSS, JamBase, seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
-  el, stateObj, friendly, fmtState, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-});
-window.customCards = window.customCards || [];
-for (const [tag, cls, name, description] of CARDS) {
-  if (!customElements.get(tag)) customElements.define(tag, cls);
-  if (!window.customCards.some(c => c.type === tag)) window.customCards.push({type: tag, name, description, preview: false});
-}
 console.info(`%c JAM CARDS %c ${VERSION} `, "background:#d43a1c;color:#ece2c9;font-weight:900", "background:#141210;color:#e5a31b");
 })();

@@ -1,0 +1,16 @@
+# File map
+- CLAUDE.md — agent rules for this repo
+- filemap.md — this file
+- README.md, LICENSE, hacs.json — HACS packaging + user docs
+- docs/DESIGN.md — design rules (source of truth); docs/PLAN.md — v0.2 task list
+- jam-cards.js — GENERATED shipped bundle (HACS); never edit by hand
+- src/header.js — banner comment, opens the IIFE, VERSION
+- src/core.js — fonts, BASE_CSS, helpers, edge/paper system, JamBase, window.JamCards, register()
+- src/cards/jam-*.js — one card class each, ends with register(tag, Class, name, description)
+- src/footer.js — console banner, closes the IIFE
+- tools/bundle.mjs — builds jam-cards.js + preview/fixtures/index.js; --check exits 1 if stale
+- preview/index.html — fake hass + theme tokens; renders all fixtures
+- preview/fixtures/NN-*.js — jamPreview.add({states, sections}); index.js is GENERATED
+- preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
+- preview/shoot.js — runs bundle, screenshots, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
+- preview/shots/ — screenshots written by shoot.js
