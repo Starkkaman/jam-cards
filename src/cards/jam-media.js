@@ -11,10 +11,11 @@
     ⋯ with `more`; nothing under 18px),
     more?: {title?, kicker?, cards: [card configs]} (⋯ key opening a sheet with these cards; they get this card's hass),
     title_entity?, state_entity?, picture_entity?, sub_entities?: [id | {entity, name?}] (players without a media_player,
-    e.g. NerveOS: title = title_entity's state, on/paused/off tone = state_entity, art = picture_entity's entity_picture,
+    e.g. NerveOS: title = title_entity's state ("Nothing" / "None" / "Idle" = nothing playing: title "Idle", 0.6.1), on/paused/off tone = state_entity, art = picture_entity's entity_picture,
     sub line = name · each sub entity "name value"; `entity` is optional then and transport/volume need it)}
    Accent = art block (paused: dim), play key, volume fill, active chips. Transport keys and chips use the chip cut.
    v1 configs (entity, name, controls) render unchanged in meaning. */
+const JAM_MEDIA_NOTHING = /^(nothing|none|idle)$/i; // title_entity states that mean "nothing playing"
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
 /* size: "kiosk" (0.6.0): the face is a size container; the art takes what the text and keys leave. */
 const JAM_MEDIA_KIOSK_CSS = `
@@ -167,9 +168,11 @@ class JamMedia extends JamSheetHost(JamBase) {
     const ts = c.title_entity ? stateObj(h, c.title_entity) : null;
     const ps = c.picture_entity ? stateObj(h, c.picture_entity) : null;
     const off = !ss || UNAVAILABLE.has(ss.state);
-    const tv = ts && !UNAVAILABLE.has(ts.state) && String(ts.state).trim() ? String(ts.state) : null;
+    // A title_entity whose state is a "nothing playing" word (NerveOS reports "Nothing") is no title: the card shows "Idle".
+    const tvRaw = ts && !UNAVAILABLE.has(ts.state) ? String(ts.state).trim() : "";
+    const idleWord = JAM_MEDIA_NOTHING.test(tvRaw), tv = tvRaw && !idleWord ? tvRaw : null;
     const name = (id === c.entity && c.name) || (!id && c.name) || friendly(h, id || c.state_entity || c.title_entity);
-    const title = c.title_entity ? (tv || name || "—") : (a.media_title || a.app_name || (s ? fmtState(h, s) : "—"));
+    const title = c.title_entity ? (tv || (idleWord ? "Idle" : name) || "—") : (a.media_title || a.app_name || (s ? fmtState(h, s) : "—"));
     const pic = c.picture_entity ? (ps && !UNAVAILABLE.has(ps.state) ? ps.attributes.entity_picture : null) : (a.entity_picture_local || a.entity_picture);
     const paused = !!ss && (ss.state === "paused" || (!!c.state_entity && !off && tone(ss) !== "on"));
     return {s, a, ss, off, name, title, pic, paused, playing: !!s && s.state === "playing"};

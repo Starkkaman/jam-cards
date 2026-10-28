@@ -1,9 +1,12 @@
 /* ---------- jam-kiosk: the kiosk home screen ("B · Poster + dock", 0.5.0) ----------
    {type: custom:jam-kiosk, accent? (room colour of the 10px top bar, default ochre), now?: [sources, first active one wins],
-    dock: [2-5 blocks], facts line under the clock (0.6.0; each part only while its sensor has a value):
-    inside_entity? (temperature: "67° inside"), humidity_entity? ("58% humidity"), aq_entity? (air quality: "air excellent",
-    word via aqWord, a US AQI number becomes its category)} -> "Tuesday · October 28 · 67° inside · 58% humidity · air excellent"
-   (Jost 600 20-22px, dim, natural case; wraps between parts, never an ellipsis).
+    dock: [2-5 blocks], two lines under the clock (0.6.1):
+     date line: "TUESDAY · OCTOBER 28" in the display font (Londrina 900, like the clock and the "now" line), uppercase, --fg,
+      about 0.3x the clock digit height (30-40px), one line, never wraps;
+     facts line (each part only while its sensor has a value; the line is left out when none has one):
+      inside_entity? (temperature: "67° inside"), humidity_entity? ("58% humidity"), aq_entity? (air quality: "air excellent",
+      word via aqWord, a US AQI number becomes its category)} -> "67° inside · 58% humidity · air excellent"
+      (Jost 600 20-22px, dim, natural case; wraps between parts, never an ellipsis).
    now sources (right-hand "now" block: kicker, big line max 2 lines, small line):
     {type: media, entity (media_player), states? (["playing"]: states that make it active), kicker? ("Playing" /
      "Paused"), app_entity? (sensor/select whose state names the app on screen)} -> big = media_title, else the app;
@@ -27,6 +30,8 @@
    is forwarded to them while open; closed on setConfig / disconnect. Motion: one-shot only (a dock block stamps on press,
    the sheet opens with the existing slide); no view entrance, no loops (weak Echo Show). No cut corners: the poster band
    and the dock are flat full-width blocks (approved mockup). Nothing on the card is set under 18px. */
+const JAM_KIOSK_NOTHING = /^(nothing|none|idle)$/i; // an app / title sensor saying nothing is on is no app or title
+const jamKioskTitle = t => { t = t == null ? "" : String(t).trim(); return JAM_KIOSK_NOTHING.test(t) ? "" : t; };
 const JAM_KIOSK_PKG = /^[a-z][\w-]*(\.[\w-]+){2,}$/i; // an Android package name (com.example.app) is not shown as an app
 class JamKioskHome extends JamBase {
   constructor() {
@@ -102,7 +107,10 @@ class JamKioskHome extends JamBase {
     .left{min-width:0}
     .clock{font-family:var(--display);font-weight:900;font-size:clamp(96px,min(19cqw,31cqh),200px);line-height:.8;letter-spacing:-.01em;white-space:nowrap}
     .clock small{font:600 max(18px,.15em)/1 var(--body);letter-spacing:.12em;margin-left:.25em;vertical-align:top;color:var(--dim)}
-    .date{font:600 clamp(20px,2.2cqw,22px)/1.3 var(--body);letter-spacing:.03em;color:var(--dim);margin-top:14px;overflow-wrap:normal}
+    .day{font-family:var(--display);font-weight:900;font-size:clamp(30px,min(3.7cqw,6.2cqh),40px);line-height:1;letter-spacing:.01em;
+      text-transform:uppercase;color:var(--fg);white-space:nowrap;margin-top:16px}
+    .date{font:600 clamp(20px,2.2cqw,22px)/1.3 var(--body);letter-spacing:.03em;color:var(--dim);margin-top:8px;overflow-wrap:normal}
+    .date:empty{display:none}
     .date .f{white-space:nowrap}
     .now{display:grid;gap:14px;justify-items:end;text-align:right;min-width:0;align-content:end}
     .now:empty{display:none}
@@ -144,8 +152,8 @@ class JamKioskHome extends JamBase {
     setAccent(this._body, c.accent);
     const k = el("div", "k"), poster = el("div", "poster"), bar = el("div", "bar"), left = el("div", "left");
     bar.setAttribute("aria-hidden", "true");
-    this._time = el("div", "clock num"); this._date = el("div", "date");
-    left.append(this._time, this._date);
+    this._time = el("div", "clock num"); this._day = el("div", "day"); this._date = el("div", "date");
+    left.append(this._time, this._day, this._date);
     this._now = el("div", "now"); this._now.setAttribute("aria-live", "off");
     this._nk = el("div", "kick"); this._nb = el("div", "big"); this._ns = el("div", "small");
     poster.append(bar, left, this._now);
@@ -176,11 +184,14 @@ class JamKioskHome extends JamBase {
     this._body.classList.toggle("light", !dark);
     const c = this._config, h = this._hass;
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
-    // Facts line: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent"; one nowrap span per part, so it
-    // wraps between parts (never inside one, never an ellipsis). Rebuilt only when the text changed.
+    // Date line: "Tuesday · October 28" (shown uppercase in the display font), one line.
     const d = new Date(), lang = this._lang(), parts = [];
-    try { parts.push(d.toLocaleDateString(lang, {weekday: "long"}), d.toLocaleDateString(lang, {month: "long", day: "numeric"})); }
-    catch (e) { parts.push(d.toDateString()); }
+    let day;
+    try { day = d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
+    catch (e) { day = d.toDateString(); }
+    set(this._day, day);
+    // Facts line: "67° inside · 58% humidity · air excellent"; one nowrap span per part, so it wraps between parts (never
+    // inside one, never an ellipsis); empty (hidden) without any value. Rebuilt only when the text changed.
     const num = id => { const s = stateObj(h, id); return s && String(s.state).trim() !== "" && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
     const tIn = num(c.inside_entity), hum = num(c.humidity_entity), aq = c.aq_entity ? aqWord((stateObj(h, c.aq_entity) || {}).state) : null;
     if (tIn !== null) parts.push(`${tIn}° inside`);
@@ -251,14 +262,14 @@ class JamKioskHome extends JamBase {
   }
   _app(src, s) {
     const a = stateObj(this._hass, src.app_entity);
-    if (a && !UNAVAILABLE.has(a.state) && String(a.state).trim()) return String(a.state);
+    if (a && !UNAVAILABLE.has(a.state) && String(a.state).trim() && !JAM_KIOSK_NOTHING.test(String(a.state).trim())) return String(a.state);
     const n = s && s.attributes && s.attributes.app_name;
     return n && !JAM_KIOSK_PKG.test(n) ? String(n) : "";
   }
   _media(src) {
     const s = stateObj(this._hass, src.entity);
     if (!s || !(src.states || ["playing"]).includes(s.state)) return null;
-    const a = s.attributes || {}, app = this._app(src, s), title = a.media_title ? String(a.media_title) : "";
+    const a = s.attributes || {}, app = this._app(src, s), title = jamKioskTitle(a.media_title);
     const big = title || app || friendly(this._hass, src.entity);
     const small = a.media_artist ? String(a.media_artist) : title && app ? app : "";
     return {src: "media:" + src.entity, kick: src.kicker || (s.state === "paused" ? "Paused" : "Playing"), big, small};
@@ -334,7 +345,7 @@ class JamKioskHome extends JamBase {
     if (dom === "media_player") {
       if (UNAVAILABLE.has(s.state) || s.state === "off" || s.state === "standby") return "Off";
       const a = s.attributes || {}, app = this._app(spec, {attributes: {}});
-      if ((s.state === "playing" || s.state === "paused") && a.media_title) return String(a.media_title);
+      if ((s.state === "playing" || s.state === "paused") && jamKioskTitle(a.media_title)) return jamKioskTitle(a.media_title);
       if (app) return app;
       if (s.state === "playing" || s.state === "paused") return a.app_name && !JAM_KIOSK_PKG.test(a.app_name) ? String(a.app_name) : s.state === "playing" ? "Playing" : "Paused";
       return s.state === "on" ? "On" : "Idle";

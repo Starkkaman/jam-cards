@@ -3,7 +3,7 @@
 //  - Music sheet (jam-speaker kiosk): two columns, square art ≈ 46% (<= 440px) left, title 44-72px (<= 3 lines), keys >= 72px,
 //    volume bar >= 48px; Speakers tab rows >= 64px; the card fills the sheet body and nothing scrolls or overflows
 //  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster ≈ 45% of the card height, keys >= 64px, source
-//    tiles >= 64px, NerveOS art square + ⋯ sheet still opens
+//    tiles >= 64px, NerveOS art square + ⋯ sheet still opens; NerveOS idle ("Nothing") shows "Idle" (0.6.1)
 //  - nothing under 18px in any kiosk card; art present (img) with a picture, Golden Arm bars without one / on a broken URL
 // Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources}-dark-{1024,961}.png.
 const path = require("path");
@@ -146,6 +146,19 @@ module.exports = async (page, check) => {
       await p.waitForTimeout(300);
       m = await measure(p);
       check(!m.cards[0].img && m.cards[0].bars && !m.cards[1].img && m.cards[1].bars, "kiosk sheets: TV with a broken art URL and NerveOS without art -> Golden Arm bars");
+      // 0.6.1: NerveOS idle — the now-playing sensor says "Nothing" / "none" / "IDLE": title "Idle", "Nothing" nowhere.
+      const idle = [];
+      for (const word of ["Nothing", "none", "IDLE"]) idle.push(await p.evaluate(async word => {
+        const h = window.__hass;
+        h.states["sensor.ks_nv_now"] = {...h.states["sensor.ks_nv_now"], state: word, last_updated: String(Math.random())};
+        document.querySelector("jam-kiosk").hass = {...h};
+        await new Promise(r => setTimeout(r, 100));
+        const nv = [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-media"), sr = nv.shadowRoot;
+        const t = sr.querySelector(".title");
+        return {word, title: t ? t.textContent : "", nothing: /nothing/i.test(sr.textContent), ok: !new RegExp("^" + word + "$", "i").test(t ? t.textContent.trim() : "")};
+      }, word));
+      check(idle.every(x => x.title === "Idle" && !x.nothing && (x.word === "IDLE" || x.ok)),
+        `kiosk sheets: NerveOS idle ("Nothing" / "none" / "IDLE") shows "Idle", never "Nothing" (${idle.map(x => x.word + " -> " + x.title).join(", ")})`);
     }
     await ctx.close();
   }

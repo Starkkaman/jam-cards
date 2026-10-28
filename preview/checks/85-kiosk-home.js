@@ -5,7 +5,9 @@
 //  - clock follows hass.locale (12 h "2:41" + small PM, 24 h "14:41", live switch on a new locale object)
 //  - now-source fallback order (TV paused > speaker playing > weather), weather outlook from the hourly forecast
 //    ("Rain at 3 · high 68°") or humidity without a forecast
-//  - dock states: count_on ("3 on" / "All off"), media (app / title / Idle / Off), AQ word, text
+//  - date line (0.6.1): own line above the facts, Londrina like the clock, uppercase, --fg, 30-40px, one line, clear of now/dock;
+//    facts line left out without sensor values
+//  - dock states: count_on ("3 on" / "All off"), media (app / title / Idle / Off), AQ word, text; "Nothing" app/title never shown
 //  - a sheet block opens a fullscreen sheet whose child cards get hass (and later updates); disconnect closes it
 //  - the action block asks for confirmation (cancel = no call, OK = light.turn_off)
 //  - a dock block stamps on press (one-shot class, removed afterwards)
@@ -51,7 +53,8 @@ module.exports = async (page, check) => {
   const read = p => p.evaluate(() => {
     const k = document.querySelector("jam-kiosk"), r = k.shadowRoot, q = s => r.querySelector(s);
     const now = q(".now");
-    return {clock: q(".clock").textContent, small: (q(".clock small") || {}).textContent || "", date: q(".date").textContent,
+    return {clock: q(".clock").textContent, small: (q(".clock small") || {}).textContent || "", day: q(".day").textContent, date: q(".date").textContent,
+      dateShown: getComputedStyle(q(".date")).display !== "none",
       kick: now.childElementCount ? q(".kick").textContent : "", big: now.childElementCount ? q(".big").textContent : "",
       sml: now.childElementCount ? q(".small").textContent : "", src: now.dataset.source || "",
       states: [...r.querySelectorAll(".blk")].map(b => b.querySelector(".st").textContent)};
@@ -85,7 +88,16 @@ module.exports = async (page, check) => {
       const facts = {fs: parseFloat(dcs.fontSize), lines: Math.round(dt.getBoundingClientRect().height / parseFloat(dcs.lineHeight)), weight: dcs.fontWeight,
         upper: dcs.textTransform, clip: dt.scrollHeight > dt.clientHeight + 3 || dt.scrollWidth > dt.clientWidth + 1 || dcs.textOverflow === "ellipsis" || dcs.overflow !== "visible",
         partsWhole: [...dt.querySelectorAll(".f")].every(f => f.getClientRects().length === 1), text: dt.textContent};
-      return {facts, scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
+      // 0.6.1 date line: its own element above the facts line, display font like the clock, uppercase, --fg, one line.
+      const dy = r.querySelector(".day"), ycs = getComputedStyle(dy), yb = dy.getBoundingClientRect(), cl = r.querySelector(".clock");
+      const fgCol = getComputedStyle(k).color, nowEl = r.querySelector(".now"), nb = nowEl.getBoundingClientRect(), db = dt.getBoundingClientRect();
+      const fam = s => s.split(",")[0].trim().replace(/"/g, "");
+      const day = {fs: parseFloat(ycs.fontSize), fam: fam(ycs.fontFamily), clockFam: fam(getComputedStyle(cl).fontFamily), weight: ycs.fontWeight,
+        upper: ycs.textTransform, col: ycs.color, fg: fgCol, ws: ycs.whiteSpace, lines: Math.round(yb.height / parseFloat(ycs.fontSize)),
+        sib: dy.parentElement === dt.parentElement && dy.nextElementSibling === dt, above: yb.bottom <= db.top + 1, text: dy.textContent,
+        fits: dy.scrollWidth <= dy.clientWidth + 1 && yb.right <= (nowEl.childElementCount ? nb.left : Infinity) + 1,
+        clear: [yb, db].every(b => b.bottom <= dock.top - 8 && (!nowEl.childElementCount || b.right <= nb.left || b.bottom <= nb.top))};
+      return {facts, day, scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
         clock: fs(r.querySelector(".clock")), big: fs(r.querySelector(".big")), nm: fs(r.querySelector(".nm")), dockH: Math.round(dock.height),
         bar: Math.round(bar.height), barBg: getComputedStyle(r.querySelector(".bar")).backgroundColor,
         equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over, gaps, none, clipped};
@@ -97,6 +109,10 @@ module.exports = async (page, check) => {
       `${tag}: clock ${m.clock}px, now ${m.big}px, dock names ${m.nm}px, dock ${m.dockH}px of equal blocks, 10px accent bar`);
     check(m.facts.fs >= 20 && m.facts.fs <= 22 && m.facts.weight === "600" && m.facts.upper === "none" && m.facts.lines <= 2 && !m.facts.clip && m.facts.partsWhole,
       `${tag}: facts line ${m.facts.fs}px Jost 600, natural case, ${m.facts.lines} line(s), wraps between parts, no ellipsis ("${m.facts.text}")`);
+    check(m.day.fs >= 30 && m.day.fs <= 40 && m.day.fam === m.day.clockFam && m.day.fam === "Londrina Solid" && m.day.weight === "900" && m.day.upper === "uppercase" &&
+      m.day.col === m.day.fg && m.day.ws === "nowrap" && m.day.lines === 1 && m.day.sib && m.day.above && m.day.fits,
+      `${tag}: date line is its own line above the facts: ${m.day.fs}px ${m.day.fam} ${m.day.weight} uppercase in --fg, 1 line, fits ("${m.day.text}")`);
+    check(m.day.clear, `${tag}: date + facts lines clear the "now" block and the dock`);
     check(m.clipped.length === 0, `${tag}: no dock state line is clipped` + (m.clipped.length ? " — " + m.clipped.join(", ") : ""));
     check(m.gaps.length > 0 && m.gaps.every(g => g === 6), `${tag}: 6px gaps between dock blocks (${m.gaps.join(",")})`);
     check(m.none.length > 0 && m.none.every(n => n.fgOk && n.st >= 4.5 && (mode === "dark" || n.vsPage >= 1.3)),
@@ -125,8 +141,8 @@ module.exports = async (page, check) => {
   {
     const {ctx, p} = await mount(1024, 768, "dark");
     let s = await read(p);
-    check(s.clock === "2:41PM" && s.small === "PM" && s.date === "Wednesday · October 28 · 66° inside · 58% humidity · air excellent",
-      `jam-kiosk clock 12 h: "${s.clock}" (small "${s.small}"), date "${s.date}"`);
+    check(s.clock === "2:41PM" && s.small === "PM" && s.day === "Wednesday · October 28" && s.date === "66° inside · 58% humidity · air excellent",
+      `jam-kiosk clock 12 h: "${s.clock}" (small "${s.small}"), date "${s.day}", facts "${s.date}"`);
     await p.evaluate(() => { const k = document.querySelector("jam-kiosk"); k.hass = {...window.__hass, locale: {language: "en", time_format: "24"}}; });
     s = await read(p);
     check(s.clock === "14:41" && s.small === "", `jam-kiosk clock 24 h after a locale change: "${s.clock}"`);
@@ -151,6 +167,16 @@ module.exports = async (page, check) => {
     for (const id of ["light.kh_lamp", "light.kh_ceiling", "switch.kh_tree"]) await set(p, id, "off");
     s = await read(p);
     check(s.states.join("|") === "All off|Jamfin|Idle|Excellent|Lights", `jam-kiosk dock states after changes: ${s.states.join(" | ")}`);
+    // 0.6.1: an app / title sensor saying "Nothing" is no app (dock and now block never show it).
+    await set(p, "sensor.kh_tv_app", "Nothing");
+    s = await read(p);
+    const tvOn = s.states[1];
+    await set(p, "media_player.kh_tv", "playing", {media_title: "Nothing"});
+    s = await read(p);
+    check(tvOn === "On" && s.states[1] === "Playing" && !/nothing/i.test(s.states.join("|") + s.big + s.sml),
+      `jam-kiosk: "Nothing" app / title is never shown (dock TV on -> "${tvOn}", playing -> "${s.states[1]}", now "${s.big}" / "${s.sml}")`);
+    await set(p, "sensor.kh_tv_app", "Jamfin");
+    await set(p, "media_player.kh_tv", "on", {media_title: null});
     await set(p, "media_player.kh_tv", "off");
     await set(p, "sensor.kh_air_quality", "137");
     s = await read(p);
@@ -158,7 +184,13 @@ module.exports = async (page, check) => {
     check(/ · air unhealthy for sensitive$/.test(s.date), `jam-kiosk facts line follows the AQ sensor: "${s.date}"`);
     await set(p, "sensor.kh_humidity", "unavailable");
     s = await read(p);
-    check(s.date === "Wednesday · October 28 · 66° inside · air unhealthy for sensitive", `jam-kiosk facts line drops a part without a value: "${s.date}"`);
+    check(s.date === "66° inside · air unhealthy for sensitive", `jam-kiosk facts line drops a part without a value: "${s.date}"`);
+    await set(p, "sensor.kh_inside", "unavailable");
+    await set(p, "sensor.kh_air_quality", "unknown");
+    s = await read(p);
+    check(s.date === "" && !s.dateShown && s.day === "Wednesday · October 28", `jam-kiosk facts line is left out without any sensor value (date "${s.day}" stays)`);
+    await set(p, "sensor.kh_inside", "66");
+    await set(p, "sensor.kh_air_quality", "137");
     // Stamp on press (one-shot, removed after the animation).
     const stamp = await p.evaluate(async () => {
       const b = document.querySelector("jam-kiosk").shadowRoot.querySelectorAll(".blk")[2];

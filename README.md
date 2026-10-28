@@ -125,7 +125,7 @@ entity: media_player.kitchen
 | `compact` | Mini layout: 52px art, title, sub line and one key (⋯ with `more`, else play/pause) |
 | `size` | `kiosk` (0.6.0, wins over `compact`): fullscreen-sheet layout for jam-kiosk — large square art, big title, sub line, 64 px keys (transport with a media_player, ⋯ with `more`); fills the sheet height |
 | `more` | `{title, kicker, cards}`: ⋯ key opening a sheet with these cards (they get this card's hass) |
-| `title_entity`, `state_entity`, `picture_entity`, `sub_entities` | Players without a media_player (e.g. a PC): title from an entity state, on/off tone, art from `entity_picture`, sub line of `id` or `{entity, name}`; `entity` is optional then |
+| `title_entity`, `state_entity`, `picture_entity`, `sub_entities` | Players without a media_player (e.g. a PC): title from an entity state, on/off tone, art from `entity_picture`, sub line of `id` or `{entity, name}`; `entity` is optional then. A title state of `Nothing` / `None` / `Idle` (0.6.1) shows as "Idle" |
 | `accent` | Art block, play key, volume fill, active chips |
 
 ### jam-button
@@ -456,8 +456,8 @@ card is on only (it stays hidden while you switch views there, and comes back wh
 Way out: press and hold the top-left corner (48 × 48 px) for 2 seconds; the sidebar and header return until the page is reloaded.
 
 ### jam-kiosk
-The kiosk home screen (0.5.0, "Poster + dock"): fills the whole view with a huge clock, a facts line (date, inside temperature,
-humidity, air quality), a
+The kiosk home screen (0.5.0, "Poster + dock"): fills the whole view with a huge clock, the date under it in the
+display font (0.6.1: its own line), a facts line (inside temperature, humidity, air quality; left out without values), a
 "now" line (what is playing, else the weather outside) and a dock of 2-5 flat colour blocks along the bottom. Built to be
 read from across the room: nothing under 18 px, one room colour (the bar at the top) plus the dock blocks, no chips.
 A block opens a fullscreen sheet with its own cards, or runs an action. Weak-kiosk friendly: one timer per minute, no
