@@ -15,10 +15,12 @@ jamPreview.add({
     st("light.kh_wled", "off", {friendly_name: "Kiosk WLED"}),
     st("switch.kh_tree", "on", {friendly_name: "Kiosk tree"}),
     st("sensor.kh_air_quality", "excellent", {friendly_name: "Kiosk air quality"}),
+    st("sensor.kh_humidity", "57.6", {friendly_name: "Kiosk humidity", unit_of_measurement: "%", device_class: "humidity"}),
     st("lock.kh_door", "locked", {friendly_name: "Kiosk door"}),
   ],
   sections: [
     ["full", {type: "custom:jam-kiosk", accent: "living", inside_entity: "sensor.kh_inside",
+      humidity_entity: "sensor.kh_humidity", aq_entity: "sensor.kh_air_quality",
       now: [
         {type: "media", entity: "media_player.kh_tv", states: ["playing", "paused"], kicker: "On the TV", app_entity: "sensor.kh_tv_app"},
         {type: "media", entity: "media_player.kh_speaker"},

@@ -5,6 +5,10 @@
     group?: [media_player ids] (toggle chips: media_player.join / unjoin with the controlled player;
     hidden unless both have the GROUPING feature bit), accent? (DESIGN "Colour system"),
     compact? (mini layout: 52px art, title, sub line, one key = ⋯ with `more`, else play/pause),
+    size? ("kiosk", 0.6.0, wins over compact: fullscreen-sheet layout for jam-kiosk; fills its parent's height, 420px
+    when that has none: a large square art (duotone, poster cut, min(full width, height left)), 18px kicker = name,
+    title in Londrina 36-56px (2 lines), 20px sub line, then 64px keys: Prev / Play-Pause / Next with a media_player and
+    ⋯ with `more`; nothing under 18px),
     more?: {title?, kicker?, cards: [card configs]} (⋯ key opening a sheet with these cards; they get this card's hass),
     title_entity?, state_entity?, picture_entity?, sub_entities?: [id | {entity, name?}] (players without a media_player,
     e.g. NerveOS: title = title_entity's state, on/paused/off tone = state_entity, art = picture_entity's entity_picture,
@@ -12,6 +16,24 @@
    Accent = art block (paused: dim), play key, volume fill, active chips. Transport keys and chips use the chip cut.
    v1 configs (entity, name, controls) render unchanged in meaning. */
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
+/* size: "kiosk" (0.6.0): the face is a size container; the art takes what the text and keys leave. */
+const JAM_MEDIA_KIOSK_CSS = `
+    :host{height:100%;min-height:420px}
+    .kiosk{height:100%}
+    .kiosk > .face.kw{--p-t:18px;--p-r:18px;--p-b:20px;--p-l:18px;container-type:size;overflow:hidden}
+    .kc{height:100%;display:flex;flex-direction:column;gap:14px;min-height:0}
+    .kbox{flex:1 1 0;min-height:0;container-type:size}
+    .kart{--aw:min(100cqw,100cqh);width:var(--aw);height:var(--aw);aspect-ratio:auto}
+    .kart .arm{height:62%;gap:10px} .kart .arm span{min-width:18px}
+    .ktxt{display:grid;gap:8px;min-width:0;align-content:start;flex:none}
+    .ktxt .kick{font:600 18px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .ktxt .title{font-size:clamp(40px,13cqw,60px)}
+    .ktxt .sub{font:500 20px/1.25 var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .kkeys{flex:none;flex-wrap:nowrap;gap:8px}
+    .kkeys .key{min-width:0;flex:1 1 0}
+    .kkeys .key > .face{--p-t:0;--p-b:0;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:.1em}
+    .kkeys .more > .face{font-size:34px;letter-spacing:0}
+    @container (max-width:300px){ .kkeys .key > .face{font-size:14px;letter-spacing:.06em} }`;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
 /* Local helpers (also used by jam-tv): child cards in a core openSheet() sheet.
    jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs], css?, headerActions?, rule?, fullscreen? (openSheet)}) opens a sheet (theme tokens copied from host, back /
@@ -70,6 +92,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     if (c.sub_entities !== undefined && !Array.isArray(c.sub_entities)) throw new Error("jam-media: sub_entities must be a list");
     if (c.more !== undefined && !(c.more && Array.isArray(c.more.cards))) throw new Error("jam-media: more needs cards: [card configs]");
     for (const k of ["players", "group"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-media: ${k} must be a list of media_player ids`);
+    if (c.size !== undefined && !["kiosk", "normal"].includes(c.size)) throw new Error("jam-media: size is kiosk or normal");
   }
   setConfig(c) {
     if (c && this._active && !(Array.isArray(c.players) && c.players.includes(this._active))) this._active = null;
@@ -116,7 +139,8 @@ class JamMedia extends JamSheetHost(JamBase) {
     .mini .title{font-size:1.05rem;line-height:.95}
     .mini .sub{font-size:.74rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .mini .one{width:48px;min-width:48px;height:48px}
-    .mini .one > .face{padding:0;display:grid;place-items:center;font:900 1.05rem/1 var(--body);letter-spacing:0}`; }
+    .mini .one > .face{padding:0;display:grid;place-items:center;font:900 1.05rem/1 var(--body);letter-spacing:0}` +
+    (this._config && this._config.size === "kiosk" ? JAM_MEDIA_KIOSK_CSS : ""); }
   _url(u) {
     if (!u) return null;
     const h = this._hass;
@@ -150,9 +174,9 @@ class JamMedia extends JamSheetHost(JamBase) {
     const paused = !!ss && (ss.state === "paused" || (!!c.state_entity && !off && tone(ss) !== "on"));
     return {s, a, ss, off, name, title, pic, paused, playing: !!s && s.state === "playing"};
   }
-  _art(np, size) {
+  _art(np, kind) {
     const id = this._id || this._config.state_entity || this._config.title_entity;
-    const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: "chip", cls: "art" + (np.paused ? " paused" : "")});
+    const {root: art, face} = paper("div", "jam-media-art|" + id, {kind: kind || "chip", cls: "art" + (np.paused ? " paused" : "")});
     art.setAttribute("aria-hidden", "true"); art.onclick = () => moreInfo(this, id);
     const src = this._url(np.pic);
     if (src && !np.off) {
@@ -195,7 +219,37 @@ class JamMedia extends JamSheetHost(JamBase) {
     }
     b.append(root);
   }
+  /* size: "kiosk" (0.6.0): big art, name, title, sub line, 64px keys. */
+  _kioskRender(b) {
+    const c = this._config, np = this._np(), id = this._id;
+    const {root, face} = this.paper(c.entity || c.title_entity, {face: `kw${np.off ? " unavail" : ""}`});
+    root.classList.add("kiosk");
+    const wrap = el("div", "kc");
+    if (c.show_art !== false) { const art = this._art(np, "poster"), box = el("div", "kbox"); art.classList.add("kart"); box.append(art); wrap.append(box); }
+    const txt = el("div", "ktxt");
+    txt.append(el("div", "kick", np.name || ""), asButton(clampTitle(np.title), () => moreInfo(this, id || c.title_entity)));
+    const parts = c.title_entity ? this._subParts(np) : [np.a.media_artist, np.a.media_album_name];
+    const sub = parts.filter(Boolean).join(" · ");
+    if (sub) txt.append(el("div", "sub", sub));
+    wrap.append(txt);
+    const ctl = el("div", "ctl kkeys");
+    if (id) {
+      const map = {prev: ["Prev", "media_previous_track"], next: ["Next", "media_next_track"], stop: ["Stop", "media_stop"],
+        play_pause: [np.playing ? "Pause" : "Play", "media_play_pause"]};
+      for (const k of c.controls || ["prev", "play_pause", "next"]) {
+        const m = map[k]; if (!m) continue;
+        const btn = cutKey(m[0], `jam-media|${c.entity}|${k}`, k === "play_pause" ? "main on" : "", "chip");
+        btn.dataset.key = k; btn.disabled = np.off; btn.onclick = () => this._call(m[1]);
+        ctl.append(btn);
+      }
+    }
+    if (c.more) ctl.append(this._moreKey("on"));
+    if (ctl.children.length) wrap.append(ctl);
+    face.append(wrap);
+    b.append(root);
+  }
   render(b) {
+    if (this._config.size === "kiosk") { this._kioskRender(b); return; }
     if (this._config.compact) { this._compact(b); return; }
     const c = this._config, h = this._hass, id = this._id, np = this._np(), s = np.s, off = np.off;
     const a = np.a, feat = Number(a.supported_features) || 0;

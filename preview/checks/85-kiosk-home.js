@@ -81,7 +81,11 @@ module.exports = async (page, check) => {
         const cs = getComputedStyle(b), st = getComputedStyle(b.querySelector(".st"));
         return {bg: cs.backgroundColor, fgOk: cs.color === (fgc === "rgb(20, 18, 16)" ? "rgb(236, 226, 201)" : fgc), vsPage: ratio(cs.backgroundColor, page), st: ratio(st.color, cs.backgroundColor)};
       });
-      return {scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
+      const dt = r.querySelector(".date"), dcs = getComputedStyle(dt), dim = getComputedStyle(k.shadowRoot.querySelector(".kick") || dt).color;
+      const facts = {fs: parseFloat(dcs.fontSize), lines: Math.round(dt.getBoundingClientRect().height / parseFloat(dcs.lineHeight)), weight: dcs.fontWeight,
+        upper: dcs.textTransform, clip: dt.scrollHeight > dt.clientHeight + 3 || dt.scrollWidth > dt.clientWidth + 1 || dcs.textOverflow === "ellipsis" || dcs.overflow !== "visible",
+        partsWhole: [...dt.querySelectorAll(".f")].every(f => f.getClientRects().length === 1), text: dt.textContent};
+      return {facts, scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
         clock: fs(r.querySelector(".clock")), big: fs(r.querySelector(".big")), nm: fs(r.querySelector(".nm")), dockH: Math.round(dock.height),
         bar: Math.round(bar.height), barBg: getComputedStyle(r.querySelector(".bar")).backgroundColor,
         equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over, gaps, none, clipped};
@@ -91,6 +95,8 @@ module.exports = async (page, check) => {
       `${tag}: fills the viewport without scrolling (card ${m.cardH}px, bottom ${Math.round(m.bottom)}, page ${m.scrollW}x${m.scrollH})` + (m.over.length ? " — overflows: " + m.over.join(", ") : ""));
     check(m.clock >= 150 && m.clock <= 200 && m.big >= 52 && m.big <= 60 && m.nm >= 32 && m.nm <= 36 && m.dockH === 120 && m.bar === 10 && m.equal,
       `${tag}: clock ${m.clock}px, now ${m.big}px, dock names ${m.nm}px, dock ${m.dockH}px of equal blocks, 10px accent bar`);
+    check(m.facts.fs >= 20 && m.facts.fs <= 22 && m.facts.weight === "600" && m.facts.upper === "none" && m.facts.lines <= 2 && !m.facts.clip && m.facts.partsWhole,
+      `${tag}: facts line ${m.facts.fs}px Jost 600, natural case, ${m.facts.lines} line(s), wraps between parts, no ellipsis ("${m.facts.text}")`);
     check(m.clipped.length === 0, `${tag}: no dock state line is clipped` + (m.clipped.length ? " — " + m.clipped.join(", ") : ""));
     check(m.gaps.length > 0 && m.gaps.every(g => g === 6), `${tag}: 6px gaps between dock blocks (${m.gaps.join(",")})`);
     check(m.none.length > 0 && m.none.every(n => n.fgOk && n.st >= 4.5 && (mode === "dark" || n.vsPage >= 1.3)),
@@ -101,11 +107,25 @@ module.exports = async (page, check) => {
     await ctx.close();
   }
 
+  // ---------- 3 dock blocks share the width equally (living room: Lights, TV, Music) ----------
+  for (const [w, h] of SIZES) {
+    const {ctx, p} = await mount(w, h, "dark");
+    const eq = await p.evaluate(cfg => {
+      const k = document.querySelector("jam-kiosk");
+      k.setConfig({...cfg, dock: cfg.dock.slice(0, 3)}); k.hass = {...window.__hass};
+      const r = k.shadowRoot, d = r.querySelector(".dock").getBoundingClientRect();
+      const b = [...r.querySelectorAll(".blk")].map(x => x.getBoundingClientRect());
+      return {n: b.length, w: b.map(x => Math.round(x.width)), sum: Math.round(b.reduce((a, x) => a + x.width, 0) + 12), dock: Math.round(d.width), same: b.every(x => Math.abs(x.width - b[0].width) < 1 && Math.abs(x.top - b[0].top) < 1)};
+    }, cfg);
+    check(eq.n === 3 && eq.same && Math.abs(eq.sum - eq.dock) <= 1, `jam-kiosk ${w}x${h}: 3 dock blocks share the width equally (${eq.w.join(" / ")} of ${eq.dock}px)`);
+    await ctx.close();
+  }
+
   // ---------- clock 12/24 h + now order + dock states ----------
   {
     const {ctx, p} = await mount(1024, 768, "dark");
     let s = await read(p);
-    check(s.clock === "2:41PM" && s.small === "PM" && /^Wednesday · October 28 · 66° inside$/.test(s.date),
+    check(s.clock === "2:41PM" && s.small === "PM" && s.date === "Wednesday · October 28 · 66° inside · 58% humidity · air excellent",
       `jam-kiosk clock 12 h: "${s.clock}" (small "${s.small}"), date "${s.date}"`);
     await p.evaluate(() => { const k = document.querySelector("jam-kiosk"); k.hass = {...window.__hass, locale: {language: "en", time_format: "24"}}; });
     s = await read(p);
@@ -135,6 +155,10 @@ module.exports = async (page, check) => {
     await set(p, "sensor.kh_air_quality", "137");
     s = await read(p);
     check(s.states[1] === "Off" && s.states[3] === "Unhealthy for sensitive", `jam-kiosk dock: TV off -> "${s.states[1]}", AQI 137 -> "${s.states[3]}"`);
+    check(/ · air unhealthy for sensitive$/.test(s.date), `jam-kiosk facts line follows the AQ sensor: "${s.date}"`);
+    await set(p, "sensor.kh_humidity", "unavailable");
+    s = await read(p);
+    check(s.date === "Wednesday · October 28 · 66° inside · air unhealthy for sensitive", `jam-kiosk facts line drops a part without a value: "${s.date}"`);
     // Stamp on press (one-shot, removed after the animation).
     const stamp = await p.evaluate(async () => {
       const b = document.querySelector("jam-kiosk").shadowRoot.querySelectorAll(".blk")[2];

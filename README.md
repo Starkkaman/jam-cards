@@ -123,6 +123,7 @@ entity: media_player.kitchen
 | `players` | media_player ids: chip row that switches the controlled player |
 | `group` | media_player ids: join / unjoin chips (shown only when both players support grouping) |
 | `compact` | Mini layout: 52px art, title, sub line and one key (⋯ with `more`, else play/pause) |
+| `size` | `kiosk` (0.6.0, wins over `compact`): fullscreen-sheet layout for jam-kiosk — large square art, big title, sub line, 64 px keys (transport with a media_player, ⋯ with `more`); fills the sheet height |
 | `more` | `{title, kicker, cards}`: ⋯ key opening a sheet with these cards (they get this card's hass) |
 | `title_entity`, `state_entity`, `picture_entity`, `sub_entities` | Players without a media_player (e.g. a PC): title from an entity state, on/off tone, art from `entity_picture`, sub line of `id` or `{entity, name}`; `entity` is optional then |
 | `accent` | Art block, play key, volume fill, active chips |
@@ -317,6 +318,7 @@ stereo:
 | `volume_up_action`, `volume_down_action`, `mute_action` | Volume row on the card (keys without an action are left out; Vol keys repeat while held) |
 | `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo section of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
 | `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them); sheet title (default "Remote") |
+| `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — poster ≈ 45 % of the card height with a huge title, 60 px switch, 72 px keys, source tiles fill the rest; fills the sheet height, nothing under 18 px |
 | `accent` | Poster, Play key, TV section (see Colours) |
 
 ### jam-speaker
@@ -336,7 +338,8 @@ speakers: [media_player.living_room, media_player.phoster]
 | `name` | Kicker "<name> speakers" (default the player's name) |
 | `speakers` | media_player ids (or `{entity, name}`) for the Speakers tab; none = no tab |
 | `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
-| `poster_height` | Poster height in px (default 170, min 72; below 110 the title is one line — for kiosks) |
+| `poster_height` | Poster height in px (default 170, min 72; below 110 the title is one line) |
+| `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — square album art left (≈ 46 % of the width, ≤ 440 px) with the Now playing / Speakers switch under it; right: source badge, kicker, title 44-72 px (≤ 3 lines), artist, progress bar with times, 72 px keys, 48 px volume bar; Speakers = 64 px rows. Fills the sheet height, nothing under 18 px |
 | `accent` | Poster, Play key, volume fill (default violet) |
 
 ### jam-fan
@@ -453,7 +456,8 @@ card is on only (it stays hidden while you switch views there, and comes back wh
 Way out: press and hold the top-left corner (48 × 48 px) for 2 seconds; the sidebar and header return until the page is reloaded.
 
 ### jam-kiosk
-The kiosk home screen (0.5.0, "Poster + dock"): fills the whole view with a huge clock, the date (+ inside temperature), a
+The kiosk home screen (0.5.0, "Poster + dock"): fills the whole view with a huge clock, a facts line (date, inside temperature,
+humidity, air quality), a
 "now" line (what is playing, else the weather outside) and a dock of 2-5 flat colour blocks along the bottom. Built to be
 read from across the room: nothing under 18 px, one room colour (the bar at the top) plus the dock blocks, no chips.
 A block opens a fullscreen sheet with its own cards, or runs an action. Weak-kiosk friendly: one timer per minute, no
@@ -463,6 +467,8 @@ animation loops (a block stamps once when pressed). Put it alone in a full-width
 type: custom:jam-kiosk
 accent: living
 inside_entity: sensor.home_temperature
+humidity_entity: sensor.home_humidity
+aq_entity: sensor.purifier_air_quality
 now:
   - {type: media, entity: media_player.tv, states: [playing, paused], kicker: On the TV, app_entity: sensor.tv_current_app}
   - {type: media, entity: media_player.living_room_speaker}
@@ -473,8 +479,8 @@ dock:
     state: {count_on: [light.lamp, light.ceiling, switch.tree]}
     columns: 2
     cards: [{type: custom:jam-light, entity: light.lamp}, {type: custom:jam-light, entity: light.ceiling}]
-  - {name: Music, accent: violet, state: {entity: media_player.living_room_speaker}, cards: [{type: custom:jam-speaker, entity: media_player.living_room_speaker}]}
-  - {name: Air, accent: none, state: {entity: sensor.purifier_air_quality}, cards: [{type: custom:jam-fan, entity: fan.purifier}]}
+  - {name: Music, accent: violet, state: {entity: media_player.living_room_speaker}, cards: [{type: custom:jam-speaker, entity: media_player.living_room_speaker, size: kiosk}]}
+  - {name: TV, accent: teal, columns: [3, 2], cards: [{type: custom:jam-tv, media_player: media_player.tv, size: kiosk}, {type: custom:jam-media, entity: media_player.pc, size: kiosk}]}
   - name: All off
     accent: none
     state: {text: Lights}
@@ -483,9 +489,9 @@ dock:
 | Option | Description |
 |---|---|
 | `accent` | Room colour of the 10 px bar at the top (default ochre); also the sheet colour of `none` blocks |
-| `inside_entity` | Temperature sensor shown after the date ("66° inside") |
+| `inside_entity`, `humidity_entity`, `aq_entity` | Facts line under the clock: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent" (each part only while its sensor has a value; AQ as a word, a US AQI number becomes its category; wraps between parts, never cut off) |
 | `now` | Sources for the right-hand block, the first active one wins. `{type: media, entity, states (default [playing]), kicker (default Playing / Paused), app_entity}`: title, else the app; small line = artist, else the app. `{type: weather, entity, temperature_entity, kicker (default Outside)}`: "51° cloudy" + the next change in the hourly forecast within 12 h ("Rain at 3 · high 64°"), else "High 64°", else humidity |
-| `dock` | 2-5 blocks: `name`, `accent` (colour or room alias; `none` = plain block with a dim state; default the card accent), `state`, `cards` + `kicker` + `columns` (1-3) for a sheet, or `tap_action` (confirmation supported); `tap: sheet / action` forces one |
+| `dock` | 2-5 blocks: `name`, `accent` (colour or room alias; `none` = plain block with a dim state; default the card accent), `state`, `cards` + `kicker` + `columns` (1-3 equal, or a list of widths such as `[3, 2]` = 60 % / 40 %) for a sheet (cards with `size: kiosk` get the full sheet height), or `tap_action` (confirmation supported); `tap: sheet / action` forces one |
 | `state` | `{count_on: [ids], suffix: on}` → "3 on" / "All off"; `{entity, attribute, app_entity}` → the entity's state in words (media player: title while playing / paused, else the app from `app_entity`, else On / Idle, Off when off; lock: "Door locked" / "Door unlocked"; air-quality sensor: Good / Moderate / … or its own word); `{text}` |
 
 The clock follows the Home Assistant profile's time format (12 h with a small AM/PM, or 24 h). The card sizes itself from

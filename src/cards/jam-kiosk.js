@@ -1,6 +1,9 @@
 /* ---------- jam-kiosk: the kiosk home screen ("B · Poster + dock", 0.5.0) ----------
-   {type: custom:jam-kiosk, accent? (room colour of the 10px top bar, default ochre), inside_entity? (temperature sensor:
-    "66° inside" after the date), now?: [sources, first active one wins], dock: [2-5 blocks]}
+   {type: custom:jam-kiosk, accent? (room colour of the 10px top bar, default ochre), now?: [sources, first active one wins],
+    dock: [2-5 blocks], facts line under the clock (0.6.0; each part only while its sensor has a value):
+    inside_entity? (temperature: "67° inside"), humidity_entity? ("58% humidity"), aq_entity? (air quality: "air excellent",
+    word via aqWord, a US AQI number becomes its category)} -> "Tuesday · October 28 · 67° inside · 58% humidity · air excellent"
+   (Jost 600 20-22px, dim, natural case; wraps between parts, never an ellipsis).
    now sources (right-hand "now" block: kicker, big line max 2 lines, small line):
     {type: media, entity (media_player), states? (["playing"]: states that make it active), kicker? ("Playing" /
      "Paused"), app_entity? (sensor/select whose state names the app on screen)} -> big = media_title, else the app;
@@ -14,7 +17,10 @@
      when off; lock: "Locked" / "Unlocked"; air quality sensors (device_class aqi, id with air_quality / aqi,
      or format: "aq"): category word via aqWord) | {text: "…"},
     tap?: sheet (default with cards) | action (default with tap_action), cards: [card configs] (sheet), kicker? (sheet
-    kicker), columns? (1-3 sheet columns, default 1), tap_action? (action; confirmation supported)}
+    kicker), columns? (1-3 equal sheet columns, default 1; or 0.6.0 a list of 1-3 widths, e.g. [3, 2] = 60 % / 40 %),
+    tap_action? (action; confirmation supported)}
+   A sheet whose cards include a `size: "kiosk"` card (jam-speaker / jam-tv / jam-media, 0.6.0) gives its cards the whole
+   sheet height (one row that fills the body), so those layouts fit without scrolling.
    Fills the view: the card measures its own top and sets its height so it ends at the bottom of the viewport (re-measured
    on resize, on visibility and every minute). Clock: Londrina, follows hass.locale (12/24 h, small AM/PM), one timeout per
    minute, stopped while the page is hidden. Sheets: openSheet fullscreen (jamCardSheet) with the block's child cards; hass
@@ -37,6 +43,7 @@ class JamKioskHome extends JamBase {
       if (tap === "sheet" && !Array.isArray(b.cards)) throw new Error(`jam-kiosk: block ${b.name}: cards must be a list`);
       if (tap === "action" && !(b.tap_action && typeof b.tap_action === "object")) throw new Error(`jam-kiosk: block ${b.name}: tap_action is required`);
       if (b.state && b.state.count_on !== undefined && !Array.isArray(b.state.count_on)) throw new Error(`jam-kiosk: block ${b.name}: count_on must be a list`);
+      if (Array.isArray(b.columns) && !(b.columns.length >= 1 && b.columns.length <= 3 && b.columns.every(x => Number(x) > 0))) throw new Error(`jam-kiosk: block ${b.name}: columns is 1-3 or a list of 1-3 widths`);
     }
     if (c.now !== undefined && !Array.isArray(c.now)) throw new Error("jam-kiosk: now must be a list");
     for (const s of c.now || []) if (!s || !["media", "weather"].includes(s.type) || typeof s.entity !== "string") throw new Error("jam-kiosk: now sources are {type: media | weather, entity}");
@@ -58,7 +65,7 @@ class JamKioskHome extends JamBase {
   }
   get hass() { return this._hass; }
   watched() {
-    const c = this._config, ids = [c.inside_entity];
+    const c = this._config, ids = [c.inside_entity, c.humidity_entity, c.aq_entity];
     for (const s of c.now || []) ids.push(s.entity, s.app_entity, s.temperature_entity);
     for (const b of c.dock) {
       const st = b.state || {};
@@ -95,7 +102,8 @@ class JamKioskHome extends JamBase {
     .left{min-width:0}
     .clock{font-family:var(--display);font-weight:900;font-size:clamp(96px,min(19cqw,31cqh),200px);line-height:.8;letter-spacing:-.01em;white-space:nowrap}
     .clock small{font:600 max(18px,.15em)/1 var(--body);letter-spacing:.12em;margin-left:.25em;vertical-align:top;color:var(--dim)}
-    .date{font:600 clamp(20px,2.2cqw,22px)/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:14px}
+    .date{font:600 clamp(20px,2.2cqw,22px)/1.3 var(--body);letter-spacing:.03em;color:var(--dim);margin-top:14px;overflow-wrap:normal}
+    .date .f{white-space:nowrap}
     .now{display:grid;gap:14px;justify-items:end;text-align:right;min-width:0;align-content:end}
     .now:empty{display:none}
     .kick,.small{font:600 18px/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);max-width:100%}
@@ -168,14 +176,20 @@ class JamKioskHome extends JamBase {
     this._body.classList.toggle("light", !dark);
     const c = this._config, h = this._hass;
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
-    // Date line: "Tuesday · October 28 · 66° inside"
-    const d = new Date(), lang = this._lang();
-    let date;
-    try { date = d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
-    catch (e) { date = d.toDateString(); }
-    const inside = stateObj(h, c.inside_entity);
-    if (inside && inside.state !== "" && isFinite(Number(inside.state))) date += ` · ${Math.round(Number(inside.state))}° inside`;
-    set(this._date, date);
+    // Facts line: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent"; one nowrap span per part, so it
+    // wraps between parts (never inside one, never an ellipsis). Rebuilt only when the text changed.
+    const d = new Date(), lang = this._lang(), parts = [];
+    try { parts.push(d.toLocaleDateString(lang, {weekday: "long"}), d.toLocaleDateString(lang, {month: "long", day: "numeric"})); }
+    catch (e) { parts.push(d.toDateString()); }
+    const num = id => { const s = stateObj(h, id); return s && String(s.state).trim() !== "" && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
+    const tIn = num(c.inside_entity), hum = num(c.humidity_entity), aq = c.aq_entity ? aqWord((stateObj(h, c.aq_entity) || {}).state) : null;
+    if (tIn !== null) parts.push(`${tIn}° inside`);
+    if (hum !== null) parts.push(`${hum}% humidity`);
+    if (aq) parts.push(`air ${aq.toLowerCase()}`);
+    if (this._date.textContent !== parts.join(" · ")) {
+      this._date.textContent = "";
+      parts.forEach((t, i) => { if (i) this._date.append(" "); this._date.append(el("span", "f", i < parts.length - 1 ? t + " ·" : t)); });
+    }
     // Now: the first active source.
     const n = this._nowText();
     if (!n) { if (this._now.firstChild) this._now.textContent = ""; }
@@ -338,9 +352,14 @@ class JamKioskHome extends JamBase {
     if (tap !== "sheet") return;
     const none = String(b.accent || "").toLowerCase() === "none";
     const accent = !none && accentName(b.accent) ? b.accent : this._config.accent;
-    const cols = Math.max(1, Math.min(3, Math.round(+b.columns) || 1));
-    jamCardSheet(this, {title: b.name, kicker: b.kicker, accent, cards: b.cards, fullscreen: true,
-      css: cols > 1 ? `.body{grid-template-columns:repeat(${cols},minmax(0,1fr));align-items:start}` : ""});
+    // Columns: 1-3 equal ones, or a list of widths ([3, 2] = 60 % / 40 %).
+    const ws = Array.isArray(b.columns) ? b.columns.slice(0, 3).map(Number).filter(x => x > 0)
+      : Array(Math.max(1, Math.min(3, Math.round(+b.columns) || 1))).fill(1);
+    // size: "kiosk" cards get the whole sheet height: one row that fills the body, cards stretched into it.
+    const fill = (b.cards || []).some(x => x && x.size === "kiosk");
+    let css = ws.length > 1 ? `.body{grid-template-columns:${ws.map(w => `minmax(0,${w}fr)`).join(" ")};align-items:start}` : "";
+    if (fill) css += ".body{grid-template-rows:minmax(0,1fr);grid-auto-rows:minmax(0,1fr);align-items:stretch}.body > *{min-height:0}";
+    jamCardSheet(this, {title: b.name, kicker: b.kicker, accent, cards: b.cards, fullscreen: true, css});
   }
   getCardSize() { return 12; }
   getGridOptions() { return {columns: "full", rows: "auto"}; }

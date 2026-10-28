@@ -18,7 +18,7 @@
       title? ("Stereo"), accent? ("violet")} (Stereo section of the Remote sheet; hidden without it),
     remote_card? (jam-remote config merged over the default: entity = remote, media_player, sections TV (+ Stereo); set rows /
       layout / sections there to replace them; commands / labels / actions are merged), remote_title? ("Remote"),
-    accent? (DESIGN "Colour system")}
+    accent? (DESIGN "Colour system"), size? ("kiosk", 0.6.0: fullscreen-sheet layout, see below)}
    Poster (118px, bottom-right 16px cut): artwork (entity_picture, cover) or a flat accent block with Golden Arm bars; kicker =
    app / source, title = media_title (2 lines), sub = position / duration, 5px progress strip. Text over art is ink or paper by
    the art's luminance; busy art gets a flat 50% ink band behind the text. Power = the top-right corner triangle (ink, accent
@@ -30,7 +30,11 @@
    input (input_app / input_signal_entity), the input_entity state against match.input (exact). Nothing matches (home
    screen, screensaver, other apps) -> no tile filled. A newly matched tile gets the one-shot stamp + colour wipe.
    Remote = a sheet (jamCardSheet) with a jam-remote in colour-coded sections: TV (card accent) and Stereo (violet); the
-   keyboard key sits in the sheet header (keyboard glyph, opens jamRemoteKeyboard). */
+   keyboard key sits in the sheet header (keyboard glyph, opens jamRemoteKeyboard).
+   size: "kiosk" (0.6.0, for jam-kiosk's fullscreen sheets; fills its parent's height, 420px when that has none): same
+   parts, scaled for a wall screen: poster = 45% of the card height (title 40-64px by the height, 20px kicker / position,
+   8px progress, 72px power corner), 60px switch, 72px transport / volume keys, source tiles fill the rest (>= 64px, 3-up,
+   28px colour square, 24px name). Nothing under 18px. */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
 const JAM_TV_TV_ROWS = [["power", "back", "home", "settings"], ["dpad"], ["prev", "play_pause", "next"], ["captions", "audio_track", "source"]];
 const JAM_TV_KB_SVG = '<svg viewBox="0 0 26 17" aria-hidden="true" focusable="false" fill="currentColor" shape-rendering="crispEdges">' +
@@ -45,6 +49,31 @@ function jamTvTime(sec, long) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   return long ? `${h}:${String(m).padStart(2, "0")}` : `${Math.floor(sec / 60)}:${String(s).padStart(2, "0")}`;
 }
+/* size: "kiosk" (0.6.0): the face is a size container; rows = poster 45% / switch / pane (rest). */
+const JAM_TV_KIOSK_CSS = `
+    :host{height:100%;min-height:420px}
+    .kiosk{height:100%}
+    .kiosk > .face.wrap{--p-t:18px;--p-r:18px;--p-b:20px;--p-l:18px;container-type:size;grid-template-rows:minmax(0,45%) auto minmax(min-content,1fr);align-content:stretch;gap:12px;overflow:hidden}
+    .kiosk .poster{height:auto;min-height:0}
+    .kiosk .poster .txt{bottom:8px;padding:14px 84px 14px 22px;gap:8px}
+    .kiosk .poster.bars .txt{padding-right:30%}
+    .kiosk .poster .arm{right:20px;gap:12px}
+    .kiosk .poster .arm span{min-width:22px}
+    .kiosk .poster .kick{font-size:20px;letter-spacing:.14em}
+    .kiosk .poster .title{font-size:clamp(40px,10cqh,64px)}
+    .kiosk .poster .sub{font:600 20px/1.2 var(--body);letter-spacing:.04em}
+    .kiosk .poster .prog{height:8px}
+    .kiosk .pw{width:72px;height:72px}
+    .kiosk .pw svg{right:8px;top:8px;width:26px;height:26px}
+    .kiosk .seg{gap:6px}
+    .kiosk .seg .key > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center;font-size:18px;letter-spacing:.12em}
+    .kiosk .pane{gap:10px;align-content:stretch;grid-auto-rows:minmax(64px,1fr);min-height:0}
+    .kiosk .keys{gap:8px}
+    .kiosk .keys .key > .face{--p-t:0;--p-b:0;min-height:72px;font-size:20px;letter-spacing:.1em}
+    .kiosk .src{min-height:0;gap:8px;grid-auto-rows:minmax(64px,1fr)}
+    .kiosk .src .key > .face{--p-t:10px;--p-b:10px;min-height:64px;height:100%;justify-content:center;gap:10px;font-size:24px;line-height:.95}
+    .kiosk .sq{width:28px;height:28px}
+    @container (max-width:440px){ .kiosk .keys .key > .face,.kiosk .seg .key > .face{font-size:14px;letter-spacing:.06em} .kiosk .src .key > .face{font-size:18px} }`;
 /* Art analysis cache: src -> {light, busy} (luminance of the text area + its spread). */
 const JAM_TV_ART = new Map(), JAM_TV_ART_MAX = 64;
 class JamTv extends JamSheetHost(JamBase) {
@@ -53,6 +82,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (c.remote && !c.remote.startsWith("remote.")) throw new Error("jam-tv: remote must be a remote");
     for (const k of ["sources", "launchers", "source_entities"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-tv: ${k} must be a list`);
     if (c.stereo !== undefined && (!c.stereo || typeof c.stereo !== "object")) throw new Error("jam-tv: stereo must be an object");
+    if (c.size !== undefined && !["kiosk", "normal"].includes(c.size)) throw new Error("jam-tv: size is kiosk or normal");
   }
   setConfig(c) { this._tab = null; super.setConfig(c); }
   watched() {
@@ -102,7 +132,7 @@ class JamTv extends JamSheetHost(JamBase) {
     .src .nm{max-width:100%;text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .sq{flex:none;width:20px;height:20px;background:var(--app)}
-    .src .key.on .sq{background:var(--on-fg)}`; }
+    .src .key.on .sq{background:var(--on-fg)}` + (this._config && this._config.size === "kiosk" ? JAM_TV_KIOSK_CSS : ""); }
   /* Remote sheet config: jam-remote with a TV section (card accent) and, with `stereo`, a Stereo section (violet). */
   _remoteCfg() {
     const c = this._config, rc = c.remote_card || {}, sections = [];
@@ -309,6 +339,7 @@ class JamTv extends JamSheetHost(JamBase) {
     const tab = this._tab || (off ? "source" : "now");
     const {root, face: wrap} = this.paper(c.media_player, {face: `wrap ${mode}`});
     root.dataset.mode = mode; root.dataset.tab = tab;
+    if (c.size === "kiosk") root.classList.add("kiosk");
     wrap.append(this._poster(s, off, playing));
     const seg = el("div", "seg"), label = c.source_label || "Source";
     for (const [id, text] of [["now", "Now playing"], ["source", label]]) {

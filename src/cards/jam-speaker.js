@@ -1,7 +1,8 @@
 /* ---------- jam-speaker: Music Assistant speaker (0.3.6): poster + source badge + Now playing / Speakers switch ----------
    {type: custom:jam-speaker, entity (media_player, a Music Assistant player), name? (kicker "<name> speakers"; default the
     player's friendly name), accent? (default violet = music), speakers?: [media_player id | {entity, name?}] (Speakers tab;
-    none -> no tab), show_shuffle? (true), poster_height? (px, default 170, min 72; below 110 the title is one line; kiosks shrink it)}
+    none -> no tab), show_shuffle? (true), poster_height? (px, default 170, min 72; below 110 the title is one line; kiosks shrink it),
+    size? ("kiosk", 0.6.0: the fullscreen-sheet layout, see below)}
    Poster (poster cut): artwork (entity_picture via hassUrl) or a flat accent block with Golden Arm bars; kicker, title =
    media_title (2 lines), sub = artist. Text over art is ink or paper by the art's luminance (jam-tv's sampler); busy art gets
    a flat 50% ink band. Idle (idle / off / standby / on with nothing playing): slab2 poster, title = the last media_title, else
@@ -13,15 +14,76 @@
    number at the right). Speakers = "This room" (own volume) + one row per speaker: name, Join / Playing toggle (only when both
    players have GROUPING; Join = media_player.join on this entity with group_members [it], Playing = media_player.unjoin on it),
    thin volume bar (drag sets that player's volume). A speaker that just joined gets the one-shot stamp; the rows slide in
-   when the tab opens. */
+   when the tab opens.
+   size: "kiosk" (0.6.0, for jam-kiosk's fullscreen sheets; fills its parent's height, 420px when that has none): two
+   columns. Left = a large square album art (min(46% of the width, 440px, the height left), poster cut, flat: the image
+   or the accent with Golden Arm bars; idle = slab2 with dim bars) and, with `speakers`, the Now playing / Speakers switch
+   under it. Right = Now playing: source badge + kicker, title in Londrina (44-72px by the height, max 3 lines; 2 on short
+   sheets), artist (28px), progress bar with times (position at render time), Prev / Play-Pause / Next / Shuffle keys
+   (72px), 48px volume bar with − / + and the number; or Speakers: one 64px row per player (name, volume bar,
+   Join / Playing toggle). Nothing under 18px. */
 const JAM_SPK_ACTIVE = new Set(["playing", "paused", "buffering"]);
 const JAM_SPK_SHUFFLE = 32768;
+/* size: "kiosk" (0.6.0). The face is a size container: the art column and the title scale with the sheet. */
+const JAM_SPK_KIOSK_CSS = `
+    :host{height:100%;min-height:420px}
+    .kiosk{height:100%}
+    .kiosk > .face.kw{--p-t:22px;--p-r:24px;--p-b:24px;--p-l:24px;container-type:size;overflow:hidden}
+    .kg{height:100%;display:grid;--segh:0px;--aw:min(46cqw,440px,calc(100cqh - var(--segh)));grid-template-columns:var(--aw) minmax(0,1fr);
+      grid-template-rows:var(--aw) minmax(0,1fr);column-gap:28px}
+    .kg.tabs{--segh:76px}
+    .kart{grid-area:1/1/2/2;width:var(--aw);height:var(--aw)}
+    .kart > .face{padding:0;position:relative;overflow:hidden;background:var(--acc)}
+    .kart.idle > .face{background:var(--slab2)}
+    .kart img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .kart .arm{position:absolute;left:12%;right:12%;bottom:0;height:72%;gap:6%;align-items:flex-end;justify-content:center}
+    .kart .arm span{background:var(--acc-fg);flex:1 1 0;max-width:none}
+    .kart.idle .arm span{background:var(--dim)}
+    .kseg{grid-area:2/1/3/2;align-self:end;gap:6px}
+    .kseg .key > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center;font-size:18px;letter-spacing:.12em}
+    .kmain{grid-area:1/2/3/3;min-width:0;min-height:0}
+    .know{display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+    .ktop{display:grid;gap:10px;min-width:0;align-content:start}
+    .krow{display:flex;align-items:center;gap:14px;min-width:0}
+    .krow .badge{position:static;flex:none;max-width:60%;padding:9px 12px 9px 10px;gap:9px;font-size:18px;letter-spacing:.12em;background:var(--slab3)}
+    .krow .badge i{width:14px;height:14px}
+    .krow .kick{min-width:0;font:600 18px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .know .title{--tl:3;font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.005em;line-height:.92;overflow-wrap:anywhere;cursor:pointer;
+      font-size:clamp(44px,calc((100cqh - 300px) / (var(--tl) * .92)),72px)}
+    .know .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
+    .artist{font:500 28px/1.2 var(--body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .kbot{display:grid;gap:14px}
+    .prog{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}
+    .pt{font:600 20px/1 var(--body);letter-spacing:.04em;color:var(--dim)}
+    .pbar{position:relative;height:10px;background:var(--slab3)}
+    .pbar i{position:absolute;inset:0 auto 0 0;background:var(--acc)}
+    .kiosk .keys{gap:8px}
+    .kiosk .keys .key > .face{--p-t:0;--p-b:0;--p-l:4px;--p-r:6px;min-height:72px;font-size:20px;letter-spacing:.1em}
+    .kiosk .vol{grid-template-columns:64px minmax(0,1fr) 64px 76px;gap:10px}
+    .kiosk .vol .key > .face{height:52px;font-size:30px}
+    .kiosk .vol .v{font-size:40px}
+    .kiosk .vt{height:52px} .kiosk .vt .strip{inset:2px 0}
+    .klist{display:grid;gap:0;align-content:start;overflow:auto}
+    .klist .spk{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(120px,auto);gap:16px;min-height:72px;padding:8px 0}
+    .klist .spk:first-child{border-top:0}
+    .klist .spk .n{font-size:30px;line-height:.95;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .klist .spk .vt{grid-column:auto;grid-row:1}
+    .klist .spk .vt.thin{height:44px} .klist .spk .vt.thin .strip{inset:8px 0}
+    .klist .spk .n{grid-row:1;grid-column:1} .klist .spk .vt{grid-column:2} .klist .spk > :nth-child(2){grid-column:3;grid-row:1}
+    .klist .spk .tog > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;min-height:56px;display:flex;align-items:center;justify-content:center;font-size:18px}
+    .klist .spk .here{font-size:18px;text-align:center}
+    @container (max-height:440px){ .know .title{--tl:2} .know{gap:10px} .kbot{gap:10px} }
+    /* Not a kiosk sheet (narrower than 600px): one column without the art, smaller key labels. */
+    @container (max-width:600px){ .kg{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);row-gap:12px} .kart{display:none}
+      .kseg,.kmain{grid-area:auto} .kiosk .keys .key > .face,.kseg .key > .face{font-size:14px;letter-spacing:.06em} .know .title{--tl:2} }`;
 class JamSpeaker extends JamBase {
   validate(c) {
     if (!c.entity || !String(c.entity).startsWith("media_player.")) throw new Error("jam-speaker: entity must be a media_player");
     if (c.speakers !== undefined && !Array.isArray(c.speakers)) throw new Error("jam-speaker: speakers must be a list of media_player ids");
+    if (c.size !== undefined && !["kiosk", "normal"].includes(c.size)) throw new Error("jam-speaker: size is kiosk or normal");
   }
   setConfig(c) { this._tab = null; this._joined = null; super.setConfig(c.accent ? c : {...c, accent: "music"}); }
+  get _kiosk() { return !!this._config && this._config.size === "kiosk"; }
   get _speakers() {
     return (this._config.speakers || []).map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && x.entity && x.entity !== this._config.entity);
   }
@@ -76,7 +138,7 @@ class JamSpeaker extends JamBase {
     .spk .vt{grid-column:1/-1}
     .spk .tog{min-width:0}
     .spk .tog > .face{--p-t:7px;--p-b:7px;--p-l:10px;--p-r:10px;font-size:.58rem;letter-spacing:.14em}
-    .spk .here{font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}`; }
+    .spk .here{font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}` + (this._kiosk ? JAM_SPK_KIOSK_CSS : ""); }
   /* Badge [word, colour] for the poster corner. */
   _badge(s) {
     const id = this._config.entity, a = (s && s.attributes) || {};
@@ -210,25 +272,94 @@ class JamSpeaker extends JamBase {
     const joined = new Set(spk.map(x => x.entity).filter(id => this._isJoined(id))), stamp = new Set();
     if (this._joined && motionOn()) for (const id of joined) if (!this._joined.has(id)) stamp.add(id);
     this._joined = joined;
+    if (this._kiosk) { this._kioskRender(b, s, idle, tab, stamp); return; }
     const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (idle ? " idle" : "")});
     root.dataset.mode = !s || UNAVAILABLE.has(s.state) ? "off" : idle ? "idle" : s.state; root.dataset.tab = tab;
     wrap.append(this._poster(s, idle));
-    if (spk.length) {
-      const seg = el("div", "seg");
-      for (const [id, text] of [["now", "Now playing"], ["speakers", "Speakers"]]) {
-        const k = cutKey(text, `jam-speaker|${c.entity}|tab|${id}`, id === tab ? "sel" : "", "chip");
-        k.dataset.tab = id; k.setAttribute("aria-pressed", String(id === tab));
-        k.onclick = () => {
-          if (this._tab === id || (id === "now" && !this._tab)) return;
-          this._tab = id; this._render(false);
-          if (id === "speakers") { const p = this.shadowRoot.querySelector(".spks"); if (p) staggerIn(p.children, 0); }
-        };
-        seg.append(k);
-      }
-      wrap.append(seg);
-    }
+    if (spk.length) wrap.append(this._seg(tab));
     wrap.append(tab === "speakers" ? this._speakersPane(s, stamp) : this._nowPane(s));
     b.append(root);
+  }
+  /* Now playing | Speakers switch (in memory). */
+  _seg(tab) {
+    const c = this._config, seg = el("div", "seg");
+    for (const [id, text] of [["now", "Now playing"], ["speakers", "Speakers"]]) {
+      const k = cutKey(text, `jam-speaker|${c.entity}|tab|${id}`, id === tab ? "sel" : "", "chip");
+      k.dataset.tab = id; k.setAttribute("aria-pressed", String(id === tab));
+      k.onclick = () => {
+        if (this._tab === id || (id === "now" && !this._tab)) return;
+        this._tab = id; this._render(false);
+        if (id === "speakers") { const p = this.shadowRoot.querySelector(".spks"); if (p) staggerIn(p.children, 0); }
+      };
+      seg.append(k);
+    }
+    return seg;
+  }
+  /* ---- size: "kiosk" (0.6.0): art left, now playing / speakers right ---- */
+  _kioskRender(b, s, idle, tab, stamp) {
+    const c = this._config, spk = this._speakers;
+    const {root, face} = this.paper(c.entity, {face: "kw" + (idle ? " idle" : "")});
+    root.classList.add("kiosk");
+    root.dataset.mode = !s || UNAVAILABLE.has(s.state) ? "off" : idle ? "idle" : s.state; root.dataset.tab = tab;
+    const g = el("div", "kg" + (spk.length ? " tabs" : ""));
+    g.append(this._kArt(s, idle));
+    if (spk.length) { const seg = this._seg(tab); seg.classList.add("kseg"); g.append(seg); }
+    const main = tab === "speakers" ? this._kSpeakers(s, stamp) : this._kNow(s, idle);
+    main.classList.add("kmain");
+    g.append(main);
+    face.append(g);
+    b.append(root);
+  }
+  _kArt(s, idle) {
+    const c = this._config, h = this._hass, a = (s && s.attributes) || {};
+    const {root, face} = paper("div", "jam-speaker|kart|" + c.entity, {kind: "poster", cls: "kart" + (idle ? " idle" : "")});
+    root.setAttribute("aria-hidden", "true");
+    const src = !idle && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
+    const bars = () => { root.classList.add("bars"); face.append(armBars("jam-speaker|" + c.entity)); };
+    if (src) {
+      root.classList.add("art");
+      const img = el("img"); img.alt = ""; img.decoding = "async";
+      img.onerror = () => { img.remove(); root.classList.remove("art"); bars(); };
+      img.src = src; face.append(img);
+    } else bars();
+    return root;
+  }
+  /* Position / duration strings + fraction, or null (no duration). Position extrapolated while playing (at render time). */
+  _kPos(s) {
+    const a = (s && s.attributes) || {}, dur = Number(a.media_duration);
+    if (!(dur > 0) || a.media_position == null) return null;
+    let pos = Number(a.media_position) || 0;
+    const at = Date.parse(a.media_position_updated_at || "");
+    if (s.state === "playing" && at) pos += (Date.now() - at) / 1000;
+    pos = Math.min(Math.max(0, pos), dur);
+    const long = dur >= 3600;
+    return {pos: jamTvTime(pos, long), dur: jamTvTime(dur, long), frac: pos / dur};
+  }
+  _kNow(s, idle) {
+    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, fname = friendly(h, c.entity);
+    const main = el("div", "know"), top = el("div", "ktop"), row = el("div", "krow");
+    const [word, col] = this._badge(s), bd = el("div", "badge"), sq = el("i");
+    sq.setAttribute("aria-hidden", "true"); bd.style.setProperty("--b", col); bd.dataset.badge = word;
+    bd.append(sq, el("span", "", word));
+    row.append(bd, el("div", "kick", c.name ? `${c.name} speakers` : fname));
+    top.append(row, asButton(clampTitle(a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
+    if (a.media_title && a.media_artist) top.append(el("div", "artist", a.media_artist));
+    const bottom = el("div", "kbot"), p = !idle ? this._kPos(s) : null;
+    if (p) {
+      const pr = el("div", "prog"), bar = el("div", "pbar"), i = el("i");
+      bar.setAttribute("aria-hidden", "true"); i.style.width = (p.frac * 100).toFixed(1) + "%"; bar.append(i);
+      pr.append(el("span", "pt num", p.pos), bar, el("span", "pt num", p.dur));
+      bottom.append(pr);
+    }
+    const pane = this._nowPane(s);
+    bottom.append(...pane.children);
+    main.append(top, bottom);
+    return main;
+  }
+  _kSpeakers(s, stamp) {
+    const pane = this._speakersPane(s, stamp);
+    pane.classList.add("klist");
+    return pane;
   }
   getCardSize() { return 6; }
 }
