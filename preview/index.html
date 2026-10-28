@@ -56,6 +56,7 @@ const hass = {
   callService(domain, service, data) { window.__calls.push({domain, service, data}); return Promise.resolve(); },
   formatEntityState(s) { const u = s.attributes.unit_of_measurement; return u ? `${s.state} ${u}` : s.state; },
 };
+hass.themes = {darkMode: !document.documentElement.classList.contains("light")};
 window.__hass = hass;
 const view = document.getElementById("view");
 const mk = (cfg, cls) => { const e = document.createElement(cfg.type.replace("custom:", "")); e.setConfig(cfg); e.hass = hass; if (cls) e.className = cls; return e; };

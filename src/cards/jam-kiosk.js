@@ -11,7 +11,7 @@
    dock block: {name, accent? (hue / room alias; "none" = slab2 block with dim state; solid ink + paper text in light mode; default the card accent),
     state?: {count_on: [ids], suffix? ("on")} -> "3 on" / "All off" | {entity, attribute?, app_entity?} -> the
      entity's friendly state (media: title while playing / paused, else the app_entity's app, else "On" / "Idle", "Off"
-     when off; lock: "Door locked" / "Door unlocked"; air quality sensors (device_class aqi, id with air_quality / aqi,
+     when off; lock: "Locked" / "Unlocked"; air quality sensors (device_class aqi, id with air_quality / aqi,
      or format: "aq"): category word via aqWord) | {text: "…"},
     tap?: sheet (default with cards) | action (default with tap_action), cards: [card configs] (sheet), kicker? (sheet
     kicker), columns? (1-3 sheet columns, default 1), tap_action? (action; confirmation supported)}
@@ -112,7 +112,7 @@ class JamKioskHome extends JamBase {
     .blk:focus-visible{outline:3px solid currentColor;outline-offset:-7px}
     .nm{font-family:var(--display);font-weight:900;font-size:clamp(32px,3.6cqw,36px);line-height:.9;text-transform:uppercase;max-width:100%;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .st{font:600 18px/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .st{font:600 18px/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase;max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .blk.none .st{color:var(--dim)}
     .st:empty{display:none}
     .blk.stamp{z-index:1;animation:jam-stamp 210ms steps(3,end)}
@@ -162,12 +162,10 @@ class JamKioskHome extends JamBase {
   }
   _update() {
     this._clock();
-    // Light mode (dark --fg): "none" dock blocks are solid ink so they stand out from the light page. Re-read on a theme change.
-    if (this._themes !== this._hass.themes || this._themes === undefined) {
-      this._themes = this._hass.themes || null;
-      const m = getComputedStyle(this._body).color.match(/\d+(\.\d+)?/g);
-      this._body.classList.toggle("light", !!m && luminance(m.slice(0, 3).map(Number)) < .5);
-    }
+    // Light mode: hass.themes.darkMode (set by HA), else the OS scheme. "none" dock blocks are solid ink in light mode.
+    const th = this._hass.themes, dark = th && typeof th.darkMode === "boolean" ? th.darkMode
+      : !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    this._body.classList.toggle("light", !dark);
     const c = this._config, h = this._hass;
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
     // Date line: "Tuesday · October 28 · 66° inside"
@@ -328,7 +326,7 @@ class JamKioskHome extends JamBase {
       return s.state === "on" ? "On" : "Idle";
     }
     if (UNAVAILABLE.has(s.state)) return "Unavailable";
-    if (dom === "lock") return "Door " + String(s.state).replace(/_/g, " ");
+    if (dom === "lock") { const t = String(s.state).replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); }
     const dc = s.attributes && s.attributes.device_class;
     if (spec.format === "aq" || (dom === "sensor" && (dc === "aqi" || /air_quality|(^|[._])aqi/.test(id)))) return aqWord(s.state) || "Unavailable";
     const t = fmtState(h, s);

@@ -71,6 +71,7 @@ module.exports = async (page, check) => {
       const over = [...r.querySelectorAll(".poster, .now, .left, .dock, .blk")].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.className);
       const dock = r.querySelector(".dock").getBoundingClientRect(), bar = r.querySelector(".bar").getBoundingClientRect();
       const blk = [...r.querySelectorAll(".blk")].map(b => b.getBoundingClientRect());
+      const clipped = [...r.querySelectorAll(".st")].filter(e => e.textContent && e.scrollHeight > e.clientHeight + 2).map(e => e.textContent);
       const gaps = blk.slice(1).map((b, i) => Math.round(b.left - blk[i].right));
       const rgb = c => (c.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
       const lum = c => { const l = rgb(c).map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * l[0] + .7152 * l[1] + .0722 * l[2]; };
@@ -83,13 +84,14 @@ module.exports = async (page, check) => {
       return {scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
         clock: fs(r.querySelector(".clock")), big: fs(r.querySelector(".big")), nm: fs(r.querySelector(".nm")), dockH: Math.round(dock.height),
         bar: Math.round(bar.height), barBg: getComputedStyle(r.querySelector(".bar")).backgroundColor,
-        equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over, gaps, none};
+        equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over, gaps, none, clipped};
     });
     const tag = `jam-kiosk ${w}x${h} ${mode}`;
     check(m.scrollH <= h && m.scrollW <= w && m.bottom <= h && m.bottom >= h - 20 && m.over.length === 0,
       `${tag}: fills the viewport without scrolling (card ${m.cardH}px, bottom ${Math.round(m.bottom)}, page ${m.scrollW}x${m.scrollH})` + (m.over.length ? " — overflows: " + m.over.join(", ") : ""));
     check(m.clock >= 150 && m.clock <= 200 && m.big >= 52 && m.big <= 60 && m.nm >= 32 && m.nm <= 36 && m.dockH === 120 && m.bar === 10 && m.equal,
       `${tag}: clock ${m.clock}px, now ${m.big}px, dock names ${m.nm}px, dock ${m.dockH}px of equal blocks, 10px accent bar`);
+    check(m.clipped.length === 0, `${tag}: no dock state line is clipped` + (m.clipped.length ? " — " + m.clipped.join(", ") : ""));
     check(m.gaps.length > 0 && m.gaps.every(g => g === 6), `${tag}: 6px gaps between dock blocks (${m.gaps.join(",")})`);
     check(m.none.length > 0 && m.none.every(n => n.fgOk && n.st >= 4.5 && (mode === "dark" || n.vsPage >= 1.3)),
       `${tag}: "none" blocks: ${mode === "light" ? "ink block vs page ≥ 1.3:1, paper name" : "slab2, name in --jam-fg"}, state ≥ 4.5:1 (` +
