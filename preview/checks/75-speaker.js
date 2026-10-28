@@ -114,15 +114,22 @@ module.exports = async (page, check, {callsNow}) => {
     await page.setViewportSize({width: 1280, height: 900});
   }
   // Narrow card (~280 px): the kicker wraps at word boundaries (no ellipsis), 2 lines, above the title without overlap.
-  const narrow = await card(L).evaluate(e => {
+  const narrowAt = name => card(L).evaluate((e, name) => {
     const w = e.style.width, d = e.style.display; e.style.display = "block"; e.style.width = "280px";
+    const cfg = e._config; if (name) { e.setConfig({...cfg, name}); e.hass = e._hass; }
     const r = e.shadowRoot, p = r.querySelector(".poster"), k = p.querySelector(".kick"), t = p.querySelector(".title");
     const cs = getComputedStyle(k), lh = parseFloat(cs.lineHeight), kb = k.getBoundingClientRect(), tb = t.getBoundingClientRect(),
       pb = p.getBoundingClientRect(), xb = p.querySelector(".txt").getBoundingClientRect();
     const out = {text: k.textContent, ell: cs.textOverflow, ws: cs.whiteSpace, lines: Math.round(kb.height / lh),
       over: kb.bottom > tb.top + 0.5, inside: xb.top >= pb.top - 0.5 && xb.bottom <= pb.bottom + 0.5, clipped: k.scrollWidth > k.clientWidth + 1};
+    if (name) { e.setConfig(cfg); e.hass = e._hass; }
     e.style.width = w; e.style.display = d; return out;
-  });
+  }, name);
+  const narrow = await narrowAt(null);
   check(narrow.ell !== "ellipsis" && narrow.ws === "normal" && !narrow.clipped && narrow.lines === 2 && !narrow.over && narrow.inside,
     `jam-speaker: 280px kicker "${narrow.text}" wraps to ${narrow.lines} lines, no ellipsis (${narrow.ell}/${narrow.ws}), no title overlap (${narrow.over}), text inside poster (${narrow.inside})`);
+  // 0.3.9: a kicker that needs a third line is clamped at 2 lines; the text block stays inside the poster.
+  const n3 = await narrowAt("Upstairs living room corner bookshelf and window");
+  check(n3.lines === 2 && n3.ell !== "ellipsis" && !n3.over && n3.inside,
+    `jam-speaker: 280px kicker "${n3.text}" needing 3 lines is clamped to ${n3.lines}, no title overlap (${n3.over}), text inside poster (${n3.inside})`);
 };

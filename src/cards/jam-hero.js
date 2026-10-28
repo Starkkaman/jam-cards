@@ -16,8 +16,8 @@ class JamHero extends JamBase {
     .meta span{min-width:0;overflow-wrap:anywhere}
     .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc);margin:0 12px 1px 0;vertical-align:middle}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
-    .chips .chip{background:var(--paper-fg);color:var(--paper);padding:6px 10px 6px 8px}
-    .chips .chip.hot{background:var(--hot,var(--acc));color:var(--on-fg)}
+    .chips .chip{--chip-bg:var(--paper-fg);color:var(--paper);padding:6px 10px 6px 8px}
+    .chips .chip.hot{--chip-bg:var(--hot,var(--acc));color:var(--on-fg)}
     .chips .chip.hot[data-tone=paper]{color:var(--paper)}
     .chips .chip.hot:focus-visible{outline-color:currentColor}
     .off h1{color:var(--paper-dim)}`; }

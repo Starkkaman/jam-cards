@@ -21,7 +21,7 @@ module.exports = async (page, check, {tile, callsNow}) => {
       {entity: on, name: "C", tone: "paper"}, {entity: on, name: "D", tone: "ochre"}, {entity: "binary_sensor.hisense_tv_game_signal", name: "E", tone: "teal"}]});
     e.hass = window.__hass; document.body.append(e);
     const r = e.shadowRoot, col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-    const ch = [...r.querySelectorAll(".chip")].map(c => ({hot: c.classList.contains("hot"), bg: getComputedStyle(c).backgroundColor, fg: getComputedStyle(c).color}));
+    const ch = [...r.querySelectorAll(".chip")].map(c => ({hot: c.classList.contains("hot"), bg: getComputedStyle(c, "::before").backgroundColor, fg: getComputedStyle(c).color}));
     const want = {red: col("var(--red)"), teal: col("var(--teal)"), ochre: col("var(--ochre)"), pfg: col("var(--paper-fg)"), paper: col("var(--paper)")};
     e.remove();
     return {ch, want};
@@ -38,7 +38,7 @@ module.exports = async (page, check, {tile, callsNow}) => {
     const r = hero.shadowRoot, col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
     for (const k of ["ochre", "green", "slab2", "on-fg"]) out[k] = col(`var(--${k})`);
     const chip = r.querySelector(".chip.hot");
-    out.hero = {bg: getComputedStyle(chip).backgroundColor, fg: getComputedStyle(chip).color, clip: hero.shadowRoot.querySelector(".paper").dataset.cut};
+    out.hero = {bg: getComputedStyle(chip, "::before").backgroundColor, fg: getComputedStyle(chip).color, clip: hero.shadowRoot.querySelector(".paper").dataset.cut};
     const tile = mk("jam-tile", {entity: "switch.hisense_tv_power", accent: "nerd"}), key = tile.shadowRoot.querySelector("button.sw > .face");
     out.tile = {bg: getComputedStyle(key).backgroundColor, fg: getComputedStyle(key).color, cut: tile.shadowRoot.querySelector("button.sw").dataset.cut};
     const list = mk("jam-list", {entities: ["switch.hisense_tv_power", "binary_sensor.hisense_tv_game_signal"], accent: "green"});

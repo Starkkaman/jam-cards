@@ -10,6 +10,7 @@ class JamHeading extends JamBase {
     .rule{height:5px;background:var(--acc)}
     h2{font-size:clamp(1.6rem,5.4vw,2.3rem)} .t{display:grid;gap:4px;min-width:0}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
+    .chips .chip{line-height:12px;padding-top:10px;padding-bottom:10px;color:var(--fg)} /* 32px tall (0.3.9), value in --fg after a tone mark */
     .h.tap{cursor:pointer}`; }
   render(b) {
     const c = this._config, h = this._hass;
@@ -27,7 +28,8 @@ class JamHeading extends JamBase {
       const chips = el("div", "chips");
       for (const id of ids) {
         const s = stateObj(h, id);
-        const b2 = keepUnit(el("button", `chip c-${tone(s) === "off" ? "dim" : tone(s)}`, fmtState(h, s)), s);
+        const b2 = keepUnit(el("button", `chip t-${tone(s) === "off" ? "dim" : tone(s)} c-${tone(s) === "off" ? "dim" : tone(s)}`, fmtState(h, s)), s);
+        b2.prepend(el("span", "tmk"));
         b2.title = friendly(h, id); b2.onclick = e => { e.stopPropagation(); moreInfo(this, id); };
         chips.append(b2);
       }

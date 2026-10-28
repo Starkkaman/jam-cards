@@ -40,12 +40,14 @@ class JamSpeaker extends JamBase {
     .poster .txt{position:absolute;left:0;right:0;bottom:0;padding:8px 22px 12px 14px;display:grid;gap:4px;min-width:0}
     .poster.bars .txt{padding-right:104px}
     .poster.art.busy .txt{background:color-mix(in srgb,var(--ink) 50%,transparent)}
-    .poster .kick{font:600 .6rem/1.15 var(--body);letter-spacing:.16em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal}
+    .poster .kick{font:600 .6rem/1.15 var(--body);letter-spacing:.16em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .poster .title{font-family:var(--display);font-weight:900;font-size:2rem;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
-      overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+      overflow-wrap:anywhere;cursor:pointer}
+    .poster .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .poster .sub{font:500 .8rem/1.2 var(--body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .poster.small .txt{padding:4px 22px 7px 12px;gap:2px}
-    .poster.small .title{font-size:1.6rem;-webkit-line-clamp:1}
+    .poster.small .title{font-size:1.6rem} .poster.small .title > .tl{-webkit-line-clamp:1}
     .poster.small .sub{font-size:.74rem}
     .badge{position:absolute;z-index:2;top:8px;right:8px;max-width:calc(100% - 16px);display:flex;align-items:center;gap:6px;
       background:var(--slab2);color:var(--fg);padding:6px 9px 6px 8px;font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;
@@ -112,7 +114,7 @@ class JamSpeaker extends JamBase {
     } else bars();
     const txt = el("div", "txt");
     txt.append(el("div", "kick", c.name ? `${c.name} speakers` : fname));
-    txt.append(asButton(el("div", "title", a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
+    txt.append(asButton(clampTitle(a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
     if (a.media_title && a.media_artist) txt.append(el("div", "sub", a.media_artist));
     face.append(txt);
     const [word, col] = this._badge(s), bd = el("div", "badge"), sq = el("i");
@@ -129,7 +131,7 @@ class JamSpeaker extends JamBase {
   /* Volume track for one player. thin = the Speakers rows. Drag previews, release sends volume_set. Returns {track, show}. */
   _track(id, s, thin, onShow) {
     const off = !s || UNAVAILABLE.has(s.state);
-    const track = el("div", "vt" + (thin ? " thin" : "")), strip = el("div", "strip"), fill = el("div", "fill");
+    const track = el("div", "vt hit" + (thin ? " thin" : "")), strip = el("div", "strip"), fill = el("div", "fill");
     strip.append(fill); track.append(strip); track.dataset.entity = id;
     let cur = Math.round((Number(s && s.attributes.volume_level) || 0) * 100);
     const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; track.setAttribute("aria-valuenow", cur); if (onShow) onShow(cur); };

@@ -13,7 +13,7 @@ const BASE_CSS = `
   --ink:var(--jam-ink,#141210); --slab:var(--jam-slab,#1f1c19); --slab2:var(--jam-slab2,#2a2622); --slab3:var(--jam-slab3,#35302a);
   --paper:var(--jam-paper,#ece2c9); --paper-fg:var(--jam-paper-fg,#141210); --paper-dim:var(--jam-paper-dim,#5c5446);
   --fg:var(--jam-fg,#ece2c9); --dim:var(--jam-dim,#9a8f7c); --line:var(--jam-line,#34302a);
-  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --teal:var(--jam-teal,#22a39a);
+  --ochre:var(--jam-ochre,#e5a31b); --red:var(--jam-red,#e0553b); --alert-text:var(--jam-alert-text,#ff8a6e); --teal:var(--jam-teal,#22a39a);
   --blue:var(--jam-blue,#4a7be0); --pink:var(--jam-pink,#e2658f); --violet:var(--jam-violet,#9b6dd6); --green:var(--jam-green,#86a83a);
   --on-fg:var(--jam-on-fg,#141210);
   --shadow:var(--jam-shadow,#0a0908);
@@ -27,18 +27,34 @@ ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:
 .unit{text-transform:none}
 .label{font:600 .72rem/1.25 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .disp{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:.01em;margin:0;text-wrap:balance}
-/* Chips/pills: flat slab2 block, bottom-right 6px cut, text in the tone colour. */
-.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--slab2);color:inherit;
+/* Chips/pills: flat block (--chip-bg, default slab2), bottom-right 6px cut. A tappable chip (button.chip) is not clipped
+   itself: its face is a clipped ::before, so its ::after hit area (below) can reach 44px. */
+.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--chip-bg,var(--slab2));color:inherit;
   clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
+button.chip{position:relative;isolation:isolate;background:none;clip-path:none}
+button.chip::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--chip-bg,var(--slab2));
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
+/* Tone mark (0.3.9): accent colours are for fills and marks, never small text. A value shows in --fg after an 8px flat
+   square in its tone colour. */
+.tmk{display:inline-block;flex:none;width:8px;height:8px;margin-right:6px;background:var(--tc,var(--dim));vertical-align:middle}
+.t-on{--tc:var(--acc)} .t-alert{--tc:var(--red)} .t-calm{--tc:var(--teal)} .t-dim{--tc:var(--dim)}
+/* Hit areas (0.3.9): an invisible ::after grows a small control's touch target to at least 44x44 around its centre
+   without changing its look (asButton nodes get .hit; keys, strips and tappable chips always). The element must not clip
+   its own overflow (clamped titles clamp an inner span). */
+.hit,.track{position:relative}
+.hit::after,.key::after,.track::after,button.chip::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);
+  transform:translate(-50%,-50%)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
 /* A clip-path clips the element's own outline too: self-clipped chips draw the ring inside (text colour on filled chips). */
 .chip:focus-visible{outline-offset:-3px}
 .stripe{border-left:6px solid var(--line)}
 .s-on{border-left-color:var(--acc)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
-.c-on{color:var(--acc)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
+/* Tone text (0.3.9): on / calm values are --fg (the tone shows as a stripe or .tmk mark); alert text uses the text-safe
+   --alert-text (red stays the fill colour). */
+.c-on,.c-calm{color:var(--fg)} .c-alert{color:var(--alert-text)} .c-dim{color:var(--dim)}
 .num{font-variant-numeric:tabular-nums}
-.unavail{opacity:.55}
+.unavail{color:var(--dim)}
 /* Card accent (DESIGN "Colour system"): --acc fills anything on/active, --acc-fg is the text on it. A card's accent
    option sets both on .host; without one the card follows --jam-accent (set by a jam-popup for its children, or by
    the user) and then ochre. */
@@ -195,13 +211,20 @@ function bindActions(node, hass, config, entityId) {
 /* A non-button node that acts as a button (titles, temperatures, air lines): role=button, tabIndex 0, .focusable ring,
    click and Enter/Space run fn. */
 function asButton(node, fn) {
-  node.classList.add("focusable"); node.tabIndex = 0; node.setAttribute("role", "button");
+  node.classList.add("focusable", "hit"); node.tabIndex = 0; node.setAttribute("role", "button");
   node.addEventListener("click", fn);
   node.addEventListener("keydown", e => {
     if (e.target !== node || (e.key !== "Enter" && e.key !== " ")) return;
     e.preventDefault(); fn(e);
   });
   return node;
+}
+/* Clamped tappable title (0.3.9): div.title > span.tl. The span carries the line clamp (overflow hidden), the div stays
+   unclipped so its asButton .hit area can reach 44px. textContent is the title text. */
+function clampTitle(text) {
+  const t = el("div", "title");
+  t.append(el("span", "tl", text));
+  return t;
 }
 function toggleable(id) {
   const d = (id || "").split(".")[0];

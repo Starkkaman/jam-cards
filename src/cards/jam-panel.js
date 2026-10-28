@@ -45,7 +45,7 @@ class JamPanel extends JamBase {
     .row.static{cursor:default}
     .nm{flex:0 1 auto;min-width:min-content;font:500 .8rem/1.3 var(--body);overflow-wrap:normal;word-break:normal;hyphens:none}
     .v{flex:1 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:anywhere}
-    .row.bad .v{color:var(--red)}`; }
+    .row.bad .v{color:var(--alert-text)}`; }
   /* -> {text, raw (number|null), unavail} for one row. */
   value(r) {
     const s = stateObj(this._hass, r.entity);

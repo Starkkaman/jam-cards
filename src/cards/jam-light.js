@@ -7,7 +7,7 @@
     show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
     tap_action? (default toggle), hold_action? (default: open the pop-up)}
    Card: when on the face is the light's hue at full value (rgb_color scaled so the max channel is 255; kelvin -> rgb in
-   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 10px strip along the bottom; 40px corner trigger (⋯). 84px tall (0.3.2; was 112), grid rows auto.
+   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 10px strip along the bottom; 44px corner trigger (⋯). 84px tall (0.3.2; was 112), grid rows auto.
    Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
    vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
    ←/→ = ±10 %, M or Shift+Enter = pop-up.
@@ -62,7 +62,7 @@ function lightPreview(name) {
     for (let k = 0; k < 8; k++) {
       const c = hslRgb(k * 45, .8, .55), x = k * 20;
       poly(`${x},0 ${x + 20},0 ${x + 20},44 ${x},44`, c);
-      poly(`${x},44 ${x + 20},44 ${x + 20},74 ${x},74`, mixInk(c, .55));
+      poly(`${x},44 ${x + 20},44 ${x + 20},74 ${x},74`, mixInk(c, .62)); // .62: the green bands keep paper text >= 4.5:1 (0.3.9)
     }
     return svg;
   }
@@ -165,16 +165,17 @@ class JamLight extends JamBase {
     .tap{position:relative;height:100%;min-height:84px;padding:10px 12px 16px;display:flex;flex-direction:column;justify-content:space-between;
       gap:6px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
     .lc.dead .tap{cursor:default}
-    .nm{display:flex;align-items:center;gap:6px;padding-right:40px;font:900 .95rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
+    .nm{display:flex;align-items:center;gap:6px;padding-right:44px;font:900 .95rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
     .nm ha-icon{--mdc-icon-size:18px;flex:none}
-    .sub{font:600 .56rem/1.1 var(--body);letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-top:3px}
+    .sub{font:600 .56rem/1.1 var(--body);letter-spacing:.14em;text-transform:uppercase;margin-top:3px;color:var(--dim)}
+    .lc.on .sub{color:inherit}
     .pct{font:900 1.7rem/.8 var(--display)}
     .pct small{font-size:1rem;text-transform:uppercase}
-    .lc.dead .pct small{color:var(--red)}
+    .lc.dead .pct small{color:var(--alert-text)}
     .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:rgba(0,0,0,.18);pointer-events:none}
     .bs i{position:absolute;inset:0 auto 0 0;background:currentColor;clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
     .lc:not(.on) .bs{display:none}
-    .more{position:absolute;right:0;top:0;width:40px;height:40px;z-index:1}
+    .more{position:absolute;right:0;top:0;width:44px;height:44px;z-index:1}
     .more .tri{position:absolute;inset:0;background:var(--slab2);color:var(--fg);clip-path:polygon(0 0,100% 0,100% 100%)}
     .more .tri span{position:absolute;right:6px;top:4px;font:900 1.1rem/1 var(--body)}
     .lc.on .more .tri{background:var(--lc-fg);color:var(--lc)}
@@ -476,11 +477,11 @@ class JamLight extends JamBase {
     for (const id of ids) {
       const s = stateObj(h, id), dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", v0 = lightPct(s);
       const [fill, ink] = this._paint(s), m = el("div", "mem");
-      const row = el("button", "mrow"); row.type = "button"; row.dataset.k = "m|" + id; row.disabled = dead;
+      const row = el("button", "mrow hit"); row.type = "button"; row.dataset.k = "m|" + id; row.disabled = dead;
       const n = el("span", "n", friendly(h, id)), pill = el("span", "chip num");
       const pshow = v => {
         pill.textContent = dead ? "N/A" : v ? v + "%" : "Off";
-        pill.style.background = !dead && v ? fill : ""; pill.style.color = !dead && v ? ink : dead ? "var(--red)" : "";
+        pill.style.background = !dead && v ? fill : ""; pill.style.color = !dead && v ? ink : dead ? "var(--alert-text)" : "";
       };
       pshow(on ? v0 : 0);
       row.append(n, pill);
@@ -489,7 +490,7 @@ class JamLight extends JamBase {
       row.onclick = () => this._call("light", "toggle", {entity_id: id});
       m.append(row);
       if (!dead && lightDims(s)) {
-        const tr = el("div", "mtrack"), mb = el("div", "mb"), fi = el("i");
+        const tr = el("div", "mtrack hit"), mb = el("div", "mb"), fi = el("i");
         fi.style.background = fill; mb.append(fi); tr.append(mb);
         tr.dataset.k = "mb|" + id; tr.setAttribute("aria-label", friendly(h, id) + " brightness");
         const show = v => { fi.style.width = v + "%"; pshow(v); };

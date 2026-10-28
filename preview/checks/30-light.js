@@ -70,8 +70,8 @@ module.exports = async (page, check, {callsNow}) => {
       triBg: tri.backgroundColor, clip: tri.clipPath, fill: getComputedStyle(r.querySelector(".bs i")).clipPath, touch: getComputedStyle(r.querySelector(".tap")).touchAction,
       grid: JSON.stringify(e.getGridOptions())};
   });
-  check(geo.w === 40 && geo.h === 40 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon(") && geo.triBg === "rgb(20, 18, 16)",
-    `40x40 corner triangle top-right, ink on a light colour (${geo.w}x${geo.h}, ${geo.triBg})`);
+  check(geo.w === 44 && geo.h === 44 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon(") && geo.triBg === "rgb(20, 18, 16)",
+    `44x44 corner triangle top-right, ink on a light colour (${geo.w}x${geo.h}, ${geo.triBg})`);
   check(geo.strip === 10 && geo.stripBottom === 0 && geo.fill.includes("9px") && geo.touch === "pan-y",
     `10 px bottom strip with a 9 px diagonal end; touch-action ${geo.touch}`);
   check(geo.grid.includes('"columns":6') && geo.grid.includes('"rows":"auto"') && geo.grid.includes('"min_columns":4'), `getGridOptions ${geo.grid}`);

@@ -403,12 +403,12 @@ module.exports = async (page, check, {callsNow}) => {
   check(ex.exact === "YouTube,YouTube,-,-,Jamfin" && ex.loose === "YouTube,YouTube,YouTube,YouTube,Jamfin",
     `jam-tv: source exact: true lights YouTube only for YouTube / its package, not YouTube Music / TV (${ex.exact}); default substring (${ex.loose})`);
   // Narrow card (280 px): a long kicker (the TV's friendly name while no app is known) wraps at word boundaries (no ellipsis), above the title without overlap, inside the poster.
-  const narrow = await page.evaluate(() => {
+  const narrowAt = fname => page.evaluate(fname => {
     const h = window.__hass, e = document.createElement("jam-tv");
     e.setConfig({type: "custom:jam-tv", media_player: "media_player.x_narrow_tv"});
     e.style.cssText = "display:block;width:280px";
     e.hass = {...h, states: {...h.states, "media_player.x_narrow_tv": {entity_id: "media_player.x_narrow_tv", state: "playing", last_updated: "n",
-      attributes: {friendly_name: "Living Room Phoster Android TV", media_title: "Close Encounters of the Third Kind",
+      attributes: {friendly_name: fname, media_title: "Close Encounters of the Third Kind",
         media_position: 60, media_duration: 600}}}};
     document.body.append(e);
     const p = e.shadowRoot.querySelector(".poster"), k = p.querySelector(".kick"), t = p.querySelector(".title");
@@ -417,9 +417,14 @@ module.exports = async (page, check, {callsNow}) => {
     const out = {text: k.textContent, w: Math.round(pb.width), ell: cs.textOverflow, ws: cs.whiteSpace, lines: Math.round(kb.height / lh),
       over: kb.bottom > tb.top + 0.5, inside: xb.top >= pb.top - 0.5 && xb.bottom <= pb.bottom + 0.5, clipped: k.scrollWidth > k.clientWidth + 1};
     e.remove(); return out;
-  });
+  }, fname);
+  const narrow = await narrowAt("Living Room Phoster Android TV");
   check(narrow.w <= 282 && narrow.ell !== "ellipsis" && narrow.ws === "normal" && !narrow.clipped && narrow.lines >= 2 && !narrow.over && narrow.inside,
     `jam-tv: ${narrow.w}px poster kicker "${narrow.text}" wraps to ${narrow.lines} lines, no ellipsis (${narrow.ell}/${narrow.ws}), not clipped, no title overlap (${narrow.over}), text inside poster (${narrow.inside})`);
+  // 0.3.9: a kicker that needs a third line is clamped at 2 lines (ellipsis only at the end of line 2); the text block stays inside the poster.
+  const n3 = await narrowAt("Upstairs Living Room Phoster Android Television Projector Corner Unit");
+  check(n3.lines === 2 && n3.ell !== "ellipsis" && !n3.over && n3.inside,
+    `jam-tv: 280px kicker needing 3 lines is clamped to ${n3.lines}, no title overlap (${n3.over}), text inside poster (${n3.inside})`);
 
   await page.evaluate(() => { const h = window.__hass; h.callService = h.__orig; delete h.__orig; });
 };

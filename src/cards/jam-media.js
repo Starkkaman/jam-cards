@@ -93,7 +93,8 @@ class JamMedia extends JamSheetHost(JamBase) {
     .art .arm{height:62%;padding-bottom:10%} .art .arm span{background:var(--acc-fg)}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
     .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
-      overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+      overflow-wrap:anywhere;cursor:pointer}
+    .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .sub{font:500 .9rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
     .sub b{font-weight:600;color:var(--fg)}
     .ctl{display:flex;gap:8px;flex-wrap:wrap}
@@ -181,7 +182,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     const c = this._config, np = this._np(), id = this._id;
     const {root, face: wrap} = this.paper(c.entity || c.title_entity, {face: `mini${np.off ? " unavail" : ""}`});
     const txt = el("div", "txt");
-    const tt = asButton(el("div", "title", np.title), () => moreInfo(this, id || c.title_entity));
+    const tt = asButton(clampTitle(np.title), () => moreInfo(this, id || c.title_entity));
     const parts = c.title_entity ? [np.name, ...this._subParts(np)] : [np.a.media_artist, np.name];
     txt.append(tt, el("div", "sub", parts.filter(Boolean).join(" · ")));
     wrap.append(c.show_art === false ? el("span") : this._art(np), txt);
@@ -211,7 +212,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     const np2 = el("div", "np"), showArt = c.show_art !== false;
     if (showArt) np2.append(this._art(np)); else np2.classList.add("noart");
     const txt = el("div", "txt");
-    txt.append(asButton(el("div", "title", np.title), () => moreInfo(this, id || c.title_entity)));
+    txt.append(asButton(clampTitle(np.title), () => moreInfo(this, id || c.title_entity)));
     if (a.media_artist) { const sb = el("div", "sub"); sb.append(el("b", "", a.media_artist)); txt.append(sb); }
     if (a.media_album_name) txt.append(el("div", "sub", a.media_album_name));
     const subs = c.title_entity ? this._subParts(np) : [];

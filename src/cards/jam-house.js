@@ -39,13 +39,13 @@ class JamHouse extends JamBase {
     .out{text-align:right;justify-items:end}
     .temp{font-size:2.6rem;line-height:.85;cursor:pointer}
     .temp small{font:500 1rem/1 var(--body);color:var(--dim);text-transform:none;letter-spacing:0;margin-left:1px}
-    .otemp{font-size:1.8rem;line-height:.85;cursor:pointer}
+    .otemp{font-size:1.8rem;line-height:.85;cursor:pointer;min-width:44px} /* 44px wide box (text aligned as before), so its hit area does not spill */
     .aq{margin-top:2px;cursor:pointer}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .chip{padding:8px 10px}
-    .chip.red{background:var(--red);color:var(--on-fg)}
+    .chip.red{--chip-bg:var(--red);color:var(--on-fg)}
     .chip.red:focus-visible{outline-color:currentColor}
-    .chip.home{background:var(--teal);color:var(--on-fg)}
+    .chip.home{--chip-bg:var(--teal);color:var(--on-fg)}
     .compact .house{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;--p-t:10px;--p-b:14px}
     .compact .in,.compact .out{text-align:left;justify-items:start}
     .compact .temp{font-size:1.8rem} .compact .otemp{font-size:1.4rem}

@@ -23,15 +23,20 @@ class JamScenes extends JamBase {
   }
   watched() { const c = this._config; return [...c.scenes.map(s => s.entity), c.current_entity].filter(Boolean); }
   css() { return `
-    .scenes{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
-    .scene{flex:0 0 auto;font-family:var(--display);font-weight:900;font-size:1rem;line-height:1;text-transform:uppercase;
-      padding:12px 14px;background:var(--slab2);color:var(--fg);white-space:nowrap;
+    /* 0.3.9: each key is a 44px button (2px transparent above and below, cancelled by the row's -2px margins, so the layout
+       is unchanged) with the visible 40px face inside: a 44px touch target with the same look. */
+    .scenes{display:flex;gap:6px;overflow-x:auto;margin:-2px 0;padding-bottom:2px;scrollbar-width:thin}
+    .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:900;font-size:1rem;line-height:1;
+      text-transform:uppercase;color:var(--fg);white-space:nowrap}
+    .scene > .sf{position:relative;display:block;padding:12px 14px;background:var(--slab2);
       clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
-    .scene{position:relative}
-    .scene.on{background:var(--acc);color:var(--acc-fg)}
-    .scene:focus-visible{outline-offset:-3px} .scene.on:focus-visible{outline-color:currentColor}
-    .scene:active{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}`; }
+    .scene.on > .sf{background:var(--acc);color:var(--acc-fg)}
+    .scene:focus-visible{outline-offset:-2px} .scene.on:focus-visible{outline-color:var(--fg)}
+    .scene:active > .sf{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}
+    .scene.jam-stamp::before{content:none}
+    .scene.jam-stamp > .sf::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:var(--jam-stamp-from,var(--slab2));
+      clip-path:inset(0 0 0 100%);animation:jam-uncover 210ms steps(3,end)}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const cur = c.current_entity ? stateObj(h, c.current_entity) : null;
@@ -49,7 +54,8 @@ class JamScenes extends JamBase {
       const name = friendly(h, sc.entity, sc.name);
       const obj = String(sc.entity).split(".")[1].replace(/_/g, " ");
       const on = bySelect ? !!want && (String(name).trim().toLowerCase() === want || obj === want) : sc.entity === newest;
-      const btn = el("button", "scene" + (on ? " on" : ""), name);
+      const btn = el("button", "scene" + (on ? " on" : ""));
+      btn.append(el("span", "sf", name));
       btn.type = "button"; btn.setAttribute("aria-pressed", String(on));
       if (on && !active) active = {btn, id: sc.entity};
       const s = stateObj(h, sc.entity);

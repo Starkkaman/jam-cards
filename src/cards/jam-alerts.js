@@ -71,7 +71,7 @@ class JamAlerts extends JamBase {
     .nm{flex:1 1 auto;min-width:0;font:500 .8rem/1.3 var(--body);overflow-wrap:anywhere}
     .v{flex:0 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:break-word}
     .row.off .nm,.row.off .v{color:var(--dim)}
-    .row.bad .v{color:var(--red)}`; }
+    .row.bad .v{color:var(--alert-text)}`; }
   _row(face, id, name, text, cls, tap, unitOf) {
     const row = el("div", "row" + (cls ? " " + cls : ""));
     if (id) row.dataset.entity = id;

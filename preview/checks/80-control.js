@@ -7,7 +7,8 @@ module.exports = async (page, check) => {
       return {id: r.dataset.entity, name: r.querySelector(".nm").textContent, v: v.textContent, bad: r.classList.contains("bad"),
         color: getComputedStyle(v).color, font: getComputedStyle(v).fontFamily};
     })])));
-  const red = await page.evaluate(() => { const s = document.createElement("span"); s.style.color = "var(--jam-red)"; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
+  // Red TEXT is the text-safe --jam-alert-text (0.3.9); --jam-red stays the fill colour.
+  const red = await page.evaluate(() => { const s = document.createElement("span"); s.style.color = "var(--jam-alert-text)"; document.body.append(s); const c = getComputedStyle(s).color; s.remove(); return c; });
   const row = (t, n) => (panels[t] || []).find(r => r.name === n) || {};
   check(Object.keys(panels).length >= 4, `jam-panel: fixture panels render (${Object.keys(panels).join(", ")})`);
   const nas = panels.NAS || [];
