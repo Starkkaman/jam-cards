@@ -8,7 +8,7 @@
     {type: weather, entity (weather.*), temperature_entity?, kicker? ("Outside")} -> active while available; big =
      "51° cloudy" (conditionWord); small = the next condition change in the hourly forecast (weather/subscribe_forecast,
      next 12 h: "Rain at 3 · high 64°", high = today's hourly maximum) else "High 64°", else humidity.
-   dock block: {name, accent? (hue / room alias; "none" = slab2 block with dim state; default the card accent),
+   dock block: {name, accent? (hue / room alias; "none" = slab2 block with dim state; solid ink + paper text in light mode; default the card accent),
     state?: {count_on: [ids], suffix? ("on")} -> "3 on" / "All off" | {entity, attribute?, app_entity?} -> the
      entity's friendly state (media: title while playing / paused, else the app_entity's app, else "On" / "Idle", "Off"
      when off; lock: "Door locked" / "Door unlocked"; air quality sensors (device_class aqi, id with air_quality / aqi,
@@ -103,10 +103,12 @@ class JamKioskHome extends JamBase {
     .kick:empty,.small:empty{display:none}
     .big{font-family:var(--display);font-weight:900;font-size:clamp(52px,6cqw,60px);line-height:.9;text-transform:uppercase;letter-spacing:-.005em;
       max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}
-    .dock{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);height:120px}
+    .dock{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;height:120px}
     .blk{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;min-width:0;padding:0 22px;
       text-align:left;background:var(--bc,var(--acc));color:var(--bf,var(--acc-fg))}
     .blk.none{--bc:var(--slab2);--bf:var(--fg)}
+    .host.light .blk.none{--bc:var(--ink);--bf:#ece2c9}
+    .host.light .blk.none .st{color:#b4a88f}
     .blk:focus-visible{outline:3px solid currentColor;outline-offset:-7px}
     .nm{font-family:var(--display);font-weight:900;font-size:clamp(32px,3.6cqw,36px);line-height:.9;text-transform:uppercase;max-width:100%;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -160,6 +162,12 @@ class JamKioskHome extends JamBase {
   }
   _update() {
     this._clock();
+    // Light mode (dark --fg): "none" dock blocks are solid ink so they stand out from the light page. Re-read on a theme change.
+    if (this._themes !== this._hass.themes || this._themes === undefined) {
+      this._themes = this._hass.themes || null;
+      const m = getComputedStyle(this._body).color.match(/\d+(\.\d+)?/g);
+      this._body.classList.toggle("light", !!m && luminance(m.slice(0, 3).map(Number)) < .5);
+    }
     const c = this._config, h = this._hass;
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
     // Date line: "Tuesday · October 28 · 66° inside"

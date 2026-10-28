@@ -528,14 +528,14 @@ const SHEET_CSS = `
     .sheet{max-width:none}
     .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
   }
-  /* fullscreen (0.5.0, jam-kiosk): the sheet covers the whole viewport; title in the accent, big CLOSE top-right. */
+  /* fullscreen (0.5.0, jam-kiosk): the sheet covers the whole viewport; title in --fg (accent stays in the rule), big CLOSE top-right. */
   .pop.full .stage{padding:0;align-items:stretch;justify-content:stretch}
   .pop.full .sheet{max-width:none;height:100%}
   .pop.full .sheet > .face{--p-t:24px;--p-r:28px;--p-b:24px;--p-l:28px;height:100%;max-height:none;gap:16px;
     padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
   .pop.full .head{align-items:center}
   .pop.full .t .kick{font-size:18px;letter-spacing:.16em}
-  .pop.full .t h2{font-size:clamp(2.4rem,5vw,3.6rem);color:var(--acc)}
+  .pop.full .t h2{font-size:clamp(2.4rem,5vw,3.6rem);color:var(--fg)}
   .pop.full .acts > .key{min-height:64px}
   .pop.full .close > .face{display:flex;align-items:center;font-size:20px;letter-spacing:.14em;--p-t:18px;--p-r:26px;--p-b:18px;--p-l:26px}
   .pop.full .body{gap:16px}

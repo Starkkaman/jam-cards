@@ -71,16 +71,29 @@ module.exports = async (page, check) => {
       const over = [...r.querySelectorAll(".poster, .now, .left, .dock, .blk")].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.className);
       const dock = r.querySelector(".dock").getBoundingClientRect(), bar = r.querySelector(".bar").getBoundingClientRect();
       const blk = [...r.querySelectorAll(".blk")].map(b => b.getBoundingClientRect());
+      const gaps = blk.slice(1).map((b, i) => Math.round(b.left - blk[i].right));
+      const rgb = c => (c.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+      const lum = c => { const l = rgb(c).map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * l[0] + .7152 * l[1] + .0722 * l[2]; };
+      const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+      const page = getComputedStyle(document.body).backgroundColor, fgc = getComputedStyle(k).color;
+      const none = [...r.querySelectorAll(".blk.none")].map(b => {
+        const cs = getComputedStyle(b), st = getComputedStyle(b.querySelector(".st"));
+        return {bg: cs.backgroundColor, fgOk: cs.color === (fgc === "rgb(20, 18, 16)" ? "rgb(236, 226, 201)" : fgc), vsPage: ratio(cs.backgroundColor, page), st: ratio(st.color, cs.backgroundColor)};
+      });
       return {scrollH: se.scrollHeight, scrollW: se.scrollWidth, bottom: box.bottom, cardH: Math.round(box.height),
         clock: fs(r.querySelector(".clock")), big: fs(r.querySelector(".big")), nm: fs(r.querySelector(".nm")), dockH: Math.round(dock.height),
         bar: Math.round(bar.height), barBg: getComputedStyle(r.querySelector(".bar")).backgroundColor,
-        equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over};
+        equal: blk.every(b => Math.abs(b.width - blk[0].width) < 1 && Math.abs(b.top - blk[0].top) < 1), small, over, gaps, none};
     });
     const tag = `jam-kiosk ${w}x${h} ${mode}`;
     check(m.scrollH <= h && m.scrollW <= w && m.bottom <= h && m.bottom >= h - 20 && m.over.length === 0,
       `${tag}: fills the viewport without scrolling (card ${m.cardH}px, bottom ${Math.round(m.bottom)}, page ${m.scrollW}x${m.scrollH})` + (m.over.length ? " — overflows: " + m.over.join(", ") : ""));
     check(m.clock >= 150 && m.clock <= 200 && m.big >= 52 && m.big <= 60 && m.nm >= 32 && m.nm <= 36 && m.dockH === 120 && m.bar === 10 && m.equal,
       `${tag}: clock ${m.clock}px, now ${m.big}px, dock names ${m.nm}px, dock ${m.dockH}px of equal blocks, 10px accent bar`);
+    check(m.gaps.length > 0 && m.gaps.every(g => g === 6), `${tag}: 6px gaps between dock blocks (${m.gaps.join(",")})`);
+    check(m.none.length > 0 && m.none.every(n => n.fgOk && n.st >= 4.5 && (mode === "dark" || n.vsPage >= 1.3)),
+      `${tag}: "none" blocks: ${mode === "light" ? "ink block vs page ≥ 1.3:1, paper name" : "slab2, name in --jam-fg"}, state ≥ 4.5:1 (` +
+      m.none.map(n => `${n.bg} page ${n.vsPage.toFixed(2)} state ${n.st.toFixed(2)}`).join("; ") + ")");
     check(m.small.length === 0, `${tag}: nothing under 18px` + (m.small.length ? " — " + m.small.slice(0, 5).join("; ") : ""));
     await p.screenshot({path: path.join(__dirname, "..", "shots", `kiosk-home-${mode}-${w}.png`)});
     await ctx.close();
@@ -171,14 +184,14 @@ module.exports = async (page, check) => {
       const col = v => { const s = document.createElement("span"); s.style.color = v; r.append(s); const c = getComputedStyle(s).color; s.remove(); return c; };
       const kids = [...r.querySelector(".body").children];
       return {full: r.querySelector(".pop").classList.contains("full"), face: [face.left, face.top, face.width, face.height].map(Math.round),
-        title: h2.textContent, titleCol: getComputedStyle(h2).color, acc: col("var(--ochre)"), kick: r.querySelector(".kick").textContent,
+        title: h2.textContent, titleCol: getComputedStyle(h2).color, acc: col("var(--ochre)"), fg: col("var(--fg)"), kick: r.querySelector(".kick").textContent,
         close: close.getBoundingClientRect().height, closeFs: parseFloat(getComputedStyle(close.querySelector(".face")).fontSize),
         cols: getComputedStyle(r.querySelector(".body")).gridTemplateColumns.split(" ").length,
         kids: kids.map(k => k.localName), fed: kids.every(k => k.hass === window.__hass && k.shadowRoot && k.shadowRoot.textContent.length > 0)};
     });
-    check(!!sh && sh.full && sh.face.join() === "0,0,1024,768" && sh.title === "Lights" && sh.titleCol === sh.acc && sh.kick === "Living room" &&
+    check(!!sh && sh.full && sh.face.join() === "0,0,1024,768" && sh.title === "Lights" && sh.titleCol === sh.fg && sh.titleCol !== sh.acc && sh.kick === "Living room" &&
       sh.close >= 56 && sh.closeFs >= 18 && sh.cols === 2,
-      `jam-kiosk sheet block opens a fullscreen sheet (${sh && sh.face}), title in the accent, kicker, CLOSE ${sh && Math.round(sh.close)}px, ${sh && sh.cols} columns`);
+      `jam-kiosk sheet block opens a fullscreen sheet (${sh && sh.face}), title in --fg, kicker, CLOSE ${sh && Math.round(sh.close)}px, ${sh && sh.cols} columns`);
     check(!!sh && sh.kids.join() === "jam-light,jam-light,jam-tile" && sh.fed, `jam-kiosk sheet children get hass (${sh && sh.kids})`);
     await p.screenshot({path: path.join(__dirname, "..", "shots", "kiosk-home-sheet-dark-1024.png")});
     const upd = await p.evaluate(() => {
