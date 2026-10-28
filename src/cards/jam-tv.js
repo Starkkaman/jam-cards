@@ -72,7 +72,7 @@ class JamTv extends JamSheetHost(JamBase) {
     .poster .txt{position:absolute;left:0;right:0;bottom:5px;padding:8px 56px 7px 12px;display:grid;gap:3px;min-width:0}
     .poster.bars .txt{padding-right:96px}
     .poster.art.busy .txt{background:color-mix(in srgb,var(--ink) 50%,transparent)}
-    .poster .kick{font:600 .6rem/1.1 var(--body);letter-spacing:.16em;text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .poster .kick{font:600 .6rem/1.15 var(--body);letter-spacing:.16em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal}
     .poster .title{font-family:var(--display);font-weight:900;font-size:1.55rem;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
     .poster .sub{font:500 .72rem/1.2 var(--body)}

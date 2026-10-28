@@ -113,4 +113,16 @@ module.exports = async (page, check, {callsNow}) => {
     await kc.locator('.seg button[data-tab="now"]').click();
     await page.setViewportSize({width: 1280, height: 900});
   }
+  // Narrow card (~280 px): the kicker wraps at word boundaries (no ellipsis), 2 lines, above the title without overlap.
+  const narrow = await card(L).evaluate(e => {
+    const w = e.style.width, d = e.style.display; e.style.display = "block"; e.style.width = "280px";
+    const r = e.shadowRoot, p = r.querySelector(".poster"), k = p.querySelector(".kick"), t = p.querySelector(".title");
+    const cs = getComputedStyle(k), lh = parseFloat(cs.lineHeight), kb = k.getBoundingClientRect(), tb = t.getBoundingClientRect(),
+      pb = p.getBoundingClientRect(), xb = p.querySelector(".txt").getBoundingClientRect();
+    const out = {text: k.textContent, ell: cs.textOverflow, ws: cs.whiteSpace, lines: Math.round(kb.height / lh),
+      over: kb.bottom > tb.top + 0.5, inside: xb.top >= pb.top - 0.5 && xb.bottom <= pb.bottom + 0.5, clipped: k.scrollWidth > k.clientWidth + 1};
+    e.style.width = w; e.style.display = d; return out;
+  });
+  check(narrow.ell !== "ellipsis" && narrow.ws === "normal" && !narrow.clipped && narrow.lines === 2 && !narrow.over && narrow.inside,
+    `jam-speaker: 280px kicker "${narrow.text}" wraps to ${narrow.lines} lines, no ellipsis (${narrow.ell}/${narrow.ws}), no title overlap (${narrow.over}), text inside poster (${narrow.inside})`);
 };
