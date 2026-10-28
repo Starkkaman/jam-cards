@@ -319,6 +319,26 @@ stereo:
 | `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them); sheet title (default "Remote") |
 | `accent` | Poster, Play key, TV section (see Colours) |
 
+### jam-speaker
+Music Assistant speaker (Spotify Connect too): an artwork poster with a source badge in its corner (Spotify Connect,
+Music Assistant, Grouped, Idle, Paused, Offline or the source name) over a **Now playing | Speakers** switch. Now playing =
+Prev / Play-Pause / Next / Shuffle + a thick volume bar; Speakers = this room and each listed speaker with its own volume
+and a Join / Playing toggle (media_player.join / unjoin; only players that support grouping).
+```yaml
+type: custom:jam-speaker
+entity: media_player.kitchen
+name: Kitchen
+speakers: [media_player.living_room, media_player.phoster]
+```
+| Option | Description |
+|---|---|
+| `entity` | media_player (required; a Music Assistant player) |
+| `name` | Kicker "<name> speakers" (default the player's name) |
+| `speakers` | media_player ids (or `{entity, name}`) for the Speakers tab; none = no tab |
+| `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
+| `poster_height` | Poster height in px (default 170; smaller for kiosks) |
+| `accent` | Poster, Play key, volume fill (default violet) |
+
 ### jam-fan
 Fan or air purifier: On/Off pill, speed steps, preset chips, air-quality sensors in the label.
 ```yaml

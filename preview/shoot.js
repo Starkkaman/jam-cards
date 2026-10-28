@@ -49,7 +49,7 @@ const server = http.createServer((req, res) => {
         // Layout: every card's paper stays inside the card box; no face overflows sideways.
         const layout = await page.evaluate(() => {
           const bad = [];
-          for (const card of document.querySelectorAll("#view [class], #view jam-heading, #view jam-hero, #view jam-tile, #view jam-choice, #view jam-slider, #view jam-media")) {
+          for (const card of document.querySelectorAll("#view [class], #view jam-heading, #view jam-hero, #view jam-tile, #view jam-choice, #view jam-slider, #view jam-media, #view jam-speaker")) {
             if (!card.shadowRoot) continue;
             const host = card.getBoundingClientRect(), p = card.shadowRoot.querySelector(".host > .paper");
             if (p) { const r = p.getBoundingClientRect(); if (r.right > host.right + 0.5 || r.bottom > host.bottom + 0.5) bad.push(card.localName + " paper outside box"); }
@@ -103,7 +103,7 @@ const server = http.createServer((req, res) => {
           });
           check(core.cuts && core.br, "JamCards.CUTS / cutPath: card br14, key tr12, chip br6, hero br22, sheet tr18");
           check(core.names, "accent names + room aliases resolve (living→ochre, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
-          check(core.api && core.version === "0.3.5", `window.JamCards exports the helper API (version ${core.version})`);
+          check(core.api && core.version === "0.3.6", `window.JamCards exports the helper API (version ${core.version})`);
           // A rendered card resolves an alias: accent kitchen -> teal heading rule; no accent -> ochre; the fixture rooms differ.
           const rule = await page.evaluate(() => {
             const mk = accent => { const e = document.createElement("jam-heading"); e.setConfig({type: "custom:jam-heading", title: "T", ...(accent ? {accent} : {})});
