@@ -419,9 +419,10 @@ active_hours: {from: "06:00", to: "23:00"}
 |---|---|
 | `idle_seconds` | Idle time before it shows (default 120) |
 | `mode` | `poster` (default) / `images` |
+| `mode_entity` | An `input_select` / `select` (state containing photo / image / slide → photos, clock / poster → clock) or an `input_boolean` (on → photos, off → clock) that picks the mode live; unavailable or anything else → `mode`. A change while it is showing takes effect at the next slide. Photos still need `images` (without it: clock) |
 | `weather_entity`, `temperature_entity` | Weather word and temperature |
 | `kicker` | Label on the poster |
-| `images` | `{index (URL of a JSON list of images) or media (a Home Assistant media source folder), interval (20 s), shuffle}` |
+| `images` | `{index (URL of a JSON list of images) or media (a Home Assistant media source folder), interval (20 s), shuffle, fade (crossfade in ms, default 900, 0 = cut)}` |
 | `poster_every` | Images mode: every Nth slide is the poster |
 | `active_hours` | `{from, to}`: only shows in this window |
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
@@ -434,6 +435,8 @@ Photos from Home Assistant's media source (0.4.0): set `images.media` to a folde
 after 10 minutes); only images are shown (other files such as `index.json` are skipped), sorted by name, or shuffled with
 `shuffle: true`. Each photo is resolved to a short-lived signed URL right before it is shown; the URLs are never stored or
 logged. Photos fill the screen letterboxed on ink. If the folder cannot be read the poster clock shows instead.
+Each photo crossfades into the next (0.4.1; `images.fade`, default 900 ms, `0` = instant cut; also instant with the
+system's reduce-motion setting), and the clock and photos crossfade into each other.
 ```yaml
 type: custom:jam-screensaver
 mode: images

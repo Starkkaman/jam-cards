@@ -2,7 +2,8 @@
    {type: custom:jam-screensaver, idle_seconds? (120), accent? (room colour, default ochre), mode?: poster (default) | images,
     weather_entity?, temperature_entity?, kicker? ("The Bungalow · kitchen"),
     images?: {index: URL of a JSON list (["a.jpg", {url, caption}]) | media: "media-source://…" folder (0.4.0),
-      interval? (20 s), shuffle? (false)},
+      interval? (20 s), shuffle? (false), fade? (0.4.1: crossfade in ms, default 900, 0 = cut)},
+    mode_entity? (0.4.1: input_select / select / input_boolean choosing the mode live, see below),
     poster_every? (images mode: every Nth slide is the poster), active_hours?: {from: "06:00", to: "23:00"},
     disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
     motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
@@ -32,7 +33,15 @@
    kept, as media_content_ids in memory, sorted by title (shuffle: a per-load seeded order). Each image is resolved
    (media_source/resolve_media, expires 3600) right before it is preloaded/shown, so a signed URL is used within one
    interval and never cached; URLs carry a token and are never logged or stored. Any browse / resolve / load error falls
-   back to the poster (never black). */
+   back to the poster (never black).
+   Crossfade (0.4.1, user request; the one exception to the stepped-cut rule, photos only): the next photo is decoded
+   (img.decode()) and then fades in over the current one (opacity only, images.fade ms, ease-in-out); the old <img> is removed
+   when the fade ends, so the DOM never holds more than 2 (the next preload waits for the fade). Poster <-> photos fades the
+   whole slides layer over the poster. fade 0 or prefers-reduced-motion = instant cut. A fade in progress is finished at once
+   when timers stop (hidden page / dismiss).
+   mode_entity (0.4.1): state ~ /photo|image|slide/i -> images, /clock|poster/i -> poster; input_boolean on -> images, off ->
+   poster; unavailable / unknown / anything else -> the configured mode. Images without an images config -> poster. While shown
+   a change takes effect at the next slide tick (images.interval, default 20 s), never mid-slide. */
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
@@ -42,6 +51,7 @@ const SS_CSS = `
   .ov.gone{background:transparent} .ov.gone > *{visibility:hidden}
   .poster,.slides{position:absolute;inset:0}
   .ov[data-view=poster] .slides,.ov[data-view=images] .poster{display:none}
+  .ov.xf .poster,.ov.xf .slides{display:block} /* poster <-> photos crossfade: both layers while the slides layer fades */
   /* Poster: flat accent shapes + a text block; each layout (l0-l5) only moves them (no transform for placement). */
   .sh{position:absolute;background:var(--acc);width:0;height:0}
   .bar{clip-path:polygon(0 0,100% 0,100% calc(100% - 3vh),calc(100% - 3vh) 100%,0 100%)}
@@ -77,7 +87,7 @@ const SS_CSS = `
   @keyframes jam-ss-pop{from{opacity:0}to{opacity:1}}
   /* Images: at most two <img> (current + preloading next), contained on ink. */
   .img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--ink);visibility:hidden}
-  .img.cur{visibility:visible}
+  .img.cur,.img.in{visibility:visible}
   .img.cut{animation:jam-ss-pop 120ms steps(2,end) 1 both}
   .tchip{position:absolute;left:3vw;bottom:4vh;display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
     clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
@@ -85,7 +95,7 @@ const SS_CSS = `
   .tchip small{color:var(--acc-fg)}
   .tchip .cap{font:600 max(11px,1.8vh)/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;max-width:40vw}
   .tchip .cap:empty{display:none}
-  @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}}`;
+  @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}.img,.slides{transition:none!important}}`;
 /* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>). */
 const SS_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink", "violet",
   "green", "on-fg", "display", "body", "accent", "ink-fg", "ink-dim"].map(n => "--jam-" + n);
@@ -231,7 +241,8 @@ class JamScreensaver extends JamBase {
     super();
     this._shown = false; this._gone = false; this._idleT = null; this._tickT = null; this._slideT = null; this._tickAt = 0;
     this._list = null; this._listAt = 0; this._listP = null; this._order = []; this._pos = 0; this._k = 0; this._cur = null; this._next = null;
-    this._layout = -1; this._gen = 0; this._browses = 0; this._resolves = 0;
+    this._layout = -1; this._gen = 0; this._browses = 0; this._resolves = 0; this._live = "poster"; this._fading = false;
+    this._fadeT = this._fadeEnd = this._xfT = this._xfEnd = null;
     this._onAct = e => this._activity(e);
     this._onVis = () => this._visibility();
   }
@@ -241,6 +252,7 @@ class JamScreensaver extends JamBase {
       throw new Error("jam-screensaver: images.index (URL of a JSON list) or images.media (media-source:// folder) is required in images mode");
     if (c.active_hours && (jamSsMinutes(c.active_hours.from) === null || jamSsMinutes(c.active_hours.to) === null)) throw new Error('jam-screensaver: active_hours needs from/to as "HH:MM"');
     for (const d of this._disables(c)) if (!d || typeof d.entity !== "string") throw new Error("jam-screensaver: disable_on needs an entity");
+    if (c.mode_entity !== undefined && typeof c.mode_entity !== "string") throw new Error("jam-screensaver: mode_entity is an entity id");
     if (c.kiosk !== undefined && c.kiosk !== true && c.kiosk !== false && c.kiosk !== "url") throw new Error('jam-screensaver: kiosk is true, false or "url"');
   }
   setConfig(config) {
@@ -357,7 +369,7 @@ class JamScreensaver extends JamBase {
   _settle(type) { if (this._gone && type === "click") this._hide(); }
   _visibility() {
     if (document.hidden) { this._stopTimers(); clearTimeout(this._idleT); this._idleT = null; return; }
-    if (this._shown) { this._texts(); this._arm(); if (this._mode() === "images") this._armSlide(); }
+    if (this._shown) { this._texts(); this._arm(); this._armSlide(); }
     else this._restartIdle();
   }
   _inHours(d = new Date()) {
@@ -384,9 +396,34 @@ class JamScreensaver extends JamBase {
     this._show();
   }
   /* ---- show / hide ---- */
-  _mode() { return this._config.mode === "images" ? "images" : "poster"; }
+  /* mode_entity -> "images" | "poster" | null (null = use the configured mode). */
+  _entityMode() {
+    const id = this._config.mode_entity, s = id && this._hass && this._hass.states && this._hass.states[id];
+    if (!s || UNAVAILABLE.has(s.state)) return null;
+    const v = String(s.state);
+    if (v === "on" || v === "off") return v === "on" ? "images" : "poster";
+    if (/photo|image|slide/i.test(v)) return "images";
+    if (/clock|poster/i.test(v)) return "poster";
+    return null;
+  }
+  _hasImages() {
+    const i = this._config.images;
+    return !!(i && ((typeof i.index === "string" && i.index) || (typeof i.media === "string" && i.media.startsWith("media-source://"))));
+  }
+  /* The wanted mode now; this._live is the mode in effect while shown (changes only at a slide tick). */
+  _mode() {
+    const m = this._entityMode() || (this._config.mode === "images" ? "images" : "poster");
+    return m === "images" && this._hasImages() ? "images" : "poster";
+  }
+  /* Crossfade length (ms): images.fade (default 900), 0 = cut; reduced motion = cut. */
+  _fadeMs() {
+    const im = this._config.images || {}, f = im.fade === undefined ? 900 : Number(im.fade);
+    try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return 0; } catch (e) { /* old engine */ }
+    return isFinite(f) && f > 0 ? Math.min(f, 5000) : 0;
+  }
   _show() {
     this._shown = true; this._gone = false; this._k = 0; this._posterTurn = false;
+    this._live = this._mode();
     this._ov.classList.remove("gone");
     this._ov.dataset.view = "poster";
     this._setLayout(false);
@@ -394,22 +431,51 @@ class JamScreensaver extends JamBase {
     this._ov.classList.add("show");
     this._mount();
     this._arm();
-    if (this._mode() === "images") this._startImages();
+    if (this._live === "images") this._startImages(); else this._armSlide();
   }
   _hide() {
     clearTimeout(this._goneT);
     this._stopTimers();
     if (this._ov) { this._ov.classList.remove("show", "gone"); }
     const was = this._shown;
-    this._shown = false; this._gone = false; this._gen++;
-    for (const i of [this._cur, this._next]) if (i) i.remove();
-    this._cur = this._next = null;
+    this._shown = false; this._gone = false;
+    this._dropImages();
     if (was) this._restartIdle();
   }
+  _dropImages() {
+    clearTimeout(this._fadeT); this._fadeT = this._fadeEnd = null;
+    this._gen++; this._fading = false;
+    for (const i of [this._cur, this._next]) if (i) i.remove();
+    this._cur = this._next = null;
+  }
+  /* Stops the clock + slide timers; a crossfade in progress is finished at once (never left half-way with 2 visible). */
   _stopTimers() {
     clearTimeout(this._tickT); clearTimeout(this._slideT);
     this._tickT = this._slideT = null;
+    if (this._fadeEnd) this._fadeEnd();
+    if (this._xfEnd) this._xfEnd();
   }
+  /* Switch the visible layer; with a fade the slides layer crossfades over the poster (opacity only). */
+  _view(v) {
+    const ov = this._ov, sl = this._slides;
+    if (ov.dataset.view === v) return;
+    if (this._xfEnd) this._xfEnd();
+    const ms = this._shown ? this._fadeMs() : 0;
+    ov.dataset.view = v;
+    if (!ms) { this._afterView(); return; }
+    ov.classList.add("xf");
+    sl.style.transition = "none"; sl.style.opacity = v === "images" ? "0" : "1";
+    void sl.offsetWidth;
+    sl.style.transition = `opacity ${ms}ms ease-in-out`; sl.style.opacity = v === "images" ? "1" : "0";
+    this._xfEnd = () => {
+      clearTimeout(this._xfT); this._xfT = null; this._xfEnd = null;
+      ov.classList.remove("xf"); sl.style.transition = sl.style.opacity = "";
+      this._afterView();
+    };
+    this._xfT = setTimeout(this._xfEnd, ms + 30);
+  }
+  /* Poster mode via mode_entity: no photos kept once the poster is fully up. */
+  _afterView() { if (this._ov.dataset.view === "poster" && this._live === "poster" && (this._cur || this._next)) this._dropImages(); }
   /* Covered? Hit-test the corners + centre; if anything else is on top (containing block / stacking context), move to body. */
   _mount() {
     const ov = this._ov, W = innerWidth, H = innerHeight;
@@ -440,7 +506,7 @@ class JamScreensaver extends JamBase {
     if (!this._inHours() || this._blocked()) { this._hide(); return; }
     this._setLayout(true);
     this._texts();
-    if (this._mode() === "images" && !this._listFresh()) this._fetchList();
+    if (this._live === "images" && !this._listFresh()) this._fetchList();
     this._arm();
   }
   /* Seeded layout per minute (never the same twice in a row); the shapes cut in with one stepped animation. */
@@ -520,8 +586,8 @@ class JamScreensaver extends JamBase {
   }
   _startImages() {
     const go = () => {
-      if (!this._shown) return;
-      if (!this._list || !this._list.length) { this._ov.dataset.view = "poster"; return; } /* fallback: never a black screen */
+      if (!this._shown || this._live !== "images") return;
+      if (!this._list || !this._list.length) { this._view("poster"); return; } /* fallback: never a black screen */
       this._preload();
       this._armSlide();
     };
@@ -541,16 +607,16 @@ class JamScreensaver extends JamBase {
   _preload() {
     if (this._next || !this._shown) return;
     const it = this._nextItem();
-    if (!it) { if (!this._cur) this._ov.dataset.view = "poster"; return; }
+    if (!it) { if (!this._cur) this._view("poster"); return; }
     const img = el("img", "img"); img.alt = ""; img.decoding = "async"; img._item = it;
-    img.onload = () => { img._ok = true; if (!this._cur && this._ov.dataset.view === "poster" && !this._posterTurn) this._swap(); };
+    img.onload = () => { img._ok = true; if (!this._cur && this._live === "images" && this._ov.dataset.view === "poster" && !this._posterTurn) this._swap(); };
     const gen = this._gen;
     img.onerror = () => {
       img.onerror = img.onload = null;
       img.remove(); if (this._next === img) this._next = null;
       if (gen !== this._gen) return;
       this._list = this._list.filter(x => x !== it); this._order = []; this._pos = 0;
-      if (!this._list.length) { this._listAt = Date.now(); if (this._cur) { this._cur.remove(); this._cur = null; } this._ov.dataset.view = "poster"; return; }
+      if (!this._list.length) { this._listAt = Date.now(); if (this._cur && !this._fading) { this._cur.remove(); this._cur = null; } this._view("poster"); return; }
       this._preload();
     };
     this._next = img;
@@ -568,31 +634,66 @@ class JamScreensaver extends JamBase {
       })
       .catch(() => { if (img.onerror) img.onerror(); });
   }
+  /* Show the preloaded next image once it is decoded: crossfade over the current one (or a cut / layer fade). */
   _swap() {
     const n = this._next;
-    if (!n || !n._ok) return false;
-    if (this._cur) this._cur.remove();
-    n.classList.add("cur", "cut");
-    this._cur = n; this._next = null;
-    this._cap.textContent = n._item.caption || "";
-    this._ov.dataset.view = "images";
-    this._preload();
+    if (!n || !n._ok || this._fading) return false;
+    this._fading = true;
+    const gen = this._gen;
+    const ready = typeof n.decode === "function" ? n.decode().catch(() => {}) : Promise.resolve();
+    ready.then(() => {
+      this._fading = false;
+      if (gen !== this._gen || this._next !== n || !this._shown || this._live !== "images") return;
+      const old = this._cur, ms = this._fadeMs();
+      this._cap.textContent = n._item.caption || "";
+      if (!old || !ms || this._ov.dataset.view !== "images") {
+        /* first photo / back from the poster (the layer fades) / fade 0 (stepped cut) */
+        if (old) old.remove();
+        n.classList.add("cur"); if (!ms) n.classList.add("cut");
+        this._cur = n; this._next = null;
+        this._view("images");
+        this._preload();
+        return;
+      }
+      this._fading = true;
+      n.style.opacity = "0"; n.classList.add("in"); void n.offsetWidth;
+      n.style.transition = `opacity ${ms}ms ease-in-out`; n.style.opacity = "1";
+      this._fadeEnd = () => {
+        clearTimeout(this._fadeT); this._fadeT = null; this._fadeEnd = null; this._fading = false;
+        if (gen !== this._gen) return;
+        old.remove();
+        n.classList.remove("in"); n.classList.add("cur"); n.style.transition = n.style.opacity = "";
+        this._cur = n; this._next = null;
+        this._preload();
+      };
+      this._fadeT = setTimeout(this._fadeEnd, ms + 30);
+    });
     return true;
   }
-  _interval() { const s = Number(this._config.images.interval); return (isFinite(s) && s >= 1 ? s : 20) * 1000; }
+  _interval() { const s = Number((this._config.images || {}).interval); return (isFinite(s) && s >= 1 ? s : 20) * 1000; }
+  /* Slide tick: in images mode, and in poster mode too when mode_entity may switch to photos. */
   _armSlide() {
     clearTimeout(this._slideT); this._slideT = null;
-    if (!this._shown || document.hidden) return;
+    if (!this._shown || document.hidden || (this._live !== "images" && !this._config.mode_entity)) return;
     this._slideT = setTimeout(() => this._slide(), this._interval());
   }
   _slide() {
     this._slideT = null;
     if (!this._shown) return;
+    const m = this._mode();
+    if (m !== this._live) { /* mode_entity changed: switch at this tick */
+      this._live = m; this._k = 0; this._posterTurn = false;
+      if (m === "poster") { this._view("poster"); this._setLayout(true); }
+      else this._startImages();
+      this._armSlide();
+      return;
+    }
+    if (m === "poster") { this._armSlide(); return; }
     const every = Math.round(Number(this._config.poster_every)) || 0;
     this._k++;
     this._posterTurn = every > 0 && this._k % every === 0;
-    if (this._posterTurn || !this._list || !this._list.length) { this._ov.dataset.view = "poster"; this._setLayout(true); }
-    else if (!this._swap() && this._cur) this._ov.dataset.view = "images"; /* next not ready: keep the current image */
+    if (this._posterTurn || !this._list || !this._list.length) { this._view("poster"); this._setLayout(true); }
+    else if (!this._swap() && this._cur) this._view("images"); /* next not ready: keep the current image */
     this._armSlide();
   }
   getCardSize() { return 0; }
