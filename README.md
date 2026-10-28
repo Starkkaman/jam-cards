@@ -336,7 +336,7 @@ speakers: [media_player.living_room, media_player.phoster]
 | `name` | Kicker "<name> speakers" (default the player's name) |
 | `speakers` | media_player ids (or `{entity, name}`) for the Speakers tab; none = no tab |
 | `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
-| `poster_height` | Poster height in px (default 170; smaller for kiosks) |
+| `poster_height` | Poster height in px (default 170, min 72; below 110 the title is one line — for kiosks) |
 | `accent` | Poster, Play key, volume fill (default violet) |
 
 ### jam-fan

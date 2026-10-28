@@ -1,7 +1,7 @@
 /* ---------- jam-speaker: Music Assistant speaker (0.3.6): poster + source badge + Now playing / Speakers switch ----------
    {type: custom:jam-speaker, entity (media_player, a Music Assistant player), name? (kicker "<name> speakers"; default the
     player's friendly name), accent? (default violet = music), speakers?: [media_player id | {entity, name?}] (Speakers tab;
-    none -> no tab), show_shuffle? (true), poster_height? (px, default 170; kiosks shrink it)}
+    none -> no tab), show_shuffle? (true), poster_height? (px, default 170, min 72; below 110 the title is one line; kiosks shrink it)}
    Poster (poster cut): artwork (entity_picture via hassUrl) or a flat accent block with Golden Arm bars; kicker, title =
    media_title (2 lines), sub = artist. Text over art is ink or paper by the art's luminance (jam-tv's sampler); busy art gets
    a flat 50% ink band. Idle (idle / off / standby / on with nothing playing): slab2 poster, title = the last media_title, else
@@ -44,6 +44,9 @@ class JamSpeaker extends JamBase {
     .poster .title{font-family:var(--display);font-weight:900;font-size:2rem;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
       overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
     .poster .sub{font:500 .8rem/1.2 var(--body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .poster.small .txt{padding:4px 22px 7px 12px;gap:2px}
+    .poster.small .title{font-size:1.6rem;-webkit-line-clamp:1}
+    .poster.small .sub{font-size:.74rem}
     .badge{position:absolute;z-index:2;top:8px;right:8px;max-width:calc(100% - 16px);display:flex;align-items:center;gap:6px;
       background:var(--slab2);color:var(--fg);padding:6px 9px 6px 8px;font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;
       clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
@@ -92,7 +95,9 @@ class JamSpeaker extends JamBase {
     const c = this._config, h = this._hass, a = (s && s.attributes) || {};
     const fname = friendly(h, c.entity);
     const {root, face} = paper("div", "jam-speaker|poster|" + c.entity, {kind: "poster", cls: "poster" + (idle ? " idle" : "")});
-    if (c.poster_height) root.style.setProperty("--ph", Math.max(80, Number(c.poster_height) || 170) + "px");
+    const ph = Math.max(72, Number(c.poster_height) || 170);
+    if (c.poster_height) root.style.setProperty("--ph", ph + "px");
+    if (ph < 110) root.classList.add("small"); // kiosk: one title line, tighter text block
     const src = !idle && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
     const bars = () => { root.classList.add("bars"); face.prepend(armBars("jam-speaker|" + c.entity)); };
     const tone = (img, r) => JamTv.prototype._artTone.call(this, img, r); // shared art sampler (jam-tv)
