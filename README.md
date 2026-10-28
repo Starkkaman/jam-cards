@@ -461,11 +461,14 @@ display font (0.6.1: its own line), a facts line (inside temperature, humidity, 
 "now" line (what is playing, else the weather outside) and a dock of 2-5 flat colour blocks along the bottom. Built to be
 read from across the room: nothing under 18 px, one room colour (the bar at the top) plus the dock blocks, no chips.
 A block opens a fullscreen sheet with its own cards, or runs an action. Weak-kiosk friendly: one timer per minute, no
-animation loops (a block stamps once when pressed). Put it alone in a full-width section (with jam-screensaver beside it).
+animation loops (a block stamps once when pressed). With `lock_entity` (0.6.2) a round lock button sits in the top-right
+corner under the bar: a cream (ink in light mode) disc with a closed padlock when locked, a red disc with an open padlock
+otherwise; tap locks at once, or asks "Unlock the front door?" first when locked. Put it alone in a full-width section (with jam-screensaver beside it).
 ![Kiosk home](preview/shots/kiosk-home-dark-1024.png)
 ```yaml
 type: custom:jam-kiosk
 accent: living
+lock_entity: lock.front_door
 inside_entity: sensor.home_temperature
 humidity_entity: sensor.home_humidity
 aq_entity: sensor.purifier_air_quality
@@ -490,6 +493,7 @@ dock:
 |---|---|
 | `accent` | Room colour of the 10 px bar at the top (default ochre); also the sheet colour of `none` blocks |
 | `inside_entity`, `humidity_entity`, `aq_entity` | Facts line under the clock: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent" (each part only while its sensor has a value; AQ as a word, a US AQI number becomes its category; wraps between parts, never cut off) |
+| `lock_entity`, `lock_name` | 0.6.2: round lock button top-right (≈104 px on a 1024×768 iPad, ≈88 px on an Echo Show 8) with a label line "FRONT DOOR · LOCKED" (just "LOCKED" when it does not fit; `lock_name` default "Front door"). Locked = calm disc in the text colour; Unlocked / Open / Jammed / Locking… / Unlocking… = red disc; unavailable = dim outline and "—". Tap: unlocked / open / jammed → `lock.lock` at once; locked → confirmation "Unlock the front door?" then `lock.unlock`; other states do nothing |
 | `now` | Sources for the right-hand block, the first active one wins. `{type: media, entity, states (default [playing]), kicker (default Playing / Paused), app_entity}`: title, else the app; small line = artist, else the app. `{type: weather, entity, temperature_entity, kicker (default Outside)}`: "51° cloudy" + the next change in the hourly forecast within 12 h ("Rain at 3 · high 64°"), else "High 64°", else humidity |
 | `dock` | 2-5 blocks: `name`, `accent` (colour or room alias; `none` = plain block with a dim state; default the card accent), `state`, `cards` + `kicker` + `columns` (1-3 equal, or a list of widths such as `[3, 2]` = 60 % / 40 %) for a sheet (cards with `size: kiosk` get the full sheet height), or `tap_action` (confirmation supported); `tap: sheet / action` forces one |
 | `state` | `{count_on: [ids], suffix: on}` → "3 on" / "All off"; `{entity, attribute, app_entity}` → the entity's state in words (media player: title while playing / paused, else the app from `app_entity`, else On / Idle, Off when off; lock: "Door locked" / "Door unlocked"; air-quality sensor: Good / Moderate / … or its own word); `{text}` |

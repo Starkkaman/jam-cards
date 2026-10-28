@@ -53,7 +53,7 @@ window.jamPreview = {
 window.__calls = [];
 const hass = {
   states,
-  callService(domain, service, data) { window.__calls.push({domain, service, data}); return Promise.resolve(); },
+  callService(domain, service, data, target) { window.__calls.push({domain, service, data, target}); return Promise.resolve(); },
   formatEntityState(s) { const u = s.attributes.unit_of_measurement; return u ? `${s.state} ${u}` : s.state; },
 };
 hass.themes = {darkMode: !document.documentElement.classList.contains("light")};

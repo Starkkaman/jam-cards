@@ -19,7 +19,7 @@ jamPreview.add({
     st("lock.kh_door", "locked", {friendly_name: "Kiosk door"}),
   ],
   sections: [
-    ["full", {type: "custom:jam-kiosk", accent: "living", inside_entity: "sensor.kh_inside",
+    ["full", {type: "custom:jam-kiosk", accent: "living", inside_entity: "sensor.kh_inside", lock_entity: "lock.kh_door",
       humidity_entity: "sensor.kh_humidity", aq_entity: "sensor.kh_air_quality",
       now: [
         {type: "media", entity: "media_player.kh_tv", states: ["playing", "paused"], kicker: "On the TV", app_entity: "sensor.kh_tv_app"},
