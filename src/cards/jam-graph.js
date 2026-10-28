@@ -47,7 +47,10 @@ class JamGraph extends JamBase {
     if (this.isConnected) { this._arm(); this._kick(); }
   }
   set hass(h) {
-    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamGraphTime(h));
+    const first = !this._hass, before = this._sig;
+    // The time format only changes with hass.locale (a new object): no Intl lookup on every state change.
+    if (this._tf === undefined || !h || h.locale !== this._loc || h.language !== this._lng) { this._loc = h && h.locale; this._lng = h && h.language; this._tfNew = JSON.stringify(jamGraphTime(h)); }
+    const tf = this._tfNew;
     super.hass = h;
     if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed: redraw the labels */
     this._tf = tf;
@@ -67,6 +70,7 @@ class JamGraph extends JamBase {
     if (!this._data || Date.now() - this._last > this._every()) this._kick();
   }
   disconnectedCallback() {
+    super.disconnectedCallback();
     clearInterval(this._iv); this._iv = null;
     clearTimeout(this._pending); this._pending = null;
     if (this._ro) this._ro.disconnect();

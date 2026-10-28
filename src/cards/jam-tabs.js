@@ -23,6 +23,7 @@ class JamTabs extends JamBase {
     this._render(false);
   }
   disconnectedCallback() {
+    super.disconnectedCallback();
     window.removeEventListener("location-changed", this._onLoc);
     window.removeEventListener("popstate", this._onLoc);
   }
@@ -36,7 +37,8 @@ class JamTabs extends JamBase {
     .tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--c)}
     .tab:hover{color:var(--fg)}
     .tab.on{background:var(--c);color:var(--acc-fg)}
-    .tab:active{transform:translate(2px,2px)}`; }
+    .tab:active{transform:translate(2px,2px)}
+    .tab:focus-visible{outline-offset:-3px} .tab.on:focus-visible{outline-color:currentColor}`; }
   render(b) {
     const c = this._config;
     this.toggleAttribute("data-sticky", !!c.sticky);

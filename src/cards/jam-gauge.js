@@ -44,7 +44,7 @@ class JamGauge extends JamBase {
     parent.append(n);
   }
   _meter(node, m) {
-    node.setAttribute("role", "meter");
+    node.setAttribute("role", "meter"); node.setAttribute("aria-label", this._name());
     node.setAttribute("aria-valuemin", m.min); node.setAttribute("aria-valuemax", m.max);
     if (m.ok) { node.setAttribute("aria-valuenow", m.cv); node.setAttribute("aria-valuetext", jgFmt(m.v) + (m.unit ? " " + m.unit : "")); }
     else node.setAttribute("aria-valuetext", "Unavailable");

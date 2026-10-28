@@ -2,7 +2,8 @@
    {type: custom:jam-tv, media_player (media_player.*), remote? (remote.*), name? (off kicker; default the player's name),
     sources?: [{name, color? (accent name, room alias or HA colour name; default the card accent), tap_action, hold_action?,
                 match?: {app?: text | [texts], input?: text | [texts]} (when this source is on screen; a plain text or
-                list = app)}]  (`launchers` = alias),
+                list = app), exact? (0.3.8, default false: true = match.app only lights on an exact app name, so
+                "YouTube" does not light for "YouTube Music" / "YouTube TV")}]  (`launchers` = alias),
     source_label? ("Source"),
     current_app_entity? (sensor whose state is the app in front: a label or package id, e.g. sensor.hisense_tv_current_app),
     input_entity? (select/sensor whose state names the TV input, e.g. select.hisense_tv_input),
@@ -25,7 +26,7 @@
    Switch row "Now playing" | source_label: default Now playing when on, Source when off; the choice is kept in memory until
    the TV goes on -> off. Now playing = Prev / Play-Pause (accent) / Next / Remote, then the volume row. Source = 3-up tiles
    (flat colour square + name). Highlight (0.3.5) only from live signals: the current_app_entity state against each
-   source's match.app (case-insensitive; an exact match on any source wins, else a substring), then, while the TV shows an
+   source's match.app (case-insensitive; an exact match on any source wins, else a substring unless the source sets exact), then, while the TV shows an
    input (input_app / input_signal_entity), the input_entity state against match.input (exact). Nothing matches (home
    screen, screensaver, other apps) -> no tile filled. A newly matched tile gets the one-shot stamp + colour wipe.
    Remote = a sheet (jamCardSheet) with a jam-remote in colour-coded sections: TV (card accent) and Stereo (violet); the
@@ -45,7 +46,7 @@ function jamTvTime(sec, long) {
   return long ? `${h}:${String(m).padStart(2, "0")}` : `${Math.floor(sec / 60)}:${String(s).padStart(2, "0")}`;
 }
 /* Art analysis cache: src -> {light, busy} (luminance of the text area + its spread). */
-const JAM_TV_ART = new Map();
+const JAM_TV_ART = new Map(), JAM_TV_ART_MAX = 64;
 class JamTv extends JamSheetHost(JamBase) {
   validate(c) {
     if (!c.media_player || !c.media_player.startsWith("media_player.")) throw new Error("jam-tv: media_player must be a media_player");
@@ -144,11 +145,11 @@ class JamTv extends JamSheetHost(JamBase) {
     const live = id => { const e = id && stateObj(h, id); return e && !UNAVAILABLE.has(e.state) && String(e.state).trim() !== "" ? low(e.state) : null; };
     const list = this._sources.map(x => {
       const m = x.match && typeof x.match === "object" && !Array.isArray(x.match) ? x.match : {app: x.match};
-      return {x, app: [].concat(m.app || []).filter(Boolean).map(low), input: [].concat(m.input || []).filter(Boolean).map(low)};
+      return {x, exact: x.exact === true, app: [].concat(m.app || []).filter(Boolean).map(low), input: [].concat(m.input || []).filter(Boolean).map(low)};
     });
     const app = live(c.current_app_entity);
     if (app) {
-      const hit = list.find(k => k.app.includes(app)) || list.find(k => k.app.some(t => app.includes(t)));
+      const hit = list.find(k => k.app.includes(app)) || list.find(k => !k.exact && k.app.some(t => app.includes(t)));
       if (hit) return hit.x;
     }
     const inp = live(c.input_entity);
@@ -181,7 +182,7 @@ class JamTv extends JamSheetHost(JamBase) {
       css: `.kbd > .face{--p-t:6px;--p-b:6px;--p-l:10px;--p-r:12px;height:100%;display:flex;align-items:center;justify-content:center;color:var(--acc)}
         .kbd svg{display:block;width:26px;height:17px}`});
   }
-  disconnectedCallback() { super.disconnectedCallback(); if (this._kb) this._kb.close({silent: true}); }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._hold) this._hold(); if (this._kb) this._kb.close({silent: true}); }
   _key(label, id, cls, run, disabled) {
     const k = cutKey(label, `jam-tv|${this._config.media_player}|${id}`, cls);
     k.dataset.key = id; k.disabled = !!disabled; if (run) k.onclick = run;
@@ -207,6 +208,8 @@ class JamTv extends JamSheetHost(JamBase) {
         const m = ls.reduce((p, v) => p + v, 0) / ls.length, sd = Math.sqrt(ls.reduce((p, v) => p + (v - m) ** 2, 0) / ls.length);
         r = {light: m > .18, busy: sd > .14 || (m > .1 && m < .3)};
       } catch (e) { r = {light: false, busy: true}; }
+      // Bounded (a kiosk runs for days and every track has its own art URL): drop the oldest entry.
+      if (JAM_TV_ART.size >= JAM_TV_ART_MAX) JAM_TV_ART.delete(JAM_TV_ART.keys().next().value);
       JAM_TV_ART.set(img.src, r);
     }
     poster.classList.remove("light", "dark", "busy");
@@ -229,7 +232,7 @@ class JamTv extends JamSheetHost(JamBase) {
     } else if (!off) bars();
     const txt = el("div", "txt"), act = !off ? this._activeSource() : null;
     let kick, title, sub = null, frac = null;
-    if (off) { kick = name; title = s && s.state !== "off" ? "Unavailable" : "TV off"; sub = "Pick a source to start"; }
+    if (off) { kick = name; title = s && s.state === "off" ? "TV off" : "Unavailable"; sub = "Pick a source to start"; } // missing entity = unavailable
     else {
       const app = this._app(a) || (act && act.name) || (a.source ? String(a.source) : null);
       const p = playing ? this._posParts(s) : null;
@@ -238,8 +241,7 @@ class JamTv extends JamSheetHost(JamBase) {
       if (p) { sub = p.text; frac = p.frac; }
     }
     txt.append(el("div", "kick", kick));
-    const tt = el("div", "title", title); tt.onclick = () => moreInfo(this, c.media_player);
-    txt.append(tt);
+    txt.append(asButton(el("div", "title", title), () => moreInfo(this, c.media_player)));
     if (sub) txt.append(el("div", "sub", sub));
     face.append(txt);
     if (frac !== null) {

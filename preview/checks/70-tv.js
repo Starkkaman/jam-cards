@@ -341,7 +341,7 @@ module.exports = async (page, check, {callsNow}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.keyboard.press("Escape");
     await tv.scrollIntoViewIfNeeded();
-    await page.locator("#view > .sec", {has: page.locator("jam-tv")}).screenshot({path: path.join(process.env.JAM_SHOTS, "watch-play-390.png")});
+    await page.locator("#view > .sec", {has: page.locator("jam-tv")}).first().screenshot({path: path.join(process.env.JAM_SHOTS, "watch-play-390.png")});
     await page.setViewportSize({width: 1280, height: 900});
   }
 
@@ -354,7 +354,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(bad, "jam-media: a non-media_player entity without title_entity is still rejected");
 
   // jam-fan.
-  const fan = page.locator("jam-fan"), FID = "fan.vital_200s_series";
+  const fan = page.locator("jam-fan").first(), FID = "fan.vital_200s_series";
   const kick = await fan.locator(".nm .label").textContent();
   check(kick === "excellent · PM2.5 1 μg/m³", `jam-fan: kicker from sensor + extra_sensor (${kick})`);
   check(await fan.locator('button[data-key="power"]').evaluate(b => b.classList.contains("on") && b.textContent === "On"), "jam-fan: On pill fills with the accent");
@@ -378,6 +378,48 @@ module.exports = async (page, check, {callsNow}) => {
   await push(FID, {state: "unavailable"});
   check(await fan.locator("button:not([disabled])").count() === 0, "jam-fan: unavailable disables every control");
   await push(FID, {state: "on", attributes: {preset_mode: null}});
+
+  // Per-source exact (0.3.8): match.app "YouTube" with exact: true lights only for an exact app name, not "YouTube Music" /
+  // "YouTube TV"; without exact the substring match stays (default false).
+  const ex = await page.evaluate(() => {
+    const h = window.__hass, out = {};
+    const yt = exact => ({name: "YouTube", color: "red", ...(exact === undefined ? {} : {exact}), match: {app: ["YouTube", "com.google.android.youtube.tv"]}});
+    for (const exact of [true, undefined]) {
+      const e = document.createElement("jam-tv");
+      e.setConfig({type: "custom:jam-tv", media_player: "media_player.preview_tv_idle", current_app_entity: "sensor.x_tv_app",
+        sources: [yt(exact), {name: "Jamfin", match: {app: "Jamfin"}}]});
+      document.body.append(e);
+      const lit = app => {
+        e.hass = {...h, states: {...h.states, "sensor.x_tv_app": {entity_id: "sensor.x_tv_app", state: app, attributes: {}, last_updated: app}}};
+        e.shadowRoot.querySelector('.seg button[data-tab="source"]').click();
+        const on = e.shadowRoot.querySelector(".src .key.on");
+        return on ? on.dataset.app : "-";
+      };
+      out[exact ? "exact" : "loose"] = ["YouTube", "com.google.android.youtube.tv", "YouTube Music", "YouTube TV", "Jamfin"].map(lit).join(",");
+      e.remove();
+    }
+    return out;
+  });
+  check(ex.exact === "YouTube,YouTube,-,-,Jamfin" && ex.loose === "YouTube,YouTube,YouTube,YouTube,Jamfin",
+    `jam-tv: source exact: true lights YouTube only for YouTube / its package, not YouTube Music / TV (${ex.exact}); default substring (${ex.loose})`);
+  // Narrow card (280 px): a long kicker (the TV's friendly name while no app is known) wraps at word boundaries (no ellipsis), above the title without overlap, inside the poster.
+  const narrow = await page.evaluate(() => {
+    const h = window.__hass, e = document.createElement("jam-tv");
+    e.setConfig({type: "custom:jam-tv", media_player: "media_player.x_narrow_tv"});
+    e.style.cssText = "display:block;width:280px";
+    e.hass = {...h, states: {...h.states, "media_player.x_narrow_tv": {entity_id: "media_player.x_narrow_tv", state: "playing", last_updated: "n",
+      attributes: {friendly_name: "Living Room Phoster Android TV", media_title: "Close Encounters of the Third Kind",
+        media_position: 60, media_duration: 600}}}};
+    document.body.append(e);
+    const p = e.shadowRoot.querySelector(".poster"), k = p.querySelector(".kick"), t = p.querySelector(".title");
+    const cs = getComputedStyle(k), lh = parseFloat(cs.lineHeight), kb = k.getBoundingClientRect(), tb = t.getBoundingClientRect(),
+      pb = p.getBoundingClientRect(), xb = p.querySelector(".txt").getBoundingClientRect();
+    const out = {text: k.textContent, w: Math.round(pb.width), ell: cs.textOverflow, ws: cs.whiteSpace, lines: Math.round(kb.height / lh),
+      over: kb.bottom > tb.top + 0.5, inside: xb.top >= pb.top - 0.5 && xb.bottom <= pb.bottom + 0.5, clipped: k.scrollWidth > k.clientWidth + 1};
+    e.remove(); return out;
+  });
+  check(narrow.w <= 282 && narrow.ell !== "ellipsis" && narrow.ws === "normal" && !narrow.clipped && narrow.lines >= 2 && !narrow.over && narrow.inside,
+    `jam-tv: ${narrow.w}px poster kicker "${narrow.text}" wraps to ${narrow.lines} lines, no ellipsis (${narrow.ell}/${narrow.ws}), not clipped, no title overlap (${narrow.over}), text inside poster (${narrow.inside})`);
 
   await page.evaluate(() => { const h = window.__hass; h.callService = h.__orig; delete h.__orig; });
 };

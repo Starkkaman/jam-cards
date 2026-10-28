@@ -44,8 +44,8 @@ module.exports = async (page, check) => {
   await page.evaluate(() => { window.__mi8 = []; window.addEventListener("hass-more-info", e => window.__mi8.push(e.detail.entityId)); });
   await page.evaluate(() => { const p = [...document.querySelectorAll("jam-panel")].find(x => x._config.title === "NAS"); p.scrollIntoView({block: "center"}); });
   await page.locator("jam-panel").filter({hasText: "NAS_Effect"}).locator(".row", {hasText: "Temp"}).click();
-  await page.locator("jam-alerts").locator(".row", {hasText: "Stove lights"}).click();
-  await page.locator("jam-alerts").locator(".row.count").click();
+  await page.locator("jam-alerts").first().locator(".row", {hasText: "Stove lights"}).click();
+  await page.locator("jam-alerts").first().locator(".row.count").click();
   const mi = await page.evaluate(() => window.__mi8);
   check(mi[0] === "sensor.truenas_system_temperature" && mi[1] === "sensor.stove_lights_power" && mi.length === 2,
     `jam-panel/jam-alerts: row tap → more-info, count row has none (${mi.join(", ")})`);

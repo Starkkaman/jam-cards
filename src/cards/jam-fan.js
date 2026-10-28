@@ -63,7 +63,7 @@ class JamFan extends JamBase {
     const call = (svc, data) => h.callService("fan", svc, {entity_id: c.entity, ...data});
 
     const head = el("div", "head"), nm = el("div", "nm");
-    const t = el("h3", "disp", c.name || friendly(h, c.entity)); t.onclick = () => moreInfo(this, c.entity);
+    const t = asButton(el("h3", "disp", c.name || friendly(h, c.entity)), () => moreInfo(this, c.entity));
     nm.append(t);
     const kick = this._kicker(); if (kick) nm.append(kick);
     const pill = cutKey(bad ? "N/A" : on ? "On" : "Off", `jam-fan|${c.entity}|pill`, "pill" + (bad ? " alert" : on ? " on" : ""), "chip");

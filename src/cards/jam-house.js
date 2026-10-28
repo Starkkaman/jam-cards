@@ -44,6 +44,7 @@ class JamHouse extends JamBase {
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .chip{padding:8px 10px}
     .chip.red{background:var(--red);color:var(--on-fg)}
+    .chip.red:focus-visible{outline-color:currentColor}
     .chip.home{background:var(--teal);color:var(--on-fg)}
     .compact .house{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;--p-t:10px;--p-b:14px}
     .compact .in,.compact .out{text-align:left;justify-items:start}
@@ -59,8 +60,7 @@ class JamHouse extends JamBase {
     else { const w = v.replace(/[-_]+/g, " "); word = w.charAt(0).toUpperCase() + w.slice(1); }
     const line = el("div", "label aq", "Air · " + word);
     line.dataset.role = "aq"; line.title = friendly(h, a.entity);
-    line.onclick = () => moreInfo(this, a.entity);
-    return line;
+    return asButton(line, () => moreInfo(this, a.entity));
   }
   render(b) {
     const c = this._config, h = this._hass;
@@ -72,11 +72,11 @@ class JamHouse extends JamBase {
     const ins = stateObj(h, c.inside_entity);
     const inBox = el("div", "in");
     inBox.append(el("div", "label", c.kicker || `${title} · inside`));
-    const t = el("div", "disp temp num focusable", jamHouseNum(ins && ins.state));
-    t.tabIndex = 0; t.title = friendly(h, c.inside_entity);
-    const unit = ins && ins.attributes.unit_of_measurement;
+    const t = el("div", "disp temp num", jamHouseNum(ins && ins.state));
+    t.title = friendly(h, c.inside_entity);
+    const unit = ins && ins.attributes && ins.attributes.unit_of_measurement;
     if (unit && t.textContent !== "—") t.append(el("small", "unit", unit));
-    t.onclick = () => moreInfo(this, c.inside_entity);
+    asButton(t, () => moreInfo(this, c.inside_entity));
     inBox.append(t);
     const inAq = this._aq(c.inside_aq); if (inAq) inBox.append(inAq);
 
@@ -86,10 +86,10 @@ class JamHouse extends JamBase {
     let word = "";
     if (isWx && out && !UNAVAILABLE.has(out.state)) word = conditionWord(out.state);
     outBox.append(el("div", "label", word ? `Outside · ${word}` : "Outside"));
-    const ov = jamHouseNum(out && (isWx ? out.attributes.temperature : out.state));
-    const ot = el("div", "disp otemp num focusable", ov === "—" ? ov : ov + "°");
-    ot.tabIndex = 0; ot.title = friendly(h, c.outside_entity);
-    ot.onclick = () => moreInfo(this, c.outside_entity);
+    const ov = jamHouseNum(out && (isWx ? (out.attributes || {}).temperature : out.state));
+    const ot = el("div", "disp otemp num", ov === "—" ? ov : ov + "°");
+    ot.title = friendly(h, c.outside_entity);
+    asButton(ot, () => moreInfo(this, c.outside_entity));
     outBox.append(ot);
     const outAq = this._aq(c.outside_aq); if (outAq) outBox.append(outAq);
 

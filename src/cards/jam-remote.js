@@ -68,7 +68,12 @@ const JAM_REMOTE_REPEAT = new Set(["up", "down", "left", "right", "vol_up", "vol
    keyboard activation (click with detail 0) runs once. `owner._hold` stops the previous hold (one hold per card). */
 function jamHoldRepeat(btn, run, owner) {
   let t = null, iv = null;
-  const stop = () => { clearTimeout(t); clearInterval(iv); t = iv = null; };
+  // The window listeners go with the hold: a {once} pair would leave the one that did not fire behind on every press.
+  const stop = () => {
+    clearTimeout(t); clearInterval(iv); t = iv = null;
+    window.removeEventListener("pointerup", stop); window.removeEventListener("pointercancel", stop);
+    if (owner && owner._hold === stop) owner._hold = null;
+  };
   btn.addEventListener("pointerdown", e => {
     if (e.button || btn.disabled) return;
     if (owner && owner._hold) owner._hold();
@@ -76,7 +81,7 @@ function jamHoldRepeat(btn, run, owner) {
     const t0 = Date.now();
     t = setTimeout(() => { iv = setInterval(() => (Date.now() - t0 > 20000 ? stop() : run()), 180); }, 400);
     // Release anywhere ends the hold, also when a state update re-rendered the key mid-hold.
-    window.addEventListener("pointerup", stop, {once: true}); window.addEventListener("pointercancel", stop, {once: true});
+    window.addEventListener("pointerup", stop); window.addEventListener("pointercancel", stop);
   });
   for (const ev of ["pointerup", "pointerleave", "pointercancel", "blur"]) btn.addEventListener(ev, stop);
   btn.addEventListener("contextmenu", e => e.preventDefault());
@@ -250,14 +255,14 @@ class JamRemote extends JamBase {
       wrap.append(el("div", "label", c.name || friendly(h, c.entity || c.media_player) || "Remote"));
       const tt = el("div", "title", this._title(s, mp));
       const mi = c.media_player || c.entity;
-      if (mi) { tt.style.cursor = "pointer"; tt.onclick = () => moreInfo(this, mi); }
+      if (mi) { tt.style.cursor = "pointer"; asButton(tt, () => moreInfo(this, mi)); }
       wrap.append(tt);
     }
     if (secs) secs.forEach((x, i) => wrap.append(this._section(x, i)));
     else this._rows(wrap, c.rows || JAM_REMOTE_LAYOUTS[c.layout] || JAM_REMOTE_ROWS, this._ctx(), off);
     b.append(root);
   }
-  disconnectedCallback() { if (this._hold) this._hold(); if (this._kb) this._kb.close({silent: true}); }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._hold) this._hold(); if (this._kb) this._kb.close({silent: true}); }
   getCardSize() { return 7; }
 }
 register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");

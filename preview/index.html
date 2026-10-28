@@ -59,7 +59,8 @@ const hass = {
 window.__hass = hass;
 const view = document.getElementById("view");
 const mk = (cfg, cls) => { const e = document.createElement(cfg.type.replace("custom:", "")); e.setConfig(cfg); e.hass = hass; if (cls) e.className = cls; return e; };
-for (const [cls, item] of layout) {
+// ?view=none: states + hass only, no cards (preview/checks/97-robust.js mounts its own on a clean page).
+if (new URLSearchParams(location.search).get("view") !== "none") for (const [cls, item] of layout) {
   if (!Array.isArray(item)) { view.append(mk(item, cls)); continue; }
   const sec = document.createElement("div"); sec.className = "sec " + cls;
   for (const it of item) sec.append(Array.isArray(it) ? mk(it[1], it[0]) : mk(it));

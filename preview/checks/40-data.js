@@ -1,14 +1,14 @@
 // Data cards: jam-graph (history WS query, downsampling, legend, crosshair tooltip, throttle, config error) and
 // jam-weather (forecast subscription + unsubscribe, clock, forecast columns). Fixture: preview/fixtures/40-data.js.
 module.exports = async (page, check) => {
-  const graphs = () => page.evaluate(() => [...document.querySelectorAll("jam-graph")].map(g => {
+  const graphs = () => page.evaluate(() => [...document.querySelectorAll("jam-graph")].filter(g => !g.closest(".errors")).map(g => {
     const r = g.shadowRoot;
     return {title: g._config.title || "", ids: g._config.entities.map(e => e.entity || e), style: g._config.style || "line",
       svg: !!r.querySelector("svg"), legend: r.querySelectorAll(".lg button").length, cur: !!r.querySelector(".cur"),
       n: [...r.querySelectorAll("[data-n]")].map(p => +p.dataset.n),
       segs: [...r.querySelectorAll("path.ln")].map(p => (p.getAttribute("d").match(/[MLHV]/g) || []).length)};
   }));
-  await page.waitForFunction(() => [...document.querySelectorAll("jam-graph")].every(g => g.shadowRoot.querySelector("svg")), null, {timeout: 5000}).catch(() => {});
+  await page.waitForFunction(() => [...document.querySelectorAll("jam-graph")].filter(g => !g.closest(".errors")).every(g => g.shadowRoot.querySelector("svg")), null, {timeout: 5000}).catch(() => {});
   const gs = await graphs();
   const multi = gs.find(g => g.title === "Temperature"), bars = gs.find(g => g.style === "bars"), single = gs.find(g => g.style === "step");
   check(multi && bars && single && gs.every(g => g.svg), `jam-graph: three fixture graphs drew an SVG (${gs.length})`);

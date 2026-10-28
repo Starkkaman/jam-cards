@@ -55,6 +55,6 @@ module.exports = async (page, check, {tile, callsNow}) => {
   // Off state of the hero.
   await page.evaluate(() => { const h = window.__hass; h.states["switch.hisense_tv_power"] = {...h.states["switch.hisense_tv_power"], state: "off", last_updated: "x"};
     document.querySelector("jam-hero").hass = {...h}; });
-  const title = await page.locator("jam-hero h1").textContent();
+  const title = await page.locator("jam-hero h1").first().textContent();
   check(title === "TV off", `hero shows off title (got "${title}")`);
 };

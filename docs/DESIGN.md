@@ -18,7 +18,15 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 - Motion = cut paper: one-shot only, `steps()`, ≤ 300 ms, transform / clip-path / opacity only, no infinite animation, no
   rAF loops (see "Motion"). `prefers-reduced-motion: reduce` and `JamCards.motion = false` turn it all off.
 - Entity names, states, attributes → `textContent` only. Never innerHTML with data.
-- Every control is a real `<button>` / keyboard reachable, visible focus = 3px ochre outline offset 2px.
+- Every control is a real `<button>` / keyboard reachable, visible focus = 3px ochre outline offset 2px. Non-button controls
+  (titles, temperatures, rows) use `asButton()` (role=button, tabIndex 0, Enter/Space). A self-clipped element (`.chip`,
+  `.scene`, `.tab`) draws the ring inside (offset -3px; on a filled one in its text colour), because a clip-path also clips
+  the outline. Toggles carry `aria-pressed`, icon-only keys an `aria-label`, sheets are `role=dialog` + `aria-modal`,
+  labelled by their title.
+- Long-running kiosks (0.3.8): a card re-renders only when one of its own `watched()` state objects changed (compared by
+  reference, HA replaces changed states); timers, observers, window/document listeners, subscriptions and sheets are
+  released in `disconnectedCallback` and re-armed in `connectedCallback` (HA detaches cards on view switches).
+  preview/checks/97-robust.js enforces both.
 - No dependencies, no build step, everything in `jam-cards.js`. Keep each card lean: no feature nobody configured.
 
 ## Tokens (CSS custom properties; theme sets `--jam-*`, cards fall back to the dark values)
@@ -134,7 +142,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 | jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet (slab face; children one surface step up), title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
 | jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows (`layout: full` = the universal-remote-card set); keyboard key = text sheet (`text:` / DEL / ENTER); `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets); `sections` (0.3.4) = colour-coded blocks (slab face, 5px accent rule, kicker; per-section entity/actions/labels, active key filled from `active_entity`) |
 | jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image multiplied over a flat accent block: flat print, not a gradient), title, artist, transport, volume, sources, players, group; `compact` mini layout; `more` ⋯ sheet of child cards (jamCardSheet); title_entity players without a media_player |
-| jam-tv | Android TV media cards | 0.3.4 poster (118px, `poster` cut: artwork cover or accent + Golden Arm bars; ink/paper text by art luminance, flat 50% ink band on busy art; app kicker, title, position, 5px progress strip; power = 44px top-right triangle, red when off) + Now playing / Source switch (selected = fg fill, remembered until on → off) + transport/volume rows or 3-up source tiles (on-screen source filled with its colour, 0.3.5: only from live signals — `current_app_entity` vs `match.app`, then `input_entity` vs `match.input` while the TV shows an input (`input_app` / `input_signal_entity`); nothing matches → none); Remote = sheet with a jam-remote in TV (card accent) + Stereo (violet) sections, keyboard glyph key in the sheet header |
+| jam-tv | Android TV media cards | 0.3.4 poster (118px, `poster` cut: artwork cover or accent + Golden Arm bars; ink/paper text by art luminance, flat 50% ink band on busy art; app kicker, title, position, 5px progress strip; power = 44px top-right triangle, red when off) + Now playing / Source switch (selected = fg fill, remembered until on → off) + transport/volume rows or 3-up source tiles (on-screen source filled with its colour, 0.3.5: only from live signals — `current_app_entity` vs `match.app`, then `input_entity` vs `match.input` while the TV shows an input (`input_app` / `input_signal_entity`); nothing matches → none; 0.3.8: per-source `exact: true` = whole app name only); Remote = sheet with a jam-remote in TV (card accent) + Stereo (violet) sections, keyboard glyph key in the sheet header |
 | jam-speaker | Music Assistant / Spotify Connect speaker cards | 0.3.6, option 2 of the speaker mockup: poster (170px, `poster_height`; artwork or accent + Golden Arm bars; ink/paper text by art luminance via jam-tv's sampler; idle = slab2 poster, last title else the name, no hint) with a corner source badge (chip: flat square + word — Spotify Connect green, Music Assistant violet, Grouped teal, Idle / Paused dim, Offline red, else the source) + Now playing / Speakers switch (Speakers only with `speakers`); Now playing = Prev / Play-Pause / Next / Shuffle toggle + 30px volume bar with − / + (5%) and the number; Speakers = This room + one row per speaker: name, Join / Playing toggle (GROUPING players only; join on this player / unjoin that speaker; stamp on a new join), thin volume bar; default accent violet |
 | jam-fan | fan tile, purifier cards | On/Off pill, speed steps (fan.set_percentage), preset chips (`presets: false` hides them), air-quality kicker sensors |
 | jam-weather | clock-weather, weather-forecast | big temp numeral, condition word (`conditionWord`), cut-paper glyph, forecast strip, optional clock (`clock_size` normal/big/huge) |
@@ -154,7 +162,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 - Units: `keepUnit(node, stateObj | unit)` wraps a trailing unit in `<span class="unit">` (text-transform:none) so uppercase display
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
-- Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`.
+- Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`, `asButton` (0.3.8).
 - Motion: `motion` (accessor), `motionOn`, `oneShot`, `staggerIn`, `treeOrder` (see "Motion").
 - Sheets: `openSheet({from, title, kicker, accent, headerActions, …})` (headerActions = nodes left of CLOSE, same height) → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it; child
   cards in `body` get the surface tokens one step up),

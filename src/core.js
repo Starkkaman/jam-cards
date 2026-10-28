@@ -31,7 +31,9 @@ ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:
 .chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--slab2);color:inherit;
   clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-button:focus-visible,.focusable:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+/* A clip-path clips the element's own outline too: self-clipped chips draw the ring inside (text colour on filled chips). */
+.chip:focus-visible{outline-offset:-3px}
 .stripe{border-left:6px solid var(--line)}
 .s-on{border-left-color:var(--acc)} .s-alert{border-left-color:var(--red)} .s-calm{border-left-color:var(--teal)}
 .c-on{color:var(--acc)} .c-alert{color:var(--red)} .c-calm{color:var(--teal)} .c-dim{color:var(--dim)}
@@ -101,14 +103,14 @@ function el(tag, cls, text) {
 function stateObj(hass, id) { return hass && id ? hass.states[id] : undefined; }
 function friendly(hass, id, fallback) {
   const s = stateObj(hass, id);
-  return fallback || (s && s.attributes.friendly_name) || id || "";
+  return fallback || (s && s.attributes && s.attributes.friendly_name) || id || "";
 }
 /* Display a state the way HA would (translated + unit) when the frontend helper exists. */
 function fmtState(hass, s) {
   if (!s) return "—";
   try { if (hass && typeof hass.formatEntityState === "function") return hass.formatEntityState(s); } catch (e) { /* fall through */ }
-  const u = s.attributes.unit_of_measurement;
-  return u ? `${s.state} ${u}` : s.state;
+  const u = s.attributes && s.attributes.unit_of_measurement;
+  return u ? `${s.state} ${u}` : String(s.state);
 }
 /* Units keep their own case inside uppercase display type ("µg/m³" must not become "MG/M³"): wrap a trailing unit
    (the entity's unit_of_measurement, or a given string) of a text-only node in <span class="unit"> (text-transform:none). */
@@ -127,7 +129,7 @@ function tone(s, overrides) {
   const st = String(s.state).toLowerCase();
   if (overrides && overrides[st]) return overrides[st];
   if (ALERT_STATES.has(st)) return "alert";
-  if (s.attributes.device_class === "problem" && st === "on") return "alert";
+  if (s.attributes && s.attributes.device_class === "problem" && st === "on") return "alert";
   if (ON_STATES.has(st)) return "on";
   if (st === "off" || st === "closed" || st === "locked" || st === "idle" || st === "standby" || st === "paused") return "off";
   return "calm";
@@ -189,6 +191,17 @@ function bindActions(node, hass, config, entityId) {
     if (e.target !== node || (e.key !== "Enter" && e.key !== " ")) return;
     e.preventDefault(); run(c.tap_action);
   });
+}
+/* A non-button node that acts as a button (titles, temperatures, air lines): role=button, tabIndex 0, .focusable ring,
+   click and Enter/Space run fn. */
+function asButton(node, fn) {
+  node.classList.add("focusable"); node.tabIndex = 0; node.setAttribute("role", "button");
+  node.addEventListener("click", fn);
+  node.addEventListener("keydown", e => {
+    if (e.target !== node || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault(); fn(e);
+  });
+  return node;
 }
 function toggleable(id) {
   const d = (id || "").split(".")[0];
@@ -509,10 +522,11 @@ function openSheet(opts = {}) {
   const stage = el("div", "stage");
   const {root: sheet, face} = paper("div", "jam-sheet", {kind: "sheet", cls: "sheet wipe"});
   face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
-  face.setAttribute("aria-label", o.label || o.title || o.kicker || "Pop-up");
   const head = el("div", "head"), t = el("div", "t");
   if (o.kicker) t.append(el("div", "label kick", o.kicker));
-  if (o.title) t.append(el("h2", "disp", o.title));
+  if (o.title) { const h2 = el("h2", "disp", o.title); h2.id = "jam-sheet-title"; t.append(h2); } // own shadow root: the id is unique
+  if (o.title && !o.label) face.setAttribute("aria-labelledby", "jam-sheet-title");
+  else face.setAttribute("aria-label", o.label || o.kicker || "Pop-up");
   const close = cutKey("Close ×", "jam-sheet|close", "close", "chip");
   close.setAttribute("aria-label", "Close");
   const acts = el("div", "acts");
@@ -586,14 +600,26 @@ class JamBase extends HTMLElement {
     this._config = config; this._sig = null; this._render(true);
   }
   validate() {}
+  /* HA sets hass on every state change in the house (hundreds a minute). A card re-renders only when one of its own
+     watched() entities changed: HA replaces a state object when it changes, so the objects are compared by reference
+     (_sig = [id, state object, ...]; _sig = null forces the next update to render). */
   set hass(h) {
     this._hass = h;
-    const sig = this.watched().map(id => { const s = h.states[id]; return s ? s.state + "|" + s.last_updated : "-"; }).join(",");
-    if (sig !== this._sig) { this._sig = sig; this._render(false); }
+    if (!this._config || !h) return;
+    const ids = this.watched(), st = h.states || {}, prev = this._sig;
+    let same = Array.isArray(prev) && prev.length === ids.length * 2;
+    for (let i = 0; same && i < ids.length; i++) same = prev[2 * i] === ids[i] && prev[2 * i + 1] === st[ids[i]];
+    if (same) return;
+    const sig = [];
+    for (const id of ids) sig.push(id, st[id]);
+    this._sig = sig; this._render(false);
   }
   get hass() { return this._hass; }
   /* Subclasses with their own connectedCallback call super.connectedCallback(). */
   connectedCallback() { enterView(this); }
+  /* Subclasses that hold timers, observers, window/document listeners or body-appended nodes release them here (and call
+     super); HA detaches and re-attaches cards on view switches, so connectedCallback re-arms them. */
+  disconnectedCallback() {}
   /* View entrance (once per card): called by enterView with this card's stagger delay. */
   _enter(ms) {
     if (this._body) oneShot(this._body, "jam-enter", ms);
@@ -628,7 +654,7 @@ class JamBase extends HTMLElement {
 /* `motion` is an accessor (the object is frozen): JamCards.motion = false turns the one-shot motion off page-wide. */
 window.JamCards = Object.freeze(Object.defineProperty({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
-  seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction,
+  seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder,

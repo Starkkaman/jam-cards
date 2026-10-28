@@ -62,7 +62,7 @@ const JamSheetHost = Base => class extends Base {
   setConfig(c) { if (this._jamSheet) this._jamSheet.close({silent: true}); super.setConfig(c); }
   set hass(h) { super.hass = h; if (this._jamSheet) this._jamSheet.hass(h); }
   get hass() { return this._hass; }
-  disconnectedCallback() { if (this._jamSheet) this._jamSheet.close({silent: true}); }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._jamSheet) this._jamSheet.close({silent: true}); }
 };
 class JamMedia extends JamSheetHost(JamBase) {
   validate(c) {
@@ -102,7 +102,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     .vol{display:grid;grid-template-columns:auto minmax(0,1fr) 3.4em;gap:10px;align-items:center}
     .vol .key{min-width:64px}
     .vol .v{font-family:var(--display);font-weight:900;font-size:1.4rem;line-height:1;text-align:right}
-    .track{cursor:pointer}
+    .track[role=slider]{cursor:pointer}
     .muted .fill{background:var(--dim)}
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -181,7 +181,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     const c = this._config, np = this._np(), id = this._id;
     const {root, face: wrap} = this.paper(c.entity || c.title_entity, {face: `mini${np.off ? " unavail" : ""}`});
     const txt = el("div", "txt");
-    const tt = el("div", "title", np.title); tt.onclick = () => moreInfo(this, id || c.title_entity);
+    const tt = asButton(el("div", "title", np.title), () => moreInfo(this, id || c.title_entity));
     const parts = c.title_entity ? [np.name, ...this._subParts(np)] : [np.a.media_artist, np.name];
     txt.append(tt, el("div", "sub", parts.filter(Boolean).join(" · ")));
     wrap.append(c.show_art === false ? el("span") : this._art(np), txt);
@@ -211,9 +211,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     const np2 = el("div", "np"), showArt = c.show_art !== false;
     if (showArt) np2.append(this._art(np)); else np2.classList.add("noart");
     const txt = el("div", "txt");
-    const tt = el("div", "title", np.title);
-    tt.onclick = () => moreInfo(this, id || c.title_entity);
-    txt.append(tt);
+    txt.append(asButton(el("div", "title", np.title), () => moreInfo(this, id || c.title_entity)));
     if (a.media_artist) { const sb = el("div", "sub"); sb.append(el("b", "", a.media_artist)); txt.append(sb); }
     if (a.media_album_name) txt.append(el("div", "sub", a.media_album_name));
     const subs = c.title_entity ? this._subParts(np) : [];
@@ -266,7 +264,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     const row = el("div", "vol" + (a.is_volume_muted ? " muted" : ""));
     const muted = !!a.is_volume_muted;
     const mute = cutKey(muted ? "Unmute" : "Mute", `jam-media|${this._config.entity}|mute`, muted ? "alert" : "", "chip");
-    mute.dataset.key = "mute";
+    mute.dataset.key = "mute"; mute.setAttribute("aria-pressed", String(muted));
     mute.disabled = off || !(feat & JAM_MEDIA_VOLUME_MUTE || a.is_volume_muted !== undefined);
     mute.onclick = () => this._call("volume_mute", {is_volume_muted: !muted});
     const track = el("div", "track"), strip = el("div", "strip"), fill = el("div", "fill");
@@ -281,9 +279,10 @@ class JamMedia extends JamSheetHost(JamBase) {
     track.setAttribute("aria-valuemin", 0); track.setAttribute("aria-valuemax", 100); track.setAttribute("aria-valuenow", cur);
     const send = () => this._call("volume_set", {volume_level: cur / 100});
     const at = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100; };
-    track.onpointerdown = e => { track.setPointerCapture(e.pointerId); show(at(e)); track.dataset.drag = "1"; };
+    track.onpointerdown = e => { try { track.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ } show(at(e)); track.dataset.drag = "1"; };
     track.onpointermove = e => { if (track.dataset.drag) show(at(e)); };
     track.onpointerup = e => { if (!track.dataset.drag) return; delete track.dataset.drag; show(at(e)); send(); };
+    track.onpointercancel = () => { delete track.dataset.drag; };
     track.onkeydown = e => {
       const k = {ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1}[e.key];
       if (!k) return; e.preventDefault(); show(cur + k * 2); send();

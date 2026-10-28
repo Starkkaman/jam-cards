@@ -8,7 +8,7 @@ class JamSlider extends JamBase {
     .wrap{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
     .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
-    .track{cursor:pointer}`; }
+    .track[role=slider]{cursor:pointer}`; }
   _model() {
     const c = this._config, s = stateObj(this._hass, c.entity), d = c.entity.split(".")[0];
     if (!s) return null;
@@ -38,7 +38,7 @@ class JamSlider extends JamBase {
     if (!m || isNaN(m.v)) return;
     const pct = v => Math.max(0, Math.min(100, ((v - m.min) / ((m.max - m.min) || 1)) * 100));
     fill.style.width = pct(m.v) + "%";
-    track.tabIndex = 0; track.setAttribute("role", "slider");
+    track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", c.name || friendly(h, c.entity));
     track.setAttribute("aria-valuemin", m.min); track.setAttribute("aria-valuemax", m.max); track.setAttribute("aria-valuenow", m.v);
     const snap = x => Math.round((m.min + x * (m.max - m.min)) / m.step) * m.step;
     let cur = m.v;
@@ -48,7 +48,8 @@ class JamSlider extends JamBase {
       fill.style.width = pct(cur) + "%"; val.textContent = `${cur}${m.unit ? " " + m.unit : ""}`;
       track.setAttribute("aria-valuenow", cur);
     };
-    track.onpointerdown = e => { track.setPointerCapture(e.pointerId); show(snap(at(e))); track.dataset.drag = "1"; };
+    track.onpointerdown = e => { try { track.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ } show(snap(at(e))); track.dataset.drag = "1"; };
+    track.onpointercancel = () => { delete track.dataset.drag; };
     track.onpointermove = e => { if (track.dataset.drag) show(snap(at(e))); };
     track.onpointerup = e => { if (!track.dataset.drag) return; delete track.dataset.drag; show(snap(at(e))); this._send(cur); };
     track.onkeydown = e => {

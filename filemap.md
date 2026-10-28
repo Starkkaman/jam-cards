@@ -10,9 +10,9 @@
 - src/footer.js — console banner, closes the IIFE
 - fonts/ — bundled web fonts (latin subset from Google Fonts): londrina-solid-900-latin.woff2, jost-var-latin.woff2 (variable, used as 400-600) + OFL-LondrinaSolid.txt, OFL-Jost.txt
 - tools/bundle.mjs — builds jam-cards.js (adds a generated FONT_CSS chunk: @font-face rules with base64 woff2 data: URIs from fonts/) + preview/fixtures/index.js; --check exits 1 if stale
-- preview/index.html — fake hass + theme tokens; renders all fixtures
+- preview/index.html — fake hass + theme tokens; renders all fixtures (?view=none: states + hass only, no cards)
 - preview/fixtures/NN-*.js — jamPreview.add({states, sections}); index.js is GENERATED
 - preview/checks/NN-*.js — module.exports = async (page, check, {tile, callsNow}) => {}; dark/1280 interactions
 - preview/shoot.js — runs bundle, screenshots, bundled-font + no-Google-Fonts-request checks, layout + generic checks, then preview/checks/* (`pw-node preview/shoot.js`)
-- preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 75-speaker, 80-control, 90-kiosk (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same eleven names + 95-motion.js (motion + jam-button/jam-light height checks, no fixture)
+- preview/fixtures/: 00-tv, 10-house, 20-buttons, 30-light, 40-data, 50-av, 60-house, 70-tv, 75-speaker, 80-control, 90-kiosk, 98-errors (error paths: missing / unavailable / unknown / bare entities, section .errors) (+ generated index.js); preview/fixtures/slides/ (screensaver images); preview/checks/: same twelve names + 95-motion.js (motion + jam-button/jam-light height checks, no fixture) + 97-robust.js (lifecycle leaks on a clean ?view=none page, 0 DOM writes on unrelated hass updates, a11y + focus rings; no fixture)
 - preview/shots/ — screenshots written by shoot.js: dark-1280, dark-390, light-1280, light-390, popup-{dark,light}-390, light-sheet-{group,wled}-{dark,light}-390, screensaver-{poster,images}-961 (.png); with JAM_SHOTS=<dir> the 70-tv checks also write nerveos-sheet-390, tv-remote-sheet(-tall)-390, tv-keyboard-sheet-390, tv-art(-busy)-390, watch-play-390; the 75-speaker checks write speaker-{kitchen,living,phoster,ma}-390 + speaker-kitchen-speakers-390

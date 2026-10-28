@@ -285,7 +285,7 @@ type: custom:jam-tv
 media_player: media_player.living_room_tv
 remote: remote.living_room_tv
 sources:
-  - {name: YouTube, color: red, match: {app: [YouTube, com.google.android.youtube.tv]},
+  - {name: YouTube, color: red, exact: true, match: {app: [YouTube, com.google.android.youtube.tv]},
      tap_action: {action: perform-action, perform_action: select.select_option,
      target: {entity_id: select.tv_launch_app}, data: {option: YouTube}}}
   - {name: Console, color: green, match: {input: HDMI 1},
@@ -306,9 +306,9 @@ stereo:
 | `media_player` | media_player (required) |
 | `remote` | remote entity (Remote sheet, power) |
 | `name` | Kicker when idle / off (default the player's name) |
-| `sources` | `{name, color, tap_action, hold_action, match: {app, input}}` tiles, 3-up (`launchers` still works as an alias); `match.app` / `match.input` = text or list (a plain text = app) |
+| `sources` | `{name, color, tap_action, hold_action, match: {app, input}, exact}` tiles, 3-up (`launchers` still works as an alias); `match.app` / `match.input` = text or list (a plain text = app); `exact: true` (0.3.8, default false) = `match.app` only matches the whole app name, so YouTube does not light for YouTube Music / YouTube TV |
 | `source_label` | Name of the switch's second tab (default "Source") |
-| `current_app_entity` | Sensor whose state is the app in front (label or package id). The tile whose `match.app` equals it (any source, case-insensitive) fills; else the first whose `match.app` is contained in it |
+| `current_app_entity` | Sensor whose state is the app in front (label or package id). The tile whose `match.app` equals it (any source, case-insensitive) fills; else the first whose `match.app` is contained in it (sources with `exact: true` skip this step) |
 | `input_entity` | Select/sensor naming the TV input; the tile whose `match.input` equals it fills while the TV shows an input |
 | `input_app` | current-app values that mean "the TV shows an input" (e.g. `Live TV`); without it the input counts whenever it matches |
 | `input_signal_entity` | Optional: the input only counts while this sensor reports a signal (not "No signal" / off / unavailable) |

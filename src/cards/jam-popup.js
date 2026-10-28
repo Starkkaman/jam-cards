@@ -84,6 +84,8 @@ class JamPopup extends JamBase {
     this._sync(true);
   }
   disconnectedCallback() {
+    super.disconnectedCallback();
+    clearTimeout(this._backT); this._backT = null;
     window.removeEventListener("location-changed", this._onLoc);
     window.removeEventListener("hashchange", this._onLoc);
     window.removeEventListener("popstate", this._onLoc);
@@ -104,10 +106,10 @@ class JamPopup extends JamBase {
     const key = "jam-popup|" + c.hash;
     const {root: sheet, face} = this.paper(key, {kind: "sheet", cls: "sheet wipe"});
     face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
-    face.setAttribute("aria-label", c.title || c.kicker || "Pop-up");
     const head = el("div", "head"), t = el("div", "t");
     if (c.kicker) t.append(el("div", "label", c.kicker));
-    if (c.title) t.append(el("h2", "disp", c.title));
+    if (c.title) { const h2 = el("h2", "disp", c.title); h2.id = "jam-popup-title"; t.append(h2); face.setAttribute("aria-labelledby", h2.id); }
+    else face.setAttribute("aria-label", c.kicker || "Pop-up");
     const close = cutKey("Close ×", key + "|close", "close", "chip");
     close.setAttribute("aria-label", "Close");
     close.onclick = () => this.close();

@@ -76,7 +76,10 @@ class JamWeather extends JamBase {
     if (this.isConnected) { this._sub(); this._arm(); }
   }
   set hass(h) {
-    const first = !this._hass, before = this._sig, tf = JSON.stringify(jamWxTime(h));
+    const first = !this._hass, before = this._sig;
+    // The time format only changes with hass.locale (a new object): no Intl lookup on every state change.
+    if (this._tf === undefined || !h || h.locale !== this._loc || h.language !== this._lng) { this._loc = h && h.locale; this._lng = h && h.language; this._tfNew = JSON.stringify(jamWxTime(h)); }
+    const tf = this._tfNew;
     super.hass = h;
     if (!first && tf !== this._tf && this._sig === before) this._render(false); /* time format changed */
     this._tf = tf;
@@ -87,7 +90,7 @@ class JamWeather extends JamBase {
   _type() { return this._config.forecast_type || "daily"; }
   _days() { return Math.max(1, Math.min(12, Math.round(+this._config.days) || 5)); }
   connectedCallback() { super.connectedCallback(); this._sub(); this._arm(); }
-  disconnectedCallback() { this._unsub(); clearTimeout(this._tick); this._tick = null; }
+  disconnectedCallback() { super.disconnectedCallback(); this._unsub(); clearTimeout(this._tick); this._tick = null; }
   /* One live forecast subscription per (entity, forecast_type); none when show_forecast is false. */
   _sub() {
     const c = this._config, h = this._hass;

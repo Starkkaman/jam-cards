@@ -23,7 +23,7 @@ const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
 const LIGHT_WHITES = [{name: "Cozy", kelvin: 2200}, {name: "Clean", kelvin: 4000}];
 const LIGHT_TIMERS = [[15, "15 min"], [30, "30 min"], [60, "1 h"]];
 const LIGHT_TIMER_SCRIPT = "script.jam_light_off_in";
-const LIGHT_PAPER = [236, 226, 201], LIGHT_INK = [20, 18, 16];
+const LIGHT_INK = [20, 18, 16];
 /* Preset preview looks keyed by (lower-case) name: two stripe colours, or "rainbow". Others get a look from the name hash. */
 const LIGHT_LOOKS = {
   "bright vibes": [[255, 90, 200], [90, 160, 255]], "halloween": [[255, 110, 0], [120, 40, 200]],
@@ -125,7 +125,19 @@ class JamLight extends JamBase {
     const kids = s && Array.isArray(s.attributes.entity_id) ? s.attributes.entity_id : [];
     return [c.entity, ...kids, c.preset_entity, this._timerScript()].filter(Boolean);
   }
-  disconnectedCallback() { if (this._sheet) this._sheet.close({silent: true}); }
+  /* Detached mid-press or mid-drag (view switch): no pointerup will come, so drop the press (hold timer, drag flags);
+     otherwise every later render would wait for a drag end. The deferred render runs on re-attach. */
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._sheet) this._sheet.close({silent: true});
+    clearTimeout(this._holdT); this._holdT = null;
+    for (const n of this.shadowRoot.querySelectorAll(".pressing")) n.classList.remove("pressing");
+    if (this._drag || this._sdrag) { this._drag = this._sdrag = false; this._pending = true; }
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._pending) { this._pending = false; this._render(false); }
+  }
   _timerScript() { return this._config.timer_script || LIGHT_TIMER_SCRIPT; }
   _name() { return this._config.name || friendly(this._hass, this._config.entity); }
   _sub(s) {
@@ -252,7 +264,8 @@ class JamLight extends JamBase {
       root.classList.add("pressing"); // print (core CSS); dropped when the press turns into a drag or scroll
       try { tap.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
       const me = p;
-      p.timer = setTimeout(() => { if (p === me && me.mode === "press") { me.held = true; this._hold(); } }, 500);
+      clearTimeout(this._holdT);
+      p.timer = this._holdT = setTimeout(() => { this._holdT = null; if (p === me && me.mode === "press" && this.isConnected) { me.held = true; this._hold(); } }, 500);
     });
     tap.addEventListener("pointermove", e => {
       if (!p) return;

@@ -59,7 +59,8 @@ class JamButton extends JamBase {
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
     if (plain) { root.style.setProperty("--acc", "var(--fg)"); root.style.setProperty("--acc-fg", "var(--slab)"); }
     else if (acc) setAccent(root, acc);
-    root.tabIndex = 0; root.setAttribute("role", "button"); root.setAttribute("aria-label", name);
+    root.tabIndex = 0; root.setAttribute("role", "button");
+    root.setAttribute("aria-label", name || String(c.icon || "").replace(/^\w+:/, "").replace(/-/g, " ") || "Button"); // icon-only key: the icon name
     if (s && JB_ON.has(d)) root.setAttribute("aria-pressed", on ? "true" : "false");
     bindActions(root, () => this._hass, {...c, tap_action: this._tap()}, c.entity);
     const k = el("div", "k");
@@ -78,11 +79,16 @@ class JamButton extends JamBase {
     k.append(L);
     face.append(k);
     b.append(root);
+    this._k = k;
     this._fit(k);
   }
+  /* The label-fit ResizeObserver lives while the card is attached (HA detaches cards on view switches). */
+  connectedCallback() { super.connectedCallback(); if (this._k && !this._ro) this._fit(this._k); }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
   /* Safety net for fallback fonts: shrink a label that still overflows its key (a word never breaks). */
   _fit(k) {
-    if (this._ro) this._ro.disconnect();
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (!this.isConnected) return; // connectedCallback fits it
     let w = -1;
     const fit = () => {
       if (!k.isConnected || k.clientWidth === w) return;

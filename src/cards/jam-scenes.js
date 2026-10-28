@@ -30,6 +30,7 @@ class JamScenes extends JamBase {
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
     .scene{position:relative}
     .scene.on{background:var(--acc);color:var(--acc-fg)}
+    .scene:focus-visible{outline-offset:-3px} .scene.on:focus-visible{outline-color:currentColor}
     .scene:active{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}`; }
   render(b) {
     const c = this._config, h = this._hass;

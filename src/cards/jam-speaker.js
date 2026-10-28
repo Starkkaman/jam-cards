@@ -64,7 +64,8 @@ class JamSpeaker extends JamBase {
     .vol .key{min-width:0}
     .vol .key > .face{--p-t:0;--p-b:0;--p-l:0;--p-r:4px;height:30px;display:grid;place-items:center;font:600 1rem/1 var(--body);letter-spacing:0}
     .vol .v{font-family:var(--display);font-weight:900;font-size:1.35rem;line-height:1;text-align:right}
-    .vt{position:relative;height:30px;touch-action:none;cursor:pointer}
+    .vt{position:relative;height:30px;touch-action:none}
+    .vt[role=slider]{cursor:pointer}
     .vt .strip{inset:0}
     .vt.thin{height:22px} .vt.thin .strip{inset:7px 0}
     .vt:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
@@ -111,8 +112,7 @@ class JamSpeaker extends JamBase {
     } else bars();
     const txt = el("div", "txt");
     txt.append(el("div", "kick", c.name ? `${c.name} speakers` : fname));
-    const tt = el("div", "title", a.media_title || c.name || fname); tt.onclick = () => moreInfo(this, c.entity);
-    txt.append(tt);
+    txt.append(asButton(el("div", "title", a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
     if (a.media_title && a.media_artist) txt.append(el("div", "sub", a.media_artist));
     face.append(txt);
     const [word, col] = this._badge(s), bd = el("div", "badge"), sq = el("i");
@@ -139,7 +139,7 @@ class JamSpeaker extends JamBase {
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", friendly(this._hass, id) + " volume");
     track.setAttribute("aria-valuemin", 0); track.setAttribute("aria-valuemax", 100); track.setAttribute("aria-valuenow", cur);
     const at = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100; };
-    track.onpointerdown = e => { track.setPointerCapture(e.pointerId); show(at(e)); track.dataset.drag = "1"; };
+    track.onpointerdown = e => { try { track.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ } show(at(e)); track.dataset.drag = "1"; };
     track.onpointermove = e => { if (track.dataset.drag) show(at(e)); };
     track.onpointerup = e => { if (!track.dataset.drag) return; delete track.dataset.drag; show(at(e)); send(); };
     track.onpointercancel = () => { delete track.dataset.drag; };

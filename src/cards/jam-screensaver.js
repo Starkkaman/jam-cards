@@ -257,7 +257,14 @@ class JamScreensaver extends JamBase {
     this._wasBlocked = blocked;
     if (blocked && this._shown) this._hide();
     else if (!blocked && was && !this._shown) this._restartIdle(); /* e.g. media stopped: count idle from now */
-    if (this._shown) this._texts();
+    // While shown, the texts change only with the weather / temperature entity or the locale (the clock has its own timer):
+    // a kiosk on the screensaver gets hundreds of unrelated updates a minute.
+    const ts = this._textSig(), old = this._tsig;
+    if (this._shown && !(old && ts.every((x, i) => x === old[i]))) this._texts();
+  }
+  _textSig() {
+    const h = this._hass, c = this._config, st = (h && h.states) || {};
+    return [st[c.weather_entity], st[c.temperature_entity], h && h.locale, h && h.language];
   }
   get hass() { return this._hass; }
   connectedCallback() {
@@ -269,6 +276,7 @@ class JamScreensaver extends JamBase {
     if (this._config) JamKiosk.join(this);
   }
   disconnectedCallback() {
+    super.disconnectedCallback();
     this._motion(false);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.removeEventListener(t, this._onAct, {capture: true});
     document.removeEventListener("visibilitychange", this._onVis);
@@ -293,7 +301,7 @@ class JamScreensaver extends JamBase {
     layer.style.cssText = "display:block;height:0;overflow:visible";
     const lst = el("style"); lst.textContent = BASE_CSS + SS_CSS;
     const ov = el("div", "ov"); ov.dataset.view = "poster";
-    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Screensaver, tap to close");
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Screensaver, tap to close");
     setAccent(ov, c.accent);
     const poster = el("div", "poster"); poster.setAttribute("aria-hidden", "false");
     const shapes = ["b1 bar", "b2 bar", "b3 bar", "dk disc"].map(k => { const s = el("div", "sh " + k); s.setAttribute("aria-hidden", "true"); return s; });
@@ -436,6 +444,7 @@ class JamScreensaver extends JamBase {
   }
   _texts() {
     const h = this._hass, c = this._config, d = new Date(), f = jamWxTime(h);
+    this._tsig = this._textSig();
     const lang = (h && h.locale && h.locale.language) || (h && h.language) || undefined;
     const mm = String(d.getMinutes()).padStart(2, "0");
     const setTime = node => {

@@ -75,7 +75,7 @@ module.exports = async (page, check, {callsNow}) => {
   const bw = await bar.locator(".fill").evaluate(f => parseFloat(f.style.width));
   check(Math.abs(bw - 45.0028 / 47.8 * 100) < 0.1, `bar gauge fill ${bw.toFixed(1)}%`);
   // List: switch key toggles, tracker reads HOME, row tap = more-info.
-  const list = page.locator("jam-list");
+  const list = page.locator("jam-list").first();
   n = (await callsNow()).length; await list.locator("button.sw").click(); c = await since(n);
   check(c.length === 1 && c[0].service === "toggle" && c[0].data.entity_id === "switch.dehumidifier", "list switch key toggles");
   check((await list.locator(".row").first().locator(".v").innerText()) === "HOME", "device_tracker home reads HOME");
