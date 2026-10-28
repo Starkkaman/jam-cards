@@ -66,22 +66,39 @@ module.exports = async (page, check, {callsNow}) => {
   check(await tiles.count() === 6, "jam-tv: 6 source tiles");
   const ty = await tiles.evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
   check(ty.slice(0, 3).every(y => y === ty[0]) && ty[3] > ty[0], `jam-tv: sources 3-up (${ty.join(",")})`);
-  check(await tv.locator(".src button.on").count() === 0, "jam-tv: no source matches Jellyfin / JellyWatch / Switch 2 -> none filled");
+  const onNow = () => tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app + (b.classList.contains("jam-stamp") ? "*" : "")).join(","));
+  const APP = "sensor.preview_tv_current_app", INP = "select.hisense_tv_input";
+  check(await onNow() === "", "jam-tv: current_app \"HDMI 2\" (Projectivy home) + stale input -> no source filled");
   await push(TV, {attributes: {media_position: 4400}});
   check(await tab(tv) === "source", "jam-tv: tab choice kept across state updates");
-  // Highlight from the select state (tap option match) and by name.
-  await push("select.hisense_tv_launch_app", {state: "Dropout"});
-  let on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
-  const onBg = await bg(tv.locator(".src button.on > .face"));
-  check(on.join(",") === "Dropout" && onBg === PINK, `jam-tv: select.hisense_tv_launch_app "Dropout" fills the Dropout tile pink (${on} ${onBg})`);
+  // 0.3.5: highlight only from live signals; select states and tap options never light a tile.
   await push("select.hisense_tv_launch_app", {state: "HDMI 2"});
-  on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
-  check(on.join(",") === "Nerv//OS", `jam-tv: launch_app "HDMI 2" -> Nerv//OS via its tap option (${on})`);
+  check(await onNow() === "", `jam-tv: launch_app select "HDMI 2" alone lights nothing (${await onNow()})`);
   await push(TV, {attributes: {app_name: "YouTube"}});
-  on = await tv.locator(".src button.on").evaluateAll(bs => bs.map(b => b.dataset.app));
-  check(on.join(",") === "YouTube", `jam-tv: media_player app_name wins over the selects (${on})`);
+  check(await onNow() === "", "jam-tv: media_player app_name is not a highlight signal");
   await push(TV, {attributes: {app_name: "Jellyfin"}});
-  await push("select.hisense_tv_launch_app", {state: "JellyWatch Player"});
+  await push(APP, {state: "com.google.android.apps.tv.dreamx"});
+  check(await onNow() === "", "jam-tv: screensaver (dreamx) -> no source filled");
+  await push(APP, {state: "Dropout"});
+  let on = await onNow();
+  const onBg = await bg(tv.locator(".src button.on > .face"));
+  check(on === "Dropout*" && onBg === PINK, `jam-tv: current_app "Dropout" fills the Dropout tile pink, stamped once (${on} ${onBg})`);
+  await push(TV, {attributes: {media_position: 4410}});
+  check(await onNow() === "Dropout", "jam-tv: a plain update keeps the tile filled without a new stamp");
+  for (const [v, want] of [["Jamfin (2)", "Jamfin"], ["com.corridordigital.watchcorridortv", "Corridor Digital"], ["YouTube", "YouTube"], ["Settings", ""]]) {
+    await push(APP, {state: v});
+    on = (await onNow()).replace("*", "");
+    check(on === want, `jam-tv: current_app "${v}" -> ${want || "none"} (${on || "none"})`);
+  }
+  await push(APP, {state: "Live TV"});
+  check(await onNow() === "Nerv//OS*", `jam-tv: on an input ("Live TV") + input "Switch 2" -> Nerv//OS (${await onNow()})`);
+  await push(INP, {state: "HDMI 1"});
+  check(await onNow() === "Switch*", `jam-tv: input "HDMI 1" -> Switch (${await onNow()})`);
+  await push(APP, {state: "YouTube"});
+  check((await onNow()).replace("*", "") === "YouTube", "jam-tv: an app in front wins over the (stale) input");
+  await push(APP, {state: "HDMI 2"});
+  check(await onNow() === "", "jam-tv: back on the home screen -> no source filled although the input select still says HDMI 1");
+  await push(INP, {state: "Switch 2"});
   // Source tap actions.
   for (const [n, ent, opt] of [["Switch", "select.hisense_tv_input", "HDMI 1"], ["Nerv//OS", "select.hisense_tv_launch_app", "HDMI 2"], ["Corridor Digital", "select.hisense_tv_launch_app", "Corridor TV"]]) {
     await reset(); await tiles.filter({hasText: n}).click();

@@ -8,17 +8,19 @@ const auto = id => ({action: "perform-action", perform_action: "automation.trigg
 const app = option => ({action: "perform-action", perform_action: "select.select_option", target: {entity_id: "select.hisense_tv_launch_app"}, data: {option}});
 const sel = (entity_id, option) => ({action: "perform-action", perform_action: "select.select_option", target: {entity_id}, data: {option}});
 const script = id => ({action: "perform-action", perform_action: id});
-// The user's sources (jam-home dashboards, F5).
+// The user's sources (jam-home dashboards, G1): highlight from sensor.hisense_tv_current_app (labels from Control Freak's
+// app list, or the package id) and, while the TV shows an input ("Live TV"), select.hisense_tv_input.
 const sources = [
-  {name: "Nerv//OS", color: "teal", tap_action: app("HDMI 2")},
-  {name: "Switch", color: "red", tap_action: sel("select.hisense_tv_input", "HDMI 1")},
-  {name: "YouTube", color: "red", tap_action: app("YouTube")},
-  {name: "Jamfin", color: "ochre", tap_action: app("Jamfin")},
-  {name: "Dropout", color: "pink", tap_action: app("Dropout")},
-  {name: "Corridor Digital", color: "blue", tap_action: app("Corridor TV")},
+  {name: "Nerv//OS", color: "teal", tap_action: app("HDMI 2"), match: {input: ["Switch 2", "HDMI 2"]}},
+  {name: "Switch", color: "red", tap_action: sel("select.hisense_tv_input", "HDMI 1"), match: {input: "HDMI 1"}},
+  {name: "YouTube", color: "red", tap_action: app("YouTube"), match: {app: ["YouTube", "com.google.android.youtube.tv"]}},
+  {name: "Jamfin", color: "ochre", tap_action: app("Jamfin"), match: {app: ["Jamfin", "com.isaac.jamfin"]}},
+  {name: "Dropout", color: "pink", tap_action: app("Dropout"), match: {app: "Dropout"}},
+  {name: "Corridor Digital", color: "blue", tap_action: app("Corridor TV"), match: {app: ["Corridor TV", "com.corridordigital.watchcorridortv"]}},
 ];
 const tv = {
-  remote: RC, sources, source_entities: ["select.hisense_tv_launch_app", "select.hisense_tv_input"],
+  remote: RC, sources, current_app_entity: "sensor.preview_tv_current_app", input_entity: "select.hisense_tv_input",
+  input_app: ["Live TV", "com.vt.tv.tvcenter"],
   volume_up_action: script("script.stereo_volume_up"), volume_down_action: script("script.stereo_volume_down"),
   mute_action: {action: "perform-action", perform_action: "button.press", target: {entity_id: "button.stereo_volume_mute"}},
   stereo: {power_action: script("script.stereo_power"), input_entity: "input_select.preview_stereo_source",
@@ -37,6 +39,8 @@ jamPreview.add({
     st(TV, "playing", {friendly_name: "Phoster", app_name: "Jellyfin", media_title: "Close Encounters of the Third Kind",
       media_position: 4320, media_duration: 8220, supported_features: 153529}),
     st("media_player.preview_tv_off", "off", {friendly_name: "Phoster", supported_features: 153529}),
+    // Projectivy home: Control Freak labels its package with the first app-list label it owns ("HDMI 2", an input shortcut).
+    st("sensor.preview_tv_current_app", "HDMI 2", {friendly_name: "Current app"}),
     st("input_select.preview_stereo_source", "TV", {friendly_name: "Stereo source", options: ["TV", "AUX", "BLUETOOTH"]}),
     st("media_player.preview_tv_idle", "on", {friendly_name: "Phoster", app_id: "com.spocky.projengmenu", supported_features: 153529}),
     st(`sensor.${NV}_now_playing`, "Hades II", {friendly_name: "NervOS (Aero 15) Now playing"}),

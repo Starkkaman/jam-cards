@@ -86,7 +86,7 @@ class JamWeather extends JamBase {
   watched() { const c = this._config; return this._err ? [] : [c.entity, c.temperature_entity, "sun.sun"].filter(Boolean); }
   _type() { return this._config.forecast_type || "daily"; }
   _days() { return Math.max(1, Math.min(12, Math.round(+this._config.days) || 5)); }
-  connectedCallback() { this._sub(); this._arm(); }
+  connectedCallback() { super.connectedCallback(); this._sub(); this._arm(); }
   disconnectedCallback() { this._unsub(); clearTimeout(this._tick); this._tick = null; }
   /* One live forecast subscription per (entity, forecast_type); none when show_forecast is false. */
   _sub() {

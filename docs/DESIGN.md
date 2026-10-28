@@ -15,7 +15,8 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
   Nothing is torn or jagged; nothing is random per seed. Text never sits in a cut.
 - Display type: Londrina Solid 900, UPPERCASE, tight leading (.9), slight negative tracking allowed (-.005em).
   Body/labels: Jost 400-600; labels UPPERCASE .72rem letter-spacing .16em.
-- Motion = hard cuts: `steps()` or ≤120 ms linear. Respect `prefers-reduced-motion` (no motion at all).
+- Motion = cut paper: one-shot only, `steps()`, ≤ 300 ms, transform / clip-path / opacity only, no infinite animation, no
+  rAF loops (see "Motion"). `prefers-reduced-motion: reduce` and `JamCards.motion = false` turn it all off.
 - Entity names, states, attributes → `textContent` only. Never innerHTML with data.
 - Every control is a real `<button>` / keyboard reachable, visible focus = 3px ochre outline offset 2px.
 - No dependencies, no build step, everything in `jam-cards.js`. Keep each card lean: no feature nobody configured.
@@ -88,8 +89,29 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
 - Chips in jam-heading / jam-hero: flat blocks (no border) with the chip cut.
 - Exceptions with their own straight shapes: jam-remote d-pad arms (5-point arrow with a 45° point, `data-cut=arrow`) and
   the OK disc (`circle()`, `data-cut=disc`); the jam-button icon square (30% corner cut).
-- Press feedback (buttons, tiles): face moves `translate(2px,2px)` on `:active`. No transition.
+- Press feedback (buttons, tiles, keys, light cards): the face "prints" — `jam-print`, 2 steps to `translate(3px,3px) scale(.96)`
+  on pointerdown, snaps back on release (0.3.5). Motion off: a hard cut to that state; reduced motion: none.
 - Legacy: `seed`, `rng`, `tornPath` stay exported for compatibility; no card uses `tornPath` any more.
+
+## Motion (0.3.5, playful but one-shot)
+Every motion is a single stepped cut (`steps()`), ≤ 300 ms, animating transform / clip-path / opacity only; nothing loops,
+nothing runs per frame. Classes are added by JS once and never on a plain hass update; `oneShot()` removes them on
+animationend so a re-attach or display change does not replay them. Helpers in core: `BASE_CSS` keyframes (`jam-enter`,
+`jam-print`, `jam-uncover`, `jam-retreat`, `jam-stamp`), `motionOn()`, `oneShot(node, cls, delayMs)`, `staggerIn(nodes)`,
+`treeOrder(a, b)` (composed-tree document order), and `enterView(card)` (JamBase.connectedCallback; subclasses with their
+own connectedCallback call super).
+| Moment | Motion |
+|---|---|
+| View entrance | the card's `.host` slides in from the left in 4 steps (translateX −24px + clip from the right), 200 ms; cards connected in the same task are sorted by document order, 40 ms stagger (index capped at 12); once per card; not for cards inside a jam-popup / sheet / jam-screensaver |
+| Press | `jam-print` (see Edge system "Press feedback") |
+| Light on / off | jam-light: a `.jam-wash` cover over the face — on: slab cover retreats right in 3 steps (210 ms, the colour wipes in); off: the old colour retreats left in 2 steps (120 ms); only on a real on/off change (not the first render, not after a drag preview) |
+| Scene / source selected | jam-scenes, jam-tv source tiles: the newly active key gets `.jam-stamp` (scale 1.08 → 1, 3 steps, 210 ms) and its accent fill wipes in (a slab2 `::before` cover retreats, `--jam-stamp-from`) |
+| Pop-up / sheet | stepped slide/wipe + Vertigo spiral flash (unchanged); then the body's children slide in (`jam-in`, 160 ms, 60 ms + 40 ms × index) — jam-popup on every open, openSheet once (refills do not replay) |
+| Screensaver | its own per-minute layout cut (unchanged, not affected by `JamCards.motion`) |
+Off switches: `prefers-reduced-motion: reduce` (CSS `animation:none` on everything incl. pseudo-elements, and `motionOn()`
+is false); `JamCards.motion = false` (an accessor on the frozen API; sets `--jam-motion: 0` on `<html>` so the print is a hard
+cut, and the JS skips entrance / wash / stamp / stagger / sheet opening motion). jam-screensaver `motion: false` sets it while the
+card is on screen (for a kiosk that cannot cope; default on everywhere).
 
 ## Motifs (use sparingly; one per card max)
 - **Golden Arm bars**: 3-5 straight vertical bars of varying height — only as the empty/loading placeholder
@@ -107,18 +129,18 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 | jam-tile | tile, mushroom-entity, bubble button | entity block, stripe, value; `control: auto/toggle/lock/press/none`; features below |
 | jam-choice | select tile, bubble select | option chips |
 | jam-slider | numeric tile, bubble slider | number/input_number/light/media volume/fan percentage |
-| jam-button | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or HA `color` names), accent face when entity on, tap/hold/double_tap actions, confirmation |
+| jam-button | button (launchers, scenes, scripts, stereo keys) | big key: label + accent square with optional ha-icon, colour (`accent` or HA `color` names), accent face when entity on, tap/hold/double_tap actions, confirmation; `size: normal` = 84px, grid rows auto (= a jam-light card), `big` = 120px |
 | jam-light (v2) | mushroom-light | card face = the light's hue at full value (`fullRgb`: rgb_color scaled so the max channel is 255, kelvin → rgb in color_temp mode, else the accent), ink/paper text by luminance of that colour; 84px tall (grid rows auto), big % (1.7rem), 10px brightness strip, drag to dim, 40px corner ⋯ / hold = light pop-up (openSheet): 72px brightness bar, whites or WLED preset cards, hue strip, "Your colours" (HA user data), group members (pills + bars in each member's full-value colour), off-timer |
 | jam-popup | bubble pop-up | opens on `location.hash == hash`, ink veil + cut sheet (slab face; children one surface step up), title, child `cards` (HA card helpers), accent handed to children as `--jam-accent`; close on veil/Esc/close/back |
 | jam-remote | universal-remote-card | d-pad (cut arrows), OK disc, key rows (`layout: full` = the universal-remote-card set); keyboard key = text sheet (`text:` / DEL / ENTER); `remote.send_command` / `commands` / `actions`; `entity` optional when `actions` is set (keys without an action are disabled; NerveOS button/select remotes); `hide_title` (set automatically inside jam-tv / jam-media sheets); `sections` (0.3.4) = colour-coded blocks (slab face, 5px accent rule, kicker; per-section entity/actions/labels, active key filled from `active_entity`) |
 | jam-media (v2) | mediocre*, YAMP, media tile | art as a duotone block (image multiplied over a flat accent block: flat print, not a gradient), title, artist, transport, volume, sources, players, group; `compact` mini layout; `more` ⋯ sheet of child cards (jamCardSheet); title_entity players without a media_player |
-| jam-tv | Android TV media cards | 0.3.4 poster (118px, `poster` cut: artwork cover or accent + Golden Arm bars; ink/paper text by art luminance, flat 50% ink band on busy art; app kicker, title, position, 5px progress strip; power = 44px top-right triangle, red when off) + Now playing / Source switch (selected = fg fill, remembered until on → off) + transport/volume rows or 3-up source tiles (on-screen source filled with its colour, via app_name / source_entities); Remote = sheet with a jam-remote in TV (card accent) + Stereo (violet) sections, keyboard glyph key in the sheet header |
+| jam-tv | Android TV media cards | 0.3.4 poster (118px, `poster` cut: artwork cover or accent + Golden Arm bars; ink/paper text by art luminance, flat 50% ink band on busy art; app kicker, title, position, 5px progress strip; power = 44px top-right triangle, red when off) + Now playing / Source switch (selected = fg fill, remembered until on → off) + transport/volume rows or 3-up source tiles (on-screen source filled with its colour, 0.3.5: only from live signals — `current_app_entity` vs `match.app`, then `input_entity` vs `match.input` while the TV shows an input (`input_app` / `input_signal_entity`); nothing matches → none); Remote = sheet with a jam-remote in TV (card accent) + Stereo (violet) sections, keyboard glyph key in the sheet header |
 | jam-fan | fan tile, purifier cards | On/Off pill, speed steps (fan.set_percentage), preset chips (`presets: false` hides them), air-quality kicker sensors |
 | jam-weather | clock-weather, weather-forecast | big temp numeral, condition word (`conditionWord`), cut-paper glyph, forecast strip, optional clock (`clock_size` normal/big/huge) |
 | jam-graph | mini-graph, statistics-graph | SVG step/line chart from history, 1-5 series in `--jam-s*`, legend chips, crosshair + tooltip, current value big |
 | jam-gauge | gauge | half-disc of cut wedges (severity bands) + big numeral, or `style: bar` |
 | jam-list | entities | rows: name / value, divider rules, toggles for switchable rows |
-| jam-house | landing header | house strip: inside / outside temperature + condition word, door lock chip (tap = lock), who's home (first names; `full_names`), alert chips; `inside_aq` / `outside_aq` air line under each temperature; `compact` kiosk row |
+| jam-house | landing header | house strip: inside / outside temperature + condition word, door lock chip (tap = lock), who's home (first names; `full_names`), alert chips; `inside_aq` / `outside_aq` air line under each temperature, words only ("Air · Good"; a US AQI number becomes its category word); `compact` kiosk row |
 | jam-tabs | navigation chips / tab bars | equal-width room tabs, current tab filled with its accent, optional sticky (host is position:sticky; in HA it sticks only within its own section; cut corners show `--primary-background-color`) |
 | jam-scenes | scene buttons | horizontally scrolling scene/script keys (`wrap: true` = more rows), active scene in the accent (newest scene activation; the input_select when it changed later) |
 | jam-screensaver | kiosk screensavers | zero-footprint card; full-viewport Poster clock + weather word or photo slideshow after idle; built for weak kiosks (no rAF, minute timer); `kiosk` ("url" default = with `?kiosk`) hides HA's sidebar + dashboard header on its own dashboard only (styles in home-assistant-main / ha-drawer / hui-root shadow roots, MutationObserver, removed on leaving the dashboard; 2 s long-press top-left 48 px corner = chrome back until reload) |
@@ -132,6 +154,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`.
+- Motion: `motion` (accessor), `motionOn`, `oneShot`, `staggerIn`, `treeOrder` (see "Motion").
 - Sheets: `openSheet({from, title, kicker, accent, headerActions, …})` (headerActions = nodes left of CLOSE, same height) → modal cut sheet over an ink veil (Esc / veil / CLOSE / back close it; child
   cards in `body` get the surface tokens one step up),
   `vertigoSpiral`, `deepActive`. jam-media's `jamCardSheet` puts child cards in one (used by jam-tv and jam-media `more`).

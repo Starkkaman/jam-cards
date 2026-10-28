@@ -6,7 +6,8 @@
    Tap = scene.turn_on / script.turn_on with {entity_id, ...data}. The active scene is filled with the accent.
    Active scene (0.3.2): the listed scene with the newest activation time (a scene's state is its last activation ISO time;
    a script's is attributes.last_triggered); when current_entity changed (last_changed) after that time, its option match
-   wins instead. No timestamps at all -> the current_entity match. Re-evaluated on every state change (live). */
+   wins instead. No timestamps at all -> the current_entity match. Re-evaluated on every state change (live).
+   Motion (0.3.5): a newly active scene gets a one-shot stamp (scale 1.08 -> 1, 3 steps) while its accent wipes in. */
 function jamSceneTime(s) {
   if (!s || UNAVAILABLE.has(s.state)) return NaN;
   const v = String(s.entity_id || "").startsWith("script.") ? s.attributes.last_triggered : s.state;
@@ -27,8 +28,9 @@ class JamScenes extends JamBase {
       padding:12px 14px;background:var(--slab2);color:var(--fg);white-space:nowrap;
       clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
+    .scene{position:relative}
     .scene.on{background:var(--acc);color:var(--acc-fg)}
-    .scene:active{transform:translate(2px,2px)}`; }
+    .scene:active{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const cur = c.current_entity ? stateObj(h, c.current_entity) : null;
@@ -38,6 +40,8 @@ class JamScenes extends JamBase {
     for (const sc of c.scenes) { const t = jamSceneTime(stateObj(h, sc.entity)); if (t > newT) { newT = t; newest = sc.entity; } }
     const curT = cur && cur.last_changed ? Date.parse(cur.last_changed) : NaN;
     const bySelect = !newest || (!!want && curT > newT);
+    // Stamp (0.3.5): when the active scene changes after the first render, the new one gets the one-shot stamp + wipe.
+    let active = null;
     const row = el("div", "scenes" + (c.wrap ? " wrap" : ""));
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Scenes");
     for (const sc of c.scenes) {
@@ -46,12 +50,16 @@ class JamScenes extends JamBase {
       const on = bySelect ? !!want && (String(name).trim().toLowerCase() === want || obj === want) : sc.entity === newest;
       const btn = el("button", "scene" + (on ? " on" : ""), name);
       btn.type = "button"; btn.setAttribute("aria-pressed", String(on));
+      if (on && !active) active = {btn, id: sc.entity};
       const s = stateObj(h, sc.entity);
       if (!s || UNAVAILABLE.has(s.state)) btn.classList.add("unavail");
       btn.onclick = () => this._hass.callService(sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity});
       row.append(btn);
     }
     b.append(row);
+    const id = active ? active.id : null;
+    if (this._actSeen && id && id !== this._act && motionOn()) active.btn.classList.add("jam-stamp");
+    this._act = id; this._actSeen = true;
   }
   getCardSize() { return 1; }
   getGridOptions() { return {columns: "full", rows: "auto", min_columns: 6}; }

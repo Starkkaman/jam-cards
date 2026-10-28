@@ -3,7 +3,9 @@
     weather_entity?, temperature_entity?, kicker? ("The Bungalow · kitchen"),
     images?: {index: URL of a JSON list (["a.jpg", {url, caption}]), interval? (20 s), shuffle? (false)},
     poster_every? (images mode: every Nth slide is the poster), active_hours?: {from: "06:00", to: "23:00"},
-    disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false}
+    disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
+    motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
+    JamCards.motion; for a kiosk too weak for it; the screensaver's own per-minute layout cut stays)}
    Built for weak kiosk hardware (Echo Show 8 / iPad): no rAF, no infinite animation, no filters; one clock timer aligned to
    the minute; every timer stops while document.hidden. It never touches screen brightness (the kiosk app owns that).
    Activity = pointerdown / keydown / wheel on document (capture). The first tap on the overlay dismisses it and is
@@ -239,7 +241,14 @@ class JamScreensaver extends JamBase {
     this._config = config;
     this._list = null; this._listAt = 0;
     this._shell();
-    if (this.isConnected) { this._restartIdle(); JamKiosk.join(this); }
+    if (this.isConnected) { this._restartIdle(); JamKiosk.join(this); this._motion(true); }
+    else this._motion(true);
+  }
+  /* motion: false switches JamCards.motion off while this card is connected; on leaves it as it found it. */
+  _motion(on) {
+    const off = on && !!this._config && this._config.motion === false;
+    if (off && !this._motionOff) { this._motionOff = true; window.JamCards.motion = false; }
+    else if (!off && this._motionOff) { this._motionOff = false; window.JamCards.motion = true; }
   }
   set hass(h) {
     this._hass = h;
@@ -252,6 +261,7 @@ class JamScreensaver extends JamBase {
   }
   get hass() { return this._hass; }
   connectedCallback() {
+    this._motion(true);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.addEventListener(t, this._onAct, {capture: true, passive: false});
     document.addEventListener("visibilitychange", this._onVis);
     if (this._layer && this._layer.parentNode !== this.shadowRoot && this._layer.parentNode !== document.body) this.shadowRoot.append(this._layer);
@@ -259,6 +269,7 @@ class JamScreensaver extends JamBase {
     if (this._config) JamKiosk.join(this);
   }
   disconnectedCallback() {
+    this._motion(false);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.removeEventListener(t, this._onAct, {capture: true});
     document.removeEventListener("visibilitychange", this._onVis);
     this._hide();

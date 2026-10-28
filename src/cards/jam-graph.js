@@ -60,6 +60,7 @@ class JamGraph extends JamBase {
   _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
   _style() { return this._config.style || "line"; }
   connectedCallback() {
+    super.connectedCallback();
     if (!this._ro && window.ResizeObserver) this._ro = new ResizeObserver(() => { if (this._plot && Math.round(this._plot.clientWidth) !== this._w) this._draw(); });
     if (this._ro) this._ro.observe(this);
     this._arm();

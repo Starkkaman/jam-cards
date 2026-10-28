@@ -17,6 +17,7 @@ class JamTabs extends JamBase {
     for (const t of c.tabs) if (!t || !t.name || !t.path) throw new Error("jam-tabs: every tab needs name and path");
   }
   connectedCallback() {
+    super.connectedCallback();
     window.addEventListener("location-changed", this._onLoc);
     window.addEventListener("popstate", this._onLoc);
     this._render(false);

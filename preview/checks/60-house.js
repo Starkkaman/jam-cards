@@ -24,9 +24,10 @@ module.exports = async (page, check, {callsNow}) => {
     e.setConfig({...c, full_names: true}); e.hass = {...window.__hass};
     const t = [...e.shadowRoot.querySelectorAll("[data-role=person]")].map(x => x.textContent); e.setConfig(c); e.hass = {...window.__hass}; return t; });
   check(full[0] === "Isaac Hulter", `jam-house full_names: true shows full names (${full.join(", ")})`);
-  // Air lines: word state capitalised + extra (PM2.5); numeric = US AQI + band word; missing entity -> no line.
+  // Air lines (0.3.5): words only. Word state capitalised, numeric = US AQI band word, extra ignored, no numbers; missing -> no line.
   const aq = await house.evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.closest(".in") ? "in:" + x.textContent : "out:" + x.textContent));
-  check(JSON.stringify(aq) === JSON.stringify(["in:Air · Excellent · PM2.5 1", "out:Air · AQI 42 · Good"]), `jam-house air lines under both temperatures (${aq.join(" | ")})`);
+  check(JSON.stringify(aq) === JSON.stringify(["in:Air · Excellent", "out:Air · Good"]) && !aq.some(t => /\d/.test(t)),
+    `jam-house air lines under both temperatures, words only (${aq.join(" | ")})`);
   const caq = await page.locator("jam-house").nth(1).evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.textContent));
   check(caq.length === 1 && caq[0] === "Air · Excellent", `compact jam-house: id-only inside_aq, missing outside_aq hidden (${caq.join(" | ")})`);
   const bands = await page.evaluate(() => {
@@ -41,7 +42,7 @@ module.exports = async (page, check, {callsNow}) => {
     h.states["sensor.airnow_aqi"] = keep; e.hass = {...h};
     return out;
   });
-  check(bands.join(" | ") === "AQI 50 · Good | AQI 51 · Moderate | AQI 101 · Unhealthy for sensitive | AQI 150 · Unhealthy for sensitive | AQI 151 · Unhealthy | AQI 201 · Very unhealthy | AQI 301 · Hazardous | hidden | hidden",
+  check(bands.join(" | ") === "Good | Moderate | Unhealthy for sensitive | Unhealthy for sensitive | Unhealthy | Very unhealthy | Hazardous | hidden | hidden",
     `jam-house AQI bands, unavailable / missing hidden (${bands.join(" | ")})`);
   // Compact house: matching alert chip.
   const alert = page.locator("jam-house").nth(1).locator("[data-role=alert]");

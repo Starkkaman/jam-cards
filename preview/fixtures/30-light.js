@@ -25,6 +25,8 @@ jamPreview.add({
     st("light.garage", "on", {friendly_name: "Garage", supported_color_modes: ["brightness"], color_mode: "brightness", brightness: 128}),
     st("light.hall", "unavailable", {friendly_name: "Hall", supported_color_modes: ["brightness"]}),
     st("script.jam_light_off_in", "off", {friendly_name: "Jam light off in"}),
+    st("light.porch", "on", {friendly_name: "Porch", supported_color_modes: ["color_temp"], color_mode: "color_temp", brightness: 200, color_temp_kelvin: 2700}),
+    st("switch.mood_lighting", "on", {friendly_name: "Mood Lighting"}),
     // Used by preview/fixtures/60-house.js (jam-scenes current_entity) and the jam-popup below.
     st("input_select.light_scenes", "Movie Time", {friendly_name: "Light Scenes", options: ["Normal", "Movie Time", "Vibes"]}),
   ],
@@ -40,6 +42,9 @@ jamPreview.add({
       ["half", {type: "custom:jam-light", entity: "light.tree"}],
       ["half", {type: "custom:jam-light", entity: "light.garage"}],
       ["half", {type: "custom:jam-light", entity: "light.hall"}],
+      // 0.3.5: a switch key (size normal) next to a light card is exactly as tall (84 px).
+      ["half", {type: "custom:jam-button", entity: "switch.mood_lighting", name: "Tree", size: "normal"}],
+      ["half", {type: "custom:jam-light", entity: "light.porch"}],
       // Opener: a tile whose tap navigates to the pop-up hash.
       {type: "custom:jam-tile", entity: "input_select.light_scenes", name: "Open living room pop-up", control: "none",
         tap_action: {action: "navigate", navigation_path: "#livingroom-popup"}},

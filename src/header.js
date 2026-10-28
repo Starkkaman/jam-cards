@@ -10,4 +10,4 @@
    cards fall back to the dark "ink" palette. Design rules: docs/DESIGN.md.
    Shared helpers (colour/accent system, edge system, cut blocks, actions) are exported on window.JamCards for cards added later. */
 (() => {
-const VERSION = "0.3.4";
+const VERSION = "0.3.5";

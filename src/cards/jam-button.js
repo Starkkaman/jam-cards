@@ -7,7 +7,9 @@
    Shape: key cut (top-right 12px), slab face. Accent (accent, else color mapped by JB_COLOR, else the card default ochre)
    = a small square with a cut corner in the top-left carrying the icon in ink (28px, big 36px); light/switch/fan/input_boolean
    "on" = the whole face in the accent with ink text, the square turns ink with the icon in the accent.
-   ink (and HA grey colours) = plain key without a square (on = inverted fg face). */
+   ink (and HA grey colours) = plain key without a square (on = inverted fg face).
+   Height (0.3.5): size normal = 84px with grid rows "auto", exactly a jam-light card, so a switch key sits level with light
+   cards in the same row; big = 120px (grid rows 2). */
 const JB_COLOR = {red: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   pink: "pink", blue: "blue", "light-blue": "blue", indigo: "blue", cyan: "teal", teal: "teal",
   purple: "violet", "deep-purple": "violet", green: "green", "light-green": "green", lime: "green", "light-grey": "ink", grey: "ink"};
@@ -17,9 +19,9 @@ class JamButton extends JamBase {
   validate(c) { if (!c.entity && !c.name && !c.icon) throw new Error("jam-button: entity, name or icon is required"); }
   watched() { return this._config.entity ? [this._config.entity] : []; }
   css() { return `
-    .btn{min-height:88px}
-    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:88px}
-    .big .kf{min-height:120px}
+    .btn{min-height:84px}
+    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:84px}
+    .big,.big .kf{min-height:120px}
     .kf.on{background:var(--acc);color:var(--acc-fg)}
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
     .sq{flex:none;display:grid;place-items:center;width:28px;height:28px;background:var(--acc);color:var(--acc-fg);

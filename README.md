@@ -141,7 +141,7 @@ accent: red
 | `accent` | Any accent (see Colours), `paper`, or `ink` (plain key, no square) |
 | `color` | HA colour name instead of `accent` (blue/indigo → blue, purple → violet, green/lime → green, cyan → teal, pink → pink, orange/amber/yellow → ochre, red → red, grey → ink) |
 | `show_state` | Show the entity state |
-| `size` | `normal` / `big` |
+| `size` | `normal` (84 px, same as a jam-light card) / `big` (120 px) |
 | `tap_action`, `hold_action`, `double_tap_action` | Actions (default tap: scene/script → turn_on, button → press, toggleable → toggle, else more-info) |
 
 ### jam-gauge
@@ -285,9 +285,15 @@ type: custom:jam-tv
 media_player: media_player.living_room_tv
 remote: remote.living_room_tv
 sources:
-  - {name: YouTube, color: red, tap_action: {action: perform-action, perform_action: select.select_option,
+  - {name: YouTube, color: red, match: {app: [YouTube, com.google.android.youtube.tv]},
+     tap_action: {action: perform-action, perform_action: select.select_option,
      target: {entity_id: select.tv_launch_app}, data: {option: YouTube}}}
-source_entities: [select.tv_launch_app]
+  - {name: Console, color: green, match: {input: HDMI 1},
+     tap_action: {action: perform-action, perform_action: select.select_option,
+     target: {entity_id: select.tv_input}, data: {option: HDMI 1}}}
+current_app_entity: sensor.tv_current_app
+input_entity: select.tv_input
+input_app: Live TV
 volume_up_action: {action: perform-action, perform_action: script.stereo_volume_up}
 volume_down_action: {action: perform-action, perform_action: script.stereo_volume_down}
 stereo:
@@ -300,9 +306,13 @@ stereo:
 | `media_player` | media_player (required) |
 | `remote` | remote entity (Remote sheet, power) |
 | `name` | Kicker when idle / off (default the player's name) |
-| `sources` | `{name, color, tap_action, hold_action, match}` tiles, 3-up (`launchers` still works as an alias) |
+| `sources` | `{name, color, tap_action, hold_action, match: {app, input}}` tiles, 3-up (`launchers` still works as an alias); `match.app` / `match.input` = text or list (a plain text = app) |
 | `source_label` | Name of the switch's second tab (default "Source") |
-| `source_entities` | select entities whose state tells which source is on screen (after the media_player's app_name / source); a source matches by name, `match`, or its tap_action's select option |
+| `current_app_entity` | Sensor whose state is the app in front (label or package id). The tile whose `match.app` equals it (any source, case-insensitive) fills; else the first whose `match.app` is contained in it |
+| `input_entity` | Select/sensor naming the TV input; the tile whose `match.input` equals it fills while the TV shows an input |
+| `input_app` | current-app values that mean "the TV shows an input" (e.g. `Live TV`); without it the input counts whenever it matches |
+| `input_signal_entity` | Optional: the input only counts while this sensor reports a signal (not "No signal" / off / unavailable) |
+| | Highlight comes only from these live signals (0.3.5): select states and tap options are not used (`source_entities` is ignored); nothing matches → no tile filled |
 | `power_action` | Power triangle action (default `remote.toggle`) |
 | `volume_up_action`, `volume_down_action`, `mute_action` | Volume row on the card (keys without an action are left out; Vol keys repeat while held) |
 | `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo section of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
@@ -345,7 +355,7 @@ people: [person.alex, person.sam]
 | `alerts` | `{entity, state, name}`: red chip while the entity is in `state` (or on/open/problem) |
 | `title`, `kicker` | Title (default the HA location name) and label |
 | `compact` | One smaller row (kiosks) |
-| `inside_aq`, `outside_aq` | `{entity, extra}` (or an id): "Air · Good · PM2.5 3" under the temperature; numeric states read as US AQI ("AQI 42 · Good"); hidden while the entity is missing/unavailable |
+| `inside_aq`, `outside_aq` | `{entity}` (or an id): "Air · Good" under the temperature, words only; a numeric state is a US AQI shown as its category (Good, Moderate, Unhealthy for sensitive, Unhealthy, Very unhealthy, Hazardous); `extra` is ignored; hidden while the entity is missing/unavailable |
 
 ### jam-tabs
 Equal-width room tabs; the tab for the current path fills with its accent.
@@ -397,6 +407,7 @@ active_hours: {from: "06:00", to: "23:00"}
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
 | `accent` | Poster colour |
 | `kiosk` | Hide HA's sidebar and the dashboard header on this dashboard: `"url"` (default) only when the URL has `?kiosk`, `true` always, `false` never |
+| `motion` | `false`: turn the jam cards' one-shot motion (entrance, wipes, stamps, sheet stagger) off on this page while the card is on screen (`JamCards.motion = false`); default on |
 
 Kiosk chrome (0.3.3): with `?kiosk` in the dashboard URL (e.g. `/jam-kitchen/0?kiosk`) the card hides Home Assistant's
 sidebar and top header and removes the space they reserve, without a kiosk-mode plugin. It applies to the dashboard the
@@ -435,7 +446,8 @@ watch: [lock.front_door]
 
 ## Design rules
 Flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight edges with one cut corner.
-The full rules are in [docs/DESIGN.md](docs/DESIGN.md).
+Motion is one-shot and stepped like cut paper (view entrance, press print, light colour wipe, scene/source stamp, sheet
+stagger); `prefers-reduced-motion` or `JamCards.motion = false` turns it off. The full rules are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Develop
 Source lives in `src/`; `jam-cards.js` is generated by `node tools/bundle.mjs`. `pw-node preview/shoot.js` renders

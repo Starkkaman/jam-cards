@@ -1,8 +1,15 @@
 /* ---------- jam-tv: smart TV card (Android TV media_player + remote): poster + Now playing / Source switch ----------
    {type: custom:jam-tv, media_player (media_player.*), remote? (remote.*), name? (off kicker; default the player's name),
     sources?: [{name, color? (accent name, room alias or HA colour name; default the card accent), tap_action, hold_action?,
-                match? (string or list: extra state text that means this source is on screen)}]  (`launchers` = alias),
-    source_label? ("Source"), source_entities?: [select.* ids] (their state tells which source is on screen),
+                match?: {app?: text | [texts], input?: text | [texts]} (when this source is on screen; a plain text or
+                list = app)}]  (`launchers` = alias),
+    source_label? ("Source"),
+    current_app_entity? (sensor whose state is the app in front: a label or package id, e.g. sensor.hisense_tv_current_app),
+    input_entity? (select/sensor whose state names the TV input, e.g. select.hisense_tv_input),
+    input_app? (text | [texts]: current_app values that mean the TV is showing an input, e.g. "Live TV"; without it the
+      input counts whenever it matches), input_signal_entity? (optional: the input only counts while this sensor reports
+      a signal, i.e. not "No signal" / off / unavailable),
+    source_entities? (ignored since 0.3.5: select states are not live signals),
     power_action? (default remote.toggle, else media_player toggle),
     volume_up_action?, volume_down_action?, mute_action? (row Vol − / Mute / Vol +; keys without an action are left out;
       vol keys repeat while held),
@@ -17,8 +24,10 @@
    glyph; red with an ink glyph when the TV is off). Idle (on, no title): title = the source on screen, else the app. Off: slab2 poster, "TV off", "Pick a source to start".
    Switch row "Now playing" | source_label: default Now playing when on, Source when off; the choice is kept in memory until
    the TV goes on -> off. Now playing = Prev / Play-Pause (accent) / Next / Remote, then the volume row. Source = 3-up tiles
-   (flat colour square + name); the source on screen (media_player app_name / source, then each source_entities state, matched
-   case-insensitively against the name, `match`, or the tap_action's select option for that entity) fills with its colour.
+   (flat colour square + name). Highlight (0.3.5) only from live signals: the current_app_entity state against each
+   source's match.app (case-insensitive; an exact match on any source wins, else a substring), then, while the TV shows an
+   input (input_app / input_signal_entity), the input_entity state against match.input (exact). Nothing matches (home
+   screen, screensaver, other apps) -> no tile filled. A newly matched tile gets the one-shot stamp + colour wipe.
    Remote = a sheet (jamCardSheet) with a jam-remote in colour-coded sections: TV (card accent) and Stereo (violet); the
    keyboard key sits in the sheet header (keyboard glyph, opens jamRemoteKeyboard). */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
@@ -47,7 +56,7 @@ class JamTv extends JamSheetHost(JamBase) {
   setConfig(c) { this._tab = null; super.setConfig(c); }
   watched() {
     const c = this._config, st = c.stereo || {};
-    return [c.media_player, c.remote, ...(c.source_entities || []), st.input_entity].filter(x => typeof x === "string" && x);
+    return [c.media_player, c.remote, c.current_app_entity, c.input_entity, c.input_signal_entity, st.input_entity].filter(x => typeof x === "string" && x);
   }
   get _sources() { const c = this._config; return (c.sources || c.launchers || []).filter(Boolean); }
   css() { return `
@@ -129,24 +138,29 @@ class JamTv extends JamSheetHost(JamBase) {
     const long = dur >= 3600;
     return {text: `${jamTvTime(pos, long)} / ${jamTvTime(dur, long)}`, frac: pos / dur};
   }
-  /* The source on screen: candidates from the media_player (app_name, friendly app, source), then each source_entities state. */
-  _activeSource(s) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, low = v => String(v).trim().toLowerCase();
-    const cands = [];
-    for (const v of [this._app(a), a.app_name, a.source]) if (v) cands.push({v: low(v)});
-    for (const id of c.source_entities || []) { const e = stateObj(h, id); if (e && !UNAVAILABLE.has(e.state)) cands.push({v: low(e.state), id}); }
-    const keys = src => {
-      const out = [src.name, ...[].concat(src.match || [])].filter(Boolean).map(low);
-      const t = src.tap_action || {}, tgt = (t.target && t.target.entity_id) || (t.data && t.data.entity_id);
-      const opt = t.data && t.data.option;
-      return {names: out, tgt: [].concat(tgt || []), opt: opt ? low(opt) : null};
-    };
-    const list = this._sources.map(x => ({x, k: keys(x)}));
-    for (const cd of cands) {
-      const hit = list.find(({k}) => k.names.includes(cd.v) || (cd.id && k.opt === cd.v && k.tgt.includes(cd.id)));
+  /* The source on screen, from live signals only (0.3.5): current_app_entity vs match.app, then the input. null = none. */
+  _activeSource() {
+    const c = this._config, h = this._hass, low = v => String(v).trim().toLowerCase();
+    const live = id => { const e = id && stateObj(h, id); return e && !UNAVAILABLE.has(e.state) && String(e.state).trim() !== "" ? low(e.state) : null; };
+    const list = this._sources.map(x => {
+      const m = x.match && typeof x.match === "object" && !Array.isArray(x.match) ? x.match : {app: x.match};
+      return {x, app: [].concat(m.app || []).filter(Boolean).map(low), input: [].concat(m.input || []).filter(Boolean).map(low)};
+    });
+    const app = live(c.current_app_entity);
+    if (app) {
+      const hit = list.find(k => k.app.includes(app)) || list.find(k => k.app.some(t => app.includes(t)));
       if (hit) return hit.x;
     }
-    return null;
+    const inp = live(c.input_entity);
+    if (!inp) return null;
+    const apps = [].concat(c.input_app || []).filter(Boolean).map(low);
+    if (apps.length && !(app && apps.some(t => app === t || app.includes(t)))) return null;
+    if (c.input_signal_entity) {
+      const sig = live(c.input_signal_entity);
+      if (!sig || sig === "no signal" || sig === "off") return null;
+    }
+    const hit = list.find(k => k.input.includes(inp));
+    return hit ? hit.x : null;
   }
   _openRemote() {
     const c = this._config, name = c.name || friendly(this._hass, c.media_player), rc = this._remoteCfg();
@@ -213,7 +227,7 @@ class JamTv extends JamSheetHost(JamBase) {
       img.onerror = () => { img.remove(); root.classList.remove("art", "busy", "light", "dark"); bars(); };
       img.src = src; face.append(img);
     } else if (!off) bars();
-    const txt = el("div", "txt"), act = !off ? this._activeSource(s) : null;
+    const txt = el("div", "txt"), act = !off ? this._activeSource() : null;
     let kick, title, sub = null, frac = null;
     if (off) { kick = name; title = s && s.state !== "off" ? "Unavailable" : "TV off"; sub = "Pick a source to start"; }
     else {
@@ -259,11 +273,11 @@ class JamTv extends JamSheetHost(JamBase) {
     if (vol.length) pane.append(this._row(vol));
     return pane;
   }
-  _sourcePane(s, off) {
-    const c = this._config, g = el("div", "src"), act = off ? null : this._activeSource(s);
+  _sourcePane(s, off, stamp) {
+    const c = this._config, g = el("div", "src"), act = off ? null : this._activeSource();
     for (const l of this._sources) {
       const on = l === act;
-      const b = cutKey("", `jam-tv|${c.media_player}|src|${l.name}`, on ? "on" : "", "chip");
+      const b = cutKey("", `jam-tv|${c.media_player}|src|${l.name}`, (on ? "on" : "") + (on && stamp ? " jam-stamp" : ""), "chip");
       const face = b.firstChild; face.textContent = "";
       const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]) || "var(--acc)";
       b.style.setProperty("--app", col);
@@ -284,6 +298,10 @@ class JamTv extends JamSheetHost(JamBase) {
     const mode = off ? "off" : playing ? "playing" : "idle";
     if (off && this._wasOn) this._tab = null; // on -> off forgets the user's tab choice
     this._wasOn = !off;
+    // Stamp the source tile that just came on screen (not on the first render, a tab switch or a plain update).
+    const act = off ? null : this._activeSource(), actName = act ? act.name || "" : null;
+    const stamp = this._srcSeen && actName !== null && actName !== this._srcPrev && motionOn();
+    this._srcPrev = actName; this._srcSeen = true;
     const tab = this._tab || (off ? "source" : "now");
     const {root, face: wrap} = this.paper(c.media_player, {face: `wrap ${mode}`});
     root.dataset.mode = mode; root.dataset.tab = tab;
@@ -295,7 +313,7 @@ class JamTv extends JamSheetHost(JamBase) {
       k.onclick = () => { this._tab = id; this._render(false); };
       seg.append(k);
     }
-    wrap.append(seg, tab === "now" ? this._nowPane(s, off) : this._sourcePane(s, off));
+    wrap.append(seg, tab === "now" ? this._nowPane(s, off) : this._sourcePane(s, off, stamp));
     b.append(root);
   }
   getCardSize() { return 5; }

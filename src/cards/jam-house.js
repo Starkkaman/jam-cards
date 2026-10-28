@@ -4,11 +4,11 @@
     the full friendly name), alerts?: [{entity, state?, name}] (red chip while
     the entity matches `state`, or without `state` while it is on/open/problem), title? (default
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller),
-    inside_aq? / outside_aq?: {entity, extra?} (or just an entity id; extra = id | {entity, name?}, e.g. a PM2.5 sensor)}
-   Air line (0.3.2) under each temperature: "Air · Good · PM2.5 3". A word state is capitalised ("poor" -> "Poor"); a numeric
-   state is a US AQI: "AQI 42 · Good" (Good ≤50, Moderate ≤100, Unhealthy for sensitive ≤150, Unhealthy ≤200,
-   Very unhealthy ≤300, Hazardous). extra = "<name> <value>" (name from the device class, e.g. PM2.5). The line is hidden
-   while the AQ entity is missing or unavailable (the config may name a sensor that does not exist yet).
+    inside_aq? / outside_aq?: {entity, extra?} (or just an entity id; extra is accepted and ignored since 0.3.5)}
+   Air line under each temperature, words only (0.3.5): "Air · Good". A word state is capitalised ("poor" -> "Poor"); a
+   numeric state is a US AQI turned into its category word (Good ≤50, Moderate ≤100, Unhealthy for sensitive ≤150,
+   Unhealthy ≤200, Very unhealthy ≤300, Hazardous); no AQI or PM numbers. The line is hidden while the AQ entity is
+   missing or unavailable (the config may name a sensor that does not exist yet).
    Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
    (tap = more-info); jammed/unavailable -> red, tap = more-info. */
 /* Numeric state as written (73.9 stays 73.9, 63.0 -> 63); anything else -> "—". */
@@ -17,14 +17,10 @@ function jamHouseNum(v) {
   return v === null || v === undefined || v === "" || !Number.isFinite(n) ? "—" : String(Math.round(n * 10) / 10);
 }
 const JAM_HOUSE_AQI = [[50, "Good"], [100, "Moderate"], [150, "Unhealthy for sensitive"], [200, "Unhealthy"], [300, "Very unhealthy"], [Infinity, "Hazardous"]];
-const JAM_HOUSE_DC = {pm25: "PM2.5", pm10: "PM10", pm1: "PM1", carbon_dioxide: "CO₂", volatile_organic_compounds: "VOC", aqi: "AQI", ozone: "O₃"};
-/* {entity, extra?} | "id" -> {entity, extra: {entity, name?} | null}; null when no entity. */
+/* {entity, extra?} | "id" -> {entity}; null when no entity (extra is ignored since 0.3.5: words only). */
 function jamHouseAq(x) {
   const id = x && typeof x === "object" ? x.entity : x;
-  if (!id || typeof id !== "string") return null;
-  const e = x && typeof x === "object" ? x.extra : null;
-  const extra = e && typeof e === "object" ? (e.entity ? {entity: String(e.entity), name: e.name} : null) : e ? {entity: String(e)} : null;
-  return {entity: id, extra};
+  return id && typeof id === "string" ? {entity: id} : null;
 }
 class JamHouse extends JamBase {
   validate(c) {
@@ -33,7 +29,7 @@ class JamHouse extends JamBase {
   }
   watched() {
     const c = this._config;
-    const aq = [jamHouseAq(c.inside_aq), jamHouseAq(c.outside_aq)].filter(Boolean).flatMap(a => [a.entity, a.extra && a.extra.entity]);
+    const aq = [jamHouseAq(c.inside_aq), jamHouseAq(c.outside_aq)].filter(Boolean).map(a => a.entity);
     return [c.inside_entity, c.outside_entity, c.lock_entity, ...(c.people || []), ...(c.alerts || []).map(a => a && a.entity), ...aq].filter(Boolean);
   }
   css() { return `
@@ -53,19 +49,15 @@ class JamHouse extends JamBase {
     .compact .in,.compact .out{text-align:left;justify-items:start}
     .compact .temp{font-size:1.8rem} .compact .otemp{font-size:1.4rem}
     .compact .chips{flex:1 1 auto;justify-content:flex-end}`; }
-  /* "Air · Good · PM2.5 3" line, or null while the AQ entity is missing / unavailable. */
+  /* "Air · Good" line (category word only), or null while the AQ entity is missing / unavailable. */
   _aq(cfg) {
     const h = this._hass, a = jamHouseAq(cfg), s = a && stateObj(h, a.entity);
     if (!s || UNAVAILABLE.has(s.state) || String(s.state).trim() === "") return null;
-    const v = String(s.state).trim(), n = Number(v), parts = ["Air"];
-    if (Number.isFinite(n)) { const r = Math.round(n); parts.push(`AQI ${r}`, JAM_HOUSE_AQI.find(([max]) => r <= max)[1]); }
-    else { const w = v.replace(/[-_]+/g, " "); parts.push(w.charAt(0).toUpperCase() + w.slice(1)); }
-    const x = a.extra && stateObj(h, a.extra.entity);
-    if (x && !UNAVAILABLE.has(x.state)) {
-      const name = a.extra.name || JAM_HOUSE_DC[x.attributes.device_class] || "";
-      parts.push((name ? name + " " : "") + jamHouseNum(x.state));
-    }
-    const line = el("div", "label aq", parts.join(" · "));
+    const v = String(s.state).trim(), n = Number(v);
+    let word;
+    if (Number.isFinite(n)) word = JAM_HOUSE_AQI.find(([max]) => Math.round(n) <= max)[1];
+    else { const w = v.replace(/[-_]+/g, " "); word = w.charAt(0).toUpperCase() + w.slice(1); }
+    const line = el("div", "label aq", "Air · " + word);
     line.dataset.role = "aq"; line.title = friendly(h, a.entity);
     line.onclick = () => moreInfo(this, a.entity);
     return line;

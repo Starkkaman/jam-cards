@@ -5,7 +5,8 @@
    Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
    own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
-   Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag). */
+   Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag).
+   Motion: stepped wipe + Vertigo flash on open; the child cards slide in one after another (40 ms stagger, 0.3.5). */
 const POPUP_CSS = `
   /* Zero footprint when closed: the host is a 0-height block; the overlay is position:fixed. Whether a sections
      grid adds a gap/row for a 0-height card is verified in real HA in the clone step. */
@@ -180,7 +181,10 @@ class JamPopup extends JamBase {
     de.style.overflow = "hidden"; bd.style.overflow = "hidden";
     this._pop.classList.add("open");
     this._pop.classList.remove("opening");
-    if (animate) { void this._pop.offsetWidth; this._pop.classList.add("opening"); }
+    if (animate && motionOn()) {
+      void this._pop.offsetWidth; this._pop.classList.add("opening");
+      staggerIn(this._bodyEl.children); // child cards slide in one after another (0.3.5)
+    }
     this._face.scrollTop = 0; this._bodyEl.scrollTop = 0;
     try { this._face.focus({preventScroll: true}); } catch (e) { this._face.focus(); }
   }

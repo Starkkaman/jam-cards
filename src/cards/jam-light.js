@@ -14,6 +14,7 @@
    Pop-up (openSheet in core): 72px brightness bar, whites or preset cards, hue strip (12 bands, hs_color [hue, 90]),
    "Your colours" (per HA user: frontend/get_user_data + set_user_data key jam_colors, max 12; in memory if that fails),
    group members (attributes.entity_id), off-timer 15/30/60 min (script.turn_on with variables {entity_id, minutes}).
+   Motion (0.3.5): pressing prints the card (core .pressing); a real on/off change wipes the colour in (3 steps) or out (2).
    Changed in v2 (0.3.0): the ON key, the brightness strip row, the colour-temp chips (Candle/Warm/Neutral/Day) and the six
    fixed colour swatches are gone from the card; show_color_temp now means the two whites in the pop-up, show_color the hue
    strip + your colours, presets are pop-up chips; tap_action moved from the ON key to the whole card, hold_action
@@ -193,6 +194,15 @@ class JamLight extends JamBase {
     const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off")});
     const [fill, ink] = this._paint(s);
     root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", ink);
+    // Wash (0.3.5): on a real on/off change (not the first render, not a plain update) the colour wipes in across the
+    // card in 3 steps (a slab cover retreats to the right), or wipes out in 2 (the old colour retreats to the left).
+    const was = this._prevOn, wasFill = this._prevFill;
+    this._prevOn = dead ? null : on; this._prevFill = fill;
+    if (was != null && !dead && was !== on && motionOn()) {
+      const w = el("div", "jam-wash " + (on ? "in" : "out"));
+      w.setAttribute("aria-hidden", "true"); w.style.background = on ? "var(--slab)" : wasFill;
+      face.append(w);
+    }
     const tap = el("div", "tap"), top = el("div"), nm = el("h3", "nm");
     const ic = icon(c.icon); if (ic) nm.append(ic);
     nm.append(document.createTextNode(name));
@@ -231,12 +241,15 @@ class JamLight extends JamBase {
   _gestures(tap, root, st0) {
     const c = this._config;
     let p = null; // current press: {x, y, mode: press|drag|scroll, held, v, timer}
-    const preview = v => { root.classList.add("on"); root.classList.remove("off"); st0.show(v, true); };
-    const revert = () => { root.classList.toggle("on", st0.on); root.classList.toggle("off", !st0.on); st0.show(st0.pct, st0.on); };
+    // A drag preview already shows the colour: the state update that follows must not wash it in again.
+    const preview = v => { root.classList.add("on"); root.classList.remove("off"); st0.show(v, true); this._prevOn = true; };
+    const revert = () => { root.classList.toggle("on", st0.on); root.classList.toggle("off", !st0.on); st0.show(st0.pct, st0.on); this._prevOn = st0.on; };
+    const unpress = () => root.classList.remove("pressing");
     tap.addEventListener("contextmenu", e => e.preventDefault());
     tap.addEventListener("pointerdown", e => {
       if (e.button || (p && p.mode === "drag")) return;
       p = {x: e.clientX, y: e.clientY, mode: "press", held: false, v: null};
+      root.classList.add("pressing"); // print (core CSS); dropped when the press turns into a drag or scroll
       try { tap.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
       const me = p;
       p.timer = setTimeout(() => { if (p === me && me.mode === "press") { me.held = true; this._hold(); } }, 500);
@@ -245,8 +258,8 @@ class JamLight extends JamBase {
       if (!p) return;
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       if (p.mode === "press" && !p.held) {
-        if (st0.dims && Math.abs(dx) > 7 && Math.abs(dx) >= Math.abs(dy)) { p.mode = "drag"; clearTimeout(p.timer); this._drag = true; }
-        else if (Math.abs(dy) > 7 || Math.abs(dx) > 7) { p.mode = "scroll"; clearTimeout(p.timer); }
+        if (st0.dims && Math.abs(dx) > 7 && Math.abs(dx) >= Math.abs(dy)) { p.mode = "drag"; clearTimeout(p.timer); this._drag = true; unpress(); }
+        else if (Math.abs(dy) > 7 || Math.abs(dx) > 7) { p.mode = "scroll"; clearTimeout(p.timer); unpress(); }
       }
       if (p.mode === "drag") {
         const r = root.getBoundingClientRect();
@@ -255,12 +268,14 @@ class JamLight extends JamBase {
       }
     });
     tap.addEventListener("pointerup", () => {
+      unpress();
       if (!p) return;
       const q = p; p = null; clearTimeout(q.timer);
       if (q.mode === "drag") { if (q.v != null) this._setPct(c.entity, q.v); this._endDrag(); }
       else if (q.mode === "press" && !q.held) this._tap();
     });
     tap.addEventListener("pointercancel", () => {
+      unpress();
       if (!p) return;
       const q = p; p = null; clearTimeout(q.timer);
       if (q.mode === "drag") { revert(); this._endDrag(); }

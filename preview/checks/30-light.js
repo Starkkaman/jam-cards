@@ -176,6 +176,7 @@ module.exports = async (page, check, {callsNow}) => {
   // ---- group pop-up: brightness bar, whites, hue strip, your colours, members, timer ----
   const ws = await page.evaluate(() => window.__ws.map(m => m.type));
   check(ws.filter(x => x === "frontend/get_user_data").length === 1, `saved colours loaded once via frontend/get_user_data (${ws})`);
+  await page.waitForTimeout(500); // the sheet's children stagger in (0.3.5 motion, <= ~400 ms); measure once they have landed
   const bar = sheet.locator(".bwrap"), bb = await bar.boundingBox();
   check(Math.round(bb.height) === 72, `brightness bar is 72 px (${bb.height})`);
   n = await mark();
