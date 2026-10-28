@@ -1,7 +1,8 @@
 /* ---------- jam-screensaver: zero-footprint card; a full-viewport Poster clock (or photo slideshow) after inactivity ----------
    {type: custom:jam-screensaver, idle_seconds? (120), accent? (room colour, default ochre), mode?: poster (default) | images,
     weather_entity?, temperature_entity?, kicker? ("The Bungalow · kitchen"),
-    images?: {index: URL of a JSON list (["a.jpg", {url, caption}]), interval? (20 s), shuffle? (false)},
+    images?: {index: URL of a JSON list (["a.jpg", {url, caption}]) | media: "media-source://…" folder (0.4.0),
+      interval? (20 s), shuffle? (false)},
     poster_every? (images mode: every Nth slide is the poster), active_hours?: {from: "06:00", to: "23:00"},
     disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
     motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
@@ -25,7 +26,13 @@
    shadow roots (document path as fallback). A MutationObserver (childList only, on those three roots) re-adds the style
    if HA re-renders; no polling. The styles are removed on navigation to another dashboard (location-changed / popstate)
    or when the last kiosk card leaves while the URL is no longer on its dashboard. Way out: a 2 s long-press in the
-   top-left 48x48 px corner restores the chrome until the page reloads. */
+   top-left 48x48 px corner restores the chrome until the page reloads.
+   Media source (0.4.0, images.media): the folder is browsed (hass.callWS media_source/browse_media) on start and then at
+   most once per hour (after a failure or an empty folder: retried after 10 min); only children with media_class "image" are
+   kept, as media_content_ids in memory, sorted by title (shuffle: a per-load seeded order). Each image is resolved
+   (media_source/resolve_media, expires 3600) right before it is preloaded/shown, so a signed URL is used within one
+   interval and never cached; URLs carry a token and are never logged or stored. Any browse / resolve / load error falls
+   back to the poster (never black). */
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
@@ -224,13 +231,14 @@ class JamScreensaver extends JamBase {
     super();
     this._shown = false; this._gone = false; this._idleT = null; this._tickT = null; this._slideT = null; this._tickAt = 0;
     this._list = null; this._listAt = 0; this._listP = null; this._order = []; this._pos = 0; this._k = 0; this._cur = null; this._next = null;
-    this._layout = -1;
+    this._layout = -1; this._gen = 0; this._browses = 0; this._resolves = 0;
     this._onAct = e => this._activity(e);
     this._onVis = () => this._visibility();
   }
   validate(c) {
     if (c.mode !== undefined && c.mode !== "poster" && c.mode !== "images") throw new Error("jam-screensaver: mode is poster or images");
-    if (c.mode === "images" && !(c.images && typeof c.images.index === "string" && c.images.index)) throw new Error("jam-screensaver: images.index (URL of a JSON list) is required in images mode");
+    if (c.mode === "images" && !(c.images && ((typeof c.images.index === "string" && c.images.index) || (typeof c.images.media === "string" && c.images.media.startsWith("media-source://")))))
+      throw new Error("jam-screensaver: images.index (URL of a JSON list) or images.media (media-source:// folder) is required in images mode");
     if (c.active_hours && (jamSsMinutes(c.active_hours.from) === null || jamSsMinutes(c.active_hours.to) === null)) throw new Error('jam-screensaver: active_hours needs from/to as "HH:MM"');
     for (const d of this._disables(c)) if (!d || typeof d.entity !== "string") throw new Error("jam-screensaver: disable_on needs an entity");
     if (c.kiosk !== undefined && c.kiosk !== true && c.kiosk !== false && c.kiosk !== "url") throw new Error('jam-screensaver: kiosk is true, false or "url"');
@@ -238,8 +246,10 @@ class JamScreensaver extends JamBase {
   setConfig(config) {
     if (!config) throw new Error("Invalid configuration");
     this.validate(config);
+    /* Keep the browsed list (and its hourly throttle) when HA re-applies the same images config. */
+    const imgSig = JSON.stringify([config.mode, config.images || null]);
+    if (imgSig !== this._imgSig) { this._list = null; this._listAt = 0; this._imgSig = imgSig; }
     this._config = config;
-    this._list = null; this._listAt = 0;
     this._shell();
     if (this.isConnected) { this._restartIdle(); JamKiosk.join(this); this._motion(true); }
     else this._motion(true);
@@ -391,7 +401,7 @@ class JamScreensaver extends JamBase {
     this._stopTimers();
     if (this._ov) { this._ov.classList.remove("show", "gone"); }
     const was = this._shown;
-    this._shown = false; this._gone = false;
+    this._shown = false; this._gone = false; this._gen++;
     for (const i of [this._cur, this._next]) if (i) i.remove();
     this._cur = this._next = null;
     if (was) this._restartIdle();
@@ -430,7 +440,7 @@ class JamScreensaver extends JamBase {
     if (!this._inHours() || this._blocked()) { this._hide(); return; }
     this._setLayout(true);
     this._texts();
-    if (this._mode() === "images" && Date.now() - this._listAt > (this._list && this._list.length ? 3600e3 : 600e3)) this._fetchList();
+    if (this._mode() === "images" && !this._listFresh()) this._fetchList();
     this._arm();
   }
   /* Seeded layout per minute (never the same twice in a row); the shapes cut in with one stepped animation. */
@@ -471,8 +481,11 @@ class JamScreensaver extends JamBase {
     }
   }
   /* ---- images mode ---- */
+  /* A good list is kept for an hour; an empty one (error / empty folder) is retried after 10 min. */
+  _listFresh() { return !!this._list && Date.now() - this._listAt < (this._list.length ? 3600e3 : 600e3); }
   _fetchList() {
     if (this._listP) return this._listP;
+    if (this._config.images.media) return this._browse();
     const c = this._config, base = new URL(c.images.index, location.href);
     this._listP = fetch(base.href, {cache: "no-cache"})
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
@@ -490,6 +503,21 @@ class JamScreensaver extends JamBase {
       .then(() => { this._listAt = Date.now(); this._listP = null; });
     return this._listP;
   }
+  /* Media source folder -> [{id, caption: ""}] (images only, sorted by title). Never logs: errors just empty the list. */
+  _browse() {
+    const h = this._hass, id = this._config.images.media;
+    this._browses++;
+    const p = h && typeof h.callWS === "function" ? Promise.resolve().then(() => h.callWS({type: "media_source/browse_media", media_content_id: id})) : Promise.reject(new Error("no callWS"));
+    this._listP = p
+      .then(r => {
+        const kids = (r && Array.isArray(r.children) ? r.children : []).filter(k => k && k.media_class === "image" && typeof k.media_content_id === "string");
+        kids.sort((a, b) => String(a.title || a.media_content_id).localeCompare(String(b.title || b.media_content_id), undefined, {numeric: true}));
+        this._list = kids.map(k => ({id: k.media_content_id, caption: ""})); this._order = []; this._pos = 0;
+      })
+      .catch(() => { this._list = []; })
+      .then(() => { this._listAt = Date.now(); this._listP = null; });
+    return this._listP;
+  }
   _startImages() {
     const go = () => {
       if (!this._shown) return;
@@ -497,14 +525,15 @@ class JamScreensaver extends JamBase {
       this._preload();
       this._armSlide();
     };
-    if (this._list && Date.now() - this._listAt < 3600e3) go(); else this._fetchList().then(go);
+    if (this._listFresh()) go(); else this._fetchList().then(go);
   }
   _nextItem() {
     const L = this._list;
     if (!L || !L.length) return null;
     if (this._pos >= this._order.length) {
       this._order = L.map((_, i) => i);
-      if (this._config.images.shuffle) for (let i = this._order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [this._order[i], this._order[j]] = [this._order[j], this._order[i]]; }
+      const rnd = rng(seed("jam-ss|" + Date.now() + "|" + Math.random())); /* per-load seed */
+      if (this._config.images.shuffle) for (let i = this._order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [this._order[i], this._order[j]] = [this._order[j], this._order[i]]; }
       this._pos = 0;
     }
     return L[this._order[this._pos++]] || null;
@@ -515,15 +544,29 @@ class JamScreensaver extends JamBase {
     if (!it) { if (!this._cur) this._ov.dataset.view = "poster"; return; }
     const img = el("img", "img"); img.alt = ""; img.decoding = "async"; img._item = it;
     img.onload = () => { img._ok = true; if (!this._cur && this._ov.dataset.view === "poster" && !this._posterTurn) this._swap(); };
+    const gen = this._gen;
     img.onerror = () => {
+      img.onerror = img.onload = null;
       img.remove(); if (this._next === img) this._next = null;
+      if (gen !== this._gen) return;
       this._list = this._list.filter(x => x !== it); this._order = []; this._pos = 0;
-      if (!this._list.length) { if (this._cur) { this._cur.remove(); this._cur = null; } this._ov.dataset.view = "poster"; return; }
+      if (!this._list.length) { this._listAt = Date.now(); if (this._cur) { this._cur.remove(); this._cur = null; } this._ov.dataset.view = "poster"; return; }
       this._preload();
     };
     this._next = img;
     this._slides.insertBefore(img, this._chip);
-    img.src = it.url;
+    if (!it.id) { img.src = it.url; return; }
+    /* Media source: resolve right before use; the signed URL lives only on this <img>. */
+    const h = this._hass;
+    this._resolves++;
+    (h && typeof h.callWS === "function" ? Promise.resolve().then(() => h.callWS({type: "media_source/resolve_media", media_content_id: it.id, expires: 3600})) : Promise.reject(new Error("no callWS")))
+      .then(r => {
+        if (gen !== this._gen || this._next !== img) return;
+        const u = r && typeof r.url === "string" ? r.url : "";
+        if (!u) throw new Error("no url");
+        img.src = typeof h.hassUrl === "function" ? h.hassUrl(u) : u;
+      })
+      .catch(() => { if (img.onerror) img.onerror(); });
   }
   _swap() {
     const n = this._next;

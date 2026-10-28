@@ -421,13 +421,28 @@ active_hours: {from: "06:00", to: "23:00"}
 | `mode` | `poster` (default) / `images` |
 | `weather_entity`, `temperature_entity` | Weather word and temperature |
 | `kicker` | Label on the poster |
-| `images` | `{index (URL of a JSON list of images), interval (20 s), shuffle}` |
+| `images` | `{index (URL of a JSON list of images) or media (a Home Assistant media source folder), interval (20 s), shuffle}` |
 | `poster_every` | Images mode: every Nth slide is the poster |
 | `active_hours` | `{from, to}`: only shows in this window |
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
 | `accent` | Poster colour |
 | `kiosk` | Hide HA's sidebar and the dashboard header on this dashboard: `"url"` (default) only when the URL has `?kiosk`, `true` always, `false` never |
 | `motion` | `false`: turn the jam cards' one-shot motion (entrance, wipes, stamps, sheet stagger) off on this page while the card is on screen (`JamCards.motion = false`); default on |
+
+Photos from Home Assistant's media source (0.4.0): set `images.media` to a folder's `media-source://` id instead of
+`images.index`. The folder is browsed when the screensaver starts and then at most once an hour (after an error: retried
+after 10 minutes); only images are shown (other files such as `index.json` are skipped), sorted by name, or shuffled with
+`shuffle: true`. Each photo is resolved to a short-lived signed URL right before it is shown; the URLs are never stored or
+logged. Photos fill the screen letterboxed on ink. If the folder cannot be read the poster clock shows instead.
+```yaml
+type: custom:jam-screensaver
+mode: images
+images:
+  media: "media-source://media_source/local/Photos/slides"
+  interval: 20
+  shuffle: true
+poster_every: 4
+```
 
 Kiosk chrome (0.3.3): with `?kiosk` in the dashboard URL (e.g. `/jam-kitchen/0?kiosk`) the card hides Home Assistant's
 sidebar and top header and removes the space they reserve, without a kiosk-mode plugin. It applies to the dashboard the
