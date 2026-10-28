@@ -395,6 +395,18 @@ const CONDITION_WORDS = Object.freeze({
 });
 /* Word for a condition state; unknown states with - / _ turned into spaces. */
 function conditionWord(st) { const k = String(st == null ? "" : st); return CONDITION_WORDS[k] || k.replace(/[-_]/g, " "); }
+/* Air quality as a word (jam-house air lines, jam-kiosk dock states): a numeric state is a US AQI turned into its category
+   (Good ≤50, Moderate ≤100, Unhealthy for sensitive ≤150, Unhealthy ≤200, Very unhealthy ≤300, Hazardous); a word state is
+   capitalised ("very_poor" -> "Very poor"). null for a missing / unavailable / empty state. */
+const AQI_WORDS = Object.freeze([[50, "Good"], [100, "Moderate"], [150, "Unhealthy for sensitive"], [200, "Unhealthy"], [300, "Very unhealthy"], [Infinity, "Hazardous"]]);
+function aqWord(st) {
+  const v = String(st == null ? "" : st).trim();
+  if (!v || UNAVAILABLE.has(v)) return null;
+  const n = Number(v);
+  if (Number.isFinite(n)) return AQI_WORDS.find(([max]) => Math.round(n) <= max)[1];
+  const w = v.replace(/[-_]+/g, " ");
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
 
 /* ---------- motion (DESIGN "Motion", 0.3.5) ---------- */
 /* Page-wide switch: JamCards.motion = false (jam-screensaver `motion: false`) turns the one-shot motion off; the OS
@@ -516,6 +528,17 @@ const SHEET_CSS = `
     .sheet{max-width:none}
     .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
   }
+  /* fullscreen (0.5.0, jam-kiosk): the sheet covers the whole viewport; title in the accent, big CLOSE top-right. */
+  .pop.full .stage{padding:0;align-items:stretch;justify-content:stretch}
+  .pop.full .sheet{max-width:none;height:100%}
+  .pop.full .sheet > .face{--p-t:24px;--p-r:28px;--p-b:24px;--p-l:28px;height:100%;max-height:none;gap:16px;
+    padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
+  .pop.full .head{align-items:center}
+  .pop.full .t .kick{font-size:18px;letter-spacing:.16em}
+  .pop.full .t h2{font-size:clamp(2.4rem,5vw,3.6rem);color:var(--acc)}
+  .pop.full .acts > .key{min-height:64px}
+  .pop.full .close > .face{display:flex;align-items:center;font-size:20px;letter-spacing:.14em;--p-t:18px;--p-r:26px;--p-b:18px;--p-l:26px}
+  .pop.full .body{gap:16px}
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
 const SHEET_STACK = [];
 /* Opens a modal cut sheet (kind "sheet", top-right 18px; a bottom sheet on phones) over a full-screen ink veil, appended to
@@ -523,7 +546,8 @@ const SHEET_STACK = [];
    opts: {from (element whose --jam-* theme tokens are copied), title, kicker, label (dialog name), accent (CSS colour for
    --acc), accentFg, flash (spiral colour; false = no spiral), rule (5px accent rule, default true), css (extra CSS),
    cls (extra class on .pop), history (default true: pushes a same-URL history entry so browser/phone back closes it),
-   headerActions ([nodes] put in the header left of CLOSE, stretched to its height; 0.3.4), onClose()}.
+   headerActions ([nodes] put in the header left of CLOSE, stretched to its height; 0.3.4), fullscreen (0.5.0: the sheet
+   covers the whole viewport, no outer padding, title in the accent, 64px CLOSE key; jam-kiosk), onClose()}.
    Child cards appended to `body` get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3), so their
    faces and keys stay visible on the slab sheet face.
    Close: CLOSE key, veil click, Esc (only the top sheet; the event does not reach a jam-popup below), back.
@@ -537,7 +561,7 @@ function openSheet(opts = {}) {
     } catch (e) { /* tokens fall back to the dark palette */ }
   }
   const st = el("style"); st.textContent = BASE_CSS + SHEET_CSS + (o.css || "");
-  const pop = el("div", "pop" + (o.cls ? " " + o.cls : ""));
+  const pop = el("div", "pop" + (o.fullscreen ? " full" : "") + (o.cls ? " " + o.cls : ""));
   if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
   const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
   const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
@@ -679,7 +703,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, vertigoSpiral, deepActive, openSheet,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

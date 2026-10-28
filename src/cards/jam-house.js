@@ -16,7 +16,6 @@ function jamHouseNum(v) {
   const n = Number(v);
   return v === null || v === undefined || v === "" || !Number.isFinite(n) ? "—" : String(Math.round(n * 10) / 10);
 }
-const JAM_HOUSE_AQI = [[50, "Good"], [100, "Moderate"], [150, "Unhealthy for sensitive"], [200, "Unhealthy"], [300, "Very unhealthy"], [Infinity, "Hazardous"]];
 /* {entity, extra?} | "id" -> {entity}; null when no entity (extra is ignored since 0.3.5: words only). */
 function jamHouseAq(x) {
   const id = x && typeof x === "object" ? x.entity : x;
@@ -53,11 +52,8 @@ class JamHouse extends JamBase {
   /* "Air · Good" line (category word only), or null while the AQ entity is missing / unavailable. */
   _aq(cfg) {
     const h = this._hass, a = jamHouseAq(cfg), s = a && stateObj(h, a.entity);
-    if (!s || UNAVAILABLE.has(s.state) || String(s.state).trim() === "") return null;
-    const v = String(s.state).trim(), n = Number(v);
-    let word;
-    if (Number.isFinite(n)) word = JAM_HOUSE_AQI.find(([max]) => Math.round(n) <= max)[1];
-    else { const w = v.replace(/[-_]+/g, " "); word = w.charAt(0).toUpperCase() + w.slice(1); }
+    const word = s ? aqWord(s.state) : null; /* core: AQI number -> category word, word states capitalised */
+    if (!word) return null;
     const line = el("div", "label aq", "Air · " + word);
     line.dataset.role = "aq"; line.title = friendly(h, a.entity);
     return asButton(line, () => moreInfo(this, a.entity));

@@ -14,7 +14,7 @@
 const JAM_MEDIA_VOLUME_SET = 4, JAM_MEDIA_VOLUME_MUTE = 8, JAM_MEDIA_GROUPING = 524288;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
 /* Local helpers (also used by jam-tv): child cards in a core openSheet() sheet.
-   jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs], css?, headerActions?, rule? (openSheet)}) opens a sheet (theme tokens copied from host, back /
+   jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs], css?, headerActions?, rule?, fullscreen? (openSheet)}) opens a sheet (theme tokens copied from host, back /
    Esc / veil / CLOSE close it) whose body holds the cards, created with HA's card helpers (preview: by tag). They get
    host.hass, and later updates through sheet.hass(h) (JamSheetHost does that). A configured accent becomes the sheet accent
    and the children's --jam-accent; a custom:jam-remote child gets hide_title: true unless set. One sheet per card (host._jamSheet). Returns {close, hass, sheet}. */
@@ -43,7 +43,7 @@ function jamCardSheet(host, opts) {
   const o = opts || {}, acc = accentVar(o.accent);
   let kids = [], hass = host.hass, done = false;
   const sheet = openSheet({from: host, title: o.title, kicker: o.kicker, accent: acc || undefined, accentFg: acc ? accentFg(o.accent) : undefined,
-    css: ".body > *{display:block;min-width:0}" + (o.css || ""), headerActions: o.headerActions, rule: o.rule, onClose: () => { done = true; if (host._jamSheet === api) host._jamSheet = null; }});
+    css: ".body > *{display:block;min-width:0}" + (o.css || ""), headerActions: o.headerActions, rule: o.rule, fullscreen: o.fullscreen, onClose: () => { done = true; if (host._jamSheet === api) host._jamSheet = null; }});
   const body = sheet.body;
   if (acc) body.style.setProperty("--jam-accent", acc);
   const feed = k => { if (hass) { try { k.hass = hass; } catch (e) { /* child without hass setter */ } } };
