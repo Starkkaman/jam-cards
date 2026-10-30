@@ -1,0 +1,531 @@
+<title>Jam Cards Round 3</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&display=swap">
+<style>
+/* Layout: proposal sheet. Each numbered section answers one of the user's notes with real-size card mockups on the kiosk's dark ground. */
+:root{
+  --ink:#141210; --slab:#221f1b; --slab2:#2c2824; --slab3:#36312b; --fg:#ece2c9; --dim:#a89d88;
+  --ochre:#e5a31b; --teal:#22a39a; --blue:#4a7be0; --pink:#e2658f; --violet:#9b6dd6; --green:#86a83a; --red:#e0553b; --spot:#1db954;
+  --display:"Londrina Solid", Impact, "Arial Narrow", sans-serif; --body:"Jost", "Futura", system-ui, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--fg);font-family:var(--body);font-size:15px}
+main{overflow-x:clip;max-width:1120px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:48px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(34px,6vw,56px);text-transform:uppercase;margin:0;line-height:.95;text-wrap:balance}
+h2{font-family:var(--display);font-weight:900;font-size:28px;text-transform:uppercase;margin:0}
+h3{font:600 12px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0}
+p{margin:0;line-height:1.5;max-width:70ch;color:var(--dim)} p b,.cap b{color:var(--fg);font-weight:600}
+section{display:grid;gap:18px;border-top:6px solid var(--fg);padding-top:16px}
+section.lt{border-color:var(--ochre)} section.tv{border-color:var(--teal)} section.mu{border-color:var(--violet)}
+.row{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.col{display:grid;gap:8px;min-width:0}
+.cap{font:500 13px/1.45 var(--body);color:var(--dim);max-width:270px}
+.tag{font:600 11px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);background:var(--fg);padding:5px 7px;justify-self:start}
+.cut{clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+.done{display:flex;flex-wrap:wrap;gap:8px}
+.done span{font:600 12px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;padding:8px 10px;border:2px solid var(--slab3);color:var(--fg)}
+svg{display:block}
+.pw{position:absolute;right:0;top:0;width:46px;height:46px;clip-path:polygon(0 0,100% 0,100% 100%)}
+.pw svg{position:absolute;right:6px;top:6px;width:17px;height:17px}
+
+/* ---- light cards ---- */
+.lc{position:relative;width:260px;height:96px;overflow:hidden}
+.lc .nm{font:900 24px/1 var(--display);text-transform:uppercase}
+.lc .sub{font:600 10px/1 var(--body);letter-spacing:.14em;text-transform:uppercase}
+.lc .pct{font:900 26px/1 var(--display)} .lc .pct small{font-size:15px}
+.lc .bar{position:absolute;left:0;right:0;bottom:0;height:10px} .lc .bar i{display:block;height:100%}
+/* A: label plate */
+.la .stripes{position:absolute;inset:0 0 10px 0;display:flex;flex-direction:column} .la .stripes i{flex:1}
+.la .plate{position:absolute;left:0;top:0;background:var(--ink);color:var(--fg);padding:10px 14px 10px 12px;display:grid;gap:5px;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+.la .plate .sub{color:var(--dim)}
+.la .pct{position:absolute;left:12px;bottom:18px;background:var(--ink);color:var(--fg);padding:4px 8px}
+/* B: rail */
+.lb{background:var(--slab2);color:var(--fg)}
+.lb .rail{position:absolute;left:0;top:0;bottom:10px;width:22px;display:flex;flex-direction:column} .lb .rail i{flex:1}
+.lb .tx{position:absolute;left:34px;top:12px;display:grid;gap:5px} .lb .sub{color:var(--dim)}
+.lb .pct{position:absolute;left:34px;bottom:18px}
+/* C: chips + lead */
+.lcc .tx{position:absolute;left:14px;top:12px;display:grid;gap:6px}
+.lcc .dots{display:flex;gap:5px} .lcc .dots i{width:16px;height:16px;display:block;outline:2px solid var(--ink)}
+.lcc .pct{position:absolute;left:14px;bottom:18px}
+/* D: split */
+.ld .face{position:absolute;inset:0 0 10px 0;display:grid;grid-template-columns:62% 1fr}
+.ld .st{display:flex;flex-direction:column} .ld .st i{flex:1}
+.ld .tx{position:absolute;left:14px;top:12px;display:grid;gap:5px} .ld .pct{position:absolute;left:14px;bottom:18px}
+
+/* ---- TV remote + source ---- */
+.sheet{background:var(--slab);padding:16px;display:grid;gap:14px;width:420px;max-width:100%}
+.sh{display:flex;align-items:center;gap:8px}
+.sh .t{font:900 22px/1 var(--display);text-transform:uppercase;flex:1}
+.sq{height:44px;min-width:44px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--slab3);font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--fg)}
+.sq svg{width:22px;height:22px}
+.grp{display:grid;gap:10px;padding:12px;border-left:6px solid var(--teal);background:var(--slab2)}
+.grp.st{border-color:var(--violet)}
+.grp .gh{display:flex;align-items:center;justify-content:space-between}
+.grp .gh b{font:600 12px/1 var(--body);letter-spacing:.16em;text-transform:uppercase}
+.dpad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,56px);gap:6px;justify-content:center}
+.dpad div{background:var(--slab3);display:grid;place-items:center}
+.dpad .ok{background:var(--teal);color:var(--ink);font:900 20px/1 var(--display)}
+.dpad svg{width:22px;height:22px}
+.k4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.k4 div,.k3 div{height:54px;background:var(--slab3);display:grid;place-items:center;gap:2px;font:600 10px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;padding-top:6px}
+.k4 svg,.k3 svg{width:20px;height:20px}
+.k3{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px}
+.k3 .pl{background:var(--teal);color:var(--ink)}
+.rock{display:grid;grid-template-columns:64px 1fr 64px;height:56px;background:var(--violet);color:var(--ink)}
+.rock div{display:grid;place-items:center;font:900 26px/1 var(--display)}
+.rock .m{border-inline:3px solid var(--ink);font:600 13px/1 var(--body);letter-spacing:.16em;text-transform:uppercase}
+.ins{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ins div{height:46px;display:grid;place-items:center;font:600 12px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;border:3px solid var(--violet)}
+.ins .on{background:var(--violet);color:var(--ink)}
+.srcg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.src{position:relative;height:84px;padding:10px;display:flex;align-items:flex-end;color:var(--ink);font:900 19px/1 var(--display);text-transform:uppercase}
+.src.on{outline:4px solid var(--fg);outline-offset:3px}
+.src .now{position:absolute;left:10px;top:10px;font:600 10px/1 var(--body);letter-spacing:.14em;background:var(--ink);color:var(--fg);padding:4px 6px}
+.src .ic{position:absolute;right:10px;top:10px;width:22px;height:22px}
+.wide2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+
+/* ---- speaker ---- */
+.spk{width:360px;max-width:100%;background:var(--slab);display:grid;gap:10px;padding:12px}
+.post{position:relative;height:178px;overflow:hidden}
+.post .band{position:absolute;left:0;right:0;bottom:0;background:var(--ink);padding:10px 14px 12px;display:grid;gap:3px}
+.band .kk{display:flex;gap:8px;align-items:center;font:600 11px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.band .kk i{width:10px;height:10px;display:inline-block}
+.band .tt{font:900 30px/1 var(--display);text-transform:uppercase}
+.band .ss{font:500 14px/1.2 var(--body)}
+.post .pg{position:absolute;left:0;bottom:0;height:5px;background:var(--violet)}
+.trn{display:grid;grid-template-columns:1fr 1.5fr 1fr 64px;gap:8px}
+.trn div{height:60px;background:var(--slab3);display:grid;place-items:center}
+.trn .pl{background:var(--violet);color:var(--ink)} .trn .fv{background:var(--slab3);color:var(--pink)} .trn .fv.on{background:var(--pink);color:var(--ink)}
+.trn svg{width:24px;height:24px}
+.vb{display:grid;grid-template-columns:48px 1fr 48px 48px;gap:6px;align-items:center;height:44px}
+.vb>div{height:44px;background:var(--slab3);display:grid;place-items:center;font:900 22px/1 var(--display)}
+.vb .t{background:var(--slab3);position:relative} .vb .t i{position:absolute;left:0;top:0;bottom:0;background:var(--violet)}
+.vb .n{background:none;font-size:24px}
+/* album-art stand-ins (CSS covers) */
+.art{position:absolute;inset:0;overflow:hidden}
+.c1{background:#e8d6b0} .c1::before{content:"";position:absolute;width:150%;height:38%;left:-20%;top:28%;background:#1d3557;transform:rotate(-12deg)} .c1::after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;background:#e63946;right:14%;top:8%}
+.c2{background:#2b2d42} .c2::before{content:"";position:absolute;inset:18% 30% 30% 12%;background:#f4a261} .c2::after{content:"";position:absolute;width:60%;height:12px;left:20%;top:72%;background:#e9c46a;box-shadow:0 20px 0 #e76f51}
+.c3{background:#0b6e4f} .c3::before{content:"";position:absolute;width:120px;height:120px;border-radius:50%;border:22px solid #f2e8cf;left:12%;top:10%} .c3::after{content:"";position:absolute;width:100%;height:30%;bottom:0;background:#08a045}
+.c4{background:#f15bb5} .c4::before{content:"";position:absolute;inset:0 50% 0 0;background:#00bbf9} .c4::after{content:"";position:absolute;width:70px;height:70px;background:#fee440;left:calc(50% - 35px);top:30%;transform:rotate(45deg)}
+.c5{background:#ffbe0b} .c5::before{content:"";position:absolute;width:200%;height:24px;left:-50%;top:40%;background:#3a0ca3;box-shadow:0 40px 0 #3a0ca3,0 -40px 0 #3a0ca3}
+.c6{background:#14213d} .c6::before{content:"";position:absolute;width:70%;aspect-ratio:1;border-radius:50%;background:#fca311;left:15%;top:20%} .c6::after{content:"";position:absolute;width:100%;height:45%;bottom:0;background:#14213d}
+/* idle abstract */
+.ab{position:absolute;inset:0;overflow:hidden}
+.ab i{position:absolute;display:block}
+
+/* ---- popups ---- */
+.pop{background:var(--slab);padding:14px;display:grid;gap:12px;width:440px;max-width:100%}
+.mini{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center}
+.thumb{position:relative;width:52px;height:52px;overflow:hidden}
+.mini .tt{font:900 20px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .ss{font:500 13px/1.2 var(--body);color:var(--dim)}
+.tabsx{display:flex;border-bottom:3px solid var(--slab3);overflow-x:auto}
+.tabsx span{flex:none;padding:10px 12px;font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tabsx span.on{color:var(--fg);box-shadow:inset 0 -4px 0 var(--violet)}
+.covers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cv{display:grid;gap:6px;min-width:0}
+.cv .a{position:relative;aspect-ratio:1;max-width:100%;overflow:hidden}
+.cv span{font:900 13px/1.05 var(--display);text-transform:uppercase}
+.cv small{font:500 11px/1.2 var(--body);color:var(--dim)}
+.cv .pin{position:absolute;right:0;top:0;width:26px;height:26px;background:var(--ink);clip-path:polygon(0 0,100% 0,100% 100%)}
+.list{display:grid;gap:2px}
+.list div{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;background:var(--slab2);padding:6px}
+.list .th{position:relative;width:40px;height:40px;overflow:hidden}
+.list b{font:900 15px/1 var(--display);text-transform:uppercase;display:block} .list small{font:500 12px/1.2 var(--body);color:var(--dim)}
+.small3{display:flex;gap:6px}
+.chip{height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;background:var(--slab3);font:600 11px/1 var(--body);letter-spacing:.12em;text-transform:uppercase}
+.chip svg{width:18px;height:18px} .chip.on{background:var(--violet);color:var(--ink)}
+.dock{display:grid;grid-template-columns:44px 1fr 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--ink);padding:8px}
+.dock .thumb{width:44px;height:44px}
+.dock .x{height:44px;background:var(--slab3);display:grid;place-items:center} .dock .x svg{width:20px;height:20px}
+.dock .p{background:var(--violet);color:var(--ink)} .dock .tt{font:900 15px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .dock small{font:500 11px/1 var(--body);color:var(--dim)}
+.two{display:grid;grid-template-columns:200px 1fr;gap:14px;width:640px;max-width:100%}
+
+/* ---- kiosk music ---- */
+.kio{position:relative;width:100%;max-width:1000px;aspect-ratio:1024/690;background:var(--slab);overflow:hidden}
+@media (max-width:700px){.kio{aspect-ratio:auto;min-height:520px}}
+.k1{display:grid;grid-template-columns:58% 42%}
+.k1 .l{position:relative;min-height:0}
+.k1c .kt div{height:58px} .k1 .r{padding:6% 5%;display:grid;align-content:space-between;color:var(--ink)}
+.k1 .r .tt{font:900 clamp(30px,5.4vw,58px)/.92 var(--display);text-transform:uppercase}
+.k1 .r .ss{font:500 clamp(14px,1.8vw,20px)/1.2 var(--body)}
+.k1 .r .kk{font:600 12px/1 var(--body);letter-spacing:.16em;text-transform:uppercase}
+.kt{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px}
+.kt div{height:72px;background:var(--ink);color:var(--fg);display:grid;place-items:center} .kt svg{width:28px;height:28px}
+.kt .pp{background:var(--fg);color:var(--ink)}
+.kvol{height:40px;background:rgba(20,18,16,.25);position:relative} .kvol i{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.strip{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:auto repeat(6,1fr);gap:0;height:21%;background:var(--ink)}
+.strip .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:600 11px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);display:grid;place-items:center;padding:0 10px}
+.strip .s{position:relative;overflow:hidden;border-left:4px solid var(--ink)}
+.strip .s span{position:absolute;left:6px;bottom:6px;background:var(--ink);color:var(--fg);font:900 12px/1 var(--display);text-transform:uppercase;padding:3px 5px}
+.k2{display:grid;grid-template-columns:1fr 1fr;padding:4%;gap:4%;align-items:center}
+.disc{position:relative;aspect-ratio:1;max-width:100%;border-radius:50%;overflow:hidden;box-shadow:0 0 0 14px var(--ink),0 0 0 18px var(--violet)}
+.disc::after{content:"";position:absolute;width:14%;aspect-ratio:1;border-radius:50%;background:var(--ink);left:43%;top:43%}
+.k2 .r{display:grid;gap:18px}
+.k2 .tt{font:900 clamp(30px,5vw,56px)/.92 var(--display);text-transform:uppercase}
+.k2 .kk{font:600 12px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--violet)}
+.k2 .kt div{background:var(--slab3)} .k2 .kt .pp{background:var(--violet);color:var(--ink)}
+.k2 .sm{display:flex;gap:8px} .k2 .sm div{position:relative;width:62px;height:62px;overflow:hidden}
+.kq{display:grid;grid-template-rows:minmax(0,1fr) auto}
+.kq .top{min-height:0} .kq .top .a{min-height:260px}
+.kq .top{position:relative;display:grid;grid-template-columns:42% 1fr;gap:0}
+.kq .top .a{position:relative}
+.kq .top .r{padding:5% 5% 4%;display:grid;align-content:end;gap:14px}
+.kq .tt{font:900 clamp(32px,6vw,72px)/.9 var(--display);text-transform:uppercase}
+.kq .row3{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:0 4% 4%}
+.kq .row3 .cv span{font-size:12px}
+.ask{background:var(--slab);padding:14px 16px;display:grid;gap:6px;border-left:6px solid var(--fg)}
+.ask b{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:18px;color:var(--fg)}
+@media (max-width:640px){.two{grid-template-columns:1fr}.covers{grid-template-columns:repeat(3,1fr)}.kq .row3{grid-template-columns:repeat(3,1fr)}}
+</style>
+<main>
+  <header style="display:grid;gap:10px">
+    <h3>Jam Cards · round 3, take 2</h3>
+    <h1>Readable lights, remote, sources &amp; music</h1>
+    <p>Mockups only. Album covers here are drawn stand-ins; the real cards use the actual art.</p>
+    <div class="done"><span>✓ Corner = power on every on/off card</span><span>✓ Tap = panel</span><span>✓ New TV card</span></div>
+  </header>
+
+  <!-- ===== take 3: revisions ===== -->
+  <section>
+    <h2>Take 3 · your revisions</h2>
+    <div class="done"><span>✓ Remote</span><span>✓ Sources</span><span>✓ Speaker panel B</span></div>
+    <h3>Group light · vertical bands, average colour face</h3>
+    <div class="row">
+      <div class="col"><div class="lc cut" style="background:#f6884e;color:var(--ink);width:260px"><div style="position:absolute;right:0;top:46px;bottom:10px;width:46px;display:flex"><i style="flex:1;display:block;background:#ff6a3d"></i><i style="flex:1;display:block;background:#ffb347"></i><i style="flex:1;display:block;background:#e2658f"></i></div><div style="position:absolute;left:14px;top:12px;display:grid;gap:5px"><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="pct" style="position:absolute;left:14px;bottom:18px">60<small>%</small></div><div class="bar" style="background:#7a3a14"><i style="width:60%;background:#b0541e"></i></div><div class="pw" style="background:#b0541e"><svg viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div><span class="tag">V1 · Under the corner</span><div class="cap">Side-by-side bands in a block <b>under the power corner</b>, one per bulb.</div></div>
+      <div class="col"><div class="lc cut" style="background:#f07a52;color:var(--ink);width:260px"><div style="position:absolute;right:0;top:46px;bottom:10px;width:46px;display:flex"><i style="flex:1;display:block;background:#ff6a3d"></i><i style="flex:1;display:block;background:#2c2824"></i><i style="flex:1;display:block;background:#e2658f"></i></div><div style="position:absolute;left:14px;top:12px;display:grid;gap:5px"><div class="nm">Stove lights</div><div class="sub">2 of 3 on</div></div><div class="pct" style="position:absolute;left:14px;bottom:18px">60<small>%</small></div><div class="bar" style="background:#7a3014"><i style="width:60%;background:#b0481e"></i></div><div class="pw" style="background:#b0481e"><svg viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div><div class="cap">Off bulbs are dark bands.</div></div>
+      <div class="col"><div class="lc cut" style="background:#f6884e;color:var(--ink);width:260px"><div style="position:absolute;right:0;top:0;bottom:10px;width:48px;display:flex"><i style="flex:1;display:block;background:#ff6a3d"></i><i style="flex:1;display:block;background:#ffb347"></i><i style="flex:1;display:block;background:#e2658f"></i></div><div style="position:absolute;left:14px;top:12px;display:grid;gap:5px"><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="pct" style="position:absolute;left:14px;bottom:18px">60<small>%</small></div><div class="bar" style="background:#7a3a14"><i style="width:60%;background:#b0541e"></i></div><div class="pw" style="background:#141210"><svg viewBox="0 0 24 24" fill="none" stroke="#ece2c9" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div><span class="tag">V2 · Full height</span><div class="cap">Bands run the <b>full height of the right edge</b>; the power corner sits on top of them in black.</div></div>
+      <div class="col"><div class="lc cut" style="background:#f6884e;color:var(--ink);width:280px"><div style="position:absolute;right:0;top:0;bottom:10px;width:80px;display:flex"><i style="flex:1;display:block;background:#ff6a3d"></i><i style="flex:1;display:block;background:#ffb347"></i><i style="flex:1;display:block;background:#e2658f"></i><i style="flex:1;display:block;background:#4a8cff"></i><i style="flex:1;display:block;background:#ffd9a8"></i></div><div style="position:absolute;left:14px;top:12px;display:grid;gap:5px"><div class="nm">Living room</div><div class="sub">Group · 5 bulbs</div></div><div class="pct" style="position:absolute;left:14px;bottom:18px">80<small>%</small></div><div class="bar" style="background:#7a3a14"><i style="width:80%;background:#b0541e"></i></div><div class="pw" style="background:#141210"><svg viewBox="0 0 24 24" fill="none" stroke="#ece2c9" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div><div class="cap">V2 with five bulbs: the strip widens with each bulb.</div></div>
+    </div>
+
+    <h3>Speaker card · Favourite and Shuffle in the title band</h3>
+    <div class="row">
+      <div class="spk cut">
+        <div class="post"><div class="art c1"></div>
+          <div class="band" style="grid-template-columns:1fr auto;align-items:end;column-gap:10px">
+            <div style="display:grid;gap:3px;min-width:0"><div class="kk"><i style="background:var(--spot)"></i>Living room · Spotify Connect</div><div class="tt">Saturn</div><div class="ss">The Olympians</div></div>
+            <div style="display:flex;gap:6px">
+              <div class="sq" style="background:var(--violet);color:var(--ink);height:32px;min-width:32px;padding:0 6px"><svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></div>
+              <div class="sq" style="background:var(--pink);color:var(--ink);height:32px;min-width:32px;padding:0 6px"><svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div>
+            </div>
+          </div>
+          <div class="pg" style="width:35%"></div>
+          <div class="pw" style="background:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="#9b6dd6" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+        <div class="trn" style="grid-template-columns:1fr 1.5fr 1fr">
+          <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div>
+          <div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div>
+          <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div>
+        </div>
+        <div class="vb"><div>−</div><div class="t"><i style="width:40%"></i></div><div>+</div><div class="n">40</div></div>
+      </div>
+      <div class="cap">Shuffle and Favourite sit at the right of the title band (lit = on). The transport row is just Back / Play / Skip.</div>
+    </div>
+
+    <h3>Kiosk music · K1 with full controls</h3>
+    <div class="col">
+      <div class="kio k1 cut">
+        <div class="l"><div class="art c1"></div></div>
+        <div class="r" style="background:#e8d6b0;padding:5% 5% 0">
+          <div style="display:grid;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div class="kk">Living room · Spotify</div>
+              <div style="display:flex;gap:6px"><div class="sq" style="background:var(--ink);color:var(--fg);height:48px;min-width:48px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></div><div class="sq" style="background:var(--pink);color:var(--ink);height:48px;min-width:48px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div></div></div>
+            <div class="tt">Saturn</div><div class="ss">The Olympians · Saturn</div>
+          </div>
+          <div class="k1c" style="display:grid;gap:8px;margin-bottom:calc(34% + 14px)">
+            <div style="height:6px;background:rgba(20,18,16,.2);position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:35%;background:var(--ink)"></i></div>
+            <div style="display:flex;justify-content:space-between;font:600 12px/1 var(--body);letter-spacing:.1em">1:24<span>3:58</span></div>
+            <div class="kt"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pp" style="background:var(--ink);color:#e8d6b0"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div></div>
+            <div style="display:grid;grid-template-columns:56px 1fr 56px 56px;gap:6px;height:52px">
+              <div style="background:var(--ink);color:var(--fg);display:grid;place-items:center;font:900 26px var(--display)">−</div>
+              <div style="background:rgba(20,18,16,.2);position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:40%;background:var(--ink)"></i><span style="position:absolute;right:10px;top:14px;font:900 22px/1 var(--display)">40</span></div>
+              <div style="background:var(--ink);color:var(--fg);display:grid;place-items:center;font:900 26px var(--display)">+</div>
+              <div style="background:var(--ink);color:var(--fg);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/><circle cx="6.5" cy="14" r="2"/><circle cx="17.5" cy="14" r="2"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <div class="strip"><div class="lb">Pinned</div>
+          <div class="s"><div class="art c2"></div><span>Cooking</span></div><div class="s"><div class="art c3"></div><span>Sunday</span></div><div class="s"><div class="art c4"></div><span>Dinner</span></div>
+          <div class="s"><div class="art c5"></div><span>Night drive</span></div><div class="s"><div class="art c6"></div><span>Sunrise</span></div><div class="s" style="background:var(--slab3);display:grid;place-items:center;font:900 26px var(--display);color:var(--fg)">⋯<span>Browse</span></div></div>
+      </div>
+      <div class="cap" style="max-width:640px">Added: <b>Shuffle and Favourite</b> by the room name, a <b>progress line with times</b>, big Back / Pause / Skip, a <b>volume bar with − / +</b>, and a <b>Speakers</b> key (group rooms). The last shelf tile opens the library panel (B). All controls are ink on the album's colour, so they repaint with each song.</div>
+    </div>
+  </section>
+
+  <!-- ===== 2 lights ===== -->
+  <section class="lt">
+    <h2>2 · Group lights that stay readable</h2>
+    <p>Stripes behind text made the names hard to read. Each option below keeps <b>the words on one solid colour</b> and shows the bulbs somewhere else.</p>
+    <div class="row">
+      <div class="col">
+        <div class="lc la cut">
+          <div class="stripes"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div>
+          <div class="plate"><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div>
+          <div class="pct">60<small>%</small></div>
+          <div class="bar" style="background:#7a2a10"><i style="width:60%;background:#b0441e"></i></div>
+          <div class="pw" style="background:#141210"><svg viewBox="0 0 24 24" fill="none" stroke="#ece2c9" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div>
+        </div>
+        <span class="tag">A · Label plate</span>
+        <div class="cap">Stripes fill the card; the name and number sit on <b>black cut-paper labels</b>, like a poster credit.</div>
+      </div>
+      <div class="col">
+        <div class="lc lb cut">
+          <div class="rail"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div>
+          <div class="tx"><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div>
+          <div class="pct">60<small>%</small></div>
+          <div class="bar" style="background:#141210"><i style="width:60%;background:#ff8a4a"></i></div>
+          <div class="pw" style="background:#ff8a4a"><svg viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div>
+        </div>
+        <span class="tag">B · Colour rail</span>
+        <div class="cap">Dark card, cream text. A <b>stack of swatches down the left edge</b>, one per bulb. Calmest; groups stand apart from single lights.</div>
+      </div>
+      <div class="col">
+        <div class="lc lcc cut" style="background:#ffb347;color:var(--ink)">
+          <div class="tx"><div class="nm">Stove lights</div><div class="dots"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div></div>
+          <div class="pct">60<small>%</small></div>
+          <div class="bar" style="background:#7a4a10"><i style="width:60%;background:#b0701e"></i></div>
+          <div class="pw" style="background:#b0701e"><svg viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div>
+        </div>
+        <span class="tag">C · Brightest bulb + chips</span>
+        <div class="cap">The card takes <b>the brightest bulb's colour</b> (not an average); a chip per bulb sits under the name.</div>
+      </div>
+      <div class="col">
+        <div class="lc ld cut" style="color:var(--ink)">
+          <div class="face"><div style="background:#ffb347"></div><div class="st"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div></div>
+          <div class="tx"><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div>
+          <div class="pct">60<small>%</small></div>
+          <div class="bar" style="background:#7a4a10"><i style="width:60%;background:#b0701e"></i></div>
+          <div class="pw" style="background:#141210"><svg viewBox="0 0 24 24" fill="none" stroke="#ece2c9" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div>
+        </div>
+        <span class="tag">D · Split</span>
+        <div class="cap">Text on a solid block at the left, <b>your stripes on the right third</b>, where no text goes.</div>
+      </div>
+    </div>
+    <p>Whichever you pick, single lights also get a check: names switch between black and cream text by how bright the colour is, and very pale or very saturated colours get the same label plate as A when contrast drops too low.</p>
+  </section>
+
+  <!-- ===== 3 TV remote + source ===== -->
+  <section class="tv">
+    <h2>3 · TV remote and sources</h2>
+    <p>Same rules as the new TV card: icons on every key, one accent per job. <b>Teal = TV</b>, <b>violet = stereo</b>. The keyboard key sits beside Close.</p>
+    <div class="row">
+      <div class="sheet cut">
+        <div class="sh"><div class="t">Remote</div>
+          <div class="sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="12"/><path d="M6 10h1M10 10h1M14 10h1M18 10h1M7 14h10"/></svg></div>
+          <div class="sq">Close ×</div></div>
+        <div class="grp">
+          <div class="gh"><b>TV</b><div class="sq" style="height:36px;background:var(--red);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:18px;height:18px"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+          <div class="dpad">
+            <span></span><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 6l7 10H5z"/></svg></div><span></span>
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 12l10-7v14z"/></svg></div><div class="ok">OK</div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 12L8 5v14z"/></svg></div>
+            <span></span><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 18L5 8h14z"/></svg></div><span></span>
+          </div>
+          <div class="k4">
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 6L4 12l6 6M4 12h16"/></svg>Back</div>
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 11l9-7 9 7v10H3z"/></svg>Home</div>
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</div>
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Settings</div>
+          </div>
+          <div class="k3">
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 5v14L3 12zM21 5v14l-8-7z"/></svg>Rewind</div>
+            <div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h5v16H4zM14 4h5v16h-5z"/></svg>Play</div>
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5v14l8-7zM13 5v14l8-7z"/></svg>Forward</div>
+          </div>
+        </div>
+        <div class="grp st">
+          <div class="gh"><b>Stereo</b><div class="sq" style="height:36px;background:var(--violet);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:18px;height:18px"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+          <div class="rock"><div>−</div><div class="m">Mute</div><div>+</div></div>
+          <div class="ins"><div class="on">TV</div><div>Turntable</div><div>Music sync</div></div>
+        </div>
+      </div>
+      <div class="sheet cut">
+        <div class="sh"><div class="t">Source</div><div class="sq">Close ×</div></div>
+        <h3>Inputs</h3>
+        <div class="wide2">
+          <div class="src on" style="background:var(--teal)"><span class="now">On now</span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="2.5"><rect x="3" y="7" width="18" height="10"/><path d="M8 12h2M14 12h2"/></svg>Nerv//OS</div>
+          <div class="src" style="background:var(--red)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="2.5"><rect x="3" y="6" width="7" height="12"/><rect x="14" y="6" width="7" height="12"/></svg>Switch</div>
+        </div>
+        <h3>Apps</h3>
+        <div class="srcg">
+          <div class="src" style="background:#e94b3c"><svg class="ic" viewBox="0 0 24 24" fill="#141210"><path d="M3 6h18v12H3z" fill="none" stroke="#141210" stroke-width="2.5"/><path d="M10 9l5 3-5 3z"/></svg>YouTube</div>
+          <div class="src" style="background:var(--ochre)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="2.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg>Jamfin</div>
+          <div class="src" style="background:var(--pink)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="2.5"><path d="M12 3v14M6 11l6 6 6-6M4 21h16"/></svg>Dropout</div>
+          <div class="src" style="background:var(--blue)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="2.5"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>Corridor</div>
+          <div class="src" style="background:var(--slab3);color:var(--fg)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ece2c9" stroke-width="2.5"><path d="M3 11l9-7 9 7v10H3z"/></svg>Home screen</div>
+        </div>
+      </div>
+    </div>
+    <p>Sources split into <b>Inputs</b> (things plugged into HDMI) and <b>Apps</b>, each with a recognisable shape, and the one on screen gets a cream outline plus an <b>On now</b> stamp. Home screen joins the list so there's always a way back.</p>
+  </section>
+
+  <!-- ===== 4 speaker card ===== -->
+  <section class="mu">
+    <h2>4 · Speaker card, TV-style</h2>
+    <p>Same build as the TV card: album art up top, the title on a solid band, power in the corner, one big Play. The source (Spotify Connect / Music Assistant) moves into the band as a coloured dot, and <b>Favourite</b> joins the transport row.</p>
+    <div class="row">
+      <div class="col">
+        <div class="spk cut">
+          <div class="post"><div class="art c1"></div>
+            <div class="band"><div class="kk"><i style="background:var(--spot)"></i>Living room · Spotify Connect</div><div class="tt">Saturn</div><div class="ss">The Olympians</div></div>
+            <div class="pg" style="width:35%"></div>
+            <div class="pw" style="background:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="#9b6dd6" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+          <div class="trn">
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div>
+            <div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div>
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div>
+            <div class="fv on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div>
+          </div>
+          <div class="vb"><div>−</div><div class="t"><i style="width:40%"></i></div><div>+</div><div class="n">40</div></div>
+        </div>
+        <div class="cap">Playing: the real album art.</div>
+      </div>
+      <div class="col">
+        <div class="spk cut">
+          <div class="post"><div class="ab" style="background:#e5a31b"><i style="width:150px;height:150px;border-radius:50%;background:#141210;left:-30px;top:-20px"></i><i style="width:60%;height:26px;background:#e0553b;right:0;top:48px"></i><i style="width:26px;height:120px;background:#ece2c9;right:60px;top:0"></i></div>
+            <div class="band"><div class="kk"><i style="background:var(--dim)"></i>Kitchen · Idle</div><div class="tt">Kitchen</div><div class="ss">Last played: Lobby · AERwave</div></div>
+            <div class="pw" style="background:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="#9b6dd6" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+          <div class="trn">
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div>
+            <div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></div>
+            <div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div>
+            <div class="fv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20 4 12a4.5 4.5 0 0 1 8-5 4.5 4.5 0 0 1 8 5z"/></svg></div>
+          </div>
+          <div class="vb"><div>−</div><div class="t"><i style="width:36%"></i></div><div>+</div><div class="n">36</div></div>
+        </div>
+        <div class="cap">Idle: a <b>cut-paper abstract</b> in the room's colours, a new arrangement each time it goes idle.</div>
+      </div>
+      <div class="col">
+        <div class="row" style="gap:8px">
+          <div style="position:relative;width:110px;height:110px"><div class="ab" style="background:#22a39a"><i style="width:80px;height:80px;background:#141210;left:10px;top:30px;transform:rotate(18deg)"></i><i style="width:40px;height:40px;border-radius:50%;background:#e2658f;right:10px;top:10px"></i></div></div>
+          <div style="position:relative;width:110px;height:110px"><div class="ab" style="background:#141210"><i style="width:100%;height:30px;background:#9b6dd6;top:20px"></i><i style="width:100%;height:30px;background:#e5a31b;top:60px"></i><i style="width:46px;height:110px;background:#ece2c9;left:40px;transform:skewX(-14deg)"></i></div></div>
+          <div style="position:relative;width:110px;height:110px"><div class="ab" style="background:#ece2c9"><i style="width:120px;height:120px;border-radius:50%;border:18px solid #4a7be0;left:-30px;top:20px;box-sizing:border-box"></i><i style="width:50px;height:50px;background:#e0553b;right:12px;top:12px"></i></div></div>
+        </div>
+        <div class="cap">More idle examples: circles, bars and strips from the Jam palette, flat colour only.</div>
+      </div>
+    </div>
+
+    <h3>Speaker panel · three directions</h3>
+    <p>All three start with a <b>one-line mini player</b> (you already know which speaker you tapped) and put Back / Pause / Skip first. The library has <b>Pinned</b> (your picks, customisable), <b>Recent</b>, and <b>Browse</b>.</p>
+    <div class="row">
+      <div class="col">
+        <div class="pop cut">
+          <div class="mini"><div class="thumb"><div class="art c1"></div></div><div style="min-width:0"><div class="tt">Saturn</div><div class="ss">The Olympians</div></div><div class="sq">Close ×</div></div>
+          <div class="trn"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div><div class="fv on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div></div>
+          <div class="vb"><div>−</div><div class="t"><i style="width:40%"></i></div><div>+</div><div class="n">40</div></div>
+          <div class="small3"><span class="chip on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4"/></svg>Shuffle</span><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 11V8h14l-3-3M20 13v3H6l3 3"/></svg>Repeat</span><span class="chip">Speakers</span></div>
+          <div class="tabsx"><span class="on">Pinned</span><span>Recent</span><span>Playlists</span><span>Albums</span><span>Artists</span><span>Search</span></div>
+          <div class="covers">
+            <div class="cv"><div class="a"><div class="art c2"></div><i class="pin"></i></div><span>Cooking</span></div>
+            <div class="cv"><div class="a"><div class="art c3"></div><i class="pin"></i></div><span>Sunday</span></div>
+            <div class="cv"><div class="a"><div class="art c4"></div><i class="pin"></i></div><span>Dinner party</span></div>
+            <div class="cv"><div class="a" style="border:3px dashed var(--slab3);display:grid;place-items:center;font:900 28px var(--display);color:var(--dim)">+</div><span style="color:var(--dim)">Pin</span></div>
+          </div>
+        </div>
+        <span class="tag">A · Controls, then library</span>
+        <div class="cap">Everything in one column; good on phones. Pin from any list with the corner tab, unpin the same way.</div>
+      </div>
+      <div class="col">
+        <div class="pop cut" style="width:440px">
+          <div class="mini"><div class="thumb"><div class="art c1"></div></div><div style="min-width:0"><div class="tt">Living room</div><div class="ss">Spotify Connect</div></div><div class="sq">Close ×</div></div>
+          <div class="tabsx"><span>Pinned</span><span class="on">Recent</span><span>Playlists</span><span>Albums</span><span>Search</span></div>
+          <div class="list">
+            <div><div class="th"><div class="art c5"></div></div><div><b>Night Drive</b><small>Playlist · played 2 h ago</small></div><span class="chip" style="height:32px">Play</span></div>
+            <div><div class="th"><div class="art c6"></div></div><div><b>Sunrise Sessions</b><small>Album · yesterday</small></div><span class="chip" style="height:32px">Play</span></div>
+            <div><div class="th"><div class="art c2"></div></div><div><b>Cooking</b><small>Playlist · yesterday</small></div><span class="chip" style="height:32px">Play</span></div>
+            <div><div class="th"><div class="art c4"></div></div><div><b>Dinner party</b><small>Playlist · Sat</small></div><span class="chip" style="height:32px">Play</span></div>
+          </div>
+          <div class="dock"><div class="thumb"><div class="art c1"></div></div><div style="min-width:0"><div class="tt">Saturn</div><small>The Olympians</small></div><div class="x"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="x p"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div class="x"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div><div class="x" style="color:var(--pink)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div></div>
+        </div>
+        <span class="tag">B · Library, player docked</span>
+        <div class="cap">Music-app style: the list fills the panel, the controls stay in a <b>bar at the bottom</b>. Best for picking something new.</div>
+      </div>
+      <div class="col">
+        <div class="pop cut two">
+          <div style="display:grid;gap:10px;align-content:start">
+            <div style="position:relative;aspect-ratio:1"><div class="art c1"></div></div>
+            <div class="mini" style="grid-template-columns:1fr"><div style="min-width:0"><div class="tt">Saturn</div><div class="ss">The Olympians</div></div></div>
+            <div class="trn" style="grid-template-columns:1fr 1.4fr 1fr"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div></div>
+            <div class="small3"><span class="chip" style="background:var(--pink);color:var(--ink)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></span><span class="chip on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4"/></svg></span><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 11V8h14l-3-3M20 13v3H6l3 3"/></svg></span></div>
+            <div class="vb" style="grid-template-columns:40px 1fr 40px"><div>−</div><div class="t"><i style="width:40%"></i></div><div>+</div></div>
+          </div>
+          <div style="display:grid;gap:10px;align-content:start;min-width:0">
+            <div class="sh"><div class="tabsx" style="flex:1"><span class="on">Pinned</span><span>Recent</span><span>Browse</span></div><div class="sq">×</div></div>
+            <div class="covers" style="grid-template-columns:repeat(3,1fr)">
+              <div class="cv"><div class="a"><div class="art c2"></div></div><span>Cooking</span></div>
+              <div class="cv"><div class="a"><div class="art c3"></div></div><span>Sunday</span></div>
+              <div class="cv"><div class="a"><div class="art c4"></div></div><span>Dinner party</span></div>
+              <div class="cv"><div class="a"><div class="art c5"></div></div><span>Night drive</span></div>
+              <div class="cv"><div class="a"><div class="art c6"></div></div><span>Sunrise</span></div>
+              <div class="cv"><div class="a" style="border:3px dashed var(--slab3);display:grid;place-items:center;font:900 28px var(--display);color:var(--dim)">+</div><span style="color:var(--dim)">Pin</span></div>
+            </div>
+          </div>
+        </div>
+        <span class="tag">C · Two columns</span>
+        <div class="cap">Player on the left, library on the right. Best on the desktop and the kiosks; on a phone it falls back to A.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 5 kiosk music ===== -->
+  <section class="mu">
+    <h2>5 · Kiosk music, three new takes</h2>
+    <p>Shown at the iPad's shape. Each has big art, a title you can read across the room, three huge keys, and your <b>pinned + recent</b> covers one tap away.</p>
+    <div class="col">
+      <div class="kio k1 cut">
+        <div class="l"><div class="art c1"></div></div>
+        <div class="r" style="background:#e8d6b0">
+          <div style="display:grid;gap:12px"><div class="kk">Living room · Spotify</div><div class="tt">Saturn</div><div class="ss">The Olympians · Saturn</div></div>
+          <div style="display:grid;gap:12px;margin-bottom:24%">
+            <div class="kt"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div></div>
+            <div class="kvol"><i style="width:40%"></i></div>
+          </div>
+        </div>
+        <div class="strip"><div class="lb">Pinned</div>
+          <div class="s"><div class="art c2"></div><span>Cooking</span></div><div class="s"><div class="art c3"></div><span>Sunday</span></div><div class="s"><div class="art c4"></div><span>Dinner</span></div>
+          <div class="s"><div class="art c5"></div><span>Night drive</span></div><div class="s"><div class="art c6"></div><span>Sunrise</span></div><div class="s"><div class="art c1"></div><span>Recent</span></div></div>
+      </div>
+      <span class="tag">K1 · Sleeve</span>
+      <div class="cap" style="max-width:600px">Art flush to the left edge; the right panel takes <b>the album's own main colour</b> (picked from the art, so every song repaints the screen). Covers run along the bottom like a record shelf.</div>
+    </div>
+    <div class="col">
+      <div class="kio k2 cut">
+        <div class="disc"><div class="art c1"></div></div>
+        <div class="r">
+          <div class="kk">Living room · Spotify</div>
+          <div class="tt">Saturn</div>
+          <div style="font:500 18px/1.2 var(--body)">The Olympians</div>
+          <div class="kt"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div></div>
+          <h3>Pinned · Recent</h3>
+          <div class="sm"><div><div class="art c2"></div></div><div><div class="art c3"></div></div><div><div class="art c4"></div></div><div><div class="art c5"></div></div><div><div class="art c6"></div></div></div>
+        </div>
+      </div>
+      <span class="tag">K2 · Record</span>
+      <div class="cap" style="max-width:600px">The cover cut into a <b>record</b> with a violet rim; it turns slowly while playing (once every 8 s, gentle enough for the Echo Show) and stops when paused.</div>
+    </div>
+    <div class="col">
+      <div class="kio kq cut">
+        <div class="top"><div class="a"><div class="art c1"></div></div>
+          <div class="r">
+            <div style="font:600 12px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--violet)">Now playing · Living room</div>
+            <div class="tt">Saturn</div><div style="font:500 18px/1.2 var(--body)">The Olympians</div>
+            <div class="trn" style="grid-template-columns:1fr 1.5fr 1fr 70px"><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h3v14H6zM20 5v14L10 12z"/></svg></div><div class="pl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></div><div><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5h3v14h-3zM4 5v14l10-7z"/></svg></div><div class="fv on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/></svg></div></div>
+          </div></div>
+        <div class="row3">
+          <div class="cv"><div class="a"><div class="art c2"></div></div><span>Cooking</span></div><div class="cv"><div class="a"><div class="art c3"></div></div><span>Sunday</span></div><div class="cv"><div class="a"><div class="art c4"></div></div><span>Dinner party</span></div>
+          <div class="cv"><div class="a"><div class="art c5"></div></div><span>Night drive</span><small>Recent</small></div><div class="cv"><div class="a"><div class="art c6"></div></div><span>Sunrise</span><small>Recent</small></div><div class="cv"><div class="a" style="border:3px dashed var(--slab3);display:grid;place-items:center;font:900 28px var(--display);color:var(--dim)">⋯</div><span style="color:var(--dim)">Browse</span></div>
+        </div>
+      </div>
+      <span class="tag">K3 · Poster + shelf</span>
+      <div class="cap" style="max-width:600px">The plainest: art and a huge title on top, a <b>shelf of six covers</b> underneath (pinned first, then recent, then Browse).</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pick</h2>
+    <div class="ask"><b>2 · Group lights</b><p>A label plate, B colour rail, C brightest bulb + chips, or D split?</p></div>
+    <div class="ask"><b>3 · Remote and sources</b><p>Good as shown, or changes?</p></div>
+    <div class="ask"><b>4 · Speaker</b><p>Card OK? Panel A, B or C (or C on kiosks/desktop and A on phones)?</p></div>
+    <div class="ask"><b>5 · Kiosk music</b><p>K1 sleeve, K2 record, or K3 poster + shelf?</p></div>
+  </section>
+</main>
