@@ -348,7 +348,7 @@ pinned:
 | `favorite_entity` | That button (default: found on the player's device); `false` = no Favourite key. Favourite adds the playing track to the Music Assistant favourites (there is no un-favourite); it lights for a track MA reports as a favourite (MA queue only) or after a tap |
 | `config_entry_id` | Music Assistant config entry for the library calls (default: found automatically) |
 | `power_action` | Action for the power corner. Default: `media_player.toggle` when the player can turn on/off, else stop (playing / paused) or play (idle) — Music Assistant players usually have no power control |
-| `poster_height` | Poster height in px (default 178, min 72; below 110 the title is one line) |
+| `poster_height` | Height in px of the art above the band (default 150, min 72; below 110 the title is one line) |
 | `size` | `kiosk`: the K1 layout for jam-kiosk sheets — art flush left (58 %), the right panel in the album's own main colour (ink or paper text, whichever reads), Shuffle / Favourite by the room, huge title, artist · album, progress line with times, Prev / Play / Next, volume − / bar / + and a Speakers key; a shelf of covers along the bottom (pinned, then recent; tap = play; last tile Browse = the library panel, fullscreen). Fills the sheet height, nothing under 18 px, no animation (the progress line moves every 5 s while it is on screen in a sheet) |
 | `accent` | Play key, volume fill, power glyph, panel tab underline (default violet) |
 

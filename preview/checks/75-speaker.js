@@ -30,7 +30,7 @@ module.exports = async (page, check, {callsNow}) => {
     const pw = p.querySelector(".pw"), abs = p.querySelector(".abs"), pg = p.querySelector(".pg");
     return {word: kk.dataset.badge, kick: kk.textContent, dot: getComputedStyle(kk.querySelector("i")).backgroundColor,
       title: band.querySelector(".title").textContent, sub: (band.querySelector(".ss") || {}).textContent || null, bandBg: getComputedStyle(band).backgroundColor,
-      ph: box(p).h, poster: box(p), pw: pw ? {...box(pw), bg: getComputedStyle(pw, "::before").backgroundColor, fg: getComputedStyle(pw).color, label: pw.getAttribute("aria-label")} : null,
+      ph: box(p.querySelector(".pa")).h, poster: box(p), bandTop: box(band).t, paBottom: box(p.querySelector(".pa")).b, pw: pw ? {...box(pw), bg: getComputedStyle(pw, "::before").backgroundColor, fg: getComputedStyle(pw).color, label: pw.getAttribute("aria-label")} : null,
       img: !!p.querySelector("img"), bars: !!p.querySelector(".arm"), abs: abs ? {bg: abs.style.background, n: abs.children.length, sig: abs.innerHTML} : null,
       face: getComputedStyle(p.querySelector(".face")).backgroundColor, pg: pg ? parseFloat(pg.style.width) : null,
       bk: [...band.querySelectorAll(".bk button")].map(k => ({key: k.dataset.key, on: k.getAttribute("aria-pressed"), w: Math.round(k.getBoundingClientRect().width), h: Math.round(k.getBoundingClientRect().height), dis: k.disabled})),
@@ -46,8 +46,8 @@ module.exports = async (page, check, {callsNow}) => {
     check(i.word === word && i.dot === col && i.kick === kick && i.bandBg === INK, `jam-speaker: ${id.slice(25)} band kicker "${i.kick}", dot ${i.dot}, ink band (${i.bandBg})`);
   }
   const k = await info(K);
-  check(k.ph === 178 && k.img && !k.abs && k.title === "Lobby" && k.sub === "AERwave" && k.pg > 33 && k.pg < 37,
-    `jam-speaker: playing poster 178px with artwork, title / artist on the band, progress strip ${k.pg}% (${k.ph}px, ${k.title} | ${k.sub})`);
+  check(k.ph === 150 && k.bandTop === k.paBottom && k.img && !k.abs && k.title === "Lobby" && k.sub === "AERwave" && k.pg > 33 && k.pg < 37,
+    `jam-speaker: playing poster = 150px artwork + the band under it, title / artist on the band, progress strip ${k.pg}% (${k.ph}px, ${k.title} | ${k.sub})`);
   check(JSON.stringify(k.bk.map(b => b.key + ":" + b.on)) === JSON.stringify(["shuffle:true", "favorite:false"]) && k.bk.every(b => b.w === 32 && b.h === 32 && !b.dis),
     `jam-speaker: 32px Shuffle (on) + Favourite keys at the right of the band (${JSON.stringify(k.bk)})`);
   check(k.pw && k.pw.w === 46 && k.pw.h === 46 && k.pw.r === k.poster.r && k.pw.t === k.poster.t && k.pw.bg === INK && k.pw.fg === VIOLET,
@@ -71,7 +71,7 @@ module.exports = async (page, check, {callsNow}) => {
   const ho = await info(H);
   check(ho.title === "House" && ho.sub === null && ho.abs && !ho.bk.some(b => b.key === "favorite"), `jam-speaker: idle without a title -> name, no sub line; no MA button -> no Favourite (${ho.title})`);
   const po = await info("media_player.preview_spk_paused");
-  check(po.ph === 120 && !po.bk.some(b => b.key === "shuffle"), `jam-speaker: poster_height 120, show_shuffle false (${po.ph}, ${JSON.stringify(po.bk)})`);
+  check(po.ph === 120 && !po.bk.some(b => b.key === "shuffle"), `jam-speaker: poster_height 120 (art), show_shuffle false (${po.ph}, ${JSON.stringify(po.bk)})`);
   const tv = await info(TV);
   check(!tv.bk.length, `jam-speaker: no SHUFFLE_SET and no favourite button -> no band keys (${JSON.stringify(tv.bk)})`);
 

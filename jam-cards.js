@@ -5240,8 +5240,10 @@ register("jam-slider", JamSlider, "Jam Slider", "Strip for numbers, light bright
     panel's Speakers key; the kiosk's Speakers key), pinned?: [MA uri | {uri, name?, image?, media_type?}] (panel Pinned
     tab + kiosk shelf, before the user's own pins), show_shuffle? (true), show_favorite? (true), favorite_entity? (button id;
     default found in the entity registry; false = no Favourite key), config_entry_id? (MA config entry; default found),
-    power_action? (Lovelace action for the power corner), poster_height? (px, default 178, min 72), size? ("kiosk")}
-   Card (mockup round 3 "Take 3"): poster (poster cut): the artwork (entity_picture_local / entity_picture), or the accent
+    power_action? (Lovelace action for the power corner), poster_height? (px of art above the band, default 150, min 72),
+    size? ("kiosk")}
+   Card (mockup round 3 "Take 3"): poster (poster cut) = an art area (poster_height, default 150px: the hero, also on a
+   phone) with the ink band under it: the artwork (entity_picture_local / entity_picture), or the accent
    with Golden Arm bars while playing without art, or — idle — a cut-paper abstract (jam-music-panel jamMuIdleArt, seeded
    by entity + last_changed: a new arrangement each time the player goes idle, stable until then; no motion); offline =
    slab2 + dim bars. Ink title band: kicker = source dot (Spotify green / MA violet / Grouped teal / Idle, Paused dim /
@@ -5265,16 +5267,17 @@ const JAM_SPK_ACTIVE = new Set(["playing", "paused", "buffering"]);
 const JAM_SPK_SHUFFLE = 32768, JAM_SPK_POWER = 128 | 256;
 const JAM_SPK_CSS = `
     .wrap{display:grid;gap:10px;align-content:start;--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px}
-    .poster{height:var(--ph,178px)}
-    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:#ece2c9}
+    .poster,.poster > .face{height:auto}
+    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:#ece2c9;display:grid;grid-template-rows:var(--ah,150px) auto}
     .poster.off > .face{background:var(--slab2)}
+    .pa{position:relative;overflow:hidden;min-height:0}
     .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
     .poster .arm{position:absolute;left:16px;top:0;height:52%;gap:8px;align-items:flex-start}
     .poster .arm span{background:var(--acc-fg)}
     .poster.off .arm span{background:var(--slab3)}
     .open{position:absolute;inset:0;z-index:1;cursor:pointer}
     .open:focus-visible{outline-offset:-4px}
-    .band{position:absolute;left:0;right:0;bottom:0;z-index:2;background:var(--ink);color:#ece2c9;padding:10px 12px 12px 14px;display:grid;
+    .band{position:relative;z-index:2;background:var(--ink);color:#ece2c9;padding:10px 12px 12px 14px;display:grid;
       grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:10px;pointer-events:none}
     .bt{display:grid;gap:3px;min-width:0}
     .kk{display:flex;gap:8px;align-items:center;min-width:0;font:600 11px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#9a8f7c}
@@ -5644,10 +5647,11 @@ class JamSpeaker extends JamBase {
   _poster(s, off, idle) {
     const c = this._config, a = (s && s.attributes) || {};
     const {root, face} = paper("div", "jam-speaker|poster|" + c.entity, {kind: "poster", cls: "poster" + (off ? " off" : idle ? " idle" : "")});
-    const ph = Math.max(72, Number(c.poster_height) || 178);
-    if (c.poster_height) root.style.setProperty("--ph", ph + "px");
-    if (ph < 110) root.classList.add("small");
-    face.append(this._art(s, off, idle, root));
+    const ah = Math.max(72, Number(c.poster_height) || 150);
+    if (c.poster_height) root.style.setProperty("--ah", ah + "px");
+    if (ah < 110) root.classList.add("small");
+    const pa = el("div", "pa"); pa.append(this._art(s, off, idle, root));
+    face.append(pa);
     const open = el("button", "open"); open.type = "button"; open.dataset.key = "more";
     open.setAttribute("aria-label", `${this._room()} music: library and speakers`);
     open.onclick = () => this._openPanel();
