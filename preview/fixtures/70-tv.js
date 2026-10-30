@@ -1,4 +1,4 @@
-// Preview fixture: Watch & play — jam-tv (playing + idle + off), NerveOS as a compact jam-media with a ⋯ sheet, a compact
+// Preview fixture: Watch & play — jam-tv (playing + idle + off; round 3: Remote / Source sheets, per-source icons), NerveOS as a compact jam-media with a ⋯ sheet, a compact
 // speaker, and jam-fan (Vital 200S air purifier). Sources are the ones the living-room dashboards use.
 { // block scope: every fixture file may declare its own st
 const {st} = jamPreview;
@@ -12,11 +12,11 @@ const script = id => ({action: "perform-action", perform_action: id});
 // app list, or the package id) and, while the TV shows an input ("Live TV"), select.hisense_tv_input.
 const sources = [
   {name: "Nerv//OS", color: "teal", tap_action: app("HDMI 2"), match: {input: ["Switch 2", "HDMI 2"]}},
-  {name: "Switch", color: "red", tap_action: sel("select.hisense_tv_input", "HDMI 1"), match: {input: "HDMI 1"}},
+  {name: "Switch", color: "red", icon: "game", tap_action: sel("select.hisense_tv_input", "HDMI 1"), match: {input: "HDMI 1"}},
   {name: "YouTube", color: "red", tap_action: app("YouTube"), match: {app: ["YouTube", "com.google.android.youtube.tv"]}},
-  {name: "Jamfin", color: "ochre", tap_action: app("Jamfin"), match: {app: ["Jamfin", "com.isaac.jamfin"]}},
-  {name: "Dropout", color: "pink", tap_action: app("Dropout"), match: {app: "Dropout"}},
-  {name: "Corridor Digital", color: "blue", tap_action: app("Corridor TV"), match: {app: ["Corridor TV", "com.corridordigital.watchcorridortv"]}},
+  {name: "Jamfin", color: "ochre", icon: "disc", tap_action: app("Jamfin"), match: {app: ["Jamfin", "com.isaac.jamfin"]}},
+  {name: "Dropout", color: "pink", icon: "download", tap_action: app("Dropout"), match: {app: "Dropout"}},
+  {name: "Corridor Digital", color: "blue", icon: "grid", tap_action: app("Corridor TV"), match: {app: ["Corridor TV", "com.corridordigital.watchcorridortv"]}},
 ];
 const tv = {
   remote: RC, sources, current_app_entity: "sensor.preview_tv_current_app", input_entity: "select.hisense_tv_input",

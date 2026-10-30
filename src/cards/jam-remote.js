@@ -12,16 +12,24 @@
    layout?: "full" (0.3.2) = the universal-remote-card set: [power, back, home, settings] / [tv, vol_down, vol_up] / d-pad /
    [prev, play_pause, next] / [keyboard, captions, audio_track, source]; `rows` wins over `layout`.
    Default commands (Android TV, remote.send_command): settings SETTINGS, captions CAPTIONS, audio_track MEDIA_AUDIO_TRACK,
-   source TV_INPUT, tv TV (override per key with commands / actions).
+   source TV_INPUT, tv TV, rewind MEDIA_REWIND, forward MEDIA_FAST_FORWARD (override per key with commands / actions).
+   Shared with jam-tv: JAM_GLYPHS / jamGlyph(name) (flat SVG glyphs, static markup), jamRocker(items, owner) + JAM_ROCKER_CSS,
+   JAM_OUTLINE_CSS (.ol outlined key: 3px --ol outline drawn inside the cut), jamHoldRepeat, jamRemoteKeyboard, jamRemoteApp.
    keyboard key: opens a small sheet (openSheet) with a text field + Send / Backspace / Enter, sent like
    universal-remote-card's Android TV keyboard: Send = remote.send_command command "text:<field>" (androidtv_remote types
    the text), Backspace = command "DEL", Enter = command "ENTER" (Enter in the field = Send, or ENTER when it is empty).
    Needs `entity` (or actions.keyboard, which then runs instead of the sheet).
-   sections? (0.3.4): [{title?, accent?, rows, entity? (default the card's; null = keys run actions only), actions?, commands?,
-     labels? (merged over the card's), active_entity?, active_match?: {key: state text}}] = colour-coded blocks instead of
-     rows: each block is a --slab face (slab2 inside a sheet) with a 5px rule in its accent and a small kicker; its keys, OK
-     disc and arrow marks use that accent. A key is "active" (accent fill) when active_entity's state equals (case-insensitive)
-     active_match[key], else its label. `rows` / `layout` are ignored when sections are set.
+   sections? (0.3.4, round 3 look): [{title?, accent?, rows, entity? (default the card's; null = keys run actions only),
+     actions?, commands?, labels? (merged over the card's), active_entity?, active_match?: {key: state text}, power_accent?}] =
+     colour-coded groups instead of rows: each group is a --slab face (slab2 inside a sheet) with a 6px left rule in its
+     accent and a header row: kicker (title) left, the group's "power" key right (a 36px glyph key, red; power_accent: true =
+     the group accent). Keys with a glyph (back, home, menu, settings, rewind, play_pause, forward, prev, next, tv, keyboard,
+     captions, audio_track, source) show it above the label; play_pause is filled with the accent and a 3-key row with
+     play_pause in the middle is 1 : 1.5 : 1. With active_entity the plain row keys are a choice: outlined in the accent, the
+     active one filled (active_entity's state equals, case-insensitive, active_match[key], else its label). The OK disc and
+     arrow marks use the accent. `rows` / `layout` are ignored when sections are set.
+   Row token "rocker" (any rows): vol_down | mute | vol_up as one flat block (key cut) in the accent split by 3px ink gaps
+   (jamRocker; − / speaker glyph + Mute / +); keys this remote cannot run are left out, vol keys repeat while held.
    jamRemoteKeyboard(host, {entity, name, title, accent, hass: () => hass}) opens the keyboard sheet (jam-tv's header key uses it);
    el.openKeyboard() opens it for this card.
    Title: media_title, else app_name unless it is a package id (has a dot), else a known name for the current package (app_id, else
@@ -36,12 +44,81 @@ const JAM_REMOTE_CMDS = {
   back: "BACK", home: "HOME", menu: "MENU", prev: "MEDIA_PREVIOUS", next: "MEDIA_NEXT", play_pause: "MEDIA_PLAY_PAUSE",
   mute: "VOLUME_MUTE", vol_up: "VOLUME_UP", vol_down: "VOLUME_DOWN",
   settings: "SETTINGS", captions: "CAPTIONS", audio_track: "MEDIA_AUDIO_TRACK", source: "TV_INPUT", tv: "TV",
+  rewind: "MEDIA_REWIND", forward: "MEDIA_FAST_FORWARD",
 };
 const JAM_REMOTE_LABELS = {
   power: "Power", back: "Back", home: "Home", menu: "Menu", prev: "Prev", next: "Next", play_pause: "Play",
   mute: "Mute", vol_up: "Vol +", vol_down: "Vol −", ok: "OK", up: "Up", down: "Down", left: "Left", right: "Right",
   settings: "Settings", tv: "TV", keyboard: "Keyboard", captions: "Captions", audio_track: "Audio", source: "Input",
+  rewind: "Rewind", forward: "Forward",
 };
+/* Flat SVG glyphs (24-unit box, currentColor; static markup only): remote keys, jam-tv transport / tabs / source tiles. */
+const JAM_GLYPH_S = (d, w = 2.5) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="square">${d}</svg>`;
+const JAM_GLYPH_F = d => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="${d}"/></svg>`;
+const JAM_GLYPHS = {
+  back: JAM_GLYPH_S('<path d="M10 6L4 12l6 6M4 12h16"/>'), home: JAM_GLYPH_S('<path d="M3 11l9-7 9 7v10H3z"/>'),
+  menu: JAM_GLYPH_S('<path d="M4 6h16M4 12h16M4 18h16"/>'),
+  settings: JAM_GLYPH_S('<path d="M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7z"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>'),
+  rewind: JAM_GLYPH_F("M11 5v14L3 12zM21 5v14l-8-7z"), forward: JAM_GLYPH_F("M3 5v14l8-7zM13 5v14l8-7z"),
+  play: JAM_GLYPH_F("M7 4v16l13-8z"), pause: JAM_GLYPH_F("M6 4h4v16H6zM14 4h4v16h-4z"),
+  prev: JAM_GLYPH_F("M5 5h3v14H5zM20 5v14L9 12z"), next: JAM_GLYPH_F("M16 5h3v14h-3zM4 5v14l11-7z"),
+  power: JAM_GLYPH_S('<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>', 3),
+  mute: JAM_GLYPH_S('<path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor" stroke="none"/><path d="M16 9l5 6M21 9l-5 6"/>'),
+  keyboard: JAM_GLYPH_S('<path d="M2 6h20v12H2z"/><path d="M6 10h1M10 10h1M14 10h1M18 10h1M7 14h10"/>', 2.2),
+  remote: JAM_GLYPH_S('<path d="M7 2h10v20H7z"/><path d="M12 6.5a1.5 1.5 0 1 1 0 3a1.5 1.5 0 1 1 0-3zM10 14h4M10 18h4"/>', 2.2),
+  source: JAM_GLYPH_S('<path d="M3 4h7v7H3zM14 4h7v7h-7zM3 15h7v5H3zM14 15h7v5h-7z"/>', 2.2),
+  tv: JAM_GLYPH_S('<path d="M3 5h18v12H3z"/><path d="M8 21h8"/>'), captions: JAM_GLYPH_S('<path d="M3 5h18v14H3z"/><path d="M7 11h4M13 11h4M7 15h10"/>', 2.2),
+  audio_track: JAM_GLYPH_S('<path d="M9 18V6l11-2v12"/><path d="M6 15.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5zM17 13.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5z"/>', 2.2),
+  // Source tile kinds (jam-tv; per-source `icon` picks one by name).
+  input: JAM_GLYPH_S('<path d="M3 7h18v10H3z"/><path d="M8 12h2M14 12h2"/>'), app: JAM_GLYPH_S('<path d="M3 6h18v12H3z"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/>'),
+  game: JAM_GLYPH_S('<path d="M3 6h7v12H3zM14 6h7v12h-7z"/>'), disc: JAM_GLYPH_S('<path d="M12 4a8 8 0 1 1 0 16a8 8 0 1 1 0-16zM12 10a2 2 0 1 1 0 4a2 2 0 1 1 0-4z"/>'),
+  download: JAM_GLYPH_S('<path d="M12 3v13M6 11l6 6 6-6M4 21h16"/>'), grid: JAM_GLYPH_S('<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/>'),
+  music: JAM_GLYPH_S('<path d="M9 18V6l11-2v12"/><path d="M6 15.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5zM17 13.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5z"/>'),
+  film: JAM_GLYPH_S('<path d="M4 3h16v18H4z"/><path d="M8 3v18M16 3v18M4 8h4M4 13h4M4 18h4M16 8h4M16 13h4M16 18h4"/>', 2),
+};
+/* <span class="gl"> with a glyph (static markup, no data); null for an unknown name. */
+function jamGlyph(name, cls) {
+  const svg = JAM_GLYPHS[name];
+  if (!svg) return null;
+  const s = el("span", "gl" + (cls ? " " + cls : "")); s.setAttribute("aria-hidden", "true");
+  s.innerHTML = svg; // static markup from JAM_GLYPHS, never entity data
+  return s;
+}
+/* Outlined key (round 3: jam-tv tabs, stereo inputs): the face is filled with --ol and a --slab inner plate 3px in,
+   cut parallel to the outer cut, so the outline follows the 45° corner. Works for key (tr 12px) and chip (br 6px) cuts. */
+const JAM_OUTLINE_CSS = `
+    .ol > .face{background:var(--ol,var(--dim));isolation:isolate}
+    .ol > .face::before{content:"";position:absolute;inset:3px;z-index:-1;background:var(--slab);
+      clip-path:polygon(0 0,calc(100% - 10.2px) 0,100% 10.2px,100% 100%,0 100%)}
+    .ol[data-cut=chip] > .face::before{clip-path:polygon(0 0,100% 0,100% calc(100% - 4.2px),calc(100% - 4.2px) 100%,0 100%)}
+    .ol.on > .face::before{display:none}
+    .ol.on > .face{background:var(--acc);color:var(--acc-fg)}`;
+/* Volume rocker (round 3): ONE flat block (key cut) in --rk (default the accent) split into − | Mute | + by 3px ink gaps. */
+const JAM_ROCKER_CSS = `
+    .rock{height:auto}
+    .rock > .face{--p-t:0;--p-r:0;--p-b:0;--p-l:0;display:grid;gap:3px;background:var(--ink);min-height:56px;height:100%}
+    .rock .key{position:relative;min-width:0;height:100%}
+    .rock .key > .face{clip-path:none;border:0;height:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+      background:var(--rk,var(--acc));color:var(--on-fg);font:600 .8rem/1 var(--body);letter-spacing:.16em}
+    .rock .key.vol > .face{font:900 1.75rem/1 var(--display);letter-spacing:0}
+    .rock .key .gl svg{display:block;width:20px;height:20px}
+    .rock .key:disabled > .face{background:var(--slab2);color:var(--dim)}
+    .rock .key:focus-visible{outline-color:var(--on-fg);outline-offset:-4px}`;
+/* items: [{id: "vol_down" | "mute" | "vol_up", label (aria), run, repeat, disabled}] -> .paper.rock (append it anywhere). */
+function jamRocker(items, owner, key) {
+  const {root, face} = paper("div", key || "jam-rocker", {kind: "key", cls: "rock"});
+  face.style.gridTemplateColumns = items.map(x => (x.id === "mute" || items.length < 3 ? "minmax(0,1fr)" : "minmax(56px,.3fr)")).join(" ");
+  for (const x of items) {
+    const b = el("button", "key press " + (x.id === "mute" ? "mute" : "vol")), f = el("span", "face");
+    b.type = "button"; b.dataset.key = x.id; b.disabled = !!x.disabled; b.setAttribute("aria-label", x.label);
+    if (x.id === "mute") f.append(jamGlyph("mute"), el("span", "lb", x.text || "Mute"));
+    else f.textContent = x.id === "vol_up" ? "+" : "−";
+    b.append(f);
+    if (x.repeat) jamHoldRepeat(b, x.run, owner); else b.onclick = x.run;
+    face.append(b);
+  }
+  return root;
+}
 const JAM_REMOTE_KB_CSS = `
   .kb{display:grid;gap:10px}
   .kb input{box-sizing:border-box;width:100%;min-width:0;height:52px;padding:0 14px;border:0;border-radius:0;background:var(--slab2);color:var(--fg);
@@ -128,9 +205,21 @@ class JamRemote extends JamBase {
     .wrap.secs{background:none;padding:0;gap:10px}
     .title{font-family:var(--display);font-weight:900;font-size:1.5rem;line-height:.95;text-transform:uppercase;overflow-wrap:anywhere;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .sec > .face{--p-t:0px;--p-r:12px;--p-b:14px;--p-l:12px;display:grid;gap:10px;align-content:start}
-    .sec .rule{height:5px;background:var(--acc);margin:0 -12px}
-    .sec .label{margin-top:-2px}
+    /* Sections (round 3): flat group face with a 6px left rule in the group accent; header = kicker + power key. */
+    .sec > .face{--p-t:12px;--p-r:12px;--p-b:12px;--p-l:12px;display:grid;gap:10px;align-content:start;border-left:6px solid var(--acc)}
+    .sec .gh{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
+    .sec .gh .label{color:var(--fg)}
+    .sec .gh .pw{min-width:48px}
+    .sec .gh .pw > .face{--p-t:0;--p-b:0;--p-l:12px;--p-r:12px;height:36px;display:flex;align-items:center;justify-content:center}
+    .sec .gh .pw.on > .face{background:var(--acc);color:var(--acc-fg)}
+    .gl{display:block;flex:none}
+    .gl svg{display:block;width:20px;height:20px}
+    .sec .gh .pw .gl svg{width:18px;height:18px}
+    /* Glyph keys: glyph above a small label. */
+    .sec .row .key.ico > .face{--p-t:8px;--p-b:7px;--p-l:2px;--p-r:2px;min-height:54px;flex-direction:column;gap:5px;font-size:.64rem;letter-spacing:.12em;
+      overflow-wrap:normal;word-break:normal}
+    .row.tr{grid-auto-flow:row;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)}
+    .row.pick .key > .face{--ol:var(--acc)}
     .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
@@ -143,7 +232,7 @@ class JamRemote extends JamBase {
     .pad .tri{width:34%;height:34%;background:var(--acc)}
     .pad .ok > .face{background:var(--acc);color:var(--acc-fg);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
     .pad .ok:not(:disabled):hover > .face{background:var(--acc)}
-    .pad .up{grid-area:1/2} .pad .left{grid-area:2/1} .pad .ok{grid-area:2/2} .pad .right{grid-area:2/3} .pad .down{grid-area:3/2}`; }
+    .pad .up{grid-area:1/2} .pad .left{grid-area:2/1} .pad .ok{grid-area:2/2} .pad .right{grid-area:2/3} .pad .down{grid-area:3/2}` + JAM_OUTLINE_CSS + JAM_ROCKER_CSS; }
   /* Key context: the card's entity/actions/commands/labels, or a section's merged over them. */
   _ctx(sec) {
     const c = this._config, x = sec || {};
@@ -215,15 +304,24 @@ class JamRemote extends JamBase {
     return c.name || friendly(this._hass, c.media_player || c.entity) || "Remote";
   }
   _offFor(entity) { if (!entity) return false; const s = stateObj(this._hass, entity); return !s || UNAVAILABLE.has(s.state); }
-  /* Key rows into `box`. active(k) -> true fills the key with the accent. */
-  _rows(box, rows, ctx, off, active) {
+  /* Key rows into `box`. active(k) -> true fills the key with the accent. sec: section look (glyph keys, main play key,
+     transport proportions; pick = the plain keys are an outlined choice). */
+  _rows(box, rows, ctx, off, active, sec, pick) {
+    const mp = stateObj(this._hass, this._config.media_player);
     for (const row of rows || []) {
-      if (!Array.isArray(row)) continue;
+      if (!Array.isArray(row) || !row.length) continue;
       if (row.includes("dpad")) { box.append(this._pad(off, ctx)); continue; }
-      const r = el("div", "row" + (row.length >= 4 ? " dense" : ""));
+      if (row.includes("rocker")) { const r = this._rocker(ctx, off); if (r) box.append(r); continue; }
+      const tr = sec && row.length === 3 && row[1] === "play_pause";
+      const r = el("div", "row" + (row.length >= 4 ? " dense" : "") + (tr ? " tr" : "") + (pick ? " pick" : ""));
       for (const k of row) {
-        const btn = cutKey(this._label(k, ctx), `jam-remote|${ctx.entity}|${k}`, k === "power" ? "alert" : active && active(k) ? "on" : "");
+        const gname = k === "play_pause" ? (mp && mp.state === "playing" ? "pause" : "play") : k;
+        const g = sec && !pick ? jamGlyph(gname) : null;
+        const on = active && active(k), cls = k === "power" ? "alert" : on || (sec && k === "play_pause") ? "on" : "";
+        const btn = cutKey(this._label(k, ctx), `jam-remote|${ctx.entity}|${k}`, cls + (g ? " ico" : "") + (pick && k !== "power" ? " ol" : ""));
+        if (g) { const f = btn.firstChild, lb = el("span", "lb", f.textContent); f.textContent = ""; f.append(g, lb); }
         btn.dataset.key = k;
+        if (pick) btn.setAttribute("aria-pressed", String(!!on));
         btn.disabled = off || !this._known(k, ctx);
         this._bind(btn, k, ctx);
         r.append(btn);
@@ -231,16 +329,36 @@ class JamRemote extends JamBase {
       box.append(r);
     }
   }
+  /* "rocker" row: vol_down | mute | vol_up as one block (keys this remote cannot run are left out). */
+  _rocker(ctx, off) {
+    const ks = ["vol_down", "mute", "vol_up"].filter(k => this._known(k, ctx));
+    if (!ks.length) return null;
+    return jamRocker(ks.map(k => ({id: k, label: this._label(k, ctx), text: this._label("mute", ctx), disabled: off,
+      repeat: JAM_REMOTE_REPEAT.has(k), run: () => this._run(k, ctx)})), this, "jam-remote|rocker|" + ctx.entity);
+  }
   _section(sec, i) {
     const ctx = this._ctx(sec), {root, face} = paper("div", "jam-remote|sec|" + i, {cls: "sec"});
     root.dataset.section = sec.title || String(i);
     setAccent(root, sec.accent);
-    const rule = el("div", "rule"); rule.setAttribute("aria-hidden", "true");
-    face.append(rule);
-    if (sec.title) face.append(el("div", "label", sec.title));
+    const off = this._offFor(ctx.entity), rows = sec.rows.filter(Array.isArray);
+    // The group's power key sits in its header (round 3), not in a row.
+    const power = rows.some(r => r.includes("power"));
+    if (sec.title || power) {
+      const gh = el("div", "gh");
+      gh.append(el("div", "label", sec.title || ""));
+      if (power) {
+        const pw = cutKey("", `jam-remote|${ctx.entity}|power`, "pw " + (sec.power_accent ? "on" : "alert"), "chip");
+        pw.dataset.key = "power"; pw.setAttribute("aria-label", (sec.title ? sec.title + " " : "") + this._label("power", ctx).toLowerCase());
+        pw.firstChild.textContent = ""; pw.firstChild.append(jamGlyph("power"));
+        pw.disabled = off || !this._known("power", ctx);
+        this._bind(pw, "power", ctx);
+        gh.append(pw);
+      }
+      face.append(gh);
+    }
     const st = stateObj(this._hass, sec.active_entity), cur = st ? String(st.state).toLowerCase() : null, m = sec.active_match || {};
     const active = cur ? k => String(m[k] || this._label(k, ctx)).toLowerCase() === cur : null;
-    this._rows(face, sec.rows, ctx, this._offFor(ctx.entity), active);
+    this._rows(face, rows.map(r => r.filter(k => k !== "power")), ctx, off, active, true, !!sec.active_entity);
     return root;
   }
   render(b) {
