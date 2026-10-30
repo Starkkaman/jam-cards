@@ -30,7 +30,7 @@ module.exports = async (page, check, {callsNow}) => {
     const pw = p.querySelector(".pw"), abs = p.querySelector(".abs"), pg = p.querySelector(".pg");
     return {word: kk.dataset.badge, kick: kk.textContent, dot: getComputedStyle(kk.querySelector("i")).backgroundColor,
       title: band.querySelector(".title").textContent, sub: (band.querySelector(".ss") || {}).textContent || null, bandBg: getComputedStyle(band).backgroundColor,
-      ph: box(p.querySelector(".pa")).h, poster: box(p), bandTop: box(band).t, paBottom: box(p.querySelector(".pa")).b, pw: pw ? {...box(pw), bg: getComputedStyle(pw, "::before").backgroundColor, fg: getComputedStyle(pw).color, label: pw.getAttribute("aria-label")} : null,
+      ph: box(p.querySelector(".pa")).h, poster: box(p), bandTop: box(band).t, paBottom: box(p.querySelector(".pa")).b, pw: pw ? {...box(pw), bg: getComputedStyle(pw.querySelector(".tri")).backgroundColor, fg: getComputedStyle(pw.querySelector("svg")).color, label: pw.getAttribute("aria-label")} : null,
       img: !!p.querySelector("img"), bars: !!p.querySelector(".arm"), abs: abs ? {bg: abs.style.background, n: abs.children.length, sig: abs.innerHTML} : null,
       face: getComputedStyle(p.querySelector(".face")).backgroundColor, pg: pg ? parseFloat(pg.style.width) : null,
       bk: [...band.querySelectorAll(".bk button")].map(k => ({key: k.dataset.key, on: k.getAttribute("aria-pressed"), w: Math.round(k.getBoundingClientRect().width), h: Math.round(k.getBoundingClientRect().height), dis: k.disabled})),

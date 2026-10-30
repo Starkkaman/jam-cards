@@ -69,11 +69,7 @@ const JAM_SPK_CSS = `
     .bk .fav > .face{color:var(--pink)} .bk .fav.on > .face{background:var(--pink);color:#141210}
     .bk .ikey:disabled > .face{color:#6b6152}
     .pg{position:absolute;left:0;bottom:0;height:5px;z-index:3;background:var(--acc);pointer-events:none}
-    .pw{position:absolute;z-index:4;right:0;top:0;width:46px;height:46px;color:var(--acc)}
-    .pw::before{content:"";position:absolute;inset:0;background:var(--ink);clip-path:polygon(0 0,100% 0,100% 100%)}
-    .pw.off{color:var(--on-fg)} .pw.off::before{background:var(--red)}
-    .pw .ico{position:absolute;right:6px;top:6px;--ic:17px}
-    .pw:focus-visible{outline-offset:-3px}
+    .pw{z-index:4} /* shared power corner (core powerCorner / POWER_CSS): ink, accent glyph; red with a cream glyph when off */
     .keys{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px}
     .keys .ikey{min-width:0}
     .keys .ikey > .face{height:60px;--ic:24px}
@@ -190,7 +186,7 @@ class JamSpeaker extends JamBase {
     return (this._config.speakers || []).map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && x.entity && x.entity !== this._config.entity);
   }
   watched() { return [this._config.entity, ...this._speakers.map(x => x.entity), this._favId()].filter(Boolean); }
-  css() { return JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + JAM_SPK_CSS + (this._kiosk ? JAM_SPK_KIOSK_CSS : ""); }
+  css() { return POWER_CSS + JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + JAM_SPK_CSS + (this._kiosk ? JAM_SPK_KIOSK_CSS : ""); }
   _room() { const c = this._config; return c.name || friendly(this._hass, c.entity); }
   _artSrc(s) { const a = (s && s.attributes) || {}; return jamMuUrl(this._hass, a.entity_picture_local || a.entity_picture); }
   /* The player's MA "Favorite current song" button: config favorite_entity, else the button on the player's device
@@ -310,12 +306,12 @@ class JamSpeaker extends JamBase {
   }
   _powerKey(s, off) {
     const down = !s || ["off", "standby"].includes(s.state), f = Number(s && s.attributes.supported_features) || 0;
-    const pw = el("button", "pw" + (down ? " off" : "")); pw.type = "button"; pw.dataset.key = "power";
+    const pw = powerCorner({on: !down, disabled: off && !!s && UNAVAILABLE.has(s.state), cls: down ? "off" : "",
+      bg: down ? "var(--red)" : "var(--ink)", fg: down ? "var(--on-fg)" : "var(--acc)",
+      onClick: () => this._power(stateObj(this._hass, this._config.entity))});
+    // The speaker says what the corner does (players without turn_on / turn_off stop / play instead).
     pw.setAttribute("aria-label", this._config.power_action || f & JAM_SPK_POWER ? (down ? "Turn on" : "Turn off")
       : s && JAM_SPK_ACTIVE.has(s.state) ? "Turn off (stop playing)" : "Turn on (play)");
-    pw.append(jamMuIcon("power"));
-    pw.disabled = off && !!s && UNAVAILABLE.has(s.state);
-    pw.onclick = () => this._power(stateObj(this._hass, this._config.entity));
     return pw;
   }
   _key(label, id, cls, run, disabled) {
