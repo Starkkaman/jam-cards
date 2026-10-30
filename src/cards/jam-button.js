@@ -1,15 +1,19 @@
 /* ---------- jam-button: chunky key for launchers, scenes, scripts, stereo keys and openers ----------
    {type: custom:jam-button, entity?, name?, icon?, accent?: colour or room alias | paper | ink (DESIGN "Colour system"),
     color?: HA colour name, show_state?, size?: normal|big, tap_action?, hold_action?, double_tap_action?}
-   Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, toggleable entity -> toggle,
-   other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
+   Default tap: scene./script. -> <domain>.turn_on, button./input_button. -> <domain>.press, on/off entity (light, switch,
+   fan, input_boolean) -> more-info (its detail view; round 3), other toggleable entity -> toggle, other entity -> more-info. Stateless domains (button, input_button, scene, script) are only greyed when "unavailable":
    "unknown" and a timestamp are their normal states.
    Shape: key cut (top-right 12px), slab face. Accent (accent, else color mapped by JB_COLOR, else the card default ochre)
    = a small square with a cut corner in the top-left carrying the icon in ink (28px, big 36px); light/switch/fan/input_boolean
    "on" = the whole face in the accent with ink text, the square turns ink with the icon in the accent.
    ink (and HA grey colours) = plain key without a square (on = inverted fg face).
-   Height (0.3.5): size normal = 84px with grid rows "auto", exactly a jam-light card, so a switch key sits level with light
-   cards in the same row; big = 120px (grid rows 2). */
+   Power corner (round 3, ROUND3 "Interaction rule"): an on/off entity (light, switch, fan, input_boolean) gets the core
+   powerCorner (46px top-right triangle, power glyph) = homeassistant.toggle; the key then takes the card cut (bottom-right
+   14px) so the corner is not clipped. Corner colour = mid shade of the face (accent face resolved to rgb; off = slab2).
+   Tap anywhere else = tap_action (default more-info). Keys: Enter/Space = tap, P or Shift+Enter = power.
+   Height: size normal = 96px with grid rows "auto" (round 3; was 84), exactly a jam-light card, so a switch key sits level
+   with light cards in the same row; big = 120px (grid rows 2). */
 const JB_COLOR = {red: "red", "deep-orange": "red", orange: "ochre", amber: "ochre", yellow: "ochre", primary: "ochre",
   pink: "pink", blue: "blue", "light-blue": "blue", indigo: "blue", cyan: "teal", teal: "teal",
   purple: "violet", "deep-purple": "violet", green: "green", "light-green": "green", lime: "green", "light-grey": "ink", grey: "ink"};
@@ -18,9 +22,10 @@ const JB_STATELESS = new Set(["button", "input_button", "scene", "script"]);
 class JamButton extends JamBase {
   validate(c) { if (!c.entity && !c.name && !c.icon) throw new Error("jam-button: entity, name or icon is required"); }
   watched() { return this._config.entity ? [this._config.entity] : []; }
-  css() { return `
-    .btn{min-height:84px}
-    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:84px}
+  css() { return POWER_CSS + `
+    .btn{min-height:96px}
+    .kf{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:10px;display:flex;min-height:96px}
+    .press:has(.pw:active) > .face{transform:none;animation:none}
     .big,.big .kf{min-height:120px}
     .kf.on{background:var(--acc);color:var(--acc-fg)}
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
@@ -47,6 +52,7 @@ class JamButton extends JamBase {
     if (c.tap_action) return c.tap_action;
     if (d === "scene" || d === "script") return {action: "perform-action", perform_action: d + ".turn_on", data: {entity_id: c.entity}};
     if (d === "button" || d === "input_button") return {action: "perform-action", perform_action: d + ".press", data: {entity_id: c.entity}};
+    if (JB_ON.has(d)) return {action: "more-info"};
     if (c.entity && toggleable(c.entity)) return {action: "toggle"};
     return {action: c.entity ? "more-info" : "none"};
   }
@@ -55,13 +61,19 @@ class JamButton extends JamBase {
     const on = !!s && s.state === "on" && JB_ON.has(d), acc = this._accent(), plain = acc === "ink";
     const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
-    const {root, face} = this.paper(c.entity || name || c.icon, {kind: "key",
+    const power = !!s && JB_ON.has(d); // on/off entity: power corner (round 3)
+    const {root, face} = this.paper(c.entity || name || c.icon, {kind: power ? "card" : "key",
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});
     if (plain) { root.style.setProperty("--acc", "var(--fg)"); root.style.setProperty("--acc-fg", "var(--slab)"); }
     else if (acc) setAccent(root, acc);
     root.tabIndex = 0; root.setAttribute("role", "button");
     root.setAttribute("aria-label", name || String(c.icon || "").replace(/^\w+:/, "").replace(/-/g, " ") || "Button"); // icon-only key: the icon name
     if (s && JB_ON.has(d)) root.setAttribute("aria-pressed", on ? "true" : "false");
+    if (power) root.addEventListener("keydown", e => { // before bindActions: Shift+Enter must not also run the tap
+      if (e.target !== root || !(e.key === "p" || e.key === "P" || (e.key === "Enter" && e.shiftKey))) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (!e.repeat && !un) this._power();
+    });
     bindActions(root, () => this._hass, {...c, tap_action: this._tap()}, c.entity);
     const k = el("div", "k");
     /* Font fits the longest word into the key width, so labels wrap by word and never mid-word. */
@@ -79,11 +91,23 @@ class JamButton extends JamBase {
     k.append(L);
     face.append(k);
     b.append(root);
+    this._accWait = false;
+    if (power) {
+      const rgb = on ? resolveRgb(root, "var(--acc)") : null; // the face colour, to shade the corner
+      this._accWait = on && !rgb;
+      const [bg, fg] = cornerColors(rgb, on ? "var(--acc-fg)" : null);
+      face.append(powerCorner({name, on, disabled: un, bg, fg, onClick: () => this._power()}));
+    }
     this._k = k;
     this._fit(k);
   }
   /* The label-fit ResizeObserver lives while the card is attached (HA detaches cards on view switches). */
-  connectedCallback() { super.connectedCallback(); if (this._k && !this._ro) this._fit(this._k); }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._accWait) this._render(false); // the corner shade needs the resolved face colour
+    else if (this._k && !this._ro) this._fit(this._k);
+  }
+  _power() { if (this._config.entity) this._hass.callService("homeassistant", "toggle", {entity_id: this._config.entity}); }
   disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
   /* Safety net for fallback fonts: shrink a label that still overflows its key (a word never breaks). */
   _fit(k) {

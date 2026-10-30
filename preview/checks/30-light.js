@@ -1,5 +1,6 @@
-// jam-light v2 + light pop-up (openSheet) + jam-popup interactions (fixture preview/fixtures/30-light.js).
-// Also writes preview/shots/popup-{dark,light}-390.png and light-sheet-{group,wled}-{dark,light}-390.png.
+// jam-light (round 3) + light pop-up (openSheet, Edit mode) + jam-popup interactions (fixture preview/fixtures/30-light.js).
+// Also writes preview/shots/popup-{dark,light}-390.png, light-sheet-{group,wled,edit}-{dark,light}-390.png and
+// light-cards-{dark,light}-390.png.
 // Contract: module.exports = async (page, check, helpers) => {}; runs on the dark/1280 preview page, files in name order.
 const path = require("path");
 const HASH = "#livingroom-popup";
@@ -18,7 +19,14 @@ module.exports = async (page, check, {callsNow}) => {
   const sheet = page.locator(".jam-sheet-host");
   const sheetOpen = () => page.evaluate(() => document.querySelectorAll(".jam-sheet-host").length);
   const closeSheet = async () => { if (await sheetOpen()) { await page.keyboard.press("Escape"); await page.waitForTimeout(50); } };
-  const corner = name => light(name).locator("button.more");
+  const corner = name => light(name).locator("button.pw");
+  const openTap = async name => { await light(name).locator(".tap").click(); await page.waitForTimeout(60); };
+  // Lights with a configured tap_action open their pop-up by hold.
+  const openHold = async name => {
+    const b = await tapBox(name);
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
+    await page.waitForTimeout(650); await page.mouse.up(); await page.waitForTimeout(60);
+  };
   const tapBox = async name => { await light(name).scrollIntoViewIfNeeded(); return light(name).locator(".tap").boundingBox(); };
 
   // ---- card colour: real output colour, ink/paper text by luminance; off/unavailable ----
@@ -29,7 +37,7 @@ module.exports = async (page, check, {callsNow}) => {
       out[c._config.entity] = {bg: cs.backgroundColor, fg: cs.color, pct: r.querySelector(".pct").textContent,
         sub: (r.querySelector(".sub") || {}).textContent || "", cls: r.querySelector(".lc").className,
         strip: getComputedStyle(r.querySelector(".bs")).display, h: r.querySelector(".lc").getBoundingClientRect().height,
-        moreDisabled: r.querySelector("button.more").disabled};
+        moreDisabled: r.querySelector("button.pw").disabled, plate: r.querySelector(".lc").classList.contains("plate")};
     }
     const r = document.querySelector(".sec > jam-light").shadowRoot;
     const col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
@@ -39,17 +47,21 @@ module.exports = async (page, check, {callsNow}) => {
     return out;
   });
   const g = look["light.living_room"], k = look["light.kitchen_lamp"], w = look["light.wled"], t = look["light.tree"], ga = look["light.garage"], ha = look["light.hall"];
-  check(g.bg === "rgb(255, 159, 71)" && g.fg === "rgb(20, 18, 16)" && g.pct === "75%" && g.strip === "block",
-    `group card fills with rgb_color [255,159,71], ink text, 75 %, strip shown (${g.bg} / ${g.fg} / ${g.pct})`);
-  check(w.bg === "rgb(140, 60, 255)" && w.fg === "rgb(236, 226, 201)", `dark light colour (WLED violet) takes paper text (${w.bg} / ${w.fg})`);
+  check(g.bg === "rgb(255, 159, 70)" && g.fg === "rgb(20, 18, 16)" && g.pct === "75%" && g.strip === "block",
+    `group card face = average of its ON members (only Table Lamp [255,159,70]), ink text, 75 %, strip shown (${g.bg} / ${g.fg} / ${g.pct})`);
+  check(w.bg === "rgb(140, 60, 255)" && w.fg === "rgb(236, 226, 201)" && w.plate,
+    `WLED violet: paper text, and on ink label plates (neither ink nor paper reaches 4.5:1) (${w.bg} / ${w.fg})`);
+  const nt = look["light.night"], bd = look["light.bedside"];
+  check(nt.fg === "rgb(236, 226, 201)" && !nt.plate && bd.fg === "rgb(20, 18, 16)" && !bd.plate && !g.plate,
+    `single colours: deep blue takes paper text, pink takes ink text, no plates (${nt.fg} / ${bd.fg})`);
   check(k.bg === look.k2000 && k.fg === "rgb(20, 18, 16)", `color_temp light fills with its kelvin colour (2000 K -> ${k.bg})`);
   check(Math.abs(look.k2200[1] - 147) <= 3 && look.k2200[0] === 255 && Math.abs(look.k2200[2] - 44) <= 8, `kelvinToRgb(2200) ≈ [255,147,44] (${look.k2200})`);
   check(t.bg === look.tok.slab && t.fg === look.tok.fg && t.pct === "Off" && t.strip === "none" && /\boff\b/.test(t.cls),
     `off light: slab face, fg text, OFF, no strip (${t.bg}, ${t.pct})`);
   check(ga.bg === look.tok.ochre && ga.fg === look.tok.onfg, `light without colour falls back to the accent (living -> ochre ${ga.bg})`);
-  check(ha.pct === "N/A" && ha.moreDisabled && /\bdead\b/.test(ha.cls), "unavailable light: N/A, corner disabled");
-  check(g.sub === "Group · 2 bulbs" && w.sub === "WLED" && k.sub === "", `sub lines: "${g.sub}", "${w.sub}"`);
-  check(Math.abs(g.h - 84) <= 1, `light card is 84 px tall (${g.h})`);
+  check(ha.pct === "N/A" && ha.moreDisabled && /\bdead\b/.test(ha.cls), "unavailable light: N/A, power corner disabled");
+  check(g.sub === "1 of 2 on" && w.sub === "WLED" && k.sub === "", `sub lines: "${g.sub}", "${w.sub}"`);
+  check(Math.abs(look["light.porch"].h - 96) <= 1, `light card is 96 px tall (${look["light.porch"].h})`);
   // WLED reports brightness-scaled rgb_color: [51,20,0] paints its full-value hue [255,100,0] (ink text on it), also in the pop-up.
   const fr = await page.evaluate(() => JSON.stringify([window.JamCards.fullRgb([51, 20, 0]), window.JamCards.fullRgb([0, 0, 0]), window.JamCards.fullRgb(null)]));
   check(fr === "[[255,100,0],null,null]", `fullRgb scales the max channel to 255, black/missing -> null (${fr})`);
@@ -57,32 +69,84 @@ module.exports = async (page, check, {callsNow}) => {
   await setState("light.wled", "on", {rgb_color: [51, 20, 0]});
   const sc = await light("TV light").evaluate(e => { const cs = getComputedStyle(e.shadowRoot.querySelector(".lc > .face")); return [cs.backgroundColor, cs.color]; });
   check(sc[0] === "rgb(255, 100, 0)" && sc[1] === "rgb(20, 18, 16)", `scaled WLED rgb [51,20,0] -> card fill ${sc[0]}, ink text by the scaled colour (${sc[1]})`);
-  await corner("TV light").click();
-  await page.waitForTimeout(80);
+  await openTap("TV light");
+  await page.waitForTimeout(20);
   const sl = await page.evaluate(() => { const p = document.querySelector(".jam-sheet-host").shadowRoot.querySelector(".pop"); return [p.style.getPropertyValue("--lc"), p.style.getPropertyValue("--lc-fg")]; });
   check(sl[0] === "rgb(255,100,0)" && sl[1] === "#141210", `light pop-up bar colour uses the scaled colour (${sl.join(" / ")})`);
   await closeSheet();
   await setState("light.wled", "on", {rgb_color: wledRgb});
-  const geo = await light("Living room").evaluate(e => {
-    const r = e.shadowRoot, m = r.querySelector("button.more").getBoundingClientRect(), f = r.querySelector(".lc").getBoundingClientRect();
-    const s = r.querySelector(".bs").getBoundingClientRect(), tri = getComputedStyle(r.querySelector(".more .tri"));
+  const geo = await light("Porch").evaluate(e => {
+    const r = e.shadowRoot, m = r.querySelector("button.pw").getBoundingClientRect(), f = r.querySelector(".lc").getBoundingClientRect();
+    const s = r.querySelector(".bs").getBoundingClientRect(), tri = getComputedStyle(r.querySelector(".pw .tri"));
     return {w: m.width, h: m.height, right: f.right - m.right, top: m.top - f.top, strip: s.height, stripBottom: f.bottom - s.bottom,
       triBg: tri.backgroundColor, clip: tri.clipPath, fill: getComputedStyle(r.querySelector(".bs i")).clipPath, touch: getComputedStyle(r.querySelector(".tap")).touchAction,
       grid: JSON.stringify(e.getGridOptions())};
   });
-  check(geo.w === 44 && geo.h === 44 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon(") && geo.triBg === "rgb(20, 18, 16)",
-    `44x44 corner triangle top-right, ink on a light colour (${geo.w}x${geo.h}, ${geo.triBg})`);
+  check(geo.w === 46 && geo.h === 46 && geo.right === 0 && geo.top === 0 && geo.clip.startsWith("polygon("),
+    `46x46 power corner triangle top-right (${geo.w}x${geo.h}, ${geo.triBg})`);
+  // Shades (ROUND3): corner = mid shade of the face, strip track = deep shade, strip fill = mid shade; glyph ink/paper.
+  const sh = await page.evaluate(() => {
+    const J = window.JamCards, out = {};
+    for (const c of document.querySelectorAll(".sec > jam-light")) {
+      const r = c.shadowRoot, f = getComputedStyle(r.querySelector(".lc > .face")).backgroundColor.match(/\d+/g).map(Number);
+      const css = n => getComputedStyle(r.querySelector(n)).backgroundColor;
+      out[c._config.name || c._config.entity] = {face: f, corner: css(".pw .tri"), track: css(".bs"), fill: css(".bs i"),
+        glyph: getComputedStyle(r.querySelector(".pw svg")).color, mid: "rgb(" + J.shade(f, 1).join(", ") + ")", deep: "rgb(" + J.shade(f, 2).join(", ") + ")",
+        label: r.querySelector(".pw").getAttribute("aria-label"), pressed: r.querySelector(".pw").getAttribute("aria-pressed")};
+    }
+    out.tok = {slab2: (() => { const p = document.createElement("span"); p.style.color = "var(--slab2)"; const r = document.querySelector(".sec > jam-light").shadowRoot; r.append(p); const v = getComputedStyle(p).color; p.remove(); return v; })()};
+    out.fn = [J.shade([246, 136, 78], 1), J.shade([246, 136, 78], 2), J.shade([0, 0, 255], 1), J.textOn([140, 60, 255]), Math.round(J.contrastRatio([20, 18, 16], [236, 226, 201]) * 10) / 10];
+    return out;
+  });
+  const po = sh["light.porch"], ni = sh["light.night"];
+  check(po.corner === po.mid && po.track === po.deep && po.fill === po.mid && po.glyph === "rgb(20, 18, 16)" && po.label === "Porch power" && po.pressed === "true",
+    `single light: corner + strip fill = mid shade (${po.mid}), track = deep shade (${po.deep}), ink glyph, aria "Porch power"`);
+  check(ni.corner === ni.mid && JSON.parse("[" + ni.mid.slice(4, -1) + "]")[2] > 0 && sh.fn[2][0] > 0,
+    `dark face (deep blue): the shades are lighter (${ni.mid})`);
+  check(sh.fn[0][0] < 246 && sh.fn[1][0] < sh.fn[0][0] && sh.fn[3].plate === true && sh.fn[4] > 12,
+    `shade() darkens light faces (mockup #f6884e -> mid ${sh.fn[0]}, deep ${sh.fn[1]}), textOn flags the plate (${JSON.stringify(sh.fn[3])})`);
+  check(sh["light.tree"].corner === sh.tok.slab2 && sh["light.tree"].pressed === "false", `off light: corner in slab2 (${sh["light.tree"].corner})`);
+  // Group member bands (ROUND3 + user decision 2026-10-30: "full" = V2 is the default; "corner" = V1).
+  const bands = await page.evaluate(() => {
+    const out = {};
+    for (const c of document.querySelectorAll(".sec > jam-light")) {
+      if (c._config.entity !== "light.stove_lights") continue;
+      const r = c.shadowRoot, f = r.querySelector(".lc").getBoundingClientRect(), b = r.querySelector(".bands"), br = b.getBoundingClientRect();
+      out[c._config.member_bands || "full"] = {n: b.children.length, cls: b.className, top: Math.round(br.top - f.top), right: Math.round(f.right - br.right),
+        bottom: Math.round(f.bottom - br.bottom), w: Math.round(br.width), cols: [...b.children].map(i => getComputedStyle(i).backgroundColor),
+        face: getComputedStyle(r.querySelector(".lc > .face")).backgroundColor, corner: getComputedStyle(r.querySelector(".pw .tri")).backgroundColor,
+        glyph: getComputedStyle(r.querySelector(".pw svg")).color, sub: r.querySelector(".sub").textContent,
+        nmRight: Math.round(f.right - r.querySelector(".nm").getBoundingClientRect().right)};
+    }
+    return out;
+  });
+  const V2 = bands.full, V1 = bands.corner;
+  check(V2 && V2.n === 3 && V2.top === 0 && V2.right === 0 && V2.bottom === 10 && V2.w === 48 && V2.cols[0] === "rgb(255, 106, 61)" &&
+    V2.cols[1] === "rgb(255, 179, 71)" && V2.cols[2] === sh.tok.slab2 && V2.corner === "rgb(20, 18, 16)" && V2.glyph === "rgb(236, 226, 201)",
+    `V2 (default "full"): 3 vertical bands full height of the right edge, 16px each, off bulb slab2, ink corner with a cream glyph (${V2 && V2.cols.join(" | ")})`);
+  check(V2 && V2.face === "rgb(255, 143, 66)" && V2.sub === "2 of 3 on" && V2.nmRight >= 48,
+    `group face = average of the ON members (${V2 && V2.face}), sub "${V2 && V2.sub}", name clear of the bands`);
+  check(V1 && V1.n === 3 && V1.top === 46 && V1.w === 46 && V1.right === 0 && V1.corner === sh["Stove V1"].mid,
+    `V1 ("corner"): 46px band block under the power corner, corner in the face's mid shade (${V1 && V1.corner})`);
   check(geo.strip === 10 && geo.stripBottom === 0 && geo.fill.includes("9px") && geo.touch === "pan-y",
     `10 px bottom strip with a 9 px diagonal end; touch-action ${geo.touch}`);
   check(geo.grid.includes('"columns":6') && geo.grid.includes('"rows":"auto"') && geo.grid.includes('"min_columns":4'), `getGridOptions ${geo.grid}`);
-  const ty = await light("Living room").evaluate(e => { const r = e.shadowRoot, f = n => parseFloat(getComputedStyle(r.querySelector(n)).fontSize); return {pct: f(".pct"), nm: f(".nm")}; });
-  check(Math.abs(ty.pct - 27.2) < .5 && Math.abs(ty.nm - 15.2) < .5, `light type: brightness 1.7rem, name .95rem (${ty.pct}px / ${ty.nm}px)`);
+  const ty = await light("Living room").evaluate(e => { const r = e.shadowRoot, f = n => parseFloat(getComputedStyle(r.querySelector(n)).fontSize); return {pct: f(".pct"), nm: f(".nm"), sub: f(".sub")}; });
+  check(ty.pct === 26 && ty.nm === 24 && ty.sub === 10, `light type: name 24px, sub 10px, brightness 26px (${ty.nm} / ${ty.sub} / ${ty.pct})`);
 
-  // ---- tap = toggle / tap_action ----
+  // ---- tap = pop-up (round 3), corner = power, tap_action still honoured ----
   let n = await mark();
   await light("Tree").locator(".tap").click();
   let c = await newCalls(n);
-  check(c.length === 1 && c[0].service === "toggle" && c[0].data.entity_id === "light.tree", `tap toggles (${JSON.stringify(c)})`);
+  check(c.length === 0 && (await sheetOpen()) === 1, `tap opens the pop-up, no service call (${JSON.stringify(c)})`);
+  await closeSheet();
+  n = await mark();
+  await corner("Tree").click();
+  await corner("Living room").click();
+  c = await newCalls(n);
+  check(c.length === 2 && c[0].domain === "light" && c[0].service === "turn_on" && c[0].data.entity_id === "light.tree" &&
+    c[1].service === "turn_off" && c[1].data.entity_id === "light.living_room" && !(await sheetOpen()),
+    `power corner: off light -> light.turn_on, on light -> light.turn_off, no pop-up (${JSON.stringify(c.map(x => x.service + " " + x.data.entity_id))})`);
   n = await mark();
   await light("Kitchen lamp").locator(".tap").click();
   c = await newCalls(n);
@@ -90,7 +154,8 @@ module.exports = async (page, check, {callsNow}) => {
     "tap honours a configured tap_action (light.toggle with data)");
   n = await mark();
   await light("Hall").locator(".tap").click({force: true});
-  check((await newCalls(n)).length === 0 && !(await sheetOpen()), "unavailable light ignores taps");
+  await corner("Hall").click({force: true});
+  check((await newCalls(n)).length === 0 && !(await sheetOpen()), "unavailable light ignores taps and its power corner");
 
   // ---- horizontal drag = dim (live preview, one call on release, no toggle); a hass update mid-drag is deferred ----
   let b = await tapBox("Living room");
@@ -150,8 +215,8 @@ module.exports = async (page, check, {callsNow}) => {
   await page.waitForTimeout(100);
   const st2 = await page.evaluate(() => history.state && history.state.jamSheet);
   check(esc.n === 0 && esc.overflow === "" && !st2, "Esc closes the pop-up, unlocks scroll and steps back out of its history entry");
-  await corner("Living room").click();
-  check((await sheetOpen()) === 1, "corner ⋯ opens the pop-up");
+  await openTap("Living room");
+  check((await sheetOpen()) === 1, "tap opens the pop-up");
   await page.goBack();
   await page.waitForTimeout(100);
   check((await sheetOpen()) === 0 && page.url().includes("preview/index.html") && !page.url().includes("#"), "browser back closes the pop-up (URL unchanged)");
@@ -160,22 +225,20 @@ module.exports = async (page, check, {callsNow}) => {
   await light("Living room").locator(".tap").focus();
   n = await mark();
   await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("p");
+  await page.keyboard.press("Shift+Enter");
   c = await newCalls(n);
-  check(c.length === 2 && c[0].service === "turn_on" && c[0].data.brightness_pct === 85 && c[1].service === "toggle",
-    `keyboard: → = +10 % (75 -> ${c[0] && c[0].data.brightness_pct}), Enter toggles`);
-  await light("Living room").locator(".tap").focus();
-  await page.keyboard.press("m");
-  check((await sheetOpen()) === 1, "M opens the pop-up");
-  await closeSheet();
+  check(c.length === 3 && c[0].service === "turn_on" && c[0].data.brightness_pct === 85 && c[1].service === "turn_off" && c[2].service === "turn_off" &&
+    !(await sheetOpen()), `keyboard: → = +10 % (75 -> ${c[0] && c[0].data.brightness_pct}), P and Shift+Enter = power`);
   await light("Living room").locator(".tap").focus();
   n = await mark();
-  await page.keyboard.press("Shift+Enter");
-  check((await sheetOpen()) === 1 && (await newCalls(n)).length === 0, "Shift+Enter opens the pop-up without toggling");
+  await page.keyboard.press("Enter");
+  check((await sheetOpen()) === 1 && (await newCalls(n)).length === 0, "Enter opens the pop-up without a service call");
 
   // ---- group pop-up: brightness bar, whites, hue strip, your colours, members, timer ----
   const ws = await page.evaluate(() => window.__ws.map(m => m.type));
-  check(ws.filter(x => x === "frontend/get_user_data").length === 1, `saved colours loaded once via frontend/get_user_data (${ws})`);
+  const keys = await page.evaluate(() => window.__ws.filter(m => m.type === "frontend/get_user_data").map(m => m.key).sort().join());
+  check(ws.filter(x => x === "frontend/get_user_data").length === 2 && keys === "jam_colors,jam_whites", `saved colours + whites loaded once via frontend/get_user_data (${keys})`);
   await page.waitForTimeout(500); // the sheet's children stagger in (0.3.5 motion, <= ~400 ms); measure once they have landed
   const bar = sheet.locator(".bwrap"), bb = await bar.boundingBox();
   check(Math.round(bb.height) === 72, `brightness bar is 72 px (${bb.height})`);
@@ -238,6 +301,44 @@ module.exports = async (page, check, {callsNow}) => {
   check(c.length === 1 && c[0].domain === "script" && c[0].service === "turn_on" && c[0].data.entity_id === "script.jam_light_off_in" &&
     JSON.stringify(c[0].data.variables) === JSON.stringify({entity_id: "light.living_room", minutes: 30}),
     `timer chip -> script.turn_on with variables (${JSON.stringify(c.map(x => x.data))})`);
+  // ---- Edit mode (round 3): rename + kelvin of the whites (jam_whites), × removes saved colours (jam_colors), Done ----
+  const ed = sheet.locator("button.edit");
+  check(await ed.count() === 1 && (await ed.textContent()) === "Edit", "pop-up header has an Edit key");
+  await ed.click();
+  const em = await sheet.evaluate(e => { const r = e.shadowRoot; return {lbl: r.querySelector("button.edit").textContent, pressed: r.querySelector("button.edit").getAttribute("aria-pressed"),
+    pencils: r.querySelectorAll(".wt .gl.pencil").length, xs: r.querySelectorAll(".sw.rm .gl.x").length, add: r.querySelectorAll(".sw.add").length,
+    rm: [...r.querySelectorAll(".sw.rm")].map(b => b.getAttribute("aria-label"))}; });
+  check(em.lbl === "Done" && em.pressed === "true" && em.pencils === 2 && em.xs === 5 && em.add === 0 && em.rm[0] === "Remove saved colour 1",
+    `Edit mode: Done key, a pencil on each white, an × on each saved colour, + hidden (${JSON.stringify(em)})`);
+  n = await mark();
+  await sheet.locator(".wt").first().click();
+  check(await sheet.locator(".wedit").count() === 1 && (await newCalls(n)).length === 0, "pencil opens the white editor (no light call)");
+  const nin = sheet.locator(".nin");
+  await nin.fill("Reading");
+  await nin.press("Enter");
+  let last = await page.evaluate(() => window.__ws[window.__ws.length - 1]);
+  check(last.type === "frontend/set_user_data" && last.key === "jam_whites" && JSON.stringify(last.value["light.living_room"]) ===
+    JSON.stringify([{name: "Reading", kelvin: 2200}, {name: "Clean", kelvin: 4000}]), `rename saves jam_whites per entity (${JSON.stringify(last.value)})`);
+  await setState("light.living_room", "on", {brightness: 120}); // a refresh mid-edit keeps the editor and the focus
+  await sheet.locator(".kwrap").focus();
+  await page.keyboard.press("ArrowRight");
+  last = await page.evaluate(() => window.__ws[window.__ws.length - 1]);
+  const kv = await sheet.evaluate(e => { const r = e.shadowRoot, k = r.querySelector(".kwrap"); return {min: k.getAttribute("aria-valuemin"), max: k.getAttribute("aria-valuemax"), now: k.getAttribute("aria-valuenow"),
+    tile: r.querySelector(".wt").textContent}; });
+  check(last.key === "jam_whites" && last.value["light.living_room"][0].kelvin === 2300 && kv.min === "1801" && kv.max === "6535" && kv.tile === "Reading2300 K",
+    `kelvin slider within the light's range (${kv.min}-${kv.max}): → saves 2300 K; the white previews it (${kv.tile})`);
+  await sheet.locator(".sw.rm").first().click();
+  last = await page.evaluate(() => window.__ws[window.__ws.length - 1]);
+  check(last.key === "jam_colors" && last.value.length === 4 && JSON.stringify(last.value[0]) === "[90,160,255]" && await sheet.locator(".sw.rm").count() === 4,
+    `× removes a saved colour from jam_colors (${JSON.stringify(last.value)})`);
+  await ed.click();
+  const done = await sheet.evaluate(e => { const r = e.shadowRoot; return {lbl: r.querySelector("button.edit").textContent, pencils: r.querySelectorAll(".gl").length,
+    add: r.querySelectorAll(".sw.add").length, edit: r.querySelectorAll(".wedit").length, wt: r.querySelector(".wt").textContent}; });
+  check(done.lbl === "Edit" && done.pencils === 0 && done.add === 1 && done.edit === 0 && done.wt === "Reading2300 K", `Done leaves Edit mode; the saved white shows (${JSON.stringify(done)})`);
+  n = await mark();
+  await sheet.locator(".wt").first().click();
+  c = await newCalls(n);
+  check(c.length === 1 && c[0].data.color_temp_kelvin === 2300, "an edited white turns the light to its saved kelvin");
   await sheet.locator("button.close").click();
   check((await sheetOpen()) === 0, "CLOSE key closes the pop-up");
   await setState("light.living_room", "on", {brightness: 191});
@@ -245,7 +346,7 @@ module.exports = async (page, check, {callsNow}) => {
   // ---- timer row hidden without the script ----
   const keep = await page.evaluate(() => window.__hass.states["script.jam_light_off_in"]);
   await setState("script.jam_light_off_in", null);
-  await corner("Living room").click();
+  await openTap("Living room");
   const noTimer = await sheet.locator(".timer").count();
   await closeSheet();
   await page.evaluate(s => { window.__hass.states[s.entity_id] = s; }, keep);
@@ -253,7 +354,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(noTimer === 0, "off-timer row hidden when the timer script does not exist");
 
   // ---- whites clamp to the light's range ----
-  await corner("Kitchen lamp").click();
+  await openHold("Kitchen lamp");
   const kw = await sheet.locator(".wt").allTextContents();
   n = await mark();
   await sheet.locator(".wt", {hasText: "Daylight"}).click();
@@ -269,7 +370,7 @@ module.exports = async (page, check, {callsNow}) => {
   await closeSheet();
 
   // ---- WLED: preset cards instead of whites ----
-  await corner("TV light").click();
+  await openTap("TV light");
   const wp = await sheet.evaluate(e => [...e.shadowRoot.querySelectorAll(".wp")].map(b => [b.textContent, b.getAttribute("aria-pressed"), b.querySelectorAll("polygon").length]));
   const cols = await sheet.evaluate(e => getComputedStyle(e.shadowRoot.querySelector(".wp").parentElement).gridTemplateColumns.split(" ").length);
   check(wp.length === 8 && wp.find(x => x[0] === "Vibes")[1] === "true" && wp.filter(x => x[1] === "true").length === 1 && wp.every(x => x[2] >= 16) && cols === 2,
@@ -310,7 +411,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(kidPct === "78%", `popup children receive hass updates (${kidPct})`);
   await setState("light.living_room_floor_lamp", "off", {brightness: null, color_mode: null, color_temp_kelvin: null, rgb_color: null});
   await page.waitForTimeout(250); // opening wipe
-  await pop.locator("jam-light").first().locator("button.more").click();
+  await pop.locator("jam-light").first().locator(".tap").click();
   const nested = await page.evaluate(() => {
     const host = document.querySelector(".jam-sheet-host"), p = document.querySelector("jam-popup").shadowRoot.querySelector(".pop");
     return {sheet: !!host, z: host && getComputedStyle(host.shadowRoot.querySelector(".pop")).zIndex, pop: getComputedStyle(p).display};
@@ -391,9 +492,16 @@ module.exports = async (page, check, {callsNow}) => {
     await p2.screenshot({path: path.join(__dirname, "..", "shots", `popup-${mode}-390.png`)});
     await p2.keyboard.press("Escape");
     await p2.waitForTimeout(200);
-    for (const [shot, name] of [["group", "Living room"], ["wled", "TV light"]]) {
-      await p2.locator(".sec > jam-light").filter({hasText: name}).locator("button.more").click();
+    await p2.locator(".sec").filter({has: p2.locator("jam-light")}).first().screenshot({path: path.join(__dirname, "..", "shots", `light-cards-${mode}-390.png`)});
+    for (const [shot, name] of [["group", "Living room"], ["wled", "TV light"], ["edit", "Living room"]]) {
+      await p2.locator(".sec > jam-light").filter({hasText: name}).locator(".tap").click();
       await p2.waitForTimeout(400);
+      if (shot === "edit") {
+        const r = p2.locator(".jam-sheet-host");
+        await r.locator("button.edit").click();
+        await r.locator(".wt").first().click();
+        await p2.waitForTimeout(100);
+      }
       const fit = await p2.evaluate(() => {
         const r = document.querySelector(".jam-sheet-host").shadowRoot, f = r.querySelector(".face").getBoundingClientRect(), body = r.querySelector(".body");
         return {w: Math.round(f.width), bottom: Math.round(f.bottom), over: body.scrollWidth > body.clientWidth + 1};

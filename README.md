@@ -130,6 +130,8 @@ entity: media_player.kitchen
 
 ### jam-button
 Chunky key for launchers, scenes, scripts and openers: a small accent square carries the icon; an on light/switch/fan/input_boolean fills the whole key with the accent.
+For a light / switch / fan / input_boolean the top-right corner is a **power corner** (tap = toggle; P or Shift+Enter on the
+focused key); a tap anywhere else opens the entity's more-info dialog (or runs `tap_action`).
 ```yaml
 type: custom:jam-button
 entity: scene.movie_night
@@ -142,8 +144,8 @@ accent: red
 | `accent` | Any accent (see Colours), `paper`, or `ink` (plain key, no square) |
 | `color` | HA colour name instead of `accent` (blue/indigo → blue, purple → violet, green/lime → green, cyan → teal, pink → pink, orange/amber/yellow → ochre, red → red, grey → ink) |
 | `show_state` | Show the entity state |
-| `size` | `normal` (84 px, same as a jam-light card) / `big` (120 px) |
-| `tap_action`, `hold_action`, `double_tap_action` | Actions (default tap: scene/script → turn_on, button → press, toggleable → toggle, else more-info) |
+| `size` | `normal` (96 px, same as a jam-light card) / `big` (120 px) |
+| `tap_action`, `hold_action`, `double_tap_action` | Actions (default tap: scene/script → turn_on, button → press, light/switch/fan/input_boolean → more-info (the power corner toggles), other toggleable → toggle, else more-info) |
 
 ### jam-gauge
 Half-disc of cut wedges (or a strip) with a big numeral; read-only.
@@ -176,9 +178,18 @@ entities: [binary_sensor.front_door, lock.back_door]
 | `state_color` | Colour states (default true) |
 
 ### jam-light
-The card is painted in the light's own colour (at full value); big brightness number, drag sideways to dim, tap to
-toggle. Hold or the ⋯ corner opens the light pop-up: brightness bar, two whites or WLED preset cards, hue strip,
-"Your colours" (saved per HA user), group members and an off-timer.
+The card is painted in the light's own colour (at full value); big name, brightness number, a brightness strip and a
+power corner in shades of that colour. Tap the corner to switch the light on/off, drag sideways to dim, tap anywhere else
+to open the light pop-up: brightness bar, two whites or WLED preset cards, hue strip, "Your colours" (saved per HA user),
+group members and an off-timer. Keyboard: Enter = pop-up, P or Shift+Enter = power, ←/→ = ±10 %.
+On very mid-tone colours (where neither black nor cream text is readable) the name and number sit on black label plates.
+
+A group light (one with member lights) takes the average colour of its members that are on, says "2 of 3 on" while only
+some are, and shows one vertical colour band per bulb on its right edge (off bulbs dark). `member_bands: corner` puts the
+bands in a small block under the power corner instead.
+
+The pop-up's **Edit** key: tap a white's pencil to rename it and set its warmth (kelvin, within the light's range); tap ×
+on a saved colour to remove it; **Done** to finish. Edited whites are saved per HA user and per light.
 ```yaml
 type: custom:jam-light
 entity: light.living_room
@@ -189,13 +200,15 @@ entity: light.living_room
 | `name`, `icon` | Name and icon |
 | `accent` | Fill when the light reports no colour |
 | `kicker` | Pop-up label (default the light's area) |
-| `whites` | Two `{name, kelvin}` (default Cozy 2200 / Clean 4000) |
+| `whites` | Two `{name, kelvin}` (default Cozy 2200 / Clean 4000; whites edited in the pop-up win) |
 | `preset_entity` | A `select` of presets (e.g. WLED) shown as cards instead of the whites |
 | `presets` | Extra pop-up chips: `{name, color_temp_kelvin or rgb_color, brightness_pct}` |
 | `timer_script` | Off-timer script (default `script.jam_light_off_in`, fields `entity_id` + `minutes`; the row hides without it) |
 | `show_brightness`, `show_color_temp`, `show_color`, `show_members` | Show/hide pop-up parts (whites, hue strip + your colours, group members) |
-| `tap_action`, `hold_action` | Card actions (default tap: toggle; default hold: the pop-up) |
+| `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
+| `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
 
+Changed in round 3: tap opens the pop-up (was: toggle), the ⋯ corner is now the power corner, the card is 96 px tall.
 Changed in 0.3.0: the ON key, brightness strip row, colour-temperature chips and fixed swatches moved off the card;
 `presets` are now pop-up chips.
 
@@ -343,7 +356,8 @@ speakers: [media_player.living_room, media_player.phoster]
 | `accent` | Poster, Play key, volume fill (default violet) |
 
 ### jam-fan
-Fan or air purifier: On/Off pill, speed steps, preset chips, air-quality sensors in the label.
+Fan or air purifier: power corner (top-right, tap = on/off), speed steps, preset chips, air-quality sensors in the
+label. A tap elsewhere on the card (or on the name) opens more-info; P or Shift+Enter on the focused name = power.
 ```yaml
 type: custom:jam-fan
 entity: fan.air_purifier
@@ -356,7 +370,7 @@ sensor: sensor.air_purifier_air_quality
 | `speeds` | Percent steps (default from `percentage_step`) |
 | `presets` | Preset modes to show (default the fan's; `false` or `[]` hides the chips) |
 | `sensor`, `extra_sensor` | `id` or `{entity, name}` shown in the label |
-| `accent` | Pill, active speed and preset |
+| `accent` | Power glyph when on, active speed and preset |
 
 ### jam-house
 House strip for a landing view: inside / outside temperature, condition word, front door chip (tap = lock), who's home,
