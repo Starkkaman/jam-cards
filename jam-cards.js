@@ -5364,9 +5364,10 @@ register("jam-tile", JamTile, "Jam Tile", "Any entity with a coloured status str
    other apps) -> no tile marked. A newly matched tile in an open sheet gets the one-shot stamp. The open sheet follows
    state updates.
    size: "kiosk" (0.6.0, for jam-kiosk's fullscreen sheets; fills its parent's height, 420px when that has none): same
-   parts, scaled for a wall screen: poster = 45% of the card height (title 40-64px by the height, 20px kicker / time, 8px
-   progress, 72px power corner); the controls fill the rest: 72px transport keys, rocker and tabs >= 60px (off: Turn on
-   and source tiles >= 64px). Nothing under 18px. */
+   parts, scaled for a wall screen: the controls keep their own height (transport 64-80px, rocker 56-72px, tabs 56-64px, by
+   the card height) and the poster takes all the rest; its band puts kicker and time on one 18px line over a 30-44px title
+   (2 lines, 1 on short cards), so the art keeps over half the poster; 8px progress, 72px power corner. Off: poster 38%,
+   Turn on and source tiles (>= 64px) fill the rest. Nothing under 18px. */
 const JAM_TV_PLAYING = new Set(["playing", "paused", "buffering"]);
 const JAM_TV_TV_ROWS = [["power"], ["dpad"], ["back", "home", "menu", "settings"], ["rewind", "play_pause", "forward"]];
 /* h:mm when the duration is an hour or more, else m:ss. */
@@ -5379,39 +5380,40 @@ function jamTvTime(sec, long) {
 const JAM_TV_KIOSK_CSS = `
     :host{height:100%;min-height:420px}
     .kiosk{height:100%}
-    .kiosk > .face.wrap{--p-t:18px;--p-r:18px;--p-b:20px;--p-l:18px;container-type:size;grid-template-rows:minmax(0,45%) minmax(0,1fr);align-content:stretch;gap:12px;overflow:hidden}
+    .kiosk > .face.wrap{--p-t:18px;--p-r:18px;--p-b:20px;--p-l:18px;container-type:size;grid-template-rows:minmax(0,1fr) auto;align-content:stretch;gap:12px;overflow:hidden}
     .kiosk .poster{height:auto;min-height:0}
     .kiosk .poster > .face{min-height:0;height:100%}
     .kiosk .poster .sky{flex:1 1 0;min-height:0}
     .kiosk .poster .arm{right:96px;gap:12px}
     .kiosk .poster .arm span{min-width:22px}
-    .kiosk .poster .band{padding:14px 22px 18px;gap:6px}
-    .kiosk .poster .kick{font-size:20px;letter-spacing:.14em}
-    .kiosk .poster .title{font-size:clamp(40px,10cqh,64px)}
-    .kiosk .poster .sub{font-size:20px}
+    /* Kiosk band: kicker and time share the first line, title (30-44px, max 2 lines) under them, so the art keeps most of the poster. */
+    .kiosk .poster .band{padding:12px 22px 16px;gap:6px 18px;grid-template-columns:minmax(0,1fr) auto;align-items:baseline}
+    .kiosk .poster .kick{grid-row:1;grid-column:1;font-size:18px;letter-spacing:.14em;-webkit-line-clamp:1}
+    .kiosk .poster .sub{grid-row:1;grid-column:2;font-size:18px;white-space:nowrap}
+    .kiosk .poster .title{grid-row:2;grid-column:1/-1;font-size:clamp(30px,8cqh,44px)}
     .kiosk .poster .prog{height:8px}
     .kiosk .pw{width:72px;height:72px}
     .kiosk .pw svg{right:8px;top:8px;width:26px;height:26px}
-    .kiosk .pane{gap:10px;align-content:stretch;grid-auto-rows:minmax(60px,1fr);min-height:0;height:100%}
+    .kiosk .pane{gap:10px;min-height:0}
     .kiosk .keys{gap:10px}
-    .kiosk .keys .key > .face{min-height:72px;height:100%}
+    .kiosk .keys .key > .face{min-height:clamp(64px,13cqh,80px)}
     .kiosk .keys .gl svg{width:34px;height:34px}
-    .kiosk .rock > .face{min-height:64px}
+    .kiosk .rock > .face{min-height:clamp(56px,11cqh,72px)}
     .kiosk .rock .key > .face{font-size:18px}
     .kiosk .rock .key.vol > .face{font-size:2.4rem}
     .kiosk .rock .key .gl svg{width:28px;height:28px}
     .kiosk .seg{gap:10px}
-    .kiosk .seg .key > .face{min-height:60px;height:100%;font-size:18px;gap:12px}
+    .kiosk .seg .key > .face{min-height:clamp(56px,10cqh,64px);font-size:18px;gap:12px}
     .kiosk .seg .gl svg{width:28px;height:28px}
     .kiosk > .face.wrap.off{grid-template-rows:minmax(0,38%) minmax(0,1fr)}
-    .kiosk .wrap.off > .pane{grid-template-rows:minmax(64px,.7fr) minmax(0,2fr)}
+    .kiosk .wrap.off > .pane{height:100%;grid-template-rows:minmax(64px,.7fr) minmax(0,2fr)}
     .kiosk .turnon > .face{min-height:64px;height:100%;font-size:32px;gap:14px}
     .kiosk .turnon .gl svg{width:32px;height:32px}
     .kiosk .src{min-height:0;gap:10px;grid-auto-rows:minmax(64px,1fr)}
     .kiosk .src .tile > .face{min-height:64px;height:100%;font-size:24px}
     .kiosk .src .tile .gl svg{width:26px;height:26px}
     @container (max-width:440px){ .kiosk .seg .key > .face{letter-spacing:.06em} .kiosk .src .tile > .face{font-size:18px} }
-    @container (max-height:470px){ .kiosk .poster .title > .tl{-webkit-line-clamp:1} }`;
+    @container (max-height:470px){ .kiosk .poster .title > .tl{-webkit-line-clamp:1} .kiosk .poster .band{padding:10px 20px 12px;row-gap:4px} }`;
 /* Source tiles (round 3): big colour block, name bottom-left in display type (ink), glyph top-right; the source on screen
    gets a 4px --fg outline + an "On now" stamp. Used in the Source sheet and (smaller) as the off-state quick tiles. */
 const JAM_TV_TILE_CSS = `

@@ -2,7 +2,8 @@
 // fullscreen sheets, on clean pages at the iPad (1024x768) and Echo Show (961x601) viewports, dark + light:
 //  - Music sheet (jam-speaker kiosk): two columns, square art ≈ 46% (<= 440px) left, title 44-72px (<= 3 lines), keys >= 72px,
 //    volume bar >= 48px; Speakers tab rows >= 64px; the card fills the sheet body and nothing scrolls or overflows
-//  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster ≈ 45% of the card height, keys >= 64px; round 3:
+//  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster takes the free height (art >= 55% of it, title
+//    >= 30px, <= 2 lines), keys >= 64px; round 3:
 //    the Source sheet opens over it (7 tiles >= 64px, no scroll), off = Turn on + quick tiles >= 64px, NerveOS art square + ⋯ sheet still opens; NerveOS idle ("Nothing") shows "Idle" (0.6.1)
 //  - nothing under 18px in any kiosk card; art present (img) with a picture, Golden Arm bars without one / on a broken URL
 // Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources,tv-off}-dark-{1024,961}.png.
@@ -60,8 +61,9 @@ module.exports = async (page, check) => {
       for (const e of s.querySelectorAll(".face, .kmain, .pane, .ktxt, .know, .kbot")) if (e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) over.push(`${e.className} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
       const tl = q(".title .tl"), title = q(".title");
       const kart = q(".kart, .poster");
+      const sky = q(".poster .sky");
       return {tag: c.localName, box: R(c), small, over, img: !!(kart && kart.querySelector("img")), bars: !!(kart && kart.querySelector(".arm")),
-        art: kart ? R(kart) : null, title: title ? fs(title) : 0, lines: tl ? Math.round(tl.getBoundingClientRect().height / (fs(title) * .92)) : 0,
+        art: kart ? R(kart) : null, sky: sky ? R(sky) : null, title: title ? fs(title) : 0, lines: tl ? Math.round(tl.getBoundingClientRect().height / (fs(title) * .92)) : 0,
         keys: qa(".keys .key, .kkeys .key").map(k => Math.round(k.getBoundingClientRect().height)),
         vol: qa(".kiosk .vol .vt").map(k => Math.round(k.getBoundingClientRect().height)),
         rows: qa(".klist .spk").map(k => Math.round(k.getBoundingClientRect().height)),
@@ -103,9 +105,9 @@ module.exports = async (page, check) => {
     check(m.cards.length === 2 && t.tag === "jam-tv" && n.tag === "jam-media" && share > .57 && share < .63 && !m.scroll && fits(m, t) && fits(m, n) &&
       t.over.length === 0 && n.over.length === 0,
       `${tag}: TV sheet — jam-tv ${t.box.w}px (${Math.round(share * 100)}%) + NerveOS ${n.box.w}px, both ${t.box.h}px tall, no scroll` + (m.scroll ? " — scrolls " + m.scroll : "") + [...t.over, ...n.over].map(x => " — " + x).join(""));
-    const ph = t.art.h / t.box.h;
-    check(t.img && ph > (w === 1024 ? .38 : .3) && ph < .5 && t.title >= 40 && minOf(t.keys) >= 64 && minOf(t.seg) >= 56,
-      `${tag}: TV — poster ${t.art.h}px (${Math.round(ph * 100)}% of the card), title ${t.title}px, keys ${t.keys.join(",")}, switch ${t.seg}`);
+    const ph = t.art.h / t.box.h, sh = t.sky.h / t.art.h;
+    check(t.img && ph > .4 && ph < .7 && sh >= .55 && t.title >= 30 && t.lines <= 2 && minOf(t.keys) >= 64 && minOf(t.seg) >= 56,
+      `${tag}: TV — poster ${t.art.h}px (${Math.round(ph * 100)}% of the card), art above the band ${t.sky.h}px (${Math.round(sh * 100)}% of the poster), title ${t.title}px / ${t.lines} lines, keys ${t.keys.join(",")}, tabs ${t.seg}`);
     check(n.img && Math.abs(n.art.w - n.art.h) <= 1 && n.art.w >= (w === 1024 ? 260 : 150) && n.title >= 36 && minOf(n.keys) >= 64,
       `${tag}: NerveOS — square art ${n.art.w}px, title ${n.title}px, keys ${n.keys.join(",")}`);
     check(t.small.length === 0 && n.small.length === 0, `${tag}: TV sheet — nothing under 18px` + [...t.small, ...n.small].slice(0, 4).map(x => " — " + x).join(""));
