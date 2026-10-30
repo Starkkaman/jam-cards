@@ -268,7 +268,8 @@ clock: true
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
 
 ### jam-remote
-TV remote: d-pad of cut arrows and keys sending `remote.send_command` (Android TV defaults).
+TV remote: d-pad of cut arrows and keys sending `remote.send_command` (Android TV defaults; also `rewind` MEDIA_REWIND,
+`forward` MEDIA_FAST_FORWARD).
 ```yaml
 type: custom:jam-remote
 entity: remote.living_room_tv
@@ -285,15 +286,20 @@ media_player: media_player.living_room_tv
 | `commands` | Map of key → `send_command` value |
 | `actions` | Map of key → action object (overrides the command) |
 | `labels` | Map of key → label text |
-| `sections` | Colour-coded blocks instead of rows: `[{title, accent, rows, entity, actions, commands, labels, active_entity, active_match}]`; each block has a 5px rule in its accent; `entity: null` = keys run actions only; a key fills with the accent when `active_entity`'s state equals `active_match[key]` (else its label) |
+| `sections` | Colour-coded groups instead of rows: `[{title, accent, rows, entity, actions, commands, labels, active_entity, active_match, power_accent}]`; each group has a 6px left rule in its accent and a header with its title and its `power` key (red; `power_accent: true` = the group accent); keys show a glyph above the label, Play is filled with the accent; `entity: null` = keys run actions only; with `active_entity` the plain row keys are an outlined choice and the one whose `active_match[key]` (else label) equals its state is filled |
+| row `rocker` | `[rocker]` in any `rows`: Vol − / Mute / Vol + as one flat block in the accent (keys the remote cannot run are left out) |
 
 The `keyboard` key opens a small sheet: a text field with Send (`send_command` `text:<text>`), Backspace (`DEL`) and
 Enter (`ENTER`), as universal-remote-card's Android TV keyboard. Volume and d-pad keys repeat while held.
 
 ### jam-tv
-Smart TV (Android TV media_player + remote): an artwork poster (power in its corner) over a **Now playing | Source**
-switch. Now playing = Prev / Play-Pause / Next / Remote + volume; Source = 3-up tiles, the one on screen filled with its
-colour. Remote opens a sheet with a jam-remote in colour-coded TV and Stereo sections and a keyboard key in the header.
+Smart TV (Android TV media_player + remote), round 3: an artwork poster (power in its corner) with the title on a solid
+ink band, Prev / big Play-Pause / Next, a violet volume rocker (− | Mute | +) and outlined **Remote** and **Source** tabs.
+Remote opens a sheet with a jam-remote in a TV group (teal: d-pad, Back / Home / Menu / Settings, Rewind / Play / Forward,
+red power) and a Stereo group (violet: rocker, inputs, violet power), with a keyboard key in the header. Source opens its
+own sheet: **Inputs** (2-up) and **Apps** (3-up) big colour tiles with a glyph, the one on screen outlined with an
+"On now" stamp, then a **Home screen** tile. When the TV is off the card shows "TV off", a big **Turn on** key and quick
+source tiles.
 ```yaml
 type: custom:jam-tv
 media_player: media_player.living_room_tv
@@ -320,19 +326,19 @@ stereo:
 | `media_player` | media_player (required) |
 | `remote` | remote entity (Remote sheet, power) |
 | `name` | Kicker when idle / off (default the player's name) |
-| `sources` | `{name, color, tap_action, hold_action, match: {app, input}, exact}` tiles, 3-up (`launchers` still works as an alias); `match.app` / `match.input` = text or list (a plain text = app); `exact: true` (0.3.8, default false) = `match.app` only matches the whole app name, so YouTube does not light for YouTube Music / YouTube TV |
-| `source_label` | Name of the switch's second tab (default "Source") |
-| `current_app_entity` | Sensor whose state is the app in front (label or package id). The tile whose `match.app` equals it (any source, case-insensitive) fills; else the first whose `match.app` is contained in it (sources with `exact: true` skip this step) |
-| `input_entity` | Select/sensor naming the TV input; the tile whose `match.input` equals it fills while the TV shows an input |
+| `sources` | `{name, color, icon, tap_action, hold_action, match: {app, input}, exact}` tiles (`launchers` still works as an alias); a source whose `match` has `input` is listed under Inputs, the rest under Apps; `icon` = a glyph name (`input`, `app`, `game`, `disc`, `download`, `grid`, `home`, `tv`, `music`, `film`) or an `mdi:` icon (default `input` / `app`); `match.app` / `match.input` = text or list (a plain text = app); `exact: true` (0.3.8, default false) = `match.app` only matches the whole app name, so YouTube does not light for YouTube Music / YouTube TV |
+| `source_label` | Name of the Source tab and sheet (default "Source") |
+| `current_app_entity` | Sensor whose state is the app in front (label or package id). The tile whose `match.app` equals it (any source, case-insensitive) is marked "On now"; else the first whose `match.app` is contained in it (sources with `exact: true` skip this step) |
+| `input_entity` | Select/sensor naming the TV input; the tile whose `match.input` equals it is marked while the TV shows an input |
 | `input_app` | current-app values that mean "the TV shows an input" (e.g. `Live TV`); without it the input counts whenever it matches |
 | `input_signal_entity` | Optional: the input only counts while this sensor reports a signal (not "No signal" / off / unavailable) |
-| | Highlight comes only from these live signals (0.3.5): select states and tap options are not used (`source_entities` is ignored); nothing matches → no tile filled |
-| `power_action` | Power triangle action (default `remote.toggle`) |
-| `volume_up_action`, `volume_down_action`, `mute_action` | Volume row on the card (keys without an action are left out; Vol keys repeat while held) |
-| `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo section of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
-| `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them); sheet title (default "Remote") |
-| `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — poster ≈ 45 % of the card height with a huge title, 60 px switch, 72 px keys, source tiles fill the rest; fills the sheet height, nothing under 18 px |
-| `accent` | Poster, Play key, TV section (see Colours) |
+| | Highlight comes only from these live signals (0.3.5): select states and tap options are not used (`source_entities` is ignored); nothing matches → no tile marked |
+| `power_action` | Power triangle and Turn on key action (default `remote.toggle`) |
+| `volume_up_action`, `volume_down_action`, `mute_action` | The violet volume rocker on the card (keys without an action are left out; Vol keys repeat while held) |
+| `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo group of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
+| `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them; `commands.home` / `actions.home` also drive the Home screen tile); Remote tab + sheet title (default "Remote") |
+| `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — 64-80 px transport keys, rocker and tabs at their own height, the poster takes the rest (art keeps over half of it; kicker + time on one line over a 30-44 px title); off: Turn on + quick tiles; fills the sheet height, nothing under 18 px |
+| `accent` | Poster, progress strip, Play key (see Colours); the Remote sheet's TV group is always teal, Stereo violet |
 
 ### jam-speaker
 Music Assistant speaker (Spotify Connect too): an artwork poster with a source badge in its corner (Spotify Connect,

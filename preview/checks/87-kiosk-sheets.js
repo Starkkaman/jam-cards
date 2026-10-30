@@ -2,10 +2,11 @@
 // fullscreen sheets, on clean pages at the iPad (1024x768) and Echo Show (961x601) viewports, dark + light:
 //  - Music sheet (jam-speaker kiosk): two columns, square art ≈ 46% (<= 440px) left, title 44-72px (<= 3 lines), keys >= 72px,
 //    volume bar >= 48px; Speakers tab rows >= 64px; the card fills the sheet body and nothing scrolls or overflows
-//  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster ≈ 45% of the card height, keys >= 64px, source
-//    tiles >= 64px, NerveOS art square + ⋯ sheet still opens; NerveOS idle ("Nothing") shows "Idle" (0.6.1)
+//  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster takes the free height (art >= 55% of it, title
+//    >= 30px, <= 2 lines), keys >= 64px; round 3:
+//    the Source sheet opens over it (7 tiles >= 64px, no scroll), off = Turn on + quick tiles >= 64px, NerveOS art square + ⋯ sheet still opens; NerveOS idle ("Nothing") shows "Idle" (0.6.1)
 //  - nothing under 18px in any kiosk card; art present (img) with a picture, Golden Arm bars without one / on a broken URL
-// Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources}-dark-{1024,961}.png.
+// Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources,tv-off}-dark-{1024,961}.png.
 const path = require("path");
 
 module.exports = async (page, check) => {
@@ -60,12 +61,13 @@ module.exports = async (page, check) => {
       for (const e of s.querySelectorAll(".face, .kmain, .pane, .ktxt, .know, .kbot")) if (e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) over.push(`${e.className} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
       const tl = q(".title .tl"), title = q(".title");
       const kart = q(".kart, .poster");
+      const sky = q(".poster .sky");
       return {tag: c.localName, box: R(c), small, over, img: !!(kart && kart.querySelector("img")), bars: !!(kart && kart.querySelector(".arm")),
-        art: kart ? R(kart) : null, title: title ? fs(title) : 0, lines: tl ? Math.round(tl.getBoundingClientRect().height / (fs(title) * .92)) : 0,
+        art: kart ? R(kart) : null, sky: sky ? R(sky) : null, title: title ? fs(title) : 0, lines: tl ? Math.round(tl.getBoundingClientRect().height / (fs(title) * .92)) : 0,
         keys: qa(".keys .key, .kkeys .key").map(k => Math.round(k.getBoundingClientRect().height)),
         vol: qa(".kiosk .vol .vt").map(k => Math.round(k.getBoundingClientRect().height)),
         rows: qa(".klist .spk").map(k => Math.round(k.getBoundingClientRect().height)),
-        tiles: qa(".src .key").map(k => Math.round(k.getBoundingClientRect().height)),
+        tiles: qa(".src .tile").map(k => Math.round(k.getBoundingClientRect().height)),
         seg: qa(".seg .key").map(k => Math.round(k.getBoundingClientRect().height))};
     });
     return {body: R(body), scroll: body.scrollHeight > body.clientHeight + 1 ? `${body.scrollHeight}>${body.clientHeight}` : "", cards};
@@ -103,20 +105,38 @@ module.exports = async (page, check) => {
     check(m.cards.length === 2 && t.tag === "jam-tv" && n.tag === "jam-media" && share > .57 && share < .63 && !m.scroll && fits(m, t) && fits(m, n) &&
       t.over.length === 0 && n.over.length === 0,
       `${tag}: TV sheet — jam-tv ${t.box.w}px (${Math.round(share * 100)}%) + NerveOS ${n.box.w}px, both ${t.box.h}px tall, no scroll` + (m.scroll ? " — scrolls " + m.scroll : "") + [...t.over, ...n.over].map(x => " — " + x).join(""));
-    const ph = t.art.h / t.box.h;
-    check(t.img && ph > (w === 1024 ? .38 : .3) && ph < .5 && t.title >= 40 && minOf(t.keys) >= 64 && minOf(t.seg) >= 56,
-      `${tag}: TV — poster ${t.art.h}px (${Math.round(ph * 100)}% of the card), title ${t.title}px, keys ${t.keys.join(",")}, switch ${t.seg}`);
+    const ph = t.art.h / t.box.h, sh = t.sky.h / t.art.h;
+    check(t.img && ph > .4 && ph < .7 && sh >= .55 && t.title >= 30 && t.lines <= 2 && minOf(t.keys) >= 64 && minOf(t.seg) >= 56,
+      `${tag}: TV — poster ${t.art.h}px (${Math.round(ph * 100)}% of the card), art above the band ${t.sky.h}px (${Math.round(sh * 100)}% of the poster), title ${t.title}px / ${t.lines} lines, keys ${t.keys.join(",")}, tabs ${t.seg}`);
     check(n.img && Math.abs(n.art.w - n.art.h) <= 1 && n.art.w >= (w === 1024 ? 260 : 150) && n.title >= 36 && minOf(n.keys) >= 64,
       `${tag}: NerveOS — square art ${n.art.w}px, title ${n.title}px, keys ${n.keys.join(",")}`);
     check(t.small.length === 0 && n.small.length === 0, `${tag}: TV sheet — nothing under 18px` + [...t.small, ...n.small].slice(0, 4).map(x => " — " + x).join(""));
     await p.screenshot({path: path.join(shots, `kiosk-sheet-tv-${mode}-${w}.png`)});
-    // Source tab
-    await p.evaluate(() => [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-tv").shadowRoot.querySelector('.seg [data-tab="source"]').click());
-    await p.waitForTimeout(300);
-    m = await measure(p);
-    check(m.cards[0].tiles.length === 6 && minOf(m.cards[0].tiles) >= 64 && !m.scroll && m.cards[0].over.length === 0 && m.cards[0].small.length === 0,
-      `${tag}: TV sources — ${m.cards[0].tiles.length} tiles (${m.cards[0].tiles.join(",")}px), no scroll, nothing under 18px` + m.cards[0].over.map(x => " — " + x).join(""));
+    // Source (round 3): its own sheet over the kiosk sheet — big colour tiles (Inputs 2-up, Apps 3-up + Home screen).
+    await p.evaluate(() => [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-tv").shadowRoot.querySelector('.seg [data-key="source"]').click());
+    await p.waitForTimeout(400);
+    const srcs = await p.evaluate(() => {
+      const hs = document.querySelectorAll(".jam-sheet-host"), r = hs[hs.length - 1].shadowRoot, body = r.querySelector(".body");
+      return {n: hs.length, title: r.querySelector(".t h2").textContent, tiles: [...r.querySelectorAll(".tile")].map(t => Math.round(t.getBoundingClientRect().height)),
+        two: r.querySelectorAll(".grid.two .tile").length, three: r.querySelectorAll(".grid.three .tile").length, scroll: body.scrollHeight > body.clientHeight + 1};
+    });
+    check(srcs.n === 2 && srcs.title === "Source" && srcs.tiles.length === 7 && srcs.two === 2 && srcs.three === 5 && minOf(srcs.tiles) >= 64 && !srcs.scroll,
+      `${tag}: TV Source sheet over the kiosk sheet — ${srcs.tiles.length} tiles (${srcs.two} inputs + ${srcs.three} apps incl. Home screen, ${srcs.tiles.join(",")}px), no scroll`);
     if (mode === "dark") await p.screenshot({path: path.join(shots, `kiosk-sheet-sources-dark-${w}.png`)});
+    await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+    check(await p.evaluate(() => document.querySelectorAll(".jam-sheet-host").length) === 1, `${tag}: Esc closes only the Source sheet`);
+    // Off (round 3): poster "TV off" + big Turn on + quick source tiles, in the same kiosk scale.
+    await p.evaluate(() => { const h = window.__hass; window.__ksTv = h.states["media_player.ks_tv"];
+      h.states["media_player.ks_tv"] = {...window.__ksTv, state: "off", last_updated: String(Math.random())}; document.querySelector("jam-kiosk").hass = {...h}; });
+    await p.waitForTimeout(200);
+    m = await measure(p);
+    const to = m.cards[0], turn = await p.evaluate(() => { const b = [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-tv").shadowRoot.querySelector(".turnon");
+      return b ? Math.round(b.getBoundingClientRect().height) : 0; });
+    check(turn >= 64 && to.tiles.length === 6 && minOf(to.tiles) >= 64 && !m.scroll && to.over.length === 0 && to.small.length === 0 && fits(m, to),
+      `${tag}: TV off — Turn on ${turn}px + ${to.tiles.length} quick tiles (${to.tiles.join(",")}px), fills the column, no scroll, nothing under 18px` + to.over.map(x => " — " + x).join("") + to.small.slice(0, 3).map(x => " — " + x).join(""));
+    if (mode === "dark") await p.screenshot({path: path.join(shots, `kiosk-sheet-tv-off-dark-${w}.png`)});
+    await p.evaluate(() => { const h = window.__hass; h.states["media_player.ks_tv"] = window.__ksTv; document.querySelector("jam-kiosk").hass = {...h}; });
+    await p.waitForTimeout(150);
     if (mode === "dark" && w === 1024) {
       // NerveOS ⋯ still opens its sheet (over the TV sheet), with hass for its cards.
       const more = await p.evaluate(async () => {
