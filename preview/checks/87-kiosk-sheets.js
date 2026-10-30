@@ -1,11 +1,14 @@
 // size "kiosk" (0.6.0; fixture preview/fixtures/87-kiosk-sheets.js): jam-speaker, jam-tv and jam-media (NerveOS) in jam-kiosk
 // fullscreen sheets, on clean pages at the iPad (1024x768) and Echo Show (961x601) viewports, dark + light:
-//  - Music sheet (jam-speaker kiosk): two columns, square art ≈ 46% (<= 440px) left, title 44-72px (<= 3 lines), keys >= 72px,
-//    volume bar >= 48px; Speakers tab rows >= 64px; the card fills the sheet body and nothing scrolls or overflows
+//  - Music sheet (jam-speaker kiosk = K1, round 3): art flush left (58 %), right panel in the art's dominant colour (text ink
+//    or paper by luminance, >= 4.5:1), title 36-76px (<= 3 lines), Prev / Play / Next >= 52px, volume bar >= 48px + Speakers
+//    key, bottom shelf >= 88px of 5 covers + Browse (labels 18px); Speakers view rows >= 64px; Browse opens panel B
+//    fullscreen; a shelf cover plays its uri; the card fills the sheet body and nothing scrolls or overflows
 //  - TV sheet (columns [3, 2]): jam-tv ≈ 60% + jam-media ≈ 40%, poster ≈ 45% of the card height, keys >= 64px, source
 //    tiles >= 64px, NerveOS art square + ⋯ sheet still opens; NerveOS idle ("Nothing") shows "Idle" (0.6.1)
 //  - nothing under 18px in any kiosk card; art present (img) with a picture, Golden Arm bars without one / on a broken URL
-// Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources}-dark-{1024,961}.png.
+// Writes preview/shots/kiosk-sheet-{music,tv}-{dark,light}-{1024,961}.png + kiosk-sheet-{speakers,sources}-dark-{1024,961}.png
+// + kiosk-sheet-music-panel-{dark,light}-{1024,961}.png.
 const path = require("path");
 
 module.exports = async (page, check) => {
@@ -57,7 +60,7 @@ module.exports = async (page, check) => {
         const own = [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
         if (own && fs(e) < 18) small.push(`${e.className}: ${fs(e)}px "${e.textContent.trim().slice(0, 16)}"`);
       }
-      for (const e of s.querySelectorAll(".face, .kmain, .pane, .ktxt, .know, .kbot")) if (e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) over.push(`${e.className} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
+      for (const e of s.querySelectorAll(".face, .kmain, .pane, .ktxt, .know, .kbot, .side, .kb, .shelf, .kspk")) if (e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) over.push(`${e.className} ${e.scrollWidth}x${e.scrollHeight}>${e.clientWidth}x${e.clientHeight}`);
       const tl = q(".title .tl"), title = q(".title");
       const kart = q(".kart, .poster");
       return {tag: c.localName, box: R(c), small, over, img: !!(kart && kart.querySelector("img")), bars: !!(kart && kart.querySelector(".arm")),
@@ -66,7 +69,12 @@ module.exports = async (page, check) => {
         vol: qa(".kiosk .vol .vt").map(k => Math.round(k.getBoundingClientRect().height)),
         rows: qa(".klist .spk").map(k => Math.round(k.getBoundingClientRect().height)),
         tiles: qa(".src .key").map(k => Math.round(k.getBoundingClientRect().height)),
-        seg: qa(".seg .key").map(k => Math.round(k.getBoundingClientRect().height))};
+        seg: qa(".seg .key").map(k => Math.round(k.getBoundingClientRect().height)),
+        // K1 (jam-speaker kiosk)
+        kt: qa(".kt .key").map(k => Math.round(k.getBoundingClientRect().height)), kv: qa(".kv .vt").map(k => Math.round(k.getBoundingClientRect().height)),
+        kspk: qa('.kv [data-key="speakers"]').length, side: q(".side") ? {...R(q(".side")), bg: getComputedStyle(q(".side")).backgroundColor, fg: getComputedStyle(q(".side")).color} : null,
+        shelf: q(".shelf") ? R(q(".shelf")) : null, tilesK: qa(".shelf .tile").map(t => t.querySelector(".nm").textContent),
+        tileFs: qa(".shelf .tile .nm").map(fs)};
     });
     return {body: R(body), scroll: body.scrollHeight > body.clientHeight + 1 ? `${body.scrollHeight}>${body.clientHeight}` : "", cards};
   });
@@ -76,23 +84,55 @@ module.exports = async (page, check) => {
   for (const [w, h] of [[1024, 768], [961, 601]]) for (const mode of ["dark", "light"]) {
     const tag = `kiosk sheets ${w}x${h} ${mode}`;
     const {ctx, p} = await mount(w, h, mode);
-    // ---- Music ----
+    // ---- Music (K1) ----
     await openBlock(p, 0);
+    await p.waitForTimeout(300); // shelf (pins / recent) and the art colour arrive after the first paint
     let m = await measure(p), s = m.cards[0];
     check(m.cards.length === 1 && s.tag === "jam-speaker" && !m.scroll && fits(m, s) && s.over.length === 0,
-      `${tag}: Music sheet — jam-speaker kiosk fills the body (${s.box.w}x${s.box.h} in ${m.body.w}x${m.body.h}), no scroll` + (m.scroll ? " — scrolls " + m.scroll : "") + (s.over.length ? " — " + s.over.join("; ") : ""));
-    const aw = s.art.w / (s.box.w - 48);
-    check(s.img && s.art.w === s.art.h && s.art.w <= 440 && s.art.w >= 280 && aw <= .47 && s.title >= 44 && s.title <= 72 && s.lines <= 3 &&
-      minOf(s.keys) >= 72 && s.keys.length === 4 && minOf(s.vol) >= 48 && minOf(s.seg) >= 56,
-      `${tag}: Music — square art ${s.art.w}px (${Math.round(aw * 100)}% of the width), title ${s.title}px / ${s.lines} lines, keys ${s.keys.join(",")}, volume ${s.vol}, switch ${s.seg}`);
+      `${tag}: Music sheet — jam-speaker K1 fills the body (${s.box.w}x${s.box.h} in ${m.body.w}x${m.body.h}), no scroll` + (m.scroll ? " — scrolls " + m.scroll : "") + (s.over.length ? " — " + s.over.join("; ") : ""));
+    const aw = s.art.w / s.box.w, rgb = x => (x.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+    const lum = c => { const l = c.map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * l[0] + .7152 * l[1] + .0722 * l[2]; };
+    const cr = (a, b) => { const x = lum(rgb(a)), y = lum(rgb(b)); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+    check(s.img && aw > .56 && aw < .6 && s.art.l === s.box.l && s.art.t === s.box.t && s.side.bg !== "rgb(155, 109, 214)" && cr(s.side.bg, s.side.fg) >= 4.5 &&
+      s.title >= 36 && s.title <= 76 && s.lines <= 3 && s.kt.length === 3 && minOf(s.kt) >= 52 && minOf(s.kv) >= 48 && s.kspk === 1,
+      `${tag}: Music — art flush left ${Math.round(aw * 100)}%, panel ${s.side.bg} / text ${s.side.fg} (${cr(s.side.bg, s.side.fg).toFixed(1)}:1), title ${s.title}px / ${s.lines} lines, keys ${s.kt}, volume ${s.kv}, Speakers key ${s.kspk}`);
+    check(s.shelf && s.shelf.h >= 88 && s.shelf.b === s.box.b && s.tilesK.length === 6 && s.tilesK[5] === "Browse" && s.tilesK.slice(0, 3).join(",") === "Cooking,Sunday,Dinner party" &&
+      s.tileFs.every(f => f >= 18),
+      `${tag}: Music — shelf ${s.shelf && s.shelf.h}px: pinned, then recent, then Browse (${s.tilesK.join(", ")})`);
     check(s.small.length === 0, `${tag}: Music — nothing under 18px` + (s.small.length ? " — " + s.small.slice(0, 4).join("; ") : ""));
     await p.screenshot({path: path.join(shots, `kiosk-sheet-music-${mode}-${w}.png`)});
-    // Speakers tab
-    await p.evaluate(() => [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-speaker").shadowRoot.querySelector('.seg [data-tab="speakers"]').click());
+    // A shelf cover plays its uri; Browse opens panel B fullscreen over the sheet (bigger type, 18px floor).
+    const played = await p.evaluate(() => {
+      window.__calls.length = 0;
+      [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-speaker").shadowRoot.querySelector(".shelf .tile").click();
+      return window.__calls.slice();
+    });
+    check(played.length === 1 && played[0].service === "play_media" && played[0].data.media_id === "library://playlist/1" && played[0].data.entity_id === "media_player.ks_speaker",
+      `${tag}: a shelf cover -> music_assistant.play_media (${JSON.stringify(played)})`);
+    await p.evaluate(() => [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-speaker").shadowRoot.querySelector('[data-key="browse"]').click());
+    await p.waitForTimeout(450);
+    const pb = await p.evaluate(() => {
+      const hs = document.querySelectorAll(".jam-sheet-host"), r = hs[hs.length - 1].shadowRoot, pop = r.querySelector(".pop"), face = r.querySelector(".face[role=dialog]");
+      const small = [];
+      for (const e of r.querySelectorAll(".face *")) {
+        if (!e.getClientRects().length || e.closest("input")) continue;
+        const own = [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+        if (own && parseFloat(getComputedStyle(e).fontSize) < 18) small.push(e.className + ": " + e.textContent.trim().slice(0, 12));
+      }
+      const fb = face.getBoundingClientRect();
+      return {n: hs.length, full: pop.classList.contains("full") && pop.classList.contains("mu"), w: Math.round(fb.width), h: Math.round(fb.height),
+        rows: r.querySelectorAll(".body .row").length, dock: !!r.querySelector(".dock"), small, scroll: face.scrollHeight > face.clientHeight + 1};
+    });
+    check(pb.n === 2 && pb.full && pb.w === w && pb.h === h && pb.rows >= 3 && pb.dock && !pb.small.length && !pb.scroll,
+      `${tag}: Browse -> panel B fullscreen over the sheet (${pb.w}x${pb.h}, ${pb.rows} rows, dock), nothing under 18px` + (pb.small.length ? " — " + pb.small.slice(0, 4).join("; ") : ""));
+    await p.screenshot({path: path.join(shots, `kiosk-sheet-music-panel-${mode}-${w}.png`)});
+    await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+    // Speakers view (the Speakers key by the volume bar)
+    await p.evaluate(() => [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector("jam-speaker").shadowRoot.querySelector('.kv [data-key="speakers"]').click());
     await p.waitForTimeout(400);
     m = await measure(p); s = m.cards[0];
-    check(s.rows.length === 3 && minOf(s.rows) >= 64 && !m.scroll && s.over.length === 0 && s.small.length === 0 && s.img,
-      `${tag}: Speakers tab — ${s.rows.length} rows (${s.rows.join(",")}px), art kept, no scroll, nothing under 18px` + (s.over.length ? " — " + s.over.join("; ") : "") + (s.small.length ? " — " + s.small.slice(0, 3).join("; ") : ""));
+    check(s.rows.length === 3 && minOf(s.rows) >= 64 && !m.scroll && s.over.length === 0 && s.small.length === 0 && s.shelf,
+      `${tag}: Speakers view — ${s.rows.length} rows (${s.rows.join(",")}px), shelf kept, no scroll, nothing under 18px` + (s.over.length ? " — " + s.over.join("; ") : "") + (s.small.length ? " — " + s.small.slice(0, 3).join("; ") : ""));
     if (mode === "dark") await p.screenshot({path: path.join(shots, `kiosk-sheet-speakers-dark-${w}.png`)});
     await p.keyboard.press("Escape"); await p.waitForTimeout(200);
     // ---- TV ----
@@ -139,7 +179,8 @@ module.exports = async (page, check) => {
       });
       await openBlock(p, 0);
       m = await measure(p); s = m.cards[0];
-      check(!s.img && s.bars && s.lines <= 3 && !m.scroll && s.over.length === 0, `kiosk sheets: Music without art -> Golden Arm bars; a long title clamps to ${s.lines} lines, still fits (${JSON.stringify({img: s.img, bars: s.bars, lines: s.lines, scroll: m.scroll, over: s.over})})`);
+      check(!s.img && s.bars && s.lines <= 3 && !m.scroll && s.over.length === 0 && s.side.bg === "rgb(155, 109, 214)",
+        `kiosk sheets: Music without art -> Golden Arm bars + violet panel; a long title clamps to ${s.lines} lines, still fits (${JSON.stringify({img: s.img, bars: s.bars, lines: s.lines, scroll: m.scroll, over: s.over, bg: s.side.bg})})`);
       await p.screenshot({path: path.join(shots, "kiosk-sheet-music-noart-dark-1024.png")});
       await p.keyboard.press("Escape"); await p.waitForTimeout(200);
       await openBlock(p, 1);

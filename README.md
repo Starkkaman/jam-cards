@@ -322,25 +322,35 @@ stereo:
 | `accent` | Poster, Play key, TV section (see Colours) |
 
 ### jam-speaker
-Music Assistant speaker (Spotify Connect too): an artwork poster with a source badge in its corner (Spotify Connect,
-Music Assistant, Grouped, Idle, Paused, Offline or the source name) over a **Now playing | Speakers** switch. Now playing =
-Prev / Play-Pause / Next / Shuffle + a thick volume bar; Speakers = this room and each listed speaker with its own volume
-and a Join / Playing toggle (media_player.join / unjoin; only players that support grouping).
+Music Assistant speaker (Spotify Connect too), built like the TV card: album art up top (or, while idle, a cut-paper
+abstract that changes each time the player goes idle), the title on a solid ink band with a source dot and "Room ·
+source", small **Shuffle** and **Favourite** keys at the right of the band, a power corner, then Prev / big Play / Next and
+a volume bar. Tap the art or the band to open the **library panel**: tabs Pinned / Recent / Playlists / Albums / Search
+(each row: cover, name, type, Play, and a corner tab to pin / unpin), a player bar docked at the bottom, and a Speakers
+key (with `speakers`) for grouping rooms (Join / Playing, per-room volume).
 ```yaml
 type: custom:jam-speaker
 entity: media_player.kitchen
 name: Kitchen
 speakers: [media_player.living_room, media_player.phoster]
+pinned:
+  - {uri: "library://playlist/12", name: Cooking}
+  - spotify://playlist/37i9dQZF1DX4sWSpwq3LiO
 ```
 | Option | Description |
 |---|---|
 | `entity` | media_player (required; a Music Assistant player) |
-| `name` | Kicker "<name> speakers" (default the player's name) |
-| `speakers` | media_player ids (or `{entity, name}`) for the Speakers tab; none = no tab |
-| `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
-| `poster_height` | Poster height in px (default 170, min 72; below 110 the title is one line) |
-| `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — square album art left (≈ 46 % of the width, ≤ 440 px) with the Now playing / Speakers switch under it; right: source badge, kicker, title 44-72 px (≤ 3 lines), artist, progress bar with times, 72 px keys, 48 px volume bar; Speakers = 64 px rows. Fills the sheet height, nothing under 18 px |
-| `accent` | Poster, Play key, volume fill (default violet) |
+| `name` | Room name on the band and the panel (default the player's name) |
+| `speakers` | media_player ids (or `{entity, name}`) for the Speakers view (panel / kiosk Speakers key); none = no key |
+| `pinned` | Music Assistant uris (or `{uri, name, image, media_type}`) shown first under Pinned and on the kiosk shelf; each person's own pins (corner tab on any row) are added after them and saved to their Home Assistant user (`jam_pins`); a config pin they unpin is hidden for them only. A bare uri gets its name from the library |
+| `show_shuffle` | Shuffle key on the band (default true; hidden when the player cannot shuffle) |
+| `show_favorite` | Favourite key on the band (default true; hidden when the player has no Music Assistant "Favorite current song" button) |
+| `favorite_entity` | That button (default: found on the player's device); `false` = no Favourite key. Favourite adds the playing track to the Music Assistant favourites (there is no un-favourite); it lights for a track MA reports as a favourite (MA queue only) or after a tap |
+| `config_entry_id` | Music Assistant config entry for the library calls (default: found automatically) |
+| `power_action` | Action for the power corner. Default: `media_player.toggle` when the player can turn on/off, else stop (playing / paused) or play (idle) — Music Assistant players usually have no power control |
+| `poster_height` | Poster height in px (default 178, min 72; below 110 the title is one line) |
+| `size` | `kiosk`: the K1 layout for jam-kiosk sheets — art flush left (58 %), the right panel in the album's own main colour (ink or paper text, whichever reads), Shuffle / Favourite by the room, huge title, artist · album, progress line with times, Prev / Play / Next, volume − / bar / + and a Speakers key; a shelf of covers along the bottom (pinned, then recent; tap = play; last tile Browse = the library panel, fullscreen). Fills the sheet height, nothing under 18 px, no animation (the progress line moves every 5 s while it is on screen in a sheet) |
+| `accent` | Play key, volume fill, power glyph, panel tab underline (default violet) |
 
 ### jam-fan
 Fan or air purifier: On/Off pill, speed steps, preset chips, air-quality sensors in the label.

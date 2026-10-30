@@ -1,4 +1,4 @@
-// Preview fixture: size "kiosk" (0.6.0) — the fullscreen-sheet layouts of jam-speaker, jam-tv and jam-media (NerveOS), with
+// Preview fixture: size "kiosk" (0.6.0; jam-speaker = K1 since round 3) — the fullscreen-sheet layouts of jam-speaker, jam-tv and jam-media (NerveOS), with
 // their own ks_* entities. On this page they sit in one full-width section (420px tall each: no sized parent); the checks
 // (preview/checks/87-kiosk-sheets.js) put the same configs into jam-kiosk dock sheets at 1024x768 / 961x601.
 { // block scope: every fixture file may declare its own st
@@ -10,8 +10,14 @@ const at = new Date(Date.now() - 5000).toISOString();
 const app = option => ({action: "perform-action", perform_action: "select.select_option", target: {entity_id: "select.ks_tv_launch"}, data: {option}});
 const script = id => ({action: "perform-action", perform_action: id});
 const press = id => ({action: "perform-action", perform_action: "button.press", target: {entity_id: id}});
+// ks_speaker's MA "Favorite current song" button on the same device: registry entries for the 75-speaker fixture's
+// hass.entities / hass.devices hook (that fixture also answers the Music Assistant library calls).
+Object.assign(window.__jamMusicReg.entities, {"media_player.ks_speaker": {entity_id: "media_player.ks_speaker", device_id: "dev_ks", platform: "music_assistant"},
+  "button.ks_speaker_favorite_current_song": {entity_id: "button.ks_speaker_favorite_current_song", device_id: "dev_ks", platform: "music_assistant", translation_key: "favorite_now_playing"}});
+Object.assign(window.__jamMusicReg.devices, {dev_ks: {id: "dev_ks", primary_config_entry: "preview_ma", config_entries: ["preview_ma"]}});
 jamPreview.add({
   states: [
+    st("button.ks_speaker_favorite_current_song", "unknown", {friendly_name: "Kiosk living Favorite current song"}),
     st("media_player.ks_speaker", "playing", {friendly_name: "Kiosk living speakers", source: "Spotify Connect (Living room)", media_title: "The Less I Know the Better",
       media_artist: "Tame Impala", media_album_name: "Currents", entity_picture: svg("#2b2d42", "#ef233c", "#edf2f4"), volume_level: 0.42, shuffle: false,
       media_position: 95, media_duration: 216, media_position_updated_at: at, group_members: ["media_player.ks_speaker"], supported_features: F}),
@@ -32,7 +38,8 @@ jamPreview.add({
   sections: [
     ["full", [
       {type: "custom:jam-speaker", entity: "media_player.ks_speaker", name: "Living room", accent: "music", size: "kiosk",
-        speakers: ["media_player.ks_kitchen", "media_player.ks_phoster"]},
+        speakers: ["media_player.ks_kitchen", "media_player.ks_phoster"],
+        pinned: [{uri: "library://playlist/1", name: "Cooking"}, "library://playlist/2", {uri: "library://playlist/3", name: "Dinner party"}]},
       {type: "custom:jam-tv", media_player: "media_player.ks_tv", remote: "remote.ks_tv", name: "TV · Phoster", accent: "living", size: "kiosk",
         current_app_entity: "sensor.ks_tv_app", input_entity: "select.ks_tv_input", input_app: ["Live TV"],
         sources: [

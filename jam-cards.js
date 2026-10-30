@@ -3268,6 +3268,524 @@ class JamMedia extends JamSheetHost(JamBase) {
 }
 register("jam-media", JamMedia, "Jam Media", "Now playing as a duotone print, transport, volume, sources, player switch and grouping.");
 
+/* ---------- jam-music-panel (round 3, 2026-10-30): Music Assistant library panel "B" + shared music helpers ----------
+   Not a card (no element). jam-speaker opens the panel (tap on the poster art / band; the kiosk art; the kiosk shelf's
+   Browse tile) and uses the helpers here: glyphs, the cut-paper idle art, the art colour sampler, pins, MA calls.
+
+   Music Assistant from the HA frontend (checked read-only on the user's HA, 2026-10-30: core integration music_assistant,
+   one config entry; players media_player.oneplus_speaker_2 = Living Room Speakers, media_player.kitchen = Kitchen Speakers,
+   media_player.phoster = Phoster; HA source homeassistant/components/music_assistant services.py / schemas.py / button.py):
+   - Response actions go over the websocket: hass.callWS({type: "call_service", domain: "music_assistant", service,
+     service_data, target?, return_response: true}) -> {context, response}. Any HA user may call them. They need
+     config_entry_id: config `config_entry_id`, else callWS config_entries/get {domain: "music_assistant"} (first loaded
+     entry), else the player's device primary_config_entry (hass.entities[player].device_id -> hass.devices[id]).
+   - music_assistant.get_library {config_entry_id, media_type: playlist | album | artist | track | radio | podcast |
+     audiobook, limit (default 25), offset, order_by (name, sort_name, last_played_desc, play_count_desc,
+     timestamp_added_desc, random, ...), favorite?, search?} -> {items: [{media_type, uri, name, version, image, favorite,
+     explicit, artists?: [{name, uri, ...}], album?: {name, ...}}], limit, offset, order_by, media_type}. Items carry no
+     play time, so Recent = playlists + albums by last_played_desc, interleaved; the detail line is type · artist.
+   - music_assistant.search {config_entry_id, name, media_type: [...], limit (per type, default 5), library_only?}
+     -> {artists, albums, tracks, playlists, radio, audiobooks, podcasts: [item]}.
+   - music_assistant.play_media {entity_id (the player), media_id: uri, media_type?, enqueue?} (no response; without
+     enqueue MA uses the player's default for the type).
+   - music_assistant.get_queue (target the player, response only) -> {<entity_id>: {queue_id, active, name, items,
+     shuffle_enabled, repeat_mode, current_index, elapsed_time, current_item: {queue_item_id, name, duration, media_item:
+     {media_type, uri, name, image, favorite, ...}} | null, next_item}}: lights the Favourite key for MA-queue playback.
+   - Favourite: no service. Every MA player has a button entity "Favorite current song" (translation_key / unique_id suffix
+     favorite_now_playing, same device as the player; e.g. button.oneplus_speaker_favorite_current_song_2 for
+     media_player.oneplus_speaker_2, button.kitchen_favorite_current_song): button.press adds the playing track to the MA
+     favourites. Add only: there is no un-favourite.
+   - Shuffle: media_player.shuffle_set {shuffle} (SHUFFLE_SET 32768, attribute `shuffle`).
+   - Per-user pins: frontend/get_user_data + set_user_data, key jam_pins (like jam-light's jam_colors), value
+     [{uri, name, media_type, image}] plus {uri, hidden: true} for a config pin the user unpinned; in memory if that fails.
+   Panel B (openSheet; fullscreen from a kiosk card): mini header (thumb, room, source line, Speakers key with `speakers`,
+   Close), tabs Pinned / Recent / Playlists / Albums / Search, list rows (cover thumb or cut-paper thumb, name,
+   "type · detail", Play key = music_assistant.play_media, corner tab = pin / unpin), docked ink bar (thumb, title /
+   artist, Prev, Play-Pause, Next, Favourite). Loading / error (with Retry) / empty states in plain words. */
+const JAM_MU = {entry: null, pins: null, pinsLoad: null, lib: new Map(), fav: new Map(), favLoad: new Set(), art: new Map(), names: new Map()};
+const JAM_MU_TYPES = {playlist: "Playlist", album: "Album", artist: "Artist", track: "Track", radio: "Radio", podcast: "Podcast",
+  audiobook: "Audiobook", folder: "Folder"};
+const JAM_MU_PLAYABLE = new Set(["artist", "album", "audiobook", "folder", "playlist", "podcast", "track", "radio"]);
+/* Static glyph markup (no data), 24px grid, flat: fill or square-capped strokes. */
+const JAM_MU_SVG = (() => {
+  const f = d => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">${d}</svg>`;
+  const s = (d, w) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="${w || 2.5}" ` +
+    `stroke-linecap="square" stroke-linejoin="miter">${d}</svg>`;
+  return {
+    power: s('<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>', 3),
+    prev: f('<path d="M6 5h3v14H6zM20 5v14L10 12z"/>'),
+    play: f('<path d="M7 4v16l13-8z"/>'),
+    pause: f('<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>'),
+    next: f('<path d="M15 5h3v14h-3zM4 5v14l10-7z"/>'),
+    shuffle: s('<path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4M18 4l3 3-3 3M18 14l3 3-3 3"/>'),
+    heart: f('<path d="M12 21 3 12a5 5 0 0 1 9-6 5 5 0 0 1 9 6z"/>'),
+    heartOff: s('<path d="M12 20 4 12a4.5 4.5 0 0 1 8-5 4.5 4.5 0 0 1 8 5z"/>'),
+    speakers: s('<rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/><circle cx="6.5" cy="14" r="2"/><circle cx="17.5" cy="14" r="2"/>'),
+    pin: f('<path d="M8 3h8v2l-2 1v5l3 3v2h-4v6h-2v-6H7v-2l3-3V6L8 5z"/>'),
+    more: f('<path d="M3 10h4v4H3zM10 10h4v4h-4zM17 10h4v4h-4z"/>'),
+  };
+})();
+/* entity_picture / MA image -> absolute URL (hass.hassUrl in HA; http(s): / data: / blob: as is). */
+function jamMuUrl(h, u) {
+  if (!u) return null;
+  u = String(u);
+  if (/^(https?:|data:|blob:)/i.test(u)) return u;
+  try { if (h && typeof h.hassUrl === "function") return h.hassUrl(u); } catch (e) { /* fall through */ }
+  return u;
+}
+/* Seconds -> "m:ss" (or "h:mm" for an hour or more). */
+function jamMuTime(sec, long) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return long ? `${h}:${String(m).padStart(2, "0")}` : `${Math.floor(sec / 60)}:${String(s).padStart(2, "0")}`;
+}
+function jamMuIcon(name) { const s = el("span", "ico"); s.setAttribute("aria-hidden", "true"); s.innerHTML = JAM_MU_SVG[name] || ""; return s; } // static markup
+/* Icon key on the chip cut: real <button>, aria-label = label. */
+function jamMuKey(icon, label, key, cls, run, disabled) {
+  const k = cutKey("", "jam-music|" + key, "ikey" + (cls ? " " + cls : ""), "chip");
+  k.firstChild.append(jamMuIcon(icon)); k.setAttribute("aria-label", label); k.dataset.key = key;
+  k.disabled = !!disabled; if (run) k.onclick = run;
+  return k;
+}
+/* Cut-paper idle art (seeded, flat, no motion): a palette ground + 2-3 shapes (disc, ring, bar, strip, tilted square).
+   Sizes in cqmin (the box is a size container), so one seed reads the same on a poster, a thumb or the kiosk art. Red is
+   left out (reserved for alerts). Same seed = same picture. */
+const JAM_MU_POOL = ["var(--ink)", "#ece2c9", "var(--ochre)", "var(--teal)", "var(--blue)", "var(--pink)", "var(--violet)", "var(--green)"];
+function jamMuIdleArt(sd) {
+  const r = rng((sd >>> 0) ^ 0x5bd1e995), pick = a => a[Math.floor(r() * a.length)], box = el("div", "abs");
+  box.setAttribute("aria-hidden", "true");
+  const used = [], col = () => { let c; do c = pick(JAM_MU_POOL); while (used.includes(c)); used.push(c); return c; };
+  const R = (a, b) => +(a + r() * (b - a)).toFixed(1);
+  box.style.background = col();
+  for (let i = 0, n = 2 + Math.floor(r() * 2); i < n; i++) {
+    const k = pick(["disc", "ring", "hbar", "vbar", "square"]), s = el("i"), st = s.style, c = col();
+    if (k === "disc" || k === "ring") {
+      const d = R(45, 95); st.width = st.height = d + "cqmin"; st.borderRadius = "50%"; st.left = R(-25, 70) + "%"; st.top = R(-35, 50) + "%";
+      if (k === "ring") st.border = R(9, 15) + "cqmin solid " + c; else st.background = c;
+    } else if (k === "hbar") { st.width = R(50, 110) + "%"; st.height = R(10, 22) + "cqmin"; st.left = R(-10, 50) + "%"; st.top = R(8, 70) + "%"; st.background = c; }
+    else if (k === "vbar") { st.width = R(9, 20) + "cqmin"; st.height = "130%"; st.left = R(8, 85) + "%"; st.top = "-15%"; st.background = c; if (r() < .5) st.transform = `skewX(${R(-16, 16)}deg)`; }
+    else { const d = R(30, 60); st.width = st.height = d + "cqmin"; st.left = R(0, 75) + "%"; st.top = R(5, 55) + "%"; st.transform = `rotate(${R(-25, 25)}deg)`; st.background = c; }
+    box.append(s);
+  }
+  return box;
+}
+/* Cover thumb: the item's image, or its own cut-paper art (seeded by the uri); a broken image falls back to the art. */
+function jamMuThumb(h, src, key, cls) {
+  const t = el("div", "thumb" + (cls ? " " + cls : "")), art = () => jamMuIdleArt(seed(String(key || "")));
+  t.setAttribute("aria-hidden", "true");
+  const u = src && jamMuUrl(h, src);
+  if (u) { const img = el("img"); img.alt = ""; img.decoding = "async"; img.loading = "lazy"; img.onerror = () => { img.replaceWith(art()); }; img.src = u; t.append(img); }
+  else t.append(art());
+  return t;
+}
+/* ---- colour ---- */
+const JAM_MU_INK = [20, 18, 16], JAM_MU_PAPER = [236, 226, 201];
+const jamMuContrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+/* A fill [r,g,b] and its text: ink or paper, whichever reads better; a mid-tone where neither reaches 4.5:1 is pushed
+   lighter (ink text) or darker (paper text) until it does. -> {bg, fg, ink, track} (track = a flat 22% mix of fg into bg). */
+function jamMuReadable(rgb) {
+  let c = rgb.slice(0, 3).map(v => Math.max(0, Math.min(255, Number(v) || 0)));
+  const ink = jamMuContrast(c, JAM_MU_INK) >= jamMuContrast(c, JAM_MU_PAPER), to = ink ? [255, 255, 255] : [0, 0, 0], fgc = ink ? JAM_MU_INK : JAM_MU_PAPER;
+  for (let i = 0; i < 20 && jamMuContrast(c, fgc) < 4.5; i++) c = c.map((v, j) => v + (to[j] - v) * .12);
+  c = c.map(Math.round);
+  return {bg: rgbCss(c), fg: rgbCss(fgc), ink, track: rgbCss(c.map((v, j) => v + (fgc[j] - v) * .22)), rgb: c};
+}
+const JAM_MU_VIOLET = [155, 109, 214];
+/* Dominant colour of a loaded <img> (24x24 canvas, 3 bits per channel buckets, the biggest wins; saturation counts up to
+   1.5x, so a cream sleeve stays cream but a vivid block beats a dull one of similar size), made readable.
+   null when the canvas is tainted (cross-origin art) or the image is empty. Bounded cache by src. */
+function jamMuArtColor(img, key) {
+  const k = key || img.currentSrc || img.src;
+  if (JAM_MU.art.has(k)) return JAM_MU.art.get(k);
+  let out = null;
+  try {
+    const N = 24, cv = document.createElement("canvas"); cv.width = cv.height = N;
+    const x = cv.getContext("2d", {willReadFrequently: true});
+    x.drawImage(img, 0, 0, N, N);
+    const d = x.getImageData(0, 0, N, N).data, B = new Map();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue;
+      const key = (d[i] >> 5) << 6 | (d[i + 1] >> 5) << 3 | (d[i + 2] >> 5), e = B.get(key) || [0, 0, 0, 0];
+      e[0] += d[i]; e[1] += d[i + 1]; e[2] += d[i + 2]; e[3]++; B.set(key, e);
+    }
+    let best = null, bs = -1;
+    for (const e of B.values()) {
+      const n = e[3], c = [e[0] / n, e[1] / n, e[2] / n], mx = Math.max(...c), mn = Math.min(...c), sc = n * (1 + .5 * (mx ? (mx - mn) / mx : 0));
+      if (sc > bs) { bs = sc; best = c; }
+    }
+    out = best ? jamMuReadable(best) : null;
+  } catch (e) { out = null; }
+  if (JAM_MU.art.size >= 64) JAM_MU.art.delete(JAM_MU.art.keys().next().value);
+  JAM_MU.art.set(k, out);
+  return out;
+}
+/* ---- Music Assistant calls ---- */
+function jamMuWs(h, msg) {
+  if (!h || typeof h.callWS !== "function") return Promise.reject(new Error("No connection to Home Assistant"));
+  return Promise.resolve().then(() => h.callWS(msg));
+}
+function jamMuCall(h, service, data, target) {
+  const msg = {type: "call_service", domain: "music_assistant", service, service_data: data || {}, return_response: true};
+  if (target) msg.target = target;
+  return jamMuWs(h, msg).then(r => (r && r.response) || {});
+}
+function jamMuEntry(h, cfg) {
+  if (cfg && cfg.config_entry_id) return Promise.resolve(cfg.config_entry_id);
+  if (JAM_MU.entry) return Promise.resolve(JAM_MU.entry);
+  const dev = () => {
+    const e = h && h.entities && h.entities[cfg.entity], d = e && e.device_id && h.devices && h.devices[e.device_id];
+    return (d && (d.primary_config_entry || (Array.isArray(d.config_entries) && d.config_entries[0]))) || null;
+  };
+  return jamMuWs(h, {type: "config_entries/get", domain: "music_assistant"}).then(list => {
+    const ok = Array.isArray(list) ? list.filter(x => x && x.domain === "music_assistant" && x.entry_id) : [];
+    const hit = ok.find(x => x.state === "loaded") || ok[0];
+    if (hit) JAM_MU.entry = hit.entry_id;
+    return hit ? hit.entry_id : dev();
+  }, () => dev()).then(id => { if (!id) throw new Error("Music Assistant was not found for this player"); return id; });
+}
+/* Library call with a short cache (key -> {at, p}); failures are not cached. */
+function jamMuLib(h, cfg, key, service, data, ttl) {
+  const k = (cfg.config_entry_id || "") + "|" + key, c = JAM_MU.lib.get(k);
+  if (c && Date.now() - c.at < ttl) return c.p;
+  const p = jamMuEntry(h, cfg).then(entry => jamMuCall(h, service, {config_entry_id: entry, ...data}));
+  JAM_MU.lib.set(k, {at: Date.now(), p});
+  if (JAM_MU.lib.size > 40) JAM_MU.lib.delete(JAM_MU.lib.keys().next().value);
+  p.catch(() => { const x = JAM_MU.lib.get(k); if (x && x.p === p) JAM_MU.lib.delete(k); });
+  return p;
+}
+const jamMuItems = r => (r && Array.isArray(r.items) ? r.items.filter(x => x && x.uri) : []);
+/* MA item -> {uri, name, media_type, image, detail}. */
+function jamMuItem(x) {
+  const uri = String(x.uri), m = /^[a-z_]+:\/\/([a-z_]+)\//i.exec(uri);
+  const t = String(x.media_type || (m && m[1]) || "").toLowerCase();
+  const artists = Array.isArray(x.artists) ? x.artists.map(a => a && a.name).filter(Boolean).join(", ") : "";
+  const it = {uri, name: String(x.name || uri), media_type: t, image: x.image || null, detail: artists || (x.album && x.album.name) || ""};
+  // Remember names / covers by uri: a config pin given as a bare uri shows them once the library has been read.
+  if (x.name) { JAM_MU.names.delete(uri); JAM_MU.names.set(uri, it); if (JAM_MU.names.size > 500) JAM_MU.names.delete(JAM_MU.names.keys().next().value); }
+  return it;
+}
+function jamMuRecent(h, cfg, ttl) {
+  const one = t => jamMuLib(h, cfg, "recent|" + t, "get_library", {media_type: t, order_by: "last_played_desc", limit: 12}, ttl).then(jamMuItems, e => e);
+  return Promise.all([one("playlist"), one("album")]).then(([p, a]) => {
+    if (p instanceof Error && a instanceof Error) throw p;
+    const P = p instanceof Error ? [] : p, A = a instanceof Error ? [] : a, out = [];
+    for (let i = 0; i < Math.max(P.length, A.length); i++) { if (P[i]) out.push(P[i]); if (A[i]) out.push(A[i]); }
+    return out.map(jamMuItem);
+  });
+}
+const jamMuErr = e => String((e && (e.message || (e.error && e.error.message))) || e || "unknown error");
+/* ---- favourite (per track, page-wide) ---- */
+function jamMuFavSet(k, v) {
+  JAM_MU.fav.delete(k); JAM_MU.fav.set(k, !!v);
+  if (JAM_MU.fav.size > 200) JAM_MU.fav.delete(JAM_MU.fav.keys().next().value);
+}
+/* ---- pins (config `pinned` + per-user jam_pins) ---- */
+function jamMuPinsLoad(h) {
+  if (JAM_MU.pins) return Promise.resolve(JAM_MU.pins);
+  if (JAM_MU.pinsLoad) return JAM_MU.pinsLoad;
+  const p = jamMuWs(h, {type: "frontend/get_user_data", key: "jam_pins"})
+    .then(r => { const v = r && r.value; JAM_MU.pins = Array.isArray(v) ? v.filter(x => x && typeof x.uri === "string").slice(-60) : []; },
+      () => { JAM_MU.pins = JAM_MU.pins || []; })
+    .then(() => { JAM_MU.pinsLoad = null; return JAM_MU.pins; });
+  JAM_MU.pinsLoad = p;
+  return p;
+}
+function jamMuCfgPins(cfg) {
+  return (cfg.pinned || []).map(x => (typeof x === "string" ? {uri: x} : x)).filter(x => x && typeof x.uri === "string" && x.uri)
+    .map(x => {
+      const k = JAM_MU.names.get(x.uri) || {}, m = /^[a-z_]+:\/\/([a-z_]+)\//i.exec(x.uri);
+      return {uri: x.uri, name: x.name ? String(x.name) : k.name || "", media_type: x.media_type || k.media_type || (m ? m[1].toLowerCase() : ""),
+        image: x.image || k.image || null, detail: k.detail || "", cfg: true};
+    });
+}
+/* Pinned list: config pins (unless the user unpinned them), then the user's own. Names fall back to the uri's last part. */
+function jamMuPinned(cfg) {
+  const user = JAM_MU.pins || [], hidden = new Set(user.filter(x => x.hidden).map(x => x.uri)), cp = jamMuCfgPins(cfg);
+  const seen = new Set(cp.map(x => x.uri));
+  const out = cp.filter(x => !hidden.has(x.uri)).concat(user.filter(x => !x.hidden && !seen.has(x.uri)));
+  return out.map(x => ({...x, name: x.name || JAM_MU_TYPES[x.media_type] || "Pinned", detail: x.detail || ""}));
+}
+/* Config pins given as a bare uri: read the library list of their type once (cached 10 min, the same call as the panel's
+   Playlists / Albums tabs) so jamMuItem remembers their names and covers. Promise, or null when nothing is missing.
+   Callers guard against calling it again on their own refill. */
+function jamMuResolvePins(h, cfg) {
+  const need = [...new Set(jamMuCfgPins(cfg).filter(x => !x.name && JAM_MU_PLAYABLE.has(x.media_type)).map(x => x.media_type))];
+  if (!need.length) return null;
+  return Promise.all(need.map(t => jamMuLib(h, cfg, "lib|" + t, "get_library", {media_type: t, order_by: "name", limit: 100}, 600e3)
+    .then(r => { jamMuItems(r).forEach(x => jamMuItem(x)); }, () => {})));
+}
+function jamMuIsPinned(cfg, uri) { return jamMuPinned(cfg).some(x => x.uri === uri); }
+function jamMuTogglePin(h, cfg, it) {
+  let list = (JAM_MU.pins || []).filter(x => x.uri !== it.uri);
+  const isCfg = jamMuCfgPins(cfg).some(x => x.uri === it.uri), was = jamMuIsPinned(cfg, it.uri);
+  if (was && isCfg) list.push({uri: it.uri, hidden: true});
+  else if (!was && !isCfg) list.push({uri: it.uri, name: it.name, media_type: it.media_type, image: it.image || null});
+  JAM_MU.pins = list.slice(-60);
+  try { jamMuWs(h, {type: "frontend/set_user_data", key: "jam_pins", value: JAM_MU.pins}).catch(() => { /* kept in memory */ }); } catch (e) { /* kept in memory */ }
+  return !was;
+}
+/* Speaker rows (This room + one per speaker) and the volume track: shared by jam-speaker's card / kiosk and the panel. */
+const JAM_MU_ROWS_CSS = `
+    .vt{position:relative;height:30px;touch-action:none}
+    .vt[role=slider]{cursor:pointer}
+    .vt .strip{inset:0}
+    .vt.thin{height:22px} .vt.thin .strip{inset:7px 0}
+    .vt:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .spk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding-top:8px;border-top:2px solid var(--line)}
+    .spk .n{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:1rem;line-height:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .spk .vt{grid-column:1/-1}
+    .spk .tog{min-width:0}
+    .spk .tog > .face{--p-t:7px;--p-b:7px;--p-l:10px;--p-r:10px;font-size:.58rem;letter-spacing:.14em}
+    .spk .here{font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}`;
+/* Shared glyph-key / thumb / idle-art CSS (card and panel). */
+const JAM_MU_BASE_CSS = `
+    .ico{display:block;width:var(--ic,24px);height:var(--ic,24px)} .ico svg{display:block;width:100%;height:100%}
+    .ikey > .face{display:flex;align-items:center;justify-content:center;padding:0}
+    .abs{position:absolute;inset:0;overflow:hidden;container-type:size}
+    .abs i{position:absolute;display:block;box-sizing:border-box}
+    .thumb{position:relative;overflow:hidden;flex:none;background:var(--slab3)}
+    .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}`;
+const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
+  .mu .sheet{max-width:620px}
+  .mu .sheet > .face{height:min(700px,90vh);gap:10px}
+  .mu .head{align-items:center}
+  .mu .head > .thumb{width:52px;height:52px}
+  .mu .t{flex:1;gap:3px}
+  .mu .t h2{font-size:22px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mu .t .ss{font:500 13px/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mu .acts > .key{min-width:0}
+  .mu .acts > .key > .face{display:flex;align-items:center}
+  .mu .acts .key.sel > .face{background:var(--fg);color:var(--slab)}
+  .tabs{flex:none;display:flex;border-bottom:3px solid var(--slab3);overflow-x:auto;scrollbar-width:none}
+  .tabs button{flex:none;position:relative;padding:12px 12px;font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .tabs button.on{color:var(--fg)}
+  .tabs button.on::before{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--acc)}
+  .tabs button::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)}
+  .mu .body{gap:2px;padding:0;align-content:start}
+  .row{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--slab2);padding:6px 34px 6px 6px}
+  .row > .thumb{width:44px;height:44px}
+  .row .nm{font:900 16px/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .row .dt{font:500 12px/1.25 var(--body);color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .play > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;height:34px;display:flex;align-items:center;font-size:12px;background:var(--slab3)}
+  .pin{position:absolute;right:0;top:0;width:28px;height:28px;color:var(--fg)}
+  .pin::before{content:"";position:absolute;inset:0;background:var(--slab3);clip-path:polygon(0 0,100% 0,100% 100%)}
+  .pin.on::before{background:var(--acc)}
+  .pin.on{color:var(--acc-fg)}
+  .pin .ico{position:absolute;right:2px;top:2px;--ic:13px}
+  .pin:not(.on) .ico{color:var(--dim)}
+  .pin:focus-visible{outline-offset:-3px}
+  .msg{padding:18px 6px;display:grid;gap:12px;justify-items:start;font:500 14px/1.4 var(--body);color:var(--dim)}
+  .msg b{font:900 18px/1 var(--display);text-transform:uppercase;color:var(--fg)}
+  .msg .key > .face{display:flex;align-items:center;height:40px;--p-t:0;--p-b:0}
+  .grp{font:600 11px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);padding:12px 6px 6px}
+  .sbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding-bottom:8px}
+  .sbar input{min-width:0;height:44px;border:0;border-bottom:3px solid var(--slab3);background:var(--slab2);color:var(--fg);padding:0 12px;
+    font:500 16px/1 var(--body);border-radius:0;outline:none;-webkit-appearance:none;appearance:none}
+  .sbar input:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+  .sbar .key > .face{display:flex;align-items:center;height:44px;--p-t:0;--p-b:0}
+  .res{display:grid;gap:2px}
+  .spks{display:grid;gap:8px;padding:4px 2px}
+  .dock{flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--ink);color:#ece2c9;padding:8px}
+  .dock.nofav{grid-template-columns:44px minmax(0,1fr) 44px 56px 44px}
+  .dock > .thumb{width:44px;height:44px}
+  .dock .tt{font:900 15px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dock .st{font:500 11px/1.3 var(--body);color:#9a8f7c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dock .ikey{min-width:0}
+  .dock .ikey > .face{height:44px;background:#36312b;color:#ece2c9;--ic:20px}
+  .dock .ikey.main > .face{background:var(--acc);color:var(--acc-fg)}
+  .dock .ikey.fav > .face{color:var(--pink)}
+  .dock .ikey.fav.on > .face{background:var(--pink);color:#141210}
+  .dock .ikey:disabled > .face{color:#6b6152}
+  /* phones: tabs fit the width, the room name may take two lines */
+  @media (max-width:600px){
+    .tabs button{padding:12px 7px;letter-spacing:.06em}
+    .mu:not(.full) .t h2{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+    .mu:not(.full) .acts > .key > .face{--p-l:9px;--p-r:11px}
+  }
+  /* kiosk (fullscreen, from a size: kiosk card): bigger type, 18px floor */
+  .mu.full .sheet > .face{height:100%}
+  .mu.full .head > .thumb{width:64px;height:64px}
+  .mu.full .t h2{font-size:clamp(28px,4vw,40px)}
+  .mu.full .t .ss{font-size:18px}
+  .mu.full .acts > .key > .face{font-size:18px;--p-l:20px;--p-r:22px}
+  .mu.full .tabs button{font-size:18px;padding:16px 18px}
+  .mu.full .row{grid-template-columns:64px minmax(0,1fr) auto;padding:6px 44px 6px 6px;gap:16px}
+  .mu.full .row > .thumb{width:64px;height:64px}
+  .mu.full .row .nm{font-size:24px}
+  .mu.full .row .dt{font-size:18px}
+  .mu.full .row .play > .face{height:52px;font-size:18px;--p-l:20px;--p-r:22px}
+  .mu.full .pin{width:38px;height:38px} .mu.full .pin .ico{--ic:16px}
+  .mu.full .msg{font-size:18px} .mu.full .msg b{font-size:24px}
+  .mu.full .grp{font-size:18px}
+  .mu.full .sbar input{height:56px;font-size:20px} .mu.full .sbar .key > .face{height:56px;font-size:18px}
+  .mu.full .dock{grid-template-columns:64px minmax(0,1fr) 64px 84px 64px 64px;gap:8px;padding:10px}
+  .mu.full .dock.nofav{grid-template-columns:64px minmax(0,1fr) 64px 84px 64px}
+  .mu.full .dock > .thumb{width:64px;height:64px}
+  .mu.full .dock .ikey > .face{height:64px;--ic:28px}
+  .mu.full .dock .tt{font-size:24px} .mu.full .dock .st{font-size:18px}
+  .mu.full .spk .n{font-size:28px} .mu.full .spk .tog > .face,.mu.full .spk .here{font-size:18px}
+  .mu.full .spk .vt.thin{height:44px} .mu.full .spk .vt.thin .strip{inset:8px 0}`;
+const JAM_MU_TABS = [["pinned", "Pinned"], ["recent", "Recent"], ["playlists", "Playlists"], ["albums", "Albums"], ["search", "Search"]];
+const JAM_MU_EMPTY = {pinned: ["Nothing pinned yet", "Use the corner tab on any playlist or album to pin it here."],
+  recent: ["Nothing played yet", "Music played through Music Assistant shows up here."],
+  playlists: ["No playlists", "The Music Assistant library has no playlists."], albums: ["No albums", "The Music Assistant library has no albums."]};
+/* Panel B for a jam-speaker `card` (uses card._config, card._hass, card._room(), card._badge(s), card._artSrc(s),
+   card._transportKeys(s, off), card._favKey(s, off), card._speakers, card._speakersPane(s, stamp), card._play(item)).
+   Returns {update(), close(opts), isOpen()}. */
+function jamMusicPanel(card) {
+  const c = card._config, H = () => card._hass, full = !!card._kiosk;
+  const P = {tab: null, view: "lib", data: {}, q: "", res: null, seq: 0};
+  const room = card._room();
+  let spkKey = null;
+  if (card._speakers.length) {
+    spkKey = cutKey("Speakers", "jam-music|speakers", "", "chip"); spkKey.dataset.key = "speakers";
+    spkKey.onclick = () => { P.view = P.view === "spk" ? "lib" : "spk"; hdr(); tabs(); fill(true); };
+  }
+  const acc = card._body ? getComputedStyle(card._body).getPropertyValue("--acc").trim() : "";
+  // Theme tokens from the sheet that holds the card (a kiosk sheet shifts its children's surfaces one step up), else the card.
+  const from = composedChain(card).reverse().find(x => x !== card && x.classList && x.classList.contains("jam-sheet-host")) || card;
+  const sheet = openSheet({from, title: room, label: room + " music", rule: false, fullscreen: full, cls: "mu", css: JAM_MU_PANEL_CSS,
+    accent: acc || null, headerActions: [spkKey], onClose: () => { if (card._panel === api) card._panel = null; if (full && card.isConnected) card._render(false); }});
+  const face = sheet.face, body = sheet.body, head = face.querySelector(".head"), t = head.querySelector(".t");
+  const sub = el("div", "ss"); t.append(sub);
+  let thumbKey = null;
+  const tabBar = el("div", "tabs"); tabBar.setAttribute("role", "group"); tabBar.setAttribute("aria-label", "Library");
+  face.insertBefore(tabBar, body);
+  const dock = el("div", "dock");
+  face.append(dock);
+  const hdr = () => {
+    const s = stateObj(H(), c.entity), src = card._artSrc(s), k = src || "abs:" + c.entity;
+    if (k !== thumbKey) { thumbKey = k; const old = head.querySelector(":scope > .thumb"), n = jamMuThumb(H(), src, c.entity); if (old) old.replaceWith(n); else head.prepend(n); }
+    sub.textContent = card._badge(s)[0];
+    if (spkKey) { spkKey.classList.toggle("sel", P.view === "spk"); spkKey.setAttribute("aria-pressed", String(P.view === "spk")); }
+  };
+  const dockFill = () => {
+    const s = stateObj(H(), c.entity), a = (s && s.attributes) || {}, off = !s || UNAVAILABLE.has(s.state), idle = off || !JAM_SPK_ACTIVE.has(s.state);
+    const tx = el("div"); tx.style.minWidth = "0";
+    tx.append(el("div", "tt", (!idle && a.media_title) || (a.media_title ? a.media_title : room)), el("div", "st", !idle ? (a.media_artist || card._badge(s)[0]) : (a.media_title ? "Last played" : card._badge(s)[0])));
+    const fav = card._favKey(s, off, "fav");
+    dock.textContent = "";
+    dock.classList.toggle("nofav", !fav);
+    dock.append(jamMuThumb(H(), card._artSrc(s), c.entity), tx, ...card._transportKeys(s, off));
+    if (fav) dock.append(fav);
+  };
+  const tabs = () => {
+    tabBar.textContent = "";
+    for (const [id, label] of JAM_MU_TABS) {
+      const b = el("button", P.view === "lib" && P.tab === id ? "on" : "", label); b.type = "button"; b.dataset.tab = id;
+      b.setAttribute("aria-pressed", String(P.view === "lib" && P.tab === id));
+      b.onclick = () => { if (P.view === "lib" && P.tab === id) return; P.view = "lib"; P.tab = id; tabs(); hdr(); fill(true); };
+      tabBar.append(b);
+    }
+  };
+  const msg = (title, text, retry) => {
+    const m = el("div", "msg"); m.append(el("b", "", title)); if (text) m.append(el("div", "", text));
+    if (retry) { const k = cutKey("Retry", "jam-music|retry", "", "chip"); k.dataset.key = "retry"; k.onclick = retry; m.append(k); }
+    return m;
+  };
+  const row = it => {
+    const r = el("div", "row"); r.dataset.uri = it.uri;
+    const tx = el("div"); tx.style.minWidth = "0";
+    tx.append(el("div", "nm", it.name), el("div", "dt", [JAM_MU_TYPES[it.media_type] || it.media_type, it.detail].filter(Boolean).join(" · ")));
+    const play = cutKey("Play", "jam-music|play", "play", "chip"); play.dataset.key = "play"; play.setAttribute("aria-label", "Play " + it.name);
+    play.onclick = () => { card._play(it); if (motionOn()) oneShot(play, "jam-stamp"); };
+    const on = jamMuIsPinned(c, it.uri), pin = el("button", "pin hit" + (on ? " on" : "")); pin.type = "button"; pin.dataset.key = "pin";
+    pin.setAttribute("aria-pressed", String(on)); pin.setAttribute("aria-label", (on ? "Unpin " : "Pin ") + it.name);
+    pin.append(jamMuIcon("pin"));
+    pin.onclick = () => { jamMuPinsLoad(H()).then(() => { jamMuTogglePin(H(), c, it); if (sheet.isOpen()) fill(false); }); };
+    r.append(jamMuThumb(H(), it.image, it.uri), tx, play, pin);
+    return r;
+  };
+  const list = (items, empty) => {
+    if (!items.length) return [msg(...empty)];
+    return items.map(row);
+  };
+  const load = (tab, force) => {
+    if (!force && P.data[tab]) return; // an error stays until Retry (no retry loop)
+    const h = H(), my = P.data[tab] = {status: "loading"};
+    let p;
+    if (tab === "pinned") p = jamMuPinsLoad(h).then(() => null);
+    else if (tab === "recent") p = jamMuRecent(h, c, force ? 0 : 60e3);
+    else {
+      const mt = tab === "playlists" ? "playlist" : "album";
+      p = jamMuLib(h, c, "lib|" + mt, "get_library", {media_type: mt, order_by: "name", limit: 100}, force ? 0 : 600e3).then(r => jamMuItems(r).map(jamMuItem));
+    }
+    p.then(items => { if (P.data[tab] === my) P.data[tab] = {status: "ok", items: items || []}; },
+      e => { if (P.data[tab] === my) P.data[tab] = {status: "error", error: jamMuErr(e)}; })
+      .then(() => { if (sheet.isOpen() && P.view === "lib" && P.tab === tab) fill(false); });
+  };
+  let sbar = null, input = null;
+  const search = () => {
+    const q = input.value.trim();
+    if (q.length < 2) { P.res = {status: "short"}; fill(false); return; }
+    const n = ++P.seq, h = H();
+    P.q = q; P.res = {status: "loading"}; fill(false);
+    jamMuEntry(h, c).then(entry => jamMuCall(h, "search", {config_entry_id: entry, name: q, media_type: ["playlist", "album", "artist", "track", "radio"], limit: 6}))
+      .then(r => {
+        if (n !== P.seq) return;
+        const groups = [["playlists", "Playlists"], ["albums", "Albums"], ["artists", "Artists"], ["tracks", "Tracks"], ["radio", "Radio"]]
+          .map(([k, label]) => [label, (Array.isArray(r[k]) ? r[k] : []).filter(x => x && x.uri).map(jamMuItem)]).filter(g => g[1].length);
+        P.res = {status: "ok", groups};
+      }, e => { if (n === P.seq) P.res = {status: "error", error: jamMuErr(e)}; })
+      .then(() => { if (n === P.seq && sheet.isOpen() && P.view === "lib" && P.tab === "search") fill(false); });
+  };
+  const searchBar = () => {
+    if (sbar) return sbar;
+    sbar = el("div", "sbar"); input = el("input"); input.type = "search"; input.placeholder = "Playlists, albums, artists, tracks";
+    input.setAttribute("aria-label", "Search the music library"); input.setAttribute("enterkeyhint", "search"); input.autocomplete = "off";
+    input.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); search(); } };
+    const go = cutKey("Search", "jam-music|search", "on", "chip"); go.dataset.key = "search"; go.onclick = search;
+    sbar.append(input, go);
+    return sbar;
+  };
+  /* Fills the body for the current view / tab (keeps the scroll position on refills). */
+  function fill(top) {
+    const s = stateObj(H(), c.entity), scroll = top ? 0 : body.scrollTop;
+    body.textContent = "";
+    if (P.view === "spk") {
+      const pane = card._speakersPane(s, card._stamp || new Set()); pane.classList.add("spks"); body.append(pane);
+    } else if (P.tab === "search") {
+      body.append(searchBar());
+      const res = el("div", "res"), r = P.res;
+      if (!r) res.append(msg("Search", "Find playlists, albums, artists, tracks and radio in Music Assistant."));
+      else if (r.status === "short") res.append(msg("Search", "Type at least two letters."));
+      else if (r.status === "loading") res.append(msg("Searching…", ""));
+      else if (r.status === "error") res.append(msg("Search failed", r.error, search));
+      else if (!r.groups.length) res.append(msg("No results", `Nothing found for "${P.q}".`));
+      else for (const [label, items] of r.groups) { res.append(el("div", "grp", label)); res.append(...items.map(row)); }
+      body.append(res);
+    } else {
+      const tab = P.tab;
+      if (tab === "pinned") {
+        if (!JAM_MU.pins) { load(tab); body.append(msg("Loading…", "")); }
+        else body.append(...list(jamMuPinned(c), JAM_MU_EMPTY.pinned));
+      } else {
+        load(tab);
+        const d = P.data[tab];
+        if (!d || d.status === "loading") body.append(msg("Loading…", ""));
+        else if (d.status === "error") body.append(msg("Couldn't load the library", d.error, () => { load(tab, true); fill(false); }));
+        else body.append(...list(d.items, JAM_MU_EMPTY[tab]));
+      }
+    }
+    body.scrollTop = scroll;
+  }
+  const api = {
+    update() { if (!sheet.isOpen()) return; hdr(); dockFill(); if (P.view === "spk") fill(false); },
+    close(o) { sheet.close(o); },
+    isOpen: () => sheet.isOpen(),
+    get tab() { return P.view === "spk" ? "speakers" : P.tab; },
+  };
+  // Open on Pinned when there is something pinned (config pins count at once), else Recent; the user pins and the names of
+  // bare-uri config pins load meanwhile.
+  P.tab = jamMuCfgPins(c).length || (JAM_MU.pins && JAM_MU.pins.some(x => !x.hidden)) ? "pinned" : "recent";
+  const refillPinned = () => { if (sheet.isOpen() && P.view === "lib" && P.tab === "pinned") fill(false); };
+  jamMuPinsLoad(H()).then(refillPinned);
+  const rp = jamMuResolvePins(H(), c);
+  if (rp) rp.then(refillPinned);
+  hdr(); tabs(); dockFill(); fill(true);
+  return api;
+}
+
 /* ---------- jam-panel: compact system panel for the desktop control room ----------
    {type: custom:jam-panel, title, accent?, rows: [{entity, name?, attribute?, max?, format?: pct|temp|bytes_rate|duration|relative,
     bad?: {above?, below?, state?: [..]}, tap_action?}]}
@@ -4705,151 +5223,221 @@ class JamSlider extends JamBase {
 }
 register("jam-slider", JamSlider, "Jam Slider", "Strip for numbers, light brightness, media volume or fan speed.");
 
-/* ---------- jam-speaker: Music Assistant speaker (0.3.6): poster + source badge + Now playing / Speakers switch ----------
-   {type: custom:jam-speaker, entity (media_player, a Music Assistant player), name? (kicker "<name> speakers"; default the
-    player's friendly name), accent? (default violet = music), speakers?: [media_player id | {entity, name?}] (Speakers tab;
-    none -> no tab), show_shuffle? (true), poster_height? (px, default 170, min 72; below 110 the title is one line; kiosks shrink it),
-    size? ("kiosk", 0.6.0: the fullscreen-sheet layout, see below)}
-   Poster (poster cut): artwork (entity_picture via hassUrl) or a flat accent block with Golden Arm bars; kicker, title =
-   media_title (2 lines), sub = artist. Text over art is ink or paper by the art's luminance (jam-tv's sampler); busy art gets
-   a flat 50% ink band. Idle (idle / off / standby / on with nothing playing): slab2 poster, title = the last media_title, else
-   the speaker name; no hint. Corner badge (top-right chip, flat square + word): Offline (red) / Grouped (teal, a member of
-   another player's group) / Idle (dim) / Paused (dim) / Spotify Connect (green: source or app_id says Spotify) / Music
-   Assistant (violet: the MA queue) / else the source name.
-   Switch "Now playing" | "Speakers" (in memory). Now playing = Prev / Play-Pause (accent) / Next / Shuffle (toggle, accent
-   when on; hidden without SHUFFLE_SET or show_shuffle: false), then a 30px volume bar (drag = volume_set, − / + = 5% steps,
-   number at the right). Speakers = "This room" (own volume) + one row per speaker: name, Join / Playing toggle (only when both
-   players have GROUPING; Join = media_player.join on this entity with group_members [it], Playing = media_player.unjoin on it),
-   thin volume bar (drag sets that player's volume). A speaker that just joined gets the one-shot stamp; the rows slide in
-   when the tab opens.
-   size: "kiosk" (0.6.0, for jam-kiosk's fullscreen sheets; fills its parent's height, 420px when that has none): two
-   columns. Left = a large square album art (min(46% of the width, 440px, the height left), poster cut, flat: the image
-   or the accent with Golden Arm bars; idle = slab2 with dim bars) and, with `speakers`, the Now playing / Speakers switch
-   under it. Right = Now playing: source badge + kicker, title in Londrina (44-72px by the height, max 3 lines; 2 on short
-   sheets), artist (28px), progress bar with times (position at render time), Prev / Play-Pause / Next / Shuffle keys
-   (72px), 48px volume bar with − / + and the number; or Speakers: one 64px row per player (name, volume bar,
-   Join / Playing toggle). Nothing under 18px. */
+/* ---------- jam-speaker: Music Assistant speaker (round 3, 2026-10-30): TV-style poster card, panel B, kiosk K1 ----------
+   Music Assistant from the HA frontend (checked read-only on the user's HA 2026-10-30; details in jam-music-panel.js):
+   - Favourite = button.press on the player's MA button "Favorite current song" (same device, translation_key
+     favorite_now_playing; e.g. button.oneplus_speaker_favorite_current_song_2 for media_player.oneplus_speaker_2,
+     button.kitchen_favorite_current_song, button.phoster_favorite_current_song). Add only (no un-favourite). Lit when
+     music_assistant.get_queue says current_item.media_item.favorite (MA-queue playback only) or after a press.
+   - Shuffle = media_player.shuffle_set {shuffle: !attributes.shuffle} (SHUFFLE_SET 32768).
+   - Library / search / recent / play = music_assistant.get_library / search (response actions over
+     hass.callWS({type: "call_service", ..., return_response: true}), config_entry_id found automatically) and
+     music_assistant.play_media {entity_id, media_id: uri, media_type}.
+   - Power: the MA players report no TURN_ON / TURN_OFF (supported_features 8322623 / 8320575), so the corner falls back
+     to media_stop (while playing / paused) / media_play (idle); a player with TURN_ON / TURN_OFF gets media_player.toggle.
+   {type: custom:jam-speaker, entity (media_player, a Music Assistant player), name? (room name; default the player's
+    friendly name), accent? (default violet = music), speakers?: [media_player id | {entity, name?}] (grouping view: the
+    panel's Speakers key; the kiosk's Speakers key), pinned?: [MA uri | {uri, name?, image?, media_type?}] (panel Pinned
+    tab + kiosk shelf, before the user's own pins), show_shuffle? (true), show_favorite? (true), favorite_entity? (button id;
+    default found in the entity registry; false = no Favourite key), config_entry_id? (MA config entry; default found),
+    power_action? (Lovelace action for the power corner), poster_height? (px, default 178, min 72), size? ("kiosk")}
+   Card (mockup round 3 "Take 3"): poster (poster cut): the artwork (entity_picture_local / entity_picture), or the accent
+   with Golden Arm bars while playing without art, or — idle — a cut-paper abstract (jam-music-panel jamMuIdleArt, seeded
+   by entity + last_changed: a new arrangement each time the player goes idle, stable until then; no motion); offline =
+   slab2 + dim bars. Ink title band: kicker = source dot (Spotify green / MA violet / Grouped teal / Idle, Paused dim /
+   Offline red / else the accent) + "Room · source", title (media_title; idle: the room), artist (idle: "Last played:
+   title · artist"), and at its right two 32px keys: Shuffle (accent when on) and Favourite (pink when on). 5px progress
+   strip (accent) at the poster foot while playing with a duration (position at render time). Power corner: 46px top-right
+   triangle, ink with an accent power glyph (red when the player is off). Tap anywhere else on the poster (art or band) =
+   panel B. Under it: Prev / big Play-Pause (accent) / Next (60px glyph keys), then − / volume bar / + / number (44px).
+   Panel B (jam-music-panel jamMusicPanel, openSheet): mini header, tabs Pinned / Recent / Playlists / Albums / Search,
+   rows with Play + pin corner tab, docked player bar; the Speakers key (with `speakers`) swaps the list for the grouping
+   view: "This room" + one row per speaker: name, Join / Playing toggle (GROUPING players only; Join = media_player.join on
+   this entity with group_members [it], Playing = media_player.unjoin on it), thin volume bar; a new join stamps once.
+   size: "kiosk" = K1 (for jam-kiosk fullscreen sheets; fills its parent's height, 420px without one): the art flush left
+   (58 %; tap = panel B, opened fullscreen), the right panel filled with the art's dominant colour (jamMuArtColor on a
+   24px canvas; violet without art / on a tainted canvas; text ink or paper, a mid-tone is nudged until it reads 4.5:1):
+   kicker + Shuffle / Favourite (48px), huge title (2-3 lines by height), artist · album, progress line with times
+   (refreshed every 5 s only while shown inside a sheet and playing), Prev / Play / Next, volume − / bar (+ number) / + and
+   the Speakers key (with `speakers`: the grouping view over the top area, "Now playing" goes back); bottom shelf (ink):
+   label + 5 covers (pinned, then recent; tap = play) + "Browse" (panel B). Nothing under 18px; no continuous animation. */
 const JAM_SPK_ACTIVE = new Set(["playing", "paused", "buffering"]);
-const JAM_SPK_SHUFFLE = 32768;
-/* size: "kiosk" (0.6.0). The face is a size container: the art column and the title scale with the sheet. */
+const JAM_SPK_SHUFFLE = 32768, JAM_SPK_POWER = 128 | 256;
+const JAM_SPK_CSS = `
+    .wrap{display:grid;gap:10px;align-content:start;--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px}
+    .poster{height:var(--ph,178px)}
+    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:#ece2c9}
+    .poster.off > .face{background:var(--slab2)}
+    .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .poster .arm{position:absolute;left:16px;top:0;height:52%;gap:8px;align-items:flex-start}
+    .poster .arm span{background:var(--acc-fg)}
+    .poster.off .arm span{background:var(--slab3)}
+    .open{position:absolute;inset:0;z-index:1;cursor:pointer}
+    .open:focus-visible{outline-offset:-4px}
+    .band{position:absolute;left:0;right:0;bottom:0;z-index:2;background:var(--ink);color:#ece2c9;padding:10px 12px 12px 14px;display:grid;
+      grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:10px;pointer-events:none}
+    .bt{display:grid;gap:3px;min-width:0}
+    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:600 11px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#9a8f7c}
+    .kk i{flex:none;width:10px;height:10px;background:var(--b,#9a8f7c)}
+    .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal}
+    .band .title{font-family:var(--display);font-weight:900;font-size:30px;line-height:.95;text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:anywhere}
+    .band .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .band .ss{font:500 14px/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .poster.small .band{padding:6px 10px 8px 12px} .poster.small .band .title{font-size:24px} .poster.small .band .title > .tl{-webkit-line-clamp:1}
+    .bk{display:flex;gap:6px;pointer-events:auto}
+    .bk .ikey{min-width:0;width:32px;height:32px}
+    .bk .ikey > .face{height:32px;--ic:16px;background:#36312b;color:#ece2c9}
+    .bk .shuf.on > .face{background:var(--acc);color:var(--acc-fg)}
+    .bk .fav > .face{color:var(--pink)} .bk .fav.on > .face{background:var(--pink);color:#141210}
+    .bk .ikey:disabled > .face{color:#6b6152}
+    .pg{position:absolute;left:0;bottom:0;height:5px;z-index:3;background:var(--acc);pointer-events:none}
+    .pw{position:absolute;z-index:4;right:0;top:0;width:46px;height:46px;color:var(--acc)}
+    .pw::before{content:"";position:absolute;inset:0;background:var(--ink);clip-path:polygon(0 0,100% 0,100% 100%)}
+    .pw.off{color:var(--on-fg)} .pw.off::before{background:var(--red)}
+    .pw .ico{position:absolute;right:6px;top:6px;--ic:17px}
+    .pw:focus-visible{outline-offset:-3px}
+    .keys{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px}
+    .keys .ikey{min-width:0}
+    .keys .ikey > .face{height:60px;--ic:24px}
+    .ikey.main > .face{background:var(--acc);color:var(--acc-fg)}
+    .ikey.main:disabled > .face{background:var(--slab2);color:var(--dim)}
+    .vol{display:grid;grid-template-columns:48px minmax(0,1fr) 48px 48px;gap:6px;align-items:center}
+    .vol .key{min-width:0}
+    .vol .key > .face{height:44px;display:grid;place-items:center;padding:0;font:900 22px/1 var(--display)}
+    .vol .vt{height:44px} .vol .vt .strip{inset:0}
+    .vol .v{font:900 24px/1 var(--display);text-align:center}
+    .spk .tog > .face{min-height:32px}`;
+/* size: "kiosk" = K1. The face is a size container (the grid inside sizes the shelf by its height); the right panel is one
+   too (title size / lines). */
 const JAM_SPK_KIOSK_CSS = `
     :host{height:100%;min-height:420px}
     .kiosk{height:100%}
-    .kiosk > .face.kw{--p-t:22px;--p-r:24px;--p-b:24px;--p-l:24px;container-type:size;overflow:hidden}
-    .kg{height:100%;display:grid;--segh:0px;--aw:min(46cqw,440px,calc(100cqh - var(--segh)));grid-template-columns:var(--aw) minmax(0,1fr);
-      grid-template-rows:var(--aw) minmax(0,1fr);column-gap:28px}
-    .kg.tabs{--segh:76px}
-    .kart{grid-area:1/1/2/2;width:var(--aw);height:var(--aw)}
-    .kart > .face{padding:0;position:relative;overflow:hidden;background:var(--acc)}
-    .kart.idle > .face{background:var(--slab2)}
+    .kiosk > .face.k1{padding:0;overflow:hidden;container-type:size}
+    .kg{height:100%;display:grid;grid-template-columns:58% minmax(0,1fr);grid-template-rows:minmax(0,1fr) clamp(88px,20cqh,150px)}
+    .kart{grid-area:1/1/2/2;position:relative;overflow:hidden;background:var(--acc);min-height:0}
+    .kart.off{background:var(--slab2)}
     .kart img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-    .kart .arm{position:absolute;left:12%;right:12%;bottom:0;height:72%;gap:6%;align-items:flex-end;justify-content:center}
+    .kart .arm{position:absolute;left:14%;right:14%;bottom:0;height:70%;gap:6%;align-items:flex-end;justify-content:center}
     .kart .arm span{background:var(--acc-fg);flex:1 1 0;max-width:none}
-    .kart.idle .arm span{background:var(--dim)}
-    .kseg{grid-area:2/1/3/2;align-self:end;gap:6px}
-    .kseg .key > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center;font-size:18px;letter-spacing:.12em}
-    .kmain{grid-area:1/2/3/3;min-width:0;min-height:0}
-    .know{display:flex;flex-direction:column;justify-content:space-between;gap:14px}
-    .ktop{display:grid;gap:10px;min-width:0;align-content:start}
-    .krow{display:flex;align-items:center;gap:14px;min-width:0}
-    .krow .badge{position:static;flex:none;max-width:60%;padding:9px 12px 9px 10px;gap:9px;font-size:18px;letter-spacing:.12em;background:var(--slab3)}
-    .krow .badge i{width:14px;height:14px}
-    .krow .kick{min-width:0;font:600 18px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .know .title{--tl:3;font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.005em;line-height:.92;overflow-wrap:anywhere;cursor:pointer;
-      font-size:clamp(44px,calc((100cqh - 300px) / (var(--tl) * .92)),72px)}
-    .know .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
-    .artist{font:500 28px/1.2 var(--body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .kbot{display:grid;gap:14px}
-    .prog{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}
-    .pt{font:600 20px/1 var(--body);letter-spacing:.04em;color:var(--dim)}
-    .pbar{position:relative;height:10px;background:var(--slab3)}
-    .pbar i{position:absolute;inset:0 auto 0 0;background:var(--acc)}
-    .kiosk .keys{gap:8px}
-    .kiosk .keys .key > .face{--p-t:0;--p-b:0;--p-l:4px;--p-r:6px;min-height:72px;font-size:20px;letter-spacing:.1em}
-    .kiosk .vol{grid-template-columns:64px minmax(0,1fr) 64px 76px;gap:10px}
-    .kiosk .vol .key > .face{height:52px;font-size:30px}
-    .kiosk .vol .v{font-size:40px}
-    .kiosk .vt{height:52px} .kiosk .vt .strip{inset:2px 0}
-    .klist{display:grid;gap:0;align-content:start;overflow:auto}
+    .kart.off .arm span{background:var(--dim)}
+    .side{grid-area:1/2/2/3;min-width:0;min-height:0;container-type:size;background:var(--kbg);color:var(--kfg);padding:clamp(12px,3.5cqh,22px) 24px clamp(12px,3cqh,16px);
+      display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px}
+    .khead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+    .khead .kk{font-size:18px;letter-spacing:.12em;color:var(--kfg);padding-top:12px;gap:10px}
+    .khead .kk i{width:14px;height:14px;outline:2px solid var(--kfg)}
+    .kbk{display:flex;gap:8px;flex:none}
+    .kbk .ikey{min-width:0}
+    .kbk .ikey > .face{width:48px;height:48px;--ic:24px;background:none;color:var(--kfg);border:3px solid var(--kfg)}
+    .kbk .shuf.on > .face{background:var(--kfg);color:var(--kbg)}
+    .kbk .fav.on > .face{background:var(--pink);color:#141210;border-color:var(--pink)}
+    .kbk .ikey:disabled > .face{border-style:dashed}
+    .ktx{min-height:0;overflow:hidden;display:grid;align-content:start;gap:8px}
+    .ktx .title{--tl:3;font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.005em;line-height:.92;overflow-wrap:anywhere;
+      font-size:clamp(36px,14cqh,76px)}
+    .ktx .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
+    .ktx .artist{font:500 clamp(18px,5.5cqh,24px)/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .kb{display:grid;gap:10px}
+    .kprog{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;font:600 18px/1 var(--body);letter-spacing:.04em}
+    .kprog .bar{position:relative;height:6px;background:var(--ktr)}
+    .kprog .bar i{position:absolute;inset:0 auto 0 0;background:var(--kfg)}
+    .kt{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px}
+    .kt .ikey{min-width:0}
+    .kt .ikey > .face{height:clamp(52px,17cqh,72px);--ic:28px;background:var(--kfg);color:var(--kbg)}
+    .kt .ikey.main > .face{background:var(--kfg);color:var(--kbg)}
+    .kt .ikey:disabled > .face{background:var(--ktr);color:var(--kbg)}
+    .kv{display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:6px;align-items:center}
+    .kv.sp{grid-template-columns:56px minmax(0,1fr) 56px 56px}
+    .kv .key{min-width:0}
+    .kv .key > .face{height:clamp(48px,15cqh,56px);display:grid;place-items:center;padding:0;font:900 26px/1 var(--display);background:var(--kfg);color:var(--kbg)}
+    .kv .key:disabled > .face{background:var(--ktr)}
+    .kv .ikey > .face{--ic:24px}
+    .kv .vt{height:clamp(48px,15cqh,56px)} .kv .vt .strip{inset:0;background:var(--ktr)} .kv .vt .fill{background:var(--kfg)}
+    .kv .vn{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:900 22px/1 var(--display);color:var(--kfg);pointer-events:none}
+    .kv .vn.hi{color:var(--kbg)}
+    .shelf{grid-area:2/1/3/3;display:grid;grid-template-columns:auto repeat(6,minmax(0,1fr));background:var(--ink);min-height:0;color:#ece2c9}
+    .shelf .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:600 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:#9a8f7c;
+      display:grid;place-items:center;padding:0 10px;white-space:nowrap;overflow:hidden}
+    .shelf .none{grid-column:2/7;align-self:center;padding:0 16px;font:500 18px/1.3 var(--body);color:#9a8f7c}
+    .tile{position:relative;overflow:hidden;min-width:0;border-left:4px solid var(--ink);background:#2c2824;color:#ece2c9;cursor:pointer}
+    .tile > .thumb{position:absolute;inset:0;width:auto;height:auto}
+    .tile .nm{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:var(--ink);color:#ece2c9;font:900 18px/1 var(--display);
+      text-transform:uppercase;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tile.browse{background:#36312b}
+    .tile.browse > .ico{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);--ic:40px}
+    .tile:focus-visible{outline-offset:-4px}
+    .kart .open:focus-visible{outline-offset:-4px}
+    .kspk{grid-area:1/1/2/3;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;padding:16px 24px 12px;background:var(--slab);overflow:hidden}
+    .kspk .kh{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .kspk .kh b{font:900 36px/1 var(--display);text-transform:uppercase}
+    .kspk .kh .key > .face{display:flex;align-items:center;height:56px;--p-t:0;--p-b:0;--p-l:20px;--p-r:22px;font-size:18px;letter-spacing:.12em}
+    .klist{display:grid;gap:0;align-content:start;overflow:auto;min-height:0}
     .klist .spk{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(120px,auto);gap:16px;min-height:72px;padding:8px 0}
     .klist .spk:first-child{border-top:0}
     .klist .spk .n{font-size:30px;line-height:.95;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .klist .spk .vt{grid-column:auto;grid-row:1}
     .klist .spk .vt.thin{height:44px} .klist .spk .vt.thin .strip{inset:8px 0}
-    .klist .spk .n{grid-row:1;grid-column:1} .klist .spk .vt{grid-column:2} .klist .spk > :nth-child(2){grid-column:3;grid-row:1}
+    .klist .spk .n{grid-row:1;grid-column:1} .klist .spk .vt{grid-column:2;grid-row:1} .klist .spk > :nth-child(2){grid-column:3;grid-row:1}
     .klist .spk .tog > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;min-height:56px;display:flex;align-items:center;justify-content:center;font-size:18px}
     .klist .spk .here{font-size:18px;text-align:center}
-    @container (max-height:440px){ .know .title{--tl:2} .know{gap:10px} .kbot{gap:10px} }
-    /* Not a kiosk sheet (narrower than 600px): one column without the art, smaller key labels. */
-    @container (max-width:600px){ .kg{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);row-gap:12px} .kart{display:none}
-      .kseg,.kmain{grid-area:auto} .kiosk .keys .key > .face,.kseg .key > .face{font-size:14px;letter-spacing:.06em} .know .title{--tl:2} }`;
+    @container (max-height:420px){ .ktx .title{--tl:2} .side{gap:8px} .kb{gap:8px} }
+    @container (max-height:360px){ .ktx .title{font-size:36px} .ktx{gap:4px} .khead .kk{padding-top:4px} .kbk .ikey > .face{width:44px;height:44px} }
+    /* (.side's own query container is the card face: an Echo Show sheet is about 446px tall) */
+    @container (max-height:480px){ .side{padding:12px 20px 10px} }
+    /* Not a kiosk sheet (narrower than 600px): the art steps aside, the panel takes the width. */
+    @container (max-width:600px){ .kart{display:none} .side{grid-column:1/3} }`;
 class JamSpeaker extends JamBase {
   validate(c) {
     if (!c.entity || !String(c.entity).startsWith("media_player.")) throw new Error("jam-speaker: entity must be a media_player");
     if (c.speakers !== undefined && !Array.isArray(c.speakers)) throw new Error("jam-speaker: speakers must be a list of media_player ids");
+    if (c.pinned !== undefined && !Array.isArray(c.pinned)) throw new Error("jam-speaker: pinned must be a list of Music Assistant uris");
     if (c.size !== undefined && !["kiosk", "normal"].includes(c.size)) throw new Error("jam-speaker: size is kiosk or normal");
   }
-  setConfig(c) { this._tab = null; this._joined = null; super.setConfig(c.accent ? c : {...c, accent: "music"}); }
+  setConfig(c) {
+    if (this._panel) this._panel.close({silent: true});
+    this._tab = null; this._joined = null; this._fav = null; this._recent = null; this._recentAt = 0; this._namesAt = 0;
+    super.setConfig(c.accent ? c : {...c, accent: "music"});
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this._hass || !this._config) return;
+    this._favFetch(stateObj(this._hass, this._config.entity));
+    if (this._kiosk && this._kroot) { this._refillShelf(); this._tick(); }
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._panel) this._panel.close({silent: true});
+    clearTimeout(this._tk); this._tk = null;
+  }
   get _kiosk() { return !!this._config && this._config.size === "kiosk"; }
   get _speakers() {
     return (this._config.speakers || []).map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && x.entity && x.entity !== this._config.entity);
   }
-  watched() { return [this._config.entity, ...this._speakers.map(x => x.entity)]; }
-  css() { return `
-    .wrap{display:grid;gap:9px;align-content:start;--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px}
-    .poster{height:var(--ph,170px);cursor:default}
-    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:var(--acc-fg)}
-    .poster.idle > .face{background:var(--slab2);color:var(--fg)}
-    .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-    .poster.art.light > .face{color:var(--on-fg)}
-    .poster.art.dark > .face,.poster.art.busy > .face{color:#ece2c9}
-    .poster .arm{position:absolute;right:14px;bottom:0;height:78%;gap:8px;align-items:flex-end}
-    .poster .arm span{background:var(--acc-fg)}
-    .poster.idle .arm span{background:var(--slab3)}
-    .poster .txt{position:absolute;left:0;right:0;bottom:0;padding:8px 22px 12px 14px;display:grid;gap:4px;min-width:0}
-    .poster.bars .txt{padding-right:104px}
-    .poster.art.busy .txt{background:color-mix(in srgb,var(--ink) 50%,transparent)}
-    .poster .kick{font:600 .6rem/1.15 var(--body);letter-spacing:.16em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .poster .title{font-family:var(--display);font-weight:900;font-size:2rem;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
-      overflow-wrap:anywhere;cursor:pointer}
-    .poster .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .poster .sub{font:500 .8rem/1.2 var(--body);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .poster.small .txt{padding:4px 22px 7px 12px;gap:2px}
-    .poster.small .title{font-size:1.6rem} .poster.small .title > .tl{-webkit-line-clamp:1}
-    .poster.small .sub{font-size:.74rem}
-    .badge{position:absolute;z-index:2;top:8px;right:8px;max-width:calc(100% - 16px);display:flex;align-items:center;gap:6px;
-      background:var(--slab2);color:var(--fg);padding:6px 9px 6px 8px;font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;
-      clip-path:polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%)}
-    .poster.idle .badge{background:var(--slab3)}
-    .badge i{flex:none;width:8px;height:8px;background:var(--b,var(--dim))}
-    .badge span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-    .seg .key > .face{--p-t:10px;--p-b:10px;--p-l:6px;--p-r:8px;font-size:.62rem;letter-spacing:.14em}
-    .seg .key.sel > .face{background:var(--fg);color:var(--slab)}
-    .pane{display:grid;gap:8px}
-    .keys{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:6px}
-    .keys .key{min-width:0}
-    .keys .key > .face{--p-t:13px;--p-b:12px;--p-l:3px;--p-r:5px;min-height:44px;display:flex;align-items:center;justify-content:center;font-size:.62rem}
-    .vol{display:grid;grid-template-columns:44px minmax(0,1fr) 44px 2.6em;gap:6px;align-items:center}
-    .vol .key{min-width:0}
-    .vol .key > .face{--p-t:0;--p-b:0;--p-l:0;--p-r:4px;height:30px;display:grid;place-items:center;font:600 1rem/1 var(--body);letter-spacing:0}
-    .vol .v{font-family:var(--display);font-weight:900;font-size:1.35rem;line-height:1;text-align:right}
-    .vt{position:relative;height:30px;touch-action:none}
-    .vt[role=slider]{cursor:pointer}
-    .vt .strip{inset:0}
-    .vt.thin{height:22px} .vt.thin .strip{inset:7px 0}
-    .vt:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
-    .spk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding-top:8px;border-top:2px solid var(--line)}
-    .spk .n{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:1rem;line-height:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .spk .vt{grid-column:1/-1}
-    .spk .tog{min-width:0}
-    .spk .tog > .face{--p-t:7px;--p-b:7px;--p-l:10px;--p-r:10px;font-size:.58rem;letter-spacing:.14em}
-    .spk .here{font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}` + (this._kiosk ? JAM_SPK_KIOSK_CSS : ""); }
-  /* Badge [word, colour] for the poster corner. */
+  watched() { return [this._config.entity, ...this._speakers.map(x => x.entity), this._favId()].filter(Boolean); }
+  css() { return JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + JAM_SPK_CSS + (this._kiosk ? JAM_SPK_KIOSK_CSS : ""); }
+  _room() { const c = this._config; return c.name || friendly(this._hass, c.entity); }
+  _artSrc(s) { const a = (s && s.attributes) || {}; return jamMuUrl(this._hass, a.entity_picture_local || a.entity_picture); }
+  /* The player's MA "Favorite current song" button: config favorite_entity, else the button on the player's device
+     (entity registry), else button.<object_id>_favorite_current_song. Cached until hass.entities changes. */
+  _favId() {
+    const c = this._config, h = this._hass;
+    if (c.favorite_entity !== undefined) return c.favorite_entity || null;
+    const ents = h && h.entities;
+    if (!this._fav || this._fav.ents !== ents) { // scan the registry once per registry change (hass.entities is replaced then)
+      let id = null;
+      const me = ents && ents[c.entity];
+      if (me && me.device_id) for (const k in ents) {
+        const e = ents[k];
+        if (k.startsWith("button.") && e && e.device_id === me.device_id && (e.translation_key === "favorite_now_playing" || /favou?rite/.test(k))) { id = k; break; }
+      }
+      this._fav = {ents, id, guess: "button." + c.entity.slice(13) + "_favorite_current_song"};
+    }
+    if (this._fav.id) return this._fav.id;
+    return h && h.states && h.states[this._fav.guess] ? this._fav.guess : null;
+  }
+  /* Source word + dot colour: Offline / Grouped / Idle / Paused / Spotify Connect / Music Assistant / the source. */
   _badge(s) {
     const id = this._config.entity, a = (s && s.attributes) || {};
     if (!s || UNAVAILABLE.has(s.state)) return ["Offline", "var(--red)"];
+    if (s.state === "off" || s.state === "standby") return ["Off", "var(--dim)"];
     const gm = a.group_members || [];
     const member = (gm.length > 1 && gm[0] !== id) || this._speakers.some(x => {
       const o = stateObj(this._hass, x.entity), m = (o && o.attributes.group_members) || [];
@@ -4859,45 +5447,114 @@ class JamSpeaker extends JamBase {
     if (!JAM_SPK_ACTIVE.has(s.state)) return ["Idle", "var(--dim)"];
     if (s.state === "paused") return ["Paused", "var(--dim)"];
     const src = String(a.source || ""), app = String(a.app_id || "").toLowerCase();
-    if (/spotify/i.test(src) || app.includes("spotify")) return ["Spotify Connect", "var(--green)"];
+    if (/spotify/i.test(src) || app.includes("spotify")) return ["Spotify Connect", "var(--jam-spotify,#1db954)"];
     if (/music assistant/i.test(src) || app.includes("music_assistant")) return ["Music Assistant", "var(--violet)"];
     return [src || fmtState(this._hass, s), "var(--acc)"];
   }
-  _poster(s, idle) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {};
-    const fname = friendly(h, c.entity);
-    const {root, face} = paper("div", "jam-speaker|poster|" + c.entity, {kind: "poster", cls: "poster" + (idle ? " idle" : "")});
-    const ph = Math.max(72, Number(c.poster_height) || 170);
-    if (c.poster_height) root.style.setProperty("--ph", ph + "px");
-    if (ph < 110) root.classList.add("small"); // kiosk: one title line, tighter text block
-    const src = !idle && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
-    const bars = () => { root.classList.add("bars"); face.prepend(armBars("jam-speaker|" + c.entity)); };
-    const tone = (img, r) => JamTv.prototype._artTone.call(this, img, r); // shared art sampler (jam-tv)
-    if (src) {
-      root.classList.add("art", "busy");
-      const img = el("img"); img.alt = ""; img.decoding = "async";
-      if (JAM_TV_ART.get(src)) tone({src}, root);
-      img.onload = () => tone(img, root);
-      img.onerror = () => { img.remove(); root.classList.remove("art", "busy", "light", "dark"); bars(); };
-      img.src = src; face.append(img);
-    } else bars();
-    const txt = el("div", "txt");
-    txt.append(el("div", "kick", c.name ? `${c.name} speakers` : fname));
-    txt.append(asButton(clampTitle(a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
-    if (a.media_title && a.media_artist) txt.append(el("div", "sub", a.media_artist));
-    face.append(txt);
-    const [word, col] = this._badge(s), bd = el("div", "badge"), sq = el("i");
-    sq.setAttribute("aria-hidden", "true"); bd.style.setProperty("--b", col); bd.dataset.badge = word;
-    bd.append(sq, el("span", "", word));
-    face.append(bd);
-    return root;
+  _kicker(s, short) {
+    let [word, col] = this._badge(s);
+    if (short && word === "Spotify Connect") word = "Spotify";
+    const k = el("div", "kk"), i = el("i");
+    i.setAttribute("aria-hidden", "true"); k.style.setProperty("--b", col); k.dataset.badge = word;
+    k.append(i, el("span", "", `${this._room()} · ${word}`));
+    return k;
+  }
+  /* Art layer: playing = the artwork (broken -> accent + bars) or accent + Golden Arm bars; idle = cut-paper abstract
+     (seeded by entity + last_changed); offline = bars on slab2 (the parent's .off class). */
+  _art(s, off, idle, host, onImg) {
+    const c = this._config, src = !idle && this._artSrc(s);
+    const bars = () => { host.classList.add("bars"); return armBars("jam-speaker|" + c.entity); };
+    if (off) return bars();
+    if (idle) return jamMuIdleArt(seed(c.entity + "|" + ((s && s.last_changed) || "")));
+    if (!src) return bars();
+    const img = el("img"); img.alt = ""; img.decoding = "async";
+    img.onerror = () => { img.replaceWith(bars()); };
+    if (onImg) img.onload = () => onImg(img, src);
+    img.src = src;
+    return img;
+  }
+  /* Track identity for the favourite memory. */
+  _trackKey(s) { const a = (s && s.attributes) || {}; return a.media_content_id || (a.media_title ? a.media_title + "|" + (a.media_artist || "") : null); }
+  _favKey(s, off, cls) {
+    const id = this._favId();
+    if (!id || this._config.show_favorite === false) return null;
+    const b = stateObj(this._hass, id), idle = off || !JAM_SPK_ACTIVE.has(s.state), k = this._trackKey(s), on = !idle && !!k && JAM_MU.fav.get(k) === true;
+    const key = jamMuKey(on ? "heart" : "heartOff", "Favourite", "favorite", "fav" + (on ? " on" : "") + (cls ? " " + cls : ""),
+      () => this._favPress(), idle || !b || b.state === "unavailable"); // a button's state is "unknown" until its first press
+    key.setAttribute("aria-pressed", String(on));
+    return key;
+  }
+  _favPress() {
+    const id = this._favId(), s = stateObj(this._hass, this._config.entity), k = this._trackKey(s);
+    if (!id) return;
+    this._hass.callService("button", "press", {entity_id: id});
+    if (k) { jamMuFavSet(k, true); this._render(false); }
+  }
+  /* MA-queue playback: ask get_queue once per track whether it is a favourite (lights the key). */
+  _favFetch(s) {
+    const a = (s && s.attributes) || {}, k = this._trackKey(s), h = this._hass, id = this._config.entity;
+    if (!this.isConnected || !k || !s || !JAM_SPK_ACTIVE.has(s.state) || JAM_MU.fav.has(k) || JAM_MU.favLoad.has(k) || !this._favId()) return;
+    if (!(a.app_id === "music_assistant" || /music assistant/i.test(String(a.source || ""))) || !h || typeof h.callWS !== "function") return;
+    JAM_MU.favLoad.add(k);
+    jamMuCall(h, "get_queue", {}, {entity_id: id}).then(r => {
+      const q = r && r[id], mi = q && q.current_item && q.current_item.media_item;
+      const same = mi && (!a.media_title || String(mi.name || "").toLowerCase() === String(a.media_title).toLowerCase());
+      jamMuFavSet(k, !!(same && mi.favorite === true));
+    }, () => { jamMuFavSet(k, false); }).then(() => {
+      JAM_MU.favLoad.delete(k);
+      if (JAM_MU.fav.get(k) && this.isConnected && this._trackKey(stateObj(this._hass, id)) === k) this._render(false);
+    });
+  }
+  _shuffleKey(s, off) {
+    const a = (s && s.attributes) || {};
+    if (this._config.show_shuffle === false || ((Number(a.supported_features) || 0) & JAM_SPK_SHUFFLE) === 0) return null;
+    const on = a.shuffle === true;
+    const k = jamMuKey("shuffle", "Shuffle", "shuffle", "shuf" + (on ? " on" : ""),
+      () => this._hass.callService("media_player", "shuffle_set", {entity_id: this._config.entity, shuffle: !on}), off);
+    k.setAttribute("aria-pressed", String(on));
+    return k;
+  }
+  /* Prev / Play-Pause / Next glyph keys (card, kiosk, panel dock). */
+  _transportKeys(s, off) {
+    const id = this._config.entity, call = svc => () => this._hass.callService("media_player", svc, {entity_id: id});
+    const playing = !!s && s.state === "playing";
+    return [
+      jamMuKey("prev", "Previous track", "prev", "", call("media_previous_track"), off),
+      jamMuKey(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", "main", call("media_play_pause"), off),
+      jamMuKey("next", "Next track", "next", "", call("media_next_track"), off),
+    ];
+  }
+  _power(s) {
+    const c = this._config, h = this._hass, f = Number(s && s.attributes.supported_features) || 0;
+    if (c.power_action) { runAction(this, h, c.power_action, c.entity); return; }
+    if (f & JAM_SPK_POWER) h.callService("media_player", "toggle", {entity_id: c.entity});
+    else h.callService("media_player", s && JAM_SPK_ACTIVE.has(s.state) ? "media_stop" : "media_play", {entity_id: c.entity});
+  }
+  _powerKey(s, off) {
+    const down = !s || ["off", "standby"].includes(s.state), f = Number(s && s.attributes.supported_features) || 0;
+    const pw = el("button", "pw" + (down ? " off" : "")); pw.type = "button"; pw.dataset.key = "power";
+    pw.setAttribute("aria-label", this._config.power_action || f & JAM_SPK_POWER ? (down ? "Turn on" : "Turn off")
+      : s && JAM_SPK_ACTIVE.has(s.state) ? "Turn off (stop playing)" : "Turn on (play)");
+    pw.append(jamMuIcon("power"));
+    pw.disabled = off && !!s && UNAVAILABLE.has(s.state);
+    pw.onclick = () => this._power(stateObj(this._hass, this._config.entity));
+    return pw;
   }
   _key(label, id, cls, run, disabled) {
     const k = cutKey(label, `jam-speaker|${this._config.entity}|${id}`, cls, "chip");
     k.dataset.key = id; k.disabled = !!disabled; if (run) k.onclick = run;
     return k;
   }
-  /* Volume track for one player. thin = the Speakers rows. Drag previews, release sends volume_set. Returns {track, show}. */
+  _play(it) {
+    const d = {entity_id: this._config.entity, media_id: it.uri};
+    if (JAM_MU_PLAYABLE.has(it.media_type)) d.media_type = it.media_type;
+    this._hass.callService("music_assistant", "play_media", d);
+  }
+  _openPanel() {
+    if (this._panel && this._panel.isOpen()) return;
+    this._panel = jamMusicPanel(this);
+  }
+  /* Volume track for one player. thin = the Speakers rows. Drag previews, release sends volume_set. Returns {track, cur, set}. */
   _track(id, s, thin, onShow) {
     const off = !s || UNAVAILABLE.has(s.state);
     const track = el("div", "vt hit" + (thin ? " thin" : "")), strip = el("div", "strip"), fill = el("div", "fill");
@@ -4920,36 +5577,21 @@ class JamSpeaker extends JamBase {
     };
     return {track, cur: () => cur, set: v => { show(v); send(); }};
   }
-  _nowPane(s) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, off = !s || UNAVAILABLE.has(s.state);
-    const pane = el("div", "pane"), call = (svc, d) => () => h.callService("media_player", svc, {entity_id: c.entity, ...d});
-    const keys = [
-      this._key("Prev", "prev", "", call("media_previous_track"), off),
-      this._key(s && s.state === "playing" ? "Pause" : "Play", "play_pause", "on main", call("media_play_pause"), off),
-      this._key("Next", "next", "", call("media_next_track"), off),
-    ];
-    const canShuffle = ((Number(a.supported_features) || 0) & JAM_SPK_SHUFFLE) !== 0;
-    if (c.show_shuffle !== false && canShuffle) {
-      const on = a.shuffle === true;
-      const k = this._key("Shuffle", "shuffle", on ? "on" : "", call("shuffle_set", {shuffle: !on}), off);
-      k.setAttribute("aria-pressed", String(on));
-      keys.push(k);
-    }
-    const row = el("div", "keys"); row.style.setProperty("--n", keys.length); row.append(...keys);
-    const vol = el("div", "vol"), val = el("div", "v num", off ? "—" : "");
-    const t = this._track(c.entity, s, false, v => { val.textContent = String(v); });
-    if (!off) val.textContent = String(t.cur());
+  _volRow(s, off, kiosk) {
+    const c = this._config, row = el("div", kiosk ? "kv" : "vol");
+    const val = el("div", (kiosk ? "vn" : "v") + " num", off ? "—" : "");
+    const t = this._track(c.entity, s, false, v => { val.textContent = String(v); if (kiosk) val.classList.toggle("hi", v >= 75); });
+    if (!off) { val.textContent = String(t.cur()); if (kiosk) val.classList.toggle("hi", t.cur() >= 75); }
     const dn = this._key("−", "vol_down", "", () => t.set(t.cur() - 5), off), up = this._key("+", "vol_up", "", () => t.set(t.cur() + 5), off);
     dn.setAttribute("aria-label", "Volume down"); up.setAttribute("aria-label", "Volume up");
-    vol.append(dn, t.track, up, val);
-    pane.append(row, vol);
-    return pane;
+    if (kiosk) { t.track.append(val); row.append(dn, t.track, up); } else row.append(dn, t.track, up, val);
+    return row;
   }
   _speakersPane(s, stampIds) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, pane = el("div", "pane spks");
-    const meOk = !!s && !UNAVAILABLE.has(s.state) && jamCanGroup(s), mine = a.group_members || [];
+    const c = this._config, h = this._hass, pane = el("div", "pane spks");
+    const meOk = !!s && !UNAVAILABLE.has(s.state) && jamCanGroup(s);
     const here = el("div", "spk"); here.dataset.entity = c.entity;
-    here.append(el("div", "n", "This room"), el("span", "here", c.name || friendly(h, c.entity)), this._track(c.entity, s, true).track);
+    here.append(el("div", "n", "This room"), el("span", "here", this._room()), this._track(c.entity, s, true).track);
     pane.append(here);
     for (const x of this._speakers) {
       const o = stateObj(h, x.entity), row = el("div", "spk"); row.dataset.entity = x.entity;
@@ -4971,66 +5613,6 @@ class JamSpeaker extends JamBase {
     const me = stateObj(this._hass, this._config.entity), o = stateObj(this._hass, id);
     return ((me && me.attributes.group_members) || []).includes(id) || ((o && o.attributes.group_members) || []).includes(this._config.entity);
   }
-  render(b) {
-    const c = this._config, h = this._hass, s = stateObj(h, c.entity);
-    const idle = !s || !JAM_SPK_ACTIVE.has(s.state);
-    const spk = this._speakers, tab = spk.length && this._tab === "speakers" ? "speakers" : "now";
-    // Stamp a speaker that just joined (not on the first render or a tab switch).
-    const joined = new Set(spk.map(x => x.entity).filter(id => this._isJoined(id))), stamp = new Set();
-    if (this._joined && motionOn()) for (const id of joined) if (!this._joined.has(id)) stamp.add(id);
-    this._joined = joined;
-    if (this._kiosk) { this._kioskRender(b, s, idle, tab, stamp); return; }
-    const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (idle ? " idle" : "")});
-    root.dataset.mode = !s || UNAVAILABLE.has(s.state) ? "off" : idle ? "idle" : s.state; root.dataset.tab = tab;
-    wrap.append(this._poster(s, idle));
-    if (spk.length) wrap.append(this._seg(tab));
-    wrap.append(tab === "speakers" ? this._speakersPane(s, stamp) : this._nowPane(s));
-    b.append(root);
-  }
-  /* Now playing | Speakers switch (in memory). */
-  _seg(tab) {
-    const c = this._config, seg = el("div", "seg");
-    for (const [id, text] of [["now", "Now playing"], ["speakers", "Speakers"]]) {
-      const k = cutKey(text, `jam-speaker|${c.entity}|tab|${id}`, id === tab ? "sel" : "", "chip");
-      k.dataset.tab = id; k.setAttribute("aria-pressed", String(id === tab));
-      k.onclick = () => {
-        if (this._tab === id || (id === "now" && !this._tab)) return;
-        this._tab = id; this._render(false);
-        if (id === "speakers") { const p = this.shadowRoot.querySelector(".spks"); if (p) staggerIn(p.children, 0); }
-      };
-      seg.append(k);
-    }
-    return seg;
-  }
-  /* ---- size: "kiosk" (0.6.0): art left, now playing / speakers right ---- */
-  _kioskRender(b, s, idle, tab, stamp) {
-    const c = this._config, spk = this._speakers;
-    const {root, face} = this.paper(c.entity, {face: "kw" + (idle ? " idle" : "")});
-    root.classList.add("kiosk");
-    root.dataset.mode = !s || UNAVAILABLE.has(s.state) ? "off" : idle ? "idle" : s.state; root.dataset.tab = tab;
-    const g = el("div", "kg" + (spk.length ? " tabs" : ""));
-    g.append(this._kArt(s, idle));
-    if (spk.length) { const seg = this._seg(tab); seg.classList.add("kseg"); g.append(seg); }
-    const main = tab === "speakers" ? this._kSpeakers(s, stamp) : this._kNow(s, idle);
-    main.classList.add("kmain");
-    g.append(main);
-    face.append(g);
-    b.append(root);
-  }
-  _kArt(s, idle) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {};
-    const {root, face} = paper("div", "jam-speaker|kart|" + c.entity, {kind: "poster", cls: "kart" + (idle ? " idle" : "")});
-    root.setAttribute("aria-hidden", "true");
-    const src = !idle && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
-    const bars = () => { root.classList.add("bars"); face.append(armBars("jam-speaker|" + c.entity)); };
-    if (src) {
-      root.classList.add("art");
-      const img = el("img"); img.alt = ""; img.decoding = "async";
-      img.onerror = () => { img.remove(); root.classList.remove("art"); bars(); };
-      img.src = src; face.append(img);
-    } else bars();
-    return root;
-  }
   /* Position / duration strings + fraction, or null (no duration). Position extrapolated while playing (at render time). */
   _kPos(s) {
     const a = (s && s.attributes) || {}, dur = Number(a.media_duration);
@@ -5040,37 +5622,178 @@ class JamSpeaker extends JamBase {
     if (s.state === "playing" && at) pos += (Date.now() - at) / 1000;
     pos = Math.min(Math.max(0, pos), dur);
     const long = dur >= 3600;
-    return {pos: jamTvTime(pos, long), dur: jamTvTime(dur, long), frac: pos / dur};
+    return {pos: jamMuTime(pos, long), dur: jamMuTime(dur, long), frac: pos / dur};
   }
-  _kNow(s, idle) {
-    const c = this._config, h = this._hass, a = (s && s.attributes) || {}, fname = friendly(h, c.entity);
-    const main = el("div", "know"), top = el("div", "ktop"), row = el("div", "krow");
-    const [word, col] = this._badge(s), bd = el("div", "badge"), sq = el("i");
-    sq.setAttribute("aria-hidden", "true"); bd.style.setProperty("--b", col); bd.dataset.badge = word;
-    bd.append(sq, el("span", "", word));
-    row.append(bd, el("div", "kick", c.name ? `${c.name} speakers` : fname));
-    top.append(row, asButton(clampTitle(a.media_title || c.name || fname), () => moreInfo(this, c.entity)));
-    if (a.media_title && a.media_artist) top.append(el("div", "artist", a.media_artist));
-    const bottom = el("div", "kbot"), p = !idle ? this._kPos(s) : null;
-    if (p) {
-      const pr = el("div", "prog"), bar = el("div", "pbar"), i = el("i");
-      bar.setAttribute("aria-hidden", "true"); i.style.width = (p.frac * 100).toFixed(1) + "%"; bar.append(i);
-      pr.append(el("span", "pt num", p.pos), bar, el("span", "pt num", p.dur));
-      bottom.append(pr);
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity);
+    const off = !s || UNAVAILABLE.has(s.state), idle = off || !JAM_SPK_ACTIVE.has(s.state);
+    // Stamp a speaker that just joined (not on the first render or a view switch).
+    const spk = this._speakers, joined = new Set(spk.map(x => x.entity).filter(id => this._isJoined(id))), stamp = new Set();
+    if (this._joined && motionOn()) for (const id of joined) if (!this._joined.has(id)) stamp.add(id);
+    this._joined = joined; this._stamp = stamp;
+    this._favFetch(s);
+    if (this._panel) this._panel.update();
+    if (this._kiosk) { this._k1(b, s, off, idle, stamp); return; }
+    const {root, face} = this.paper(c.entity, {face: "wrap"});
+    root.dataset.mode = off ? "off" : idle ? "idle" : s.state;
+    face.append(this._poster(s, off, idle));
+    const keys = el("div", "keys"); keys.append(...this._transportKeys(s, off));
+    face.append(keys, this._volRow(s, off, false));
+    b.append(root);
+  }
+  _poster(s, off, idle) {
+    const c = this._config, a = (s && s.attributes) || {};
+    const {root, face} = paper("div", "jam-speaker|poster|" + c.entity, {kind: "poster", cls: "poster" + (off ? " off" : idle ? " idle" : "")});
+    const ph = Math.max(72, Number(c.poster_height) || 178);
+    if (c.poster_height) root.style.setProperty("--ph", ph + "px");
+    if (ph < 110) root.classList.add("small");
+    face.append(this._art(s, off, idle, root));
+    const open = el("button", "open"); open.type = "button"; open.dataset.key = "more";
+    open.setAttribute("aria-label", `${this._room()} music: library and speakers`);
+    open.onclick = () => this._openPanel();
+    face.append(open);
+    const band = el("div", "band"), bt = el("div", "bt"), room = this._room();
+    const title = !idle && a.media_title ? a.media_title : room;
+    const sub = off ? null : !idle ? (a.media_title ? a.media_artist : null) : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : null;
+    bt.append(this._kicker(s), clampTitle(title));
+    if (sub) bt.append(el("div", "ss", sub));
+    const bk = el("div", "bk"), sh = this._shuffleKey(s, off), fv = this._favKey(s, off);
+    if (sh) bk.append(sh);
+    if (fv) bk.append(fv);
+    band.append(bt, bk);
+    face.append(band);
+    const p = s && s.state === "playing" ? this._kPos(s) : null;
+    if (p) { const pg = el("div", "pg"); pg.setAttribute("aria-hidden", "true"); pg.style.width = (p.frac * 100).toFixed(1) + "%"; face.append(pg); }
+    face.append(this._powerKey(s, off));
+    return root;
+  }
+  /* ---- size: "kiosk" = K1 ---- */
+  _kpaint(root, col) {
+    root.style.setProperty("--kbg", col.bg); root.style.setProperty("--kfg", col.fg); root.style.setProperty("--ktr", col.track);
+    root.dataset.ink = col.ink ? "1" : "0";
+  }
+  _k1(b, s, off, idle, stamp) {
+    const c = this._config, spk = this._speakers;
+    const view = spk.length && this._tab === "speakers" ? "speakers" : "now";
+    const {root, face} = this.paper(c.entity, {face: "k1"});
+    root.classList.add("kiosk");
+    root.dataset.mode = off ? "off" : idle ? "idle" : s.state; root.dataset.tab = view;
+    this._kroot = root;
+    const src = !idle && this._artSrc(s);
+    if (!src) this._kcol = null;
+    else if (JAM_MU.art.has(src)) this._kcol = JAM_MU.art.get(src); // null = tainted / empty art: violet
+    this._kpaint(root, this._kcol || jamMuReadable(JAM_MU_VIOLET));
+    const g = el("div", "kg");
+    face.append(g);
+    if (view === "speakers") {
+      const box = el("div", "kspk"), kh = el("div", "kh"), back = this._key("Now playing", "now", "", () => { this._tab = null; this._render(false); });
+      kh.append(el("b", "", "Speakers"), back);
+      const pane = this._speakersPane(s, stamp); pane.classList.add("klist");
+      box.append(kh, pane);
+      g.append(box);
+    } else {
+      const art = el("div", "kart" + (off ? " off" : idle ? " idle" : ""));
+      art.append(this._art(s, off, idle, art, (img, key) => {
+        const col = JAM_MU.art.has(key) ? JAM_MU.art.get(key) : jamMuArtColor(img, key);
+        this._kcol = col;
+        if (this._kroot === root) this._kpaint(root, col || jamMuReadable(JAM_MU_VIOLET));
+      }));
+      const open = el("button", "open"); open.type = "button"; open.dataset.key = "more";
+      open.setAttribute("aria-label", `${this._room()} music: library`); open.onclick = () => this._openPanel();
+      art.append(open);
+      g.append(art, this._kSide(s, off, idle));
     }
-    const pane = this._nowPane(s);
-    bottom.append(...pane.children);
-    main.append(top, bottom);
-    return main;
+    g.append(this._shelf());
+    b.append(root);
+    this._tick();
   }
-  _kSpeakers(s, stamp) {
-    const pane = this._speakersPane(s, stamp);
-    pane.classList.add("klist");
-    return pane;
+  _kSide(s, off, idle) {
+    const a = (s && s.attributes) || {}, side = el("div", "side");
+    const head = el("div", "khead"), bk = el("div", "kbk"), sh = this._shuffleKey(s, off), fv = this._favKey(s, off);
+    if (sh) bk.append(sh);
+    if (fv) bk.append(fv);
+    head.append(this._kicker(s, true), bk);
+    const tx = el("div", "ktx"), room = this._room();
+    tx.append(clampTitle(!idle && a.media_title ? a.media_title : room));
+    const line = off ? "Offline" : !idle ? [a.media_artist, a.media_album_name].filter(Boolean).join(" · ")
+      : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : "Nothing playing";
+    if (line) tx.append(el("div", "artist", line));
+    const kb = el("div", "kb"), p = !idle ? this._kPos(s) : null;
+    this._kprog = null;
+    if (p) {
+      const pr = el("div", "kprog"), bar = el("div", "bar"), i = el("i"), t0 = el("span", "pt num", p.pos);
+      bar.setAttribute("aria-hidden", "true"); i.style.width = (p.frac * 100).toFixed(1) + "%"; bar.append(i);
+      pr.append(t0, bar, el("span", "pt num", p.dur));
+      kb.append(pr);
+      this._kprog = {i, t0};
+    }
+    const keys = el("div", "kt"); keys.append(...this._transportKeys(s, off));
+    const vol = this._volRow(s, off, true);
+    if (this._speakers.length) {
+      vol.classList.add("sp");
+      const sk = jamMuKey("speakers", "Speakers", "speakers", "", () => { this._tab = "speakers"; this._render(false); const p2 = this.shadowRoot.querySelector(".klist"); if (p2) staggerIn(p2.children, 0); });
+      vol.append(sk);
+    }
+    kb.append(keys, vol);
+    side.append(head, tx, kb);
+    return side;
+  }
+  /* Bottom shelf: label + 5 covers (pinned, then recent) + Browse. Pins / recent load on demand and refill only the shelf. */
+  _shelf() {
+    const c = this._config, h = this._hass, sh = el("div", "shelf"), pins = jamMuPinned(c), seen = new Set(), items = [];
+    for (const x of [...pins, ...(this._recent || [])]) if (!seen.has(x.uri) && items.length < 5) { seen.add(x.uri); items.push(x); }
+    const lb = el("div", "lb", pins.length ? "Pinned" : "Recent"); lb.setAttribute("aria-hidden", "true");
+    sh.append(lb);
+    sh.dataset.sig = lb.textContent + "|" + items.map(x => x.uri + "=" + x.name).join(",");
+    if (!items.length) sh.append(el("div", "none", this._recentAt && this._recent ? "Pin playlists and albums from Browse." : "Loading your music…"));
+    for (const it of items) {
+      const t = el("button", "tile"); t.type = "button"; t.dataset.key = "tile"; t.dataset.uri = it.uri;
+      t.setAttribute("aria-label", "Play " + it.name);
+      t.append(jamMuThumb(h, it.image, it.uri), el("span", "nm", it.name));
+      t.onclick = () => { this._play(it); if (motionOn()) oneShot(t, "jam-stamp"); };
+      sh.append(t);
+    }
+    const br = el("button", "tile browse"); br.type = "button"; br.dataset.key = "browse"; br.setAttribute("aria-label", "Browse the music library");
+    br.style.gridColumn = "7"; br.append(jamMuIcon("more"), el("span", "nm", "Browse"));
+    br.onclick = () => this._openPanel();
+    sh.append(br);
+    if (this.isConnected && h) {
+      if (!JAM_MU.pins && !JAM_MU.pinsLoad) jamMuPinsLoad(h).then(() => this._refillShelf());
+      if (!this._namesAt || Date.now() - this._namesAt > 600e3) {
+        this._namesAt = Date.now();
+        const rp = jamMuResolvePins(h, c);
+        if (rp) rp.then(() => this._refillShelf());
+      }
+      if (!this._recentAt || Date.now() - this._recentAt > 300e3) {
+        this._recentAt = Date.now();
+        jamMuRecent(h, c, 300e3).then(r => { this._recent = r; }, () => { this._recent = this._recent || []; }).then(() => this._refillShelf());
+      }
+    }
+    return sh;
+  }
+  _refillShelf() {
+    if (!this._kroot || !this.isConnected) return;
+    const old = this._kroot.querySelector(".shelf");
+    if (!old) return;
+    const n = this._shelf();
+    if (old.dataset.sig !== n.dataset.sig || old.querySelector(".none") && !n.querySelector(".none") || old.textContent !== n.textContent) old.replaceWith(n);
+  }
+  /* K1 progress line: refreshed every 5 s while playing, only while the card is inside a sheet (the kiosk's fullscreen sheet). */
+  _tick() {
+    clearTimeout(this._tk); this._tk = null;
+    if (!this._kiosk || !this.isConnected || !this._kprog) return;
+    const s = stateObj(this._hass, this._config.entity);
+    if (!s || s.state !== "playing" || !composedChain(this).some(x => x.classList && x.classList.contains("jam-sheet-host"))) return;
+    this._tk = setTimeout(() => {
+      this._tk = null;
+      const st = stateObj(this._hass, this._config.entity), p = st && st.state === "playing" ? this._kPos(st) : null;
+      if (p && this._kprog) { this._kprog.i.style.width = (p.frac * 100).toFixed(1) + "%"; this._kprog.t0.textContent = p.pos; }
+      this._tick();
+    }, 5000);
   }
   getCardSize() { return 6; }
 }
-register("jam-speaker", JamSpeaker, "Jam Speaker", "Music Assistant speaker: artwork poster with a source badge, Now playing / Speakers switch, volume, join / unjoin.");
+register("jam-speaker", JamSpeaker, "Jam Speaker", "Music Assistant speaker: artwork / cut-paper poster with an ink title band (shuffle, favourite), power corner, transport, volume; library panel (pinned, recent, playlists, albums, search); kiosk K1.");
 
 /* ---------- jam-tabs: room tabs (equal-width keys, 8px top-right cut, 4px accent bar) ----------
    {type: custom:jam-tabs, tabs: [{name, path (navigation path, e.g. /jam-overview/kitchen), accent? (colour or room
