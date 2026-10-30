@@ -1,24 +1,36 @@
-/* ---------- jam-light (v2): light card in the light's own colour + light pop-up ----------
+/* ---------- jam-light (v3, round 3): light card in the light's own colour + light pop-up ----------
    {type: custom:jam-light, entity (light.*), name?, icon?, accent? (fill when the light reports no colour),
     kicker? (pop-up kicker; default the entity's area), whites?: [{name, kelvin}, {name, kelvin}] (default Cozy 2200 /
-    Clean 4000, clamped to the light's range), preset_entity? (select.*, e.g. WLED presets: replaces the whites with
-    preview cards), timer_script? (default script.jam_light_off_in; the off-timer row hides when it does not exist),
-    presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}] (extra chips in the pop-up),
-    show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours), show_members? (default true),
-    tap_action? (default toggle), hold_action? (default: open the pop-up)}
-   Card: when on the face is the light's hue at full value (rgb_color scaled so the max channel is 255; kelvin -> rgb in
-   color_temp mode; else the accent), text ink or paper by luminance of that colour (same for member pills/bars + pop-up bar); big brightness number; 10px strip along the bottom; 44px corner trigger (⋯). 84px tall (0.3.2; was 112), grid rows auto.
-   Gestures: tap = tap_action; horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release);
-   vertical scroll passes through (touch-action: pan-y); hold 500 ms or the corner = pop-up. Keys: Enter/Space = tap,
-   ←/→ = ±10 %, M or Shift+Enter = pop-up.
+    Clean 4000, clamped to the light's range; the per-user whites saved in the pop-up's Edit mode win), preset_entity?
+    (select.*, e.g. WLED presets: replaces the whites with preview cards), timer_script? (default script.jam_light_off_in;
+    the off-timer row hides when it does not exist), presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}]
+    (extra chips in the pop-up), show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours),
+    show_members? (default true), member_bands?: "full" (default) | "corner" (group cards), tap_action? (default: open the
+    pop-up), hold_action? (default: open the pop-up)}
+   Card (ROUND3 "Lights", 96px tall, grid rows auto): when on the face is the light's hue at full value (rgb_color scaled so
+   the max channel is 255; kelvin -> rgb in color_temp mode; else the accent, resolved to rgb); text ink or paper, whichever
+   contrasts more (textOn); when neither reaches 4.5:1 the name and the number sit on ink label plates. Name 24px display,
+   sub line 10px, big % 26px. 10px brightness strip along the bottom: track = deep shade of the face, fill = mid shade
+   (shade() in core). Power corner (core powerCorner, 46px top-right triangle) in the mid shade of the face (off: slab2).
+   Group (attributes.entity_id): face = average of the members that are ON; sub "Group · N bulbs" (all on) or "K of N on";
+   vertical member bands, one per member, off members slab2, separated by ink gaps (3px on the block's left edge, 2px
+   between bands): member_bands "full" = full height of the right edge
+   (16px per bulb, min 46px, max 40 % of the card) with the power corner in ink on top; "corner" = a 46px block under
+   the power corner. Bands show while the group is on.
+   Gestures (ROUND3 "Interaction rule"): tap = tap_action (default: the pop-up); corner = power (light.turn_on / turn_off);
+   horizontal drag > 7px = dim (live preview, light.turn_on brightness_pct on release); vertical scroll passes through
+   (touch-action: pan-y); hold 500 ms = hold_action (default: the pop-up). Keys: Enter/Space = tap (pop-up), P or
+   Shift+Enter = power, ←/→ = ±10 %.
    Pop-up (openSheet in core): 72px brightness bar, whites or preset cards, hue strip (12 bands, hs_color [hue, 90]),
    "Your colours" (per HA user: frontend/get_user_data + set_user_data key jam_colors, max 12; in memory if that fails),
    group members (attributes.entity_id), off-timer 15/30/60 min (script.turn_on with variables {entity_id, minutes}).
+   Edit key in the pop-up header (when it shows whites or your colours): each white gets a pencil (tap = edit: name field +
+   kelvin slider within the light's range, saved per HA user via set_user_data key jam_whites = {entity_id: [{name,
+   kelvin}, {name, kelvin}]}); each saved colour gets an × (tap = remove from jam_colors); the + is hidden; Done leaves.
    Motion (0.3.5): pressing prints the card (core .pressing); a real on/off change wipes the colour in (3 steps) or out (2).
-   Changed in v2 (0.3.0): the ON key, the brightness strip row, the colour-temp chips (Candle/Warm/Neutral/Day) and the six
-   fixed colour swatches are gone from the card; show_color_temp now means the two whites in the pop-up, show_color the hue
-   strip + your colours, presets are pop-up chips; tap_action moved from the ON key to the whole card, hold_action
-   replaces the default hold (pop-up). */
+   Changed in round 3: tap opens the pop-up (was toggle), the ⋯ corner became the power corner, M no longer opens the
+   pop-up (Enter does), the card is 96px (was 84). Changed in v2 (0.3.0): the ON key, the strip row, the colour-temp chips
+   and the fixed swatches left the card; show_color_temp = the two whites, show_color = hue strip + your colours. */
 const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
 const LIGHT_WHITES = [{name: "Cozy", kelvin: 2200}, {name: "Clean", kelvin: 4000}];
 const LIGHT_TIMERS = [[15, "15 min"], [30, "30 min"], [60, "1 h"]];
@@ -31,8 +43,10 @@ const LIGHT_LOOKS = {
   "standard": [[255, 190, 120], [255, 190, 120]], "vibes": [[140, 60, 255], [255, 60, 140]], "vibes (warm)": [[255, 120, 40], [200, 40, 90]],
   "normal": [[255, 190, 120], [255, 190, 120]],
 };
-/* Per-user saved colours (shared by every jam-light on the page): null = not loaded yet. */
-let LIGHT_COLORS = null, LIGHT_COLORS_LOAD = null;
+/* Per-user saved colours and whites (shared by every jam-light on the page): null = not loaded yet.
+   LIGHT_WHITES_SAVED = {entity_id: [{name, kelvin}, {name, kelvin}]} (user data key jam_whites). */
+let LIGHT_COLORS = null, LIGHT_COLORS_LOAD = null, LIGHT_WHITES_SAVED = null;
+const LIGHT_PLATE = "#141210", LIGHT_PLATE_FG = "#ece2c9";
 /* Local helpers. */
 const rgbDist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : Infinity);
 const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -74,6 +88,16 @@ function lightPreview(name) {
   }
   return svg;
 }
+/* Small flat glyphs for the pop-up's Edit mode: "pencil" (edit a white) and "x" (remove a saved colour), currentColor. */
+function lightGlyph(kind) {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), p = document.createElementNS(NS, "path");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "gl " + kind);
+  p.setAttribute("d", kind === "pencil" ? "M4 20v-4L15 5l4 4L8 20zM13 7l4 4" : "M5 5l14 14M19 5L5 19");
+  p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", kind === "pencil" ? "2.5" : "3");
+  p.setAttribute("stroke-linejoin", "miter"); p.setAttribute("stroke-linecap", "square");
+  svg.append(p);
+  return svg;
+}
 const LIGHT_SHEET_CSS = `
   .body{padding:6px}
   .lsheet .t .kick{color:var(--dim)}
@@ -112,13 +136,26 @@ const LIGHT_SHEET_CSS = `
   .mtrack .mb i{position:absolute;inset:0 auto 0 0}
   .timer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
   .timer .tc{display:flex;gap:6px}
-  .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`;
+  .wt.ed > .face{padding-right:36px}
+  .wt .gl{position:absolute;right:10px;top:10px;width:20px;height:20px}
+  .sw.rm > .face{display:grid;place-items:center}
+  .sw .gl{width:16px;height:16px}
+  .wedit{display:grid;gap:6px;background:var(--slab2);padding:12px 14px 16px 12px;clip-path:${cutPath("br", 14)}}
+  .nin{font:900 1.3rem/1 var(--display);text-transform:uppercase;color:var(--fg);background:var(--slab);border:0;border-bottom:3px solid var(--fg);
+    padding:10px 10px 8px;min-height:44px;width:100%;border-radius:0;outline:none}
+  .nin:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+  .kwrap{position:relative;cursor:ew-resize;touch-action:none}
+  .kbar{position:relative;height:48px;background:var(--slab)}
+  .kbar i{position:absolute;inset:0 auto 0 0;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+  .kbar b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:900 1.4rem/1 var(--display);color:var(--fg);padding:3px 6px;background:var(--slab)}
+  .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible,.kwrap:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`;
 
 class JamLight extends JamBase {
   validate(c) {
     if (!c.entity || !/^light\./.test(c.entity)) throw new Error("jam-light: entity must be a light");
     if (c.whites != null && !Array.isArray(c.whites)) throw new Error("jam-light: whites must be a list of {name, kelvin}");
     if (c.preset_entity != null && !/^(input_)?select\./.test(c.preset_entity)) throw new Error("jam-light: preset_entity must be a select");
+    if (c.member_bands != null && c.member_bands !== "full" && c.member_bands !== "corner") throw new Error('jam-light: member_bands must be "full" or "corner"');
   }
   watched() {
     const c = this._config, s = stateObj(this._hass, c.entity);
@@ -134,15 +171,22 @@ class JamLight extends JamBase {
     for (const n of this.shadowRoot.querySelectorAll(".pressing")) n.classList.remove("pressing");
     if (this._drag || this._sdrag) { this._drag = this._sdrag = false; this._pending = true; }
   }
+  /* A face in the accent token can only be shaded once the card is in the page (resolveRgb): render again on attach. */
   connectedCallback() {
     super.connectedCallback();
-    if (this._pending) { this._pending = false; this._render(false); }
+    if (this._pending || this._accWait) { this._pending = false; this._render(false); }
   }
   _timerScript() { return this._config.timer_script || LIGHT_TIMER_SCRIPT; }
   _name() { return this._config.name || friendly(this._hass, this._config.entity); }
-  _sub(s) {
-    const ids = s && s.attributes.entity_id;
-    if (Array.isArray(ids) && ids.length) return `Group · ${ids.length} ${ids.length === 1 ? "bulb" : "bulbs"}`;
+  _memberIds(s) { const ids = s && s.attributes.entity_id; return Array.isArray(ids) ? ids : []; }
+  /* Sub line. card: "K of N on" while only some members are on; the pop-up kicker always says "Group · N bulbs". */
+  _sub(s, card) {
+    const ids = this._memberIds(s);
+    if (ids.length) {
+      const k = ids.filter(id => { const m = stateObj(this._hass, id); return m && m.state === "on"; }).length;
+      if (card && s.state === "on" && k > 0 && k < ids.length) return `${k} of ${ids.length} on`;
+      return `Group · ${ids.length} ${ids.length === 1 ? "bulb" : "bulbs"}`;
+    }
     return this._config.preset_entity ? "WLED" : "";
   }
   _area() {
@@ -157,30 +201,51 @@ class JamLight extends JamBase {
     const rgb = fullRgb(lightRgb(s));
     return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
   }
-  css() { return `
-    .lc{height:100%;min-height:84px;-webkit-user-select:none;user-select:none}
+  /* Card face [r,g,b] of an ON light, or null when it only has the accent token and that cannot be resolved yet.
+     Group: the average of the members that are on (each at full value); members without a colour count as the group's
+     own colour. */
+  _faceRgb(s) {
+    const own = fullRgb(lightRgb(s)), ids = this._memberIds(s);
+    if (ids.length) {
+      const cols = [];
+      for (const id of ids) {
+        const m = stateObj(this._hass, id);
+        if (m && m.state === "on") { const c = fullRgb(lightRgb(m)) || own; if (c) cols.push(c); }
+      }
+      if (cols.length) return [0, 1, 2].map(i => Math.round(cols.reduce((t, c) => t + c[i], 0) / cols.length));
+    }
+    if (own) return own;
+    return resolveRgb(this._body, "var(--acc)");
+  }
+  css() { return POWER_CSS + `
+    .lc{height:100%;min-height:96px;-webkit-user-select:none;user-select:none}
     .lc > .face{--p-t:0px;--p-r:0px;--p-b:0px;--p-l:0px;overflow:hidden}
     .lc.on > .face{background:var(--lc);color:var(--lc-fg)}
     .lc.dead > .face{color:var(--dim)}
-    .tap{position:relative;height:100%;min-height:84px;padding:10px 12px 16px;display:flex;flex-direction:column;justify-content:space-between;
-      gap:6px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
+    .tap{position:relative;height:100%;min-height:96px;padding:12px calc(var(--bw,46px) + 8px) 18px 14px;display:flex;flex-direction:column;
+      justify-content:space-between;gap:4px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
     .lc.dead .tap{cursor:default}
-    .nm{display:flex;align-items:center;gap:6px;padding-right:44px;font:900 .95rem/.95 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0}
-    .nm ha-icon{--mdc-icon-size:18px;flex:none}
-    .sub{font:600 .56rem/1.1 var(--body);letter-spacing:.14em;text-transform:uppercase;margin-top:3px;color:var(--dim)}
+    .top{display:grid;gap:5px;justify-items:start;min-width:0}
+    .nm{display:flex;align-items:center;gap:6px;font:900 24px/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0;max-width:100%}
+    .nm ha-icon{--mdc-icon-size:20px;flex:none}
+    .sub{font:600 10px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
     .lc.on .sub{color:inherit}
-    .pct{font:900 1.7rem/.8 var(--display)}
-    .pct small{font-size:1rem;text-transform:uppercase}
+    .pct{font:900 26px/1 var(--display);align-self:flex-start}
+    .pct small{font-size:15px;text-transform:uppercase}
     .lc.dead .pct small{color:var(--alert-text)}
-    .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:rgba(0,0,0,.18);pointer-events:none}
-    .bs i{position:absolute;inset:0 auto 0 0;background:currentColor;clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
+    /* Contrast fallback (ROUND3): neither ink nor paper reaches 4.5:1 on the face -> ink label plates. */
+    .lc.on.plate .top{margin:-12px 0 0 -14px;padding:10px 18px 10px 14px;background:${LIGHT_PLATE};color:${LIGHT_PLATE_FG};
+      clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+    .lc.on.plate .pct{margin-left:-8px;padding:4px 8px;background:${LIGHT_PLATE};color:${LIGHT_PLATE_FG}}
+    .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:var(--lc-deep,rgba(0,0,0,.3));pointer-events:none}
+    .bs i{position:absolute;inset:0 auto 0 0;background:var(--lc-mid,currentColor);clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
     .lc:not(.on) .bs{display:none}
-    .more{position:absolute;right:0;top:0;width:44px;height:44px;z-index:1}
-    .more .tri{position:absolute;inset:0;background:var(--slab2);color:var(--fg);clip-path:polygon(0 0,100% 0,100% 100%)}
-    .more .tri span{position:absolute;right:6px;top:4px;font:900 1.1rem/1 var(--body)}
-    .lc.on .more .tri{background:var(--lc-fg);color:var(--lc)}
-    .more:disabled{cursor:default} .more:disabled .tri{color:var(--dim)}
-    .more:focus-visible,.tap:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
+    /* Ink gaps (3px on the left edge, 2px between bands) keep a band readable when its colour equals the face. */
+    .bands{position:absolute;right:0;top:0;bottom:10px;width:var(--bw);display:flex;gap:2px;padding-left:3px;background:var(--ink);pointer-events:none}
+    .bands.corner{top:46px}
+    .bands i{flex:1;display:block}
+    .lc:not(.on) .bands{display:none}
+    .tap:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
     @supports selector(:has(a)){
       .tap:focus-visible{outline:none}
       .lc:has(.tap:focus-visible){outline:3px solid var(--ochre);outline-offset:2px}
@@ -205,8 +270,19 @@ class JamLight extends JamBase {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", pct = lightPct(s), name = this._name();
     const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off")});
-    const [fill, ink] = this._paint(s);
-    root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", ink);
+    b.append(root); // in the page first, so an accent face can be resolved to rgb
+    // Face colour: computed for the off state too, so a drag preview from off shows the light's colour.
+    const rgb = dead ? null : this._faceRgb(s);
+    this._accWait = !dead && !rgb;
+    let fill = "var(--acc)", corner = null;
+    if (rgb) {
+      const t = textOn(rgb);
+      fill = rgbCss(rgb);
+      root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", t.fg);
+      root.style.setProperty("--lc-mid", rgbCss(shade(rgb, 1))); root.style.setProperty("--lc-deep", rgbCss(shade(rgb, 2)));
+      if (t.plate) root.classList.add("plate");
+      corner = rgb;
+    } else { root.style.setProperty("--lc", "var(--acc)"); root.style.setProperty("--lc-fg", "var(--acc-fg)"); }
     // Wash (0.3.5): on a real on/off change (not the first render, not a plain update) the colour wipes in across the
     // card in 3 steps (a slab cover retreats to the right), or wipes out in 2 (the old colour retreats to the left).
     const was = this._prevOn, wasFill = this._prevFill;
@@ -216,11 +292,11 @@ class JamLight extends JamBase {
       w.setAttribute("aria-hidden", "true"); w.style.background = on ? "var(--slab)" : wasFill;
       face.append(w);
     }
-    const tap = el("div", "tap"), top = el("div"), nm = el("h3", "nm");
+    const tap = el("div", "tap"), top = el("div", "top"), nm = el("h3", "nm");
     const ic = icon(c.icon); if (ic) nm.append(ic);
     nm.append(document.createTextNode(name));
     top.append(nm);
-    const sub = this._sub(s); if (sub) top.append(el("div", "sub", sub));
+    const sub = this._sub(s, true); if (sub) top.append(el("div", "sub", sub));
     const num = el("div", "pct num");
     const bs = el("div", "bs"), bi = el("i"); bs.append(bi); bs.setAttribute("aria-hidden", "true");
     const show = (v, isOn) => {
@@ -234,22 +310,38 @@ class JamLight extends JamBase {
     show(pct, on);
     tap.append(top, num);
     tap.tabIndex = dead ? -1 : 0; tap.setAttribute("role", "button");
-    tap.setAttribute("aria-pressed", on ? "true" : "false");
+    tap.setAttribute("aria-haspopup", "dialog");
     if (dead) tap.setAttribute("aria-disabled", "true");
-    const more = el("button", "more"); more.type = "button";
-    more.setAttribute("aria-label", "More controls for " + name); more.setAttribute("aria-haspopup", "dialog");
-    const tri = el("span", "tri"); tri.append(el("span", null, "⋯")); more.append(tri);
-    more.disabled = dead;
-    more.onclick = () => this._openSheet();
-    face.append(tap, bs, more);
-    b.append(root);
+    face.append(tap, bs);
+    // Group member bands (ROUND3): one vertical band per member, off members slab2.
+    const ids = this._memberIds(s), full = (c.member_bands || "full") === "full";
+    if (ids.length && !dead) {
+      const bands = el("div", "bands " + (full ? "full" : "corner")); bands.setAttribute("aria-hidden", "true");
+      for (const id of ids) {
+        const m = stateObj(h, id), mo = !!m && m.state === "on", mc = mo ? fullRgb(lightRgb(m)) || rgb : null;
+        const bd = el("i"); bd.style.background = mc ? rgbCss(mc) : "var(--slab2)"; bands.append(bd);
+      }
+      face.append(bands);
+      if (on) root.style.setProperty("--bw", full ? `max(46px, min(${16 * ids.length}px, 40%))` : "46px");
+    }
+    let [pbg, pfg] = cornerColors(on ? corner : null);
+    if (on && ids.length && full) { pbg = "var(--ink)"; pfg = LIGHT_PLATE_FG; } // V2: ink corner on top of the bands
+    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power()}));
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();
   }
-  _tap() { runAction(this, this._hass, this._config.tap_action || {action: "toggle"}, this._config.entity); }
+  _tap() {
+    if (this._config.tap_action) runAction(this, this._hass, this._config.tap_action, this._config.entity);
+    else this._openSheet();
+  }
   _hold() {
     if (this._config.hold_action) runAction(this, this._hass, this._config.hold_action, this._config.entity);
     else this._openSheet();
+  }
+  _power() {
+    const s = stateObj(this._hass, this._config.entity);
+    if (!s || UNAVAILABLE.has(s.state)) return;
+    this._call("light", s.state === "on" ? "turn_off" : "turn_on", {entity_id: this._config.entity});
   }
   _gestures(tap, root, st0) {
     const c = this._config;
@@ -294,9 +386,11 @@ class JamLight extends JamBase {
       const q = p; p = null; clearTimeout(q.timer);
       if (q.mode === "drag") { revert(); this._endDrag(); }
     });
+    // A click without a pointer press (assistive tech activation, element.click()) = tap.
+    tap.addEventListener("click", e => { if (e.detail === 0 && !p) this._tap(); });
     tap.addEventListener("keydown", e => {
       if (e.target !== tap) return;
-      if (e.key === "m" || e.key === "M" || (e.key === "Enter" && e.shiftKey)) { e.preventDefault(); this._openSheet(); return; }
+      if (e.key === "p" || e.key === "P" || (e.key === "Enter" && e.shiftKey)) { e.preventDefault(); if (!e.repeat) this._power(); return; }
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) this._tap(); return; }
       if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && st0.dims) {
         e.preventDefault();
@@ -310,38 +404,88 @@ class JamLight extends JamBase {
   /* ---------- pop-up ---------- */
   _openSheet() {
     if (this._sheet && this._sheet.isOpen()) return;
-    const s = stateObj(this._hass, this._config.entity);
+    const c = this._config, s = stateObj(this._hass, c.entity);
     if (!s || UNAVAILABLE.has(s.state)) return;
     const [fill] = this._paint(s), acc = this._body ? getComputedStyle(this._body).getPropertyValue("--acc").trim() : "";
-    const kicker = [this._config.kicker || this._area(), this._sub(s)].filter(Boolean).join(" · ") || "Light";
+    const kicker = [c.kicker || this._area(), this._sub(s)].filter(Boolean).join(" · ") || "Light";
+    // Edit key (round 3): only when the pop-up shows something editable (the whites or your colours).
+    let edit = null;
+    if (this._hasWhites(s) || this._hasColors(s)) {
+      edit = cutKey("Edit", "jam-light|edit", "edit", "chip");
+      edit.dataset.k = "edit"; edit.setAttribute("aria-pressed", "false");
+      edit.onclick = () => { this._edit = !this._edit; this._editW = null; this._wDraft = null; this._fillSheet(); };
+    }
+    this._edit = false; this._editW = null; this._wDraft = null; this._editKey = edit;
     this._sheet = openSheet({from: this, title: this._name(), kicker, accent: acc || null, flash: fill === "var(--acc)" ? (acc || null) : fill,
-      rule: false, cls: "lsheet", css: LIGHT_SHEET_CSS, onClose: () => { this._sheet = null; this._sdrag = false; }});
+      rule: false, cls: "lsheet", css: LIGHT_SHEET_CSS, headerActions: edit ? [edit] : [],
+      onClose: () => { this._sheet = null; this._sdrag = false; this._edit = false; this._editW = null; this._wDraft = null; this._editKey = null; }});
     this._fillSheet();
     this._loadColors();
   }
+  _hasWhites(s) {
+    const c = this._config;
+    return !c.preset_entity && !!(c.show_color_temp ?? lightModes(s).includes("color_temp"));
+  }
+  _hasColors(s) { const c = this._config; return !!(c.show_color ?? lightModes(s).some(m => COLOR_MODES.includes(m))); }
+  /* Per-user data (frontend/get_user_data): jam_colors (saved colours) and jam_whites (edited whites), loaded once per page. */
   _loadColors() {
     if (LIGHT_COLORS !== null || LIGHT_COLORS_LOAD) return;
     const h = this._hass;
-    if (!h || typeof h.callWS !== "function") { LIGHT_COLORS = []; return; }
-    LIGHT_COLORS_LOAD = Promise.resolve().then(() => h.callWS({type: "frontend/get_user_data", key: "jam_colors"}))
-      .then(r => { const v = r && r.value; LIGHT_COLORS = Array.isArray(v) ? v.filter(x => Array.isArray(x) && x.length >= 3).slice(-12) : []; })
-      .catch(() => { LIGHT_COLORS = LIGHT_COLORS || []; })
+    if (!h || typeof h.callWS !== "function") { LIGHT_COLORS = []; LIGHT_WHITES_SAVED = LIGHT_WHITES_SAVED || {}; return; }
+    const get = key => Promise.resolve().then(() => h.callWS({type: "frontend/get_user_data", key})).then(r => r && r.value, () => null);
+    LIGHT_COLORS_LOAD = Promise.all([get("jam_colors"), get("jam_whites")])
+      .then(([v, w]) => {
+        LIGHT_COLORS = Array.isArray(v) ? v.filter(x => Array.isArray(x) && x.length >= 3).slice(-12) : [];
+        // Whites edited before the load finished stay (they were saved over the stored map).
+        LIGHT_WHITES_SAVED = Object.assign(w && typeof w === "object" && !Array.isArray(w) ? w : {}, LIGHT_WHITES_SAVED || {});
+      })
+      .catch(() => { LIGHT_COLORS = LIGHT_COLORS || []; LIGHT_WHITES_SAVED = LIGHT_WHITES_SAVED || {}; })
       .then(() => { LIGHT_COLORS_LOAD = null; if (this._sheet && this._sheet.isOpen()) this._fillSheet(); });
+  }
+  _storeUser(key, value) {
+    const h = this._hass;
+    if (!h || typeof h.callWS !== "function") return;
+    try { Promise.resolve(h.callWS({type: "frontend/set_user_data", key, value})).catch(() => { /* kept in memory */ }); }
+    catch (e) { /* kept in memory */ }
   }
   _saveColor(rgb) {
     const list = (LIGHT_COLORS || []).filter(x => rgbDist(x, rgb) > 6);
     list.push(rgb.slice(0, 3).map(v => Math.round(Number(v)))); LIGHT_COLORS = list.slice(-12);
-    const h = this._hass;
-    if (h && typeof h.callWS === "function") {
-      try { Promise.resolve(h.callWS({type: "frontend/set_user_data", key: "jam_colors", value: LIGHT_COLORS})).catch(() => { /* kept in memory */ }); }
-      catch (e) { /* kept in memory */ }
-    }
+    this._storeUser("jam_colors", LIGHT_COLORS);
     this._fillSheet();
+  }
+  _removeColor(i) {
+    LIGHT_COLORS = (LIGHT_COLORS || []).filter((x, j) => j !== i);
+    this._storeUser("jam_colors", LIGHT_COLORS);
+    this._fillSheet();
+  }
+  /* The two whites: this user's saved pair for this light (jam_whites), else the config whites, else Cozy / Clean. */
+  _whiteList() {
+    const c = this._config, saved = LIGHT_WHITES_SAVED && LIGHT_WHITES_SAVED[c.entity];
+    const base = (Array.isArray(c.whites) && c.whites.length ? c.whites : LIGHT_WHITES).slice(0, 2);
+    return [0, 1].map(i => {
+      const w = (Array.isArray(saved) && saved[i]) || base[i] || LIGHT_WHITES[i];
+      return {name: String(w.name || "White"), kelvin: Number(w.kelvin) || 2700};
+    });
+  }
+  _saveWhite(i, patch) {
+    const list = this._whiteList();
+    list[i] = Object.assign({}, list[i], patch);
+    LIGHT_WHITES_SAVED = Object.assign({}, LIGHT_WHITES_SAVED || {}, {[this._config.entity]: list});
+    this._storeUser("jam_whites", LIGHT_WHITES_SAVED);
   }
   _fillSheet() {
     const sh = this._sheet; if (!sh || !sh.isOpen()) return;
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), body = sh.body;
     const act = deepActive(), focusK = act && act.dataset ? act.dataset.k : null, scroll = body.scrollTop;
+    const sel = act && act.localName === "input" ? [act.selectionStart, act.selectionEnd] : null;
+    if (this._editKey) {
+      this._editKey.querySelector(".face").textContent = this._edit ? "Done" : "Edit";
+      this._editKey.setAttribute("aria-pressed", this._edit ? "true" : "false");
+      this._editKey.classList.toggle("on", !!this._edit);
+      this._editKey.setAttribute("aria-label", this._edit ? "Done editing" : "Edit whites and colours");
+    }
+    sh.pop.classList.toggle("editing", !!this._edit);
     const [fill, ink] = this._paint(s);
     sh.pop.style.setProperty("--lc", fill); sh.pop.style.setProperty("--lc-fg", ink);
     body.textContent = "";
@@ -351,13 +495,19 @@ class JamLight extends JamBase {
     if (c.show_brightness !== false && lightDims(s)) sec("Brightness", this._bigBar(s));
     const ps = c.preset_entity && stateObj(h, c.preset_entity);
     if (c.preset_entity) { if (ps && ps.state !== "unavailable") this._presetCards(sec, ps); } // WLED reports "unknown" when no preset is active
-    else if (c.show_color_temp ?? modes.includes("color_temp")) this._whites(sec, a);
+    else if (this._hasWhites(s)) this._whites(sec, a);
     if (Array.isArray(c.presets) && c.presets.length) this._chips(sec, a);
-    if (c.show_color ?? modes.some(m => COLOR_MODES.includes(m))) { this._hue(sec, a, on); this._colors(sec, a, on); }
+    if (this._hasColors(s)) { this._hue(sec, a, on); this._colors(sec, a, on); }
     if (c.show_members !== false && Array.isArray(a.entity_id) && a.entity_id.length) this._members(sec, a.entity_id);
     if (stateObj(h, this._timerScript())) this._timer(body);
     body.scrollTop = scroll;
-    if (focusK) { const f = body.querySelector(`[data-k="${CSS.escape(focusK)}"]`); if (f) try { f.focus({preventScroll: true}); } catch (e) { f.focus(); } }
+    if (focusK) {
+      const f = body.querySelector(`[data-k="${CSS.escape(focusK)}"]`);
+      if (f) {
+        try { f.focus({preventScroll: true}); } catch (e) { f.focus(); }
+        if (sel && f.localName === "input") try { f.setSelectionRange(sel[0], sel[1]); } catch (e) { /* ignore */ }
+      }
+    }
   }
   /* Drag/keyboard slider on node: at(e) -> value, show(v) preview, send(v) on release/keys. */
   _slide(node, {v0, at, show, send, step = 5, min = 0, max = 100, flag = "_sdrag"}) {
@@ -400,20 +550,64 @@ class JamLight extends JamBase {
     sec("Presets", g);
   }
   _whites(sec, a) {
-    const c = this._config, lo = a.min_color_temp_kelvin || 2000, hi = a.max_color_temp_kelvin || 6500;
-    const list = (Array.isArray(c.whites) && c.whites.length ? c.whites : LIGHT_WHITES).slice(0, 2);
+    const c = this._config, lo = Math.round(a.min_color_temp_kelvin || 2000), hi = Math.round(a.max_color_temp_kelvin || 6500);
+    const list = this._whiteList(), edit = !!this._edit;
     const g = el("div", "two"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "White");
+    const tiles = [];
     list.forEach((w, i) => {
-      const k = Math.round(clampN(Number(w.kelvin) || 2700, lo, hi)), rgb = kelvinToRgb(k);
-      const cur = a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60;
-      const {root, face} = paper("button", "jam-light|white|" + i, {kind: "card", cls: "press wt" + (cur ? " on" : "")});
-      root.type = "button"; root.dataset.k = "w|" + i; root.setAttribute("aria-pressed", cur ? "true" : "false");
+      const k = Math.round(clampN(w.kelvin, lo, hi)), rgb = kelvinToRgb(k);
+      const cur = !edit && a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60;
+      const sel = edit && this._editW === i;
+      const {root, face} = paper("button", "jam-light|white|" + i, {kind: "card", cls: "press wt" + (cur || sel ? " on" : "") + (edit ? " ed" : "")});
+      root.type = "button"; root.dataset.k = "w|" + i;
       face.style.background = rgbCss(rgb); face.style.color = inkOn(rgb);
-      face.append(el("b", null, w.name || "White"), el("small", "num", k + " K"));
-      root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, color_temp_kelvin: k});
+      const nb = el("b", null, w.name), kb = el("small", "num", k + " K");
+      face.append(nb, kb);
+      if (edit) {
+        // Pencil (round 3 Edit mode): tap = edit this white below the pair.
+        face.append(lightGlyph("pencil"));
+        root.setAttribute("aria-label", `Edit ${w.name}`); root.setAttribute("aria-expanded", sel ? "true" : "false");
+        root.onclick = () => { this._editW = sel ? null : i; this._wDraft = null; this._fillSheet(); };
+      } else {
+        root.setAttribute("aria-pressed", cur ? "true" : "false");
+        root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, color_temp_kelvin: k});
+      }
+      tiles.push({nb, kb, face});
       g.append(root);
     });
-    sec("White", g);
+    const d = sec("White", g);
+    if (edit && this._editW != null && list[this._editW]) d.append(this._whiteEditor(this._editW, list[this._editW], lo, hi, tiles[this._editW]));
+  }
+  /* Edit one white: name field + kelvin slider within the light's range; saved per user (jam_whites) on commit. */
+  _whiteEditor(i, w, lo, hi, tile) {
+    const box = el("div", "wedit"), id = "jam-wname-" + i;
+    const lab = el("label", "label", "Name"); lab.htmlFor = id;
+    const inp = el("input", "nin"); inp.type = "text"; inp.id = id; inp.maxLength = 24; inp.dataset.k = "wname|" + i;
+    inp.value = this._wDraft != null ? this._wDraft : w.name; inp.autocomplete = "off"; inp.spellcheck = false;
+    const commit = () => {
+      const v = inp.value.trim() || "White";
+      this._wDraft = null;
+      if (v !== w.name) { w.name = v; this._saveWhite(i, {name: v}); }
+      tile.nb.textContent = v;
+    };
+    inp.addEventListener("input", () => { this._wDraft = inp.value; tile.nb.textContent = inp.value.trim() || "White"; });
+    inp.addEventListener("change", commit);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); commit(); } });
+    const k0 = Math.round(clampN(w.kelvin, lo, hi));
+    const wrap = el("div", "kwrap"), bar = el("div", "kbar"), fi = el("i"), val = el("b", "num");
+    bar.append(fi, val); wrap.append(bar);
+    wrap.dataset.k = "wk|" + i; wrap.setAttribute("aria-label", "Colour temperature (kelvin)");
+    const show = v => {
+      const rgb = kelvinToRgb(v);
+      fi.style.width = (hi > lo ? ((v - lo) / (hi - lo)) * 100 : 100) + "%"; fi.style.background = rgbCss(rgb);
+      val.textContent = v + " K"; wrap.setAttribute("aria-valuetext", v + " kelvin");
+      tile.face.style.background = rgbCss(rgb); tile.face.style.color = inkOn(rgb); tile.kb.textContent = v + " K";
+    };
+    show(k0);
+    const at = e => { const r = wrap.getBoundingClientRect(); return Math.round((lo + clampN((e.clientX - r.left) / r.width, 0, 1) * (hi - lo)) / 10) * 10; };
+    this._slide(wrap, {v0: k0, at, show, step: 100, min: lo, max: hi, send: v => { w.kelvin = v; this._saveWhite(i, {kelvin: v}); }});
+    box.append(lab, inp, el("div", "label", "Warmth"), wrap);
+    return box;
   }
   _chips(sec, a) {
     const c = this._config, box = el("div", "chips");
@@ -452,23 +646,33 @@ class JamLight extends JamBase {
     sec("Colour", wrap);
   }
   _colors(sec, a, on) {
-    const c = this._config, box = el("div", "sws");
+    const c = this._config, box = el("div", "sws"), edit = !!this._edit;
     box.setAttribute("role", "group"); box.setAttribute("aria-label", "Your colours");
     const cur = on && a.color_mode !== "color_temp" && Array.isArray(a.rgb_color) ? a.rgb_color : null;
     (LIGHT_COLORS || []).forEach((col, i) => {
-      const {root, face} = paper("button", "jam-light|sw|" + i, {kind: "chip", cls: "key press sw"});
-      root.type = "button"; root.dataset.k = "s|" + col.join(","); root.setAttribute("aria-label", `Saved colour ${i + 1}`);
-      root.setAttribute("aria-pressed", rgbDist(cur, col) < 12 ? "true" : "false");
+      const {root, face} = paper("button", "jam-light|sw|" + i, {kind: "chip", cls: "key press sw" + (edit ? " rm" : "")});
+      root.type = "button"; root.dataset.k = "s|" + col.join(",");
       face.style.background = rgbCss(col);
-      root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, rgb_color: col.slice(0, 3).map(Number)});
+      if (edit) {
+        // × (round 3 Edit mode): tap removes the saved colour (jam_colors).
+        face.style.color = inkOn(col); face.append(lightGlyph("x"));
+        root.setAttribute("aria-label", `Remove saved colour ${i + 1}`);
+        root.onclick = () => this._removeColor(i);
+      } else {
+        root.setAttribute("aria-label", `Saved colour ${i + 1}`);
+        root.setAttribute("aria-pressed", rgbDist(cur, col) < 12 ? "true" : "false");
+        root.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, rgb_color: col.slice(0, 3).map(Number)});
+      }
       box.append(root);
     });
-    const save = on && Array.isArray(a.rgb_color) ? a.rgb_color : null;
-    const {root: add, face} = paper("button", "jam-light|sw|add", {kind: "chip", cls: "key press sw add"});
-    add.type = "button"; add.dataset.k = "s|add"; face.textContent = "+";
-    add.setAttribute("aria-label", "Save the current colour"); add.disabled = !save;
-    add.onclick = () => { if (save) this._saveColor(save); };
-    box.append(add);
+    if (!edit) {
+      const save = on && Array.isArray(a.rgb_color) ? a.rgb_color : null;
+      const {root: add, face} = paper("button", "jam-light|sw|add", {kind: "chip", cls: "key press sw add"});
+      add.type = "button"; add.dataset.k = "s|add"; face.textContent = "+";
+      add.setAttribute("aria-label", "Save the current colour"); add.disabled = !save;
+      add.onclick = () => { if (save) this._saveColor(save); };
+      box.append(add);
+    } else if (!(LIGHT_COLORS || []).length) box.append(el("div", "label", "No saved colours"));
     sec("Your colours", box);
   }
   _members(sec, ids) {

@@ -357,7 +357,7 @@ module.exports = async (page, check, {callsNow}) => {
   const fan = page.locator("jam-fan").first(), FID = "fan.vital_200s_series";
   const kick = await fan.locator(".nm .label").textContent();
   check(kick === "excellent · PM2.5 1 μg/m³", `jam-fan: kicker from sensor + extra_sensor (${kick})`);
-  check(await fan.locator('button[data-key="power"]').evaluate(b => b.classList.contains("on") && b.textContent === "On"), "jam-fan: On pill fills with the accent");
+  check(await fan.locator('button[data-key="power"]').evaluate(b => b.classList.contains("pw") && b.getAttribute("aria-pressed") === "true"), "jam-fan: power corner (round 3) pressed while on");
   const segs = await fan.locator(".seg button").evaluateAll(bs => bs.map(b => b.dataset.pct + (b.classList.contains("on") ? "*" : "")));
   check(segs.join(",") === "25,50*,75,100", `jam-fan: speeds from percentage_step, 50 active (${segs})`);
   await reset(); await fan.locator('.seg button[data-pct="75"]').click();
@@ -370,7 +370,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(await fan.locator(".seg button.on").count() === 0 && await fan.locator('button[data-preset="sleep"]').evaluate(b => b.classList.contains("on")),
     "jam-fan: active preset lights its chip; no speed active");
   await reset(); await fan.locator('button[data-key="power"]').click();
-  check((await callsNow()).some(x => x.service === "turn_off" && x.data.entity_id === FID), "jam-fan: pill turns the fan off");
+  check((await callsNow()).some(x => x.service === "turn_off" && x.data.entity_id === FID), "jam-fan: power corner turns the fan off");
   const pres = await page.evaluate(() => [undefined, false, []].map(p => { const e = document.createElement("jam-fan");
     e.setConfig({type: "custom:jam-fan", entity: "fan.vital_200s_series", ...(p === undefined ? {} : {presets: p})}); e.hass = window.__hass;
     return e.shadowRoot.querySelectorAll("[data-preset]").length; }));

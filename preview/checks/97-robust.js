@@ -74,10 +74,10 @@ module.exports = async (page, check) => {
     const count = () => ({listeners: [...L.values()].reduce((n, m) => n + m.size, 0), timeouts: T.size, intervals: I.size, observers: O.size,
       subs, body: document.body.childElementCount, styles: document.head.querySelectorAll("style").length});
     const sheets = () => document.querySelectorAll(".jam-sheet-host").length;
-    // Open the card's sheet where it has one (light ⋯, media more, tv / remote keyboard sheet).
+    // Open the card's sheet where it has one (light tap, media more, tv / remote keyboard sheet).
     const openSheet = e => {
       const r = e.shadowRoot;
-      const b = r.querySelector("button.more:not(:disabled)") || r.querySelector('button[data-key="more"]') ||
+      const b = r.querySelector("button.more:not(:disabled)") || r.querySelector(".lc:not(.dead) .tap") || r.querySelector('button[data-key="more"]') ||
         r.querySelector('button[data-key="remote"]') || r.querySelector('button[data-key="keyboard"]:not(:disabled)');
       if (b) b.click();
       return !!b;

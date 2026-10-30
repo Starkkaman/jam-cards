@@ -386,6 +386,84 @@ function fullRgb(c) {
 }
 const rgbCss = c => `rgb(${c.slice(0, 3).map(v => Math.round(Number(v) || 0)).join(",")})`;
 
+/* ---------- face shades + power corner (ROUND3 "Interaction rule", round 3) ---------- */
+/* WCAG contrast ratio of two [r,g,b] colours (1..21). */
+function contrastRatio(a, b) {
+  const x = luminance(a), y = luminance(b);
+  return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
+}
+const JAM_INK_RGB = [20, 18, 16], JAM_PAPER_RGB = [236, 226, 201];
+/* Text on a flat [r,g,b] face: {fg: ink or paper, whichever contrasts more, plate: true when neither reaches 4.5:1
+   (the card then puts its text on an ink label plate)}. */
+function textOn(c) {
+  const ink = contrastRatio(c, JAM_INK_RGB), pap = contrastRatio(c, JAM_PAPER_RGB);
+  return {fg: ink >= pap ? "#141210" : "#ece2c9", plate: Math.max(ink, pap) < 4.5};
+}
+/* A shade of a face colour [r,g,b] (flat, same hue): depth 1 = mid (power corner, strip fill), 2 = deep (strip track).
+   Light faces (ink text, luminance > .18) get darker, dark faces lighter, so the shade always reads as part of the face. */
+function shade(c, depth = 1) {
+  const [r, g, b] = c.slice(0, 3).map(v => Math.max(0, Math.min(255, Number(v) || 0)) / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; // d = chroma
+  let h = 0, l = (mx + mn) / 2;
+  if (d) {
+    h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+  }
+  const step = depth >= 2 ? .36 : .24;
+  l = luminance(c) > .18 ? Math.max(.06, l - step) : Math.min(.9, l + step);
+  // Keep the face's chroma (not its HSL saturation, which near white is huge for a tiny tint), slightly muted.
+  const s = Math.min(1, d / Math.max(1e-6, 1 - Math.abs(2 * l - 1))) * .85;
+  const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return [f(0), f(8), f(4)];
+}
+/* The computed [r,g,b] of a CSS colour (e.g. "var(--acc)") inside node's tree, or null when node is not connected or the
+   colour does not resolve to rgb(). Used to shade a face whose colour is a theme token. */
+function resolveRgb(node, css) {
+  if (!node || !node.isConnected) return null;
+  const p = document.createElement("span");
+  p.style.color = css; p.style.display = "none"; node.append(p);
+  const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(getComputedStyle(p).color || "");
+  p.remove();
+  return m ? [+m[1], +m[2], +m[3]].map(Math.round) : null;
+}
+/* Power corner CSS: cards that use powerCorner() add POWER_CSS to their css(). 46px top-right triangle, glyph 17px. */
+const POWER_CSS = `
+  .pw{position:absolute;right:0;top:0;width:46px;height:46px;z-index:2}
+  .pw .tri{position:absolute;inset:0;background:var(--pw-bg,var(--slab2));clip-path:polygon(0 0,100% 0,100% 100%)}
+  .pw svg{position:absolute;right:6px;top:6px;width:17px;height:17px;color:var(--pw-fg,var(--fg))}
+  .pw:disabled{cursor:default} .pw:disabled svg{color:var(--dim)}
+  .pw:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}`;
+/* Power corner (ROUND3): a real <button class="pw"> = 46px top-right triangle with a power glyph; tap = power toggle.
+   opts: {name (aria-label "<name> power"), on (aria-pressed), disabled, bg (CSS colour of the triangle: a shade of the
+   card face, see shade(); default slab2), fg (glyph colour; default --fg), cls, onClick}. Put it as the last child of a
+   positioned face; add POWER_CSS to the card css. */
+function powerCorner({name = "", on = false, disabled = false, bg = null, fg = null, cls = "", onClick = null} = {}) {
+  const b = el("button", "pw" + (cls ? " " + cls : "")); b.type = "button";
+  b.dataset.key = "power"; b.disabled = !!disabled;
+  b.setAttribute("aria-label", (name ? name + " " : "") + "power"); b.setAttribute("aria-pressed", on ? "true" : "false");
+  if (bg) b.style.setProperty("--pw-bg", bg);
+  if (fg) b.style.setProperty("--pw-fg", fg);
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), tri = el("span", "tri");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "3");
+  for (const d of ["M12 3v9", "M6.3 7.5a8 8 0 1 0 11.4 0"]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); svg.append(p); }
+  tri.setAttribute("aria-hidden", "true");
+  b.append(tri, svg);
+  if (onClick) b.addEventListener("click", e => { e.stopPropagation(); onClick(e); });
+  // Presses on the corner never reach the card's own gestures (print, hold, drag).
+  b.addEventListener("pointerdown", e => e.stopPropagation());
+  return b;
+}
+/* Corner colours for a face: [bg, glyph]. bg = shade(face, 1); glyph = the face's text colour (ink or paper, as textOn)
+   while it keeps >= 3:1 on the corner (an icon), else the other one. null face (a slab face, or a token that did not
+   resolve) = slab2 with the given glyph colour. */
+function cornerColors(face, glyph) {
+  if (!face) return ["var(--slab2)", glyph || null];
+  const m = shade(face, 1), inkFace = textOn(face).fg === "#141210";
+  const ok = contrastRatio(m, inkFace ? JAM_INK_RGB : JAM_PAPER_RGB) >= 3;
+  return [rgbCss(m), inkFace === ok ? "#141210" : "#ece2c9"];
+}
+
 /* ---------- weather words ---------- */
 /* HA weather condition -> short word (jam-weather, jam-house, jam-screensaver). */
 const CONDITION_WORDS = Object.freeze({
@@ -705,6 +783,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder,
+  contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */

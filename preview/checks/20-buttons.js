@@ -52,10 +52,27 @@ module.exports = async (page, check, {callsNow}) => {
     `jam-button: on face = card accent (room living: ${look.dehum.bg}) with ink text and an ink square`);
   check(look.pink.on && look.pink.bg === W.pink && look.pink.fg === W["on-fg"] && look.pinkSq.bg === W["on-fg"] && look.alias.bg === W.pink,
     `jam-button: on face uses the configured accent (pink ${look.pink.bg}; alias marissa ${look.alias.bg})`);
-  // Toggleable default: toggle; "on" switch prints a full accent face.
+  // On/off entity (round 3): "on" switch prints a full accent face; power corner = toggle, tap = more-info, P / Shift+Enter = power.
   check(await btn("Dehumidifier").locator(".kf.on").count() === 1, "on switch button has the accent face");
-  n = (await callsNow()).length; await btn("Dehumidifier").click(); c = await since(n);
-  check(c.length === 1 && c[0].service === "toggle" && c[0].data.entity_id === "switch.dehumidifier", "toggle button toggles switch.dehumidifier");
+  await page.evaluate(() => { window.__mi3 = []; window.addEventListener("hass-more-info", e => window.__mi3.push(e.detail.entityId)); });
+  n = (await callsNow()).length; await btn("Dehumidifier").locator(".lbl").click(); c = await since(n);
+  check(c.length === 0 && (await page.evaluate(() => window.__mi3.join())) === "switch.dehumidifier", "on/off button tap opens more-info (no toggle)");
+  n = (await callsNow()).length; await btn("Dehumidifier").locator("button.pw").click(); c = await since(n);
+  check(c.length === 1 && c[0].service === "toggle" && c[0].data.entity_id === "switch.dehumidifier" && (await page.evaluate(() => window.__mi3.length)) === 1,
+    "power corner toggles switch.dehumidifier (no more-info)");
+  await btn("Dehumidifier").locator(".paper").first().focus();
+  n = (await callsNow()).length; await page.keyboard.press("p"); await page.keyboard.press("Shift+Enter"); c = await since(n);
+  check(c.length === 2 && c.every(x => x.service === "toggle") && (await page.evaluate(() => window.__mi3.length)) === 1, "keyboard: P and Shift+Enter = power, no more-info");
+  const pw = await page.evaluate(() => {
+    const b = [...document.querySelectorAll("#view jam-button")].find(e => e._config.entity === "switch.dehumidifier"), r = b.shadowRoot;
+    const J = window.JamCards, face = getComputedStyle(r.querySelector(".kf")).backgroundColor.match(/\d+/g).map(Number);
+    const tri = r.querySelector(".pw .tri"), box = tri.getBoundingClientRect(), f = r.querySelector(".kf").getBoundingClientRect();
+    const scene = [...document.querySelectorAll("#view jam-button")].find(e => e._config.entity === "scene.vibes");
+    return {bg: getComputedStyle(tri).backgroundColor, mid: "rgb(" + J.shade(face, 1).join(", ") + ")", w: box.width, right: Math.round(f.right - box.right), top: Math.round(box.top - f.top),
+      cut: r.querySelector(".paper").dataset.cut, sceneCorner: !!scene.shadowRoot.querySelector(".pw"), sceneCut: scene.shadowRoot.querySelector(".paper").dataset.cut};
+  });
+  check(pw.bg === pw.mid && pw.w === 46 && pw.right === 0 && pw.top === 0 && pw.cut === "card" && !pw.sceneCorner && pw.sceneCut === "key",
+    `on/off button: 46px corner in the face's mid shade (${pw.bg}), card cut; a scene key keeps the key cut and no corner`);
   // Navigate.
   await btn("Lights").click();
   check(await page.evaluate(() => location.hash) === "#livingroom-popup", "Lights button navigates to #livingroom-popup");

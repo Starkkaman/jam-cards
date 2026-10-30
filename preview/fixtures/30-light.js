@@ -1,5 +1,7 @@
-// Preview fixture: jam-light v2 (group in its colour, kitchen lamp at 2000 K, WLED with presets, off, brightness-only,
-// unavailable) + a jam-popup opened by "#livingroom-popup". Fakes hass.callWS for frontend/{get,set}_user_data.
+// Preview fixture: jam-light (group in its colour, kitchen lamp at 2000 K, WLED with presets (violet: label plates), off,
+// brightness-only, unavailable; round 3: a 3-bulb "Stove lights" group with one bulb off as member_bands full (V2) and
+// corner (V1), a deep-blue light (paper text), a pink light (ink text)) + a jam-popup opened by "#livingroom-popup".
+// Fakes hass.callWS for frontend/{get,set}_user_data.
 { // block scope: every fixture file may declare its own st
 const {st} = jamPreview;
 const LR = ["light.kajplats_e26_cws_globe_1100lm", "light.living_room_floor_lamp"];
@@ -27,6 +29,15 @@ jamPreview.add({
     st("script.jam_light_off_in", "off", {friendly_name: "Jam light off in"}),
     st("light.porch", "on", {friendly_name: "Porch", supported_color_modes: ["color_temp"], color_mode: "color_temp", brightness: 200, color_temp_kelvin: 2700}),
     st("switch.mood_lighting", "on", {friendly_name: "Mood Lighting"}),
+    // Round 3: group with vertical member bands (one bulb off), single colour lights on light / dark faces.
+    st("light.stove_lights", "on", {friendly_name: "Stove lights", entity_id: ["light.stove_1", "light.stove_2", "light.stove_3"],
+      supported_color_modes: ["hs"], color_mode: "hs", brightness: 153, rgb_color: [255, 140, 70]}),
+    st("light.stove_1", "on", {friendly_name: "Stove 1", supported_color_modes: ["hs"], color_mode: "hs", brightness: 153, rgb_color: [255, 106, 61]}),
+    st("light.stove_2", "on", {friendly_name: "Stove 2", supported_color_modes: ["hs"], color_mode: "hs", brightness: 153, rgb_color: [255, 179, 71]}),
+    st("light.stove_3", "off", {friendly_name: "Stove 3", supported_color_modes: ["hs"], color_mode: null, brightness: null, rgb_color: null}),
+    st("light.night", "on", {friendly_name: "Night light", supported_color_modes: ["hs"], color_mode: "hs", brightness: 60, rgb_color: [0, 0, 255]}),
+    st("light.bedside", "on", {friendly_name: "Bedside", supported_color_modes: ["hs", "color_temp"], color_mode: "hs", brightness: 230, rgb_color: [255, 100, 180],
+      min_color_temp_kelvin: 2200, max_color_temp_kelvin: 6500}),
     // Used by preview/fixtures/60-house.js (jam-scenes current_entity) and the jam-popup below.
     st("input_select.light_scenes", "Movie Time", {friendly_name: "Light Scenes", options: ["Normal", "Movie Time", "Vibes"]}),
   ],
@@ -45,6 +56,10 @@ jamPreview.add({
       // 0.3.5: a switch key (size normal) next to a light card is exactly as tall (84 px).
       ["half", {type: "custom:jam-button", entity: "switch.mood_lighting", name: "Tree", size: "normal"}],
       ["half", {type: "custom:jam-light", entity: "light.porch"}],
+      ["half", {type: "custom:jam-light", entity: "light.stove_lights"}],
+      ["half", {type: "custom:jam-light", entity: "light.stove_lights", name: "Stove V1", member_bands: "corner"}],
+      ["half", {type: "custom:jam-light", entity: "light.night"}],
+      ["half", {type: "custom:jam-light", entity: "light.bedside"}],
       // Opener: a tile whose tap navigates to the pop-up hash.
       {type: "custom:jam-tile", entity: "input_select.light_scenes", name: "Open living room pop-up", control: "none",
         tap_action: {action: "navigate", navigation_path: "#livingroom-popup"}},

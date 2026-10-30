@@ -45,7 +45,7 @@ module.exports = async (page, check) => {
 
   // Light pop-up.
   const lightCard = page.locator("#view .sec.errors > jam-light").filter({hasText: "Err light bare"});
-  await lightCard.locator("button.more").click();
+  await lightCard.locator(".tap").click();
   const lOpen = await sheetText();
   await drop(["light.err_bare"]);
   const lGone = await sheetText();

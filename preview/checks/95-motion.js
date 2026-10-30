@@ -1,7 +1,7 @@
 // Motion (0.3.5, DESIGN "Motion") + jam-button / jam-light heights. Uses the cards already on the page plus cards it creates.
 // Contract: module.exports = async (page, check, helpers) => {}; runs on the dark/1280 preview page, files in name order.
 module.exports = async (page, check) => {
-  // ---- heights: a size-normal switch key and a light card side by side are both 84 px ----
+  // ---- heights: a size-normal switch key and a light card side by side are both 96 px (round 3; was 84) ----
   const hh = await page.evaluate(() => {
     const row = document.createElement("div");
     row.style.cssText = "display:flex;align-items:flex-start;gap:8px;width:400px";
@@ -13,14 +13,14 @@ module.exports = async (page, check) => {
     row.remove();
     return out;
   });
-  check(hh.b === 84 && hh.l === 84 && hh.rows === "auto", `jam-button size normal = jam-light height (button ${hh.b}px, light ${hh.l}px, rows ${hh.rows})`);
+  check(hh.b === 96 && hh.l === 96 && hh.rows === "auto", `jam-button size normal = jam-light height (button ${hh.b}px, light ${hh.l}px, rows ${hh.rows})`);
   const pair = await page.evaluate(() => {
     const b = [...document.querySelectorAll("#view jam-button")].find(e => e._config.entity === "switch.mood_lighting");
     const l = [...document.querySelectorAll("#view jam-light")].find(e => e._config.entity === "light.porch");
     const r = e => e.shadowRoot.querySelector(".host > .paper").getBoundingClientRect();
     return {bt: r(b).top, lt: r(l).top, bh: r(b).height, lh: r(l).height};
   });
-  check(pair.bt === pair.lt && pair.bh === pair.lh && pair.bh === 84, `fixture: Tree key and Porch light side by side, equal height (${pair.bh} / ${pair.lh}px)`);
+  check(pair.bt === pair.lt && pair.bh === pair.lh && pair.bh === 96, `fixture: Tree key and Porch light side by side, equal height (${pair.bh} / ${pair.lh}px)`);
 
   // ---- every animation is one-shot, stepped, <= 300 ms, transform / clip-path / opacity only ----
   const css = await page.evaluate(() => {
@@ -126,7 +126,7 @@ module.exports = async (page, check) => {
     `scenes: newly active scene stamped once (first ${stamp.first}, change ${stamp.changed}, update ${stamp.same})`);
 
   // ---- sheet: children stagger in once; refills do not replay ----
-  await page.locator("#view jam-light").filter({hasText: "Living room"}).first().locator("button.more").click();
+  await page.locator("#view jam-light").filter({hasText: "Living room"}).first().locator(".tap").click();
   const sh = await page.evaluate(async () => {
     const host = document.querySelector(".jam-sheet-host"), body = host.shadowRoot.querySelector(".body");
     const d = () => [...body.children].map(c => c.classList.contains("jam-in") ? parseFloat(c.style.animationDelay) : "-");
