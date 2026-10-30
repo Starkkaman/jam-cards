@@ -116,7 +116,9 @@ module.exports = async (page, check, {callsNow}) => {
         bottom: Math.round(f.bottom - br.bottom), w: Math.round(br.width), cols: [...b.children].map(i => getComputedStyle(i).backgroundColor),
         face: getComputedStyle(r.querySelector(".lc > .face")).backgroundColor, corner: getComputedStyle(r.querySelector(".pw .tri")).backgroundColor,
         glyph: getComputedStyle(r.querySelector(".pw svg")).color, sub: r.querySelector(".sub").textContent,
-        nmRight: Math.round(f.right - r.querySelector(".nm").getBoundingClientRect().right)};
+        nmRight: Math.round(f.right - r.querySelector(".nm").getBoundingClientRect().right),
+        gapL: Math.round(b.children[0].getBoundingClientRect().left - br.left), gapIn: Math.round(b.children[1].getBoundingClientRect().left - b.children[0].getBoundingClientRect().right),
+        gapBg: getComputedStyle(b).backgroundColor};
     }
     return out;
   });
@@ -126,6 +128,8 @@ module.exports = async (page, check, {callsNow}) => {
     `V2 (default "full"): 3 vertical bands full height of the right edge, 16px each, off bulb slab2, ink corner with a cream glyph (${V2 && V2.cols.join(" | ")})`);
   check(V2 && V2.face === "rgb(255, 143, 66)" && V2.sub === "2 of 3 on" && V2.nmRight >= 48,
     `group face = average of the ON members (${V2 && V2.face}), sub "${V2 && V2.sub}", name clear of the bands`);
+  check([V2, V1].every(v => v && v.gapL === 3 && v.gapIn === 2 && v.gapBg === "rgb(20, 18, 16)"),
+    `member bands: 3px ink gap on the left edge, 2px ink between bands, both layouts (${V2 && V2.gapL}/${V2 && V2.gapIn}, ${V1 && V1.gapL}/${V1 && V1.gapIn})`);
   check(V1 && V1.n === 3 && V1.top === 46 && V1.w === 46 && V1.right === 0 && V1.corner === sh["Stove V1"].mid,
     `V1 ("corner"): 46px band block under the power corner, corner in the face's mid shade (${V1 && V1.corner})`);
   check(geo.strip === 10 && geo.stripBottom === 0 && geo.fill.includes("9px") && geo.touch === "pan-y",

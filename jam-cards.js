@@ -2454,7 +2454,8 @@ register("jam-kiosk", JamKioskHome, "Jam Kiosk", "Kiosk home screen: huge clock 
    sub line 10px, big % 26px. 10px brightness strip along the bottom: track = deep shade of the face, fill = mid shade
    (shade() in core). Power corner (core powerCorner, 46px top-right triangle) in the mid shade of the face (off: slab2).
    Group (attributes.entity_id): face = average of the members that are ON; sub "Group · N bulbs" (all on) or "K of N on";
-   vertical member bands, one per member, off members slab2: member_bands "full" = full height of the right edge
+   vertical member bands, one per member, off members slab2, separated by ink gaps (3px on the block's left edge, 2px
+   between bands): member_bands "full" = full height of the right edge
    (16px per bulb, min 46px, max 40 % of the card) with the power corner in ink on top; "corner" = a 46px block under
    the power corner. Bands show while the group is on.
    Gestures (ROUND3 "Interaction rule"): tap = tap_action (default: the pop-up); corner = power (light.turn_on / turn_off);
@@ -2680,7 +2681,8 @@ class JamLight extends JamBase {
     .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:var(--lc-deep,rgba(0,0,0,.3));pointer-events:none}
     .bs i{position:absolute;inset:0 auto 0 0;background:var(--lc-mid,currentColor);clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
     .lc:not(.on) .bs{display:none}
-    .bands{position:absolute;right:0;top:0;bottom:10px;width:var(--bw);display:flex;pointer-events:none}
+    /* Ink gaps (3px on the left edge, 2px between bands) keep a band readable when its colour equals the face. */
+    .bands{position:absolute;right:0;top:0;bottom:10px;width:var(--bw);display:flex;gap:2px;padding-left:3px;background:var(--ink);pointer-events:none}
     .bands.corner{top:46px}
     .bands i{flex:1;display:block}
     .lc:not(.on) .bands{display:none}
