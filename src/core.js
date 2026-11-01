@@ -791,3 +791,26 @@ function register(tag, cls, name, description) {
   if (!customElements.get(tag)) customElements.define(tag, cls);
   if (!window.customCards.some(c => c.type === tag)) window.customCards.push({type: tag, name, description, preview: false});
 }
+
+/* ---------- "what's playing" (0.7.1): one media `now` source -> texts; shared by jam-kiosk and jam-screensaver ---------- */
+const JAM_KIOSK_NOTHING = /^(nothing|none|idle)$/i; // an app / title sensor saying nothing is on is no app or title
+const jamKioskTitle = t => { t = t == null ? "" : String(t).trim(); return JAM_KIOSK_NOTHING.test(t) ? "" : t; };
+const JAM_KIOSK_PKG = /^[a-z][\w-]*(\.[\w-]+){2,}$/i; // an Android package name (com.example.app) is not shown as an app
+/* The app on screen: src.app_entity's state (not unavailable / "Nothing"), else the player's app_name unless it is a package. */
+function jamNowApp(hass, src, s) {
+  const a = stateObj(hass, src && src.app_entity);
+  if (a && !UNAVAILABLE.has(a.state) && String(a.state).trim() && !JAM_KIOSK_NOTHING.test(String(a.state).trim())) return String(a.state);
+  const n = s && s.attributes && s.attributes.app_name;
+  return n && !JAM_KIOSK_PKG.test(n) ? String(n) : "";
+}
+/* {type: media, entity, states? (["playing"]), kicker?, app_entity?} -> null while not in one of `states`, else
+   {src, kick, big, small, state, app, attrs}: big = media_title, else the app, else the friendly name; small = artist, else the
+   app (when the title is shown); kick = src.kicker || "Playing" / "Paused". */
+function jamNowMedia(hass, src) {
+  const s = stateObj(hass, src.entity);
+  if (!s || !(src.states || ["playing"]).includes(s.state)) return null;
+  const a = s.attributes || {}, app = jamNowApp(hass, src, s), title = jamKioskTitle(a.media_title);
+  const big = title || app || friendly(hass, src.entity);
+  const small = a.media_artist ? String(a.media_artist) : title && app ? app : "";
+  return {src: "media:" + src.entity, kick: src.kicker || (s.state === "paused" ? "Paused" : "Playing"), big, small, state: s.state, app, attrs: a};
+}

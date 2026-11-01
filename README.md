@@ -456,7 +456,8 @@ active_hours: {from: "06:00", to: "23:00"}
 | `weather_entity`, `temperature_entity` | Weather word and temperature |
 | `kicker` | Label on the poster |
 | `images` | `{index (URL of a JSON list of images) or media (a Home Assistant media source folder), interval (20 s), shuffle, fade (crossfade in ms, default 900, 0 = cut)}` |
-| `poster_every` | Images mode: every Nth slide is the poster |
+| `poster_every` | Images mode without a `mode_entity`: every Nth slide is the poster. Ignored when `mode_entity` is set (0.7.1): Photos then shows only photos, Clock only the clock |
+| `now` | 0.7.1: what's playing, same list as jam-kiosk's `now` (`{type: media, entity, states, kicker, app_entity}`; weather entries are ignored). The first active source shows a "Now playing" block: cover, kicker, title, artist; nothing playing = no block |
 | `active_hours` | `{from, to}`: only shows in this window |
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
 | `accent` | Poster colour |
@@ -478,6 +479,19 @@ images:
   interval: 20
   shuffle: true
 poster_every: 4
+```
+
+Now playing (0.7.1): with `now`, the first active media source shows a block with its cover (or a flat accent square with
+bars), a kicker ("Now playing · Living room" from the player's area, or the source's `kicker` plus the app, e.g. "On the TV ·
+YouTube"), the title in the display face and the artist. On the clock it sits under the weather line (it moves with the
+layout and never covers the clock, date or weather); on photos it is a solid ink label under the time chip, bottom-left.
+It changes only when the player's state changes; a new cover is loaded before it is shown.
+```yaml
+type: custom:jam-screensaver
+mode_entity: input_select.kitchen_kiosk_screensaver
+now:
+  - {type: media, entity: media_player.tv, states: [playing, paused], kicker: On the TV, app_entity: sensor.tv_app}
+  - {type: media, entity: media_player.kitchen}
 ```
 
 Kiosk chrome (0.3.3): with `?kiosk` in the dashboard URL (e.g. `/jam-kitchen/0?kiosk`) the card hides Home Assistant's

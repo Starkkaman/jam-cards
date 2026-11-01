@@ -38,9 +38,7 @@
    is forwarded to them while open; closed on setConfig / disconnect. Motion: one-shot only (a dock block stamps on press,
    the sheet opens with the existing slide); no view entrance, no loops (weak Echo Show). No cut corners: the poster band
    and the dock are flat full-width blocks (approved mockup). Nothing on the card is set under 18px. */
-const JAM_KIOSK_NOTHING = /^(nothing|none|idle)$/i; // an app / title sensor saying nothing is on is no app or title
-const jamKioskTitle = t => { t = t == null ? "" : String(t).trim(); return JAM_KIOSK_NOTHING.test(t) ? "" : t; };
-const JAM_KIOSK_PKG = /^[a-z][\w-]*(\.[\w-]+){2,}$/i; // an Android package name (com.example.app) is not shown as an app
+/* JAM_KIOSK_NOTHING, jamKioskTitle, JAM_KIOSK_PKG, jamNowApp, jamNowMedia: src/core.js (shared with jam-screensaver, 0.7.1). */
 class JamKioskHome extends JamBase {
   constructor() {
     super();
@@ -294,19 +292,10 @@ class JamKioskHome extends JamBase {
     }
     return null;
   }
-  _app(src, s) {
-    const a = stateObj(this._hass, src.app_entity);
-    if (a && !UNAVAILABLE.has(a.state) && String(a.state).trim() && !JAM_KIOSK_NOTHING.test(String(a.state).trim())) return String(a.state);
-    const n = s && s.attributes && s.attributes.app_name;
-    return n && !JAM_KIOSK_PKG.test(n) ? String(n) : "";
-  }
+  _app(src, s) { return jamNowApp(this._hass, src, s); }
   _media(src) {
-    const s = stateObj(this._hass, src.entity);
-    if (!s || !(src.states || ["playing"]).includes(s.state)) return null;
-    const a = s.attributes || {}, app = this._app(src, s), title = jamKioskTitle(a.media_title);
-    const big = title || app || friendly(this._hass, src.entity);
-    const small = a.media_artist ? String(a.media_artist) : title && app ? app : "";
-    return {src: "media:" + src.entity, kick: src.kicker || (s.state === "paused" ? "Paused" : "Playing"), big, small};
+    const n = jamNowMedia(this._hass, src);
+    return n && {src: n.src, kick: n.kick, big: n.big, small: n.small};
   }
   _weather(src) {
     const h = this._hass, w = stateObj(h, src.entity);

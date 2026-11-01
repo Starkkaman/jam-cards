@@ -4,7 +4,9 @@
     images?: {index: URL of a JSON list (["a.jpg", {url, caption}]) | media: "media-source://…" folder (0.4.0),
       interval? (20 s), shuffle? (false), fade? (0.4.1: crossfade in ms, default 900, 0 = cut)},
     mode_entity? (0.4.1: input_select / select / input_boolean choosing the mode live, see below),
-    poster_every? (images mode: every Nth slide is the poster), active_hours?: {from: "06:00", to: "23:00"},
+    poster_every? (images mode WITHOUT a mode_entity: every Nth slide is the poster; ignored when mode_entity is set, 0.7.1),
+    now?: [sources, first active one wins] (0.7.1, same shape as jam-kiosk's now list; see "Now playing" below),
+    active_hours?: {from: "06:00", to: "23:00"},
     disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
     motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
     JamCards.motion; for a kiosk too weak for it; the screensaver's own per-minute layout cut stays)}
@@ -41,7 +43,22 @@
    when timers stop (hidden page / dismiss).
    mode_entity (0.4.1): state ~ /photo|image|slide/i -> images, /clock|poster/i -> poster; input_boolean on -> images, off ->
    poster; unavailable / unknown / anything else -> the configured mode. Images without an images config -> poster. While shown
-   a change takes effect at the next slide tick (images.interval, default 20 s), never mid-slide. */
+   a change takes effect at the next slide tick (images.interval, default 20 s), never mid-slide.
+   Pure modes (0.7.1): with a mode_entity the pick is exact: Clock = only the poster, Photos = only photos (no poster_every
+   interleave; the photos layer is up from the start, ink + time chip until the first photo is decoded). The poster stays the
+   fallback for a list / browse / resolve / load error or an empty folder. Without a mode_entity, poster_every and the poster
+   while the first photo loads behave as before.
+   Now playing (0.7.1, option now): the same sources as jam-kiosk's now list ({type: media, entity, states? (["playing"]),
+   kicker?, app_entity?}; weather entries are ignored here, the poster has its own weather). The first active media source
+   (jamNowMedia in core.js, the kiosk's logic) gives one block; none active = no block. Kicker: the source's kicker plus the app
+   ("On the TV · YouTube", the app left out when it is already the title), else "Now playing" / "Paused" · the player's area
+   (hass.entities / devices / areas) or its friendly name. Title = media_title (else the app), sub line = artist (else the app).
+   Square cover thumb = entity_picture_local / entity_picture (jamMuUrl, like jam-speaker); no art or a load error = flat
+   accent square with Golden Arm bars. A new cover is preloaded (new Image) and swapped in only once loaded; URLs are never
+   logged or stored. Poster: the block sits in the text block under the weather line (so it moves with the layout and can
+   never overlap the clock, date or weather), cover ~16vh, title in the display face 5.75vh (44px at 768 high), max 2 lines.
+   Photos: the same block as a solid ink cut-paper label (no gradient / blur) under the time chip at the bottom-left, cover
+   11.5vh (88px at 768), title 4.4vh (34px). Updated only from hass updates that change a now entity (no polling, no animation). */
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
@@ -89,12 +106,33 @@ const SS_CSS = `
   .img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--ink);visibility:hidden}
   .img.cur,.img.in{visibility:visible}
   .img.cut{animation:jam-ss-pop 120ms steps(2,end) 1 both}
-  .tchip{position:absolute;left:3vw;bottom:4vh;display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
+  .sdock{position:absolute;left:3vw;bottom:4vh;display:grid;gap:1.4vh;justify-items:start}
+  .tchip{display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
     clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
   .tchip .tt{font-family:var(--display);font-weight:900;font-size:8vh;line-height:.85;white-space:nowrap}
   .tchip small{color:var(--acc-fg)}
   .tchip .cap{font:600 max(11px,1.8vh)/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;max-width:40vw}
   .tchip .cap:empty{display:none}
+  /* Now playing (0.7.1): poster block in the text column; photos label = the same block on solid ink. */
+  .np{display:flex;align-items:center;gap:2.6vh;margin-top:2.2vh;max-width:min(62vw,820px);min-width:0;text-align:left}
+  .np.off{display:none}
+  .np .th{flex:none;position:relative;width:16vh;height:16vh;background:var(--acc);overflow:hidden}
+  .np .th .cv{position:absolute;inset:0;background:center/cover no-repeat}
+  .np .th .arm{position:absolute;left:16%;right:16%;bottom:0;height:72%;gap:9%}
+  .np .th .arm span{background:var(--ink);max-width:22%}
+  .np .th.bars .cv,.np .th:not(.bars) .arm{display:none}
+  .np .nt{display:grid;gap:1vh;min-width:0;justify-items:start}
+  .np .nb{font-family:var(--display);font-weight:900;font-size:5.75vh;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;color:var(--sfg);
+    max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .np .ns{font:600 max(12px,2.3vh)/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--sdim)}
+  .np .kick,.np .ns{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np .ns:empty{display:none}
+  .r .np{flex-direction:row-reverse;text-align:right} .r .np .nt{justify-items:end}
+  .sdock .np{margin:0;gap:2vh;padding:1.6vh 3vh 1.6vh 1.6vh;background:var(--ink);max-width:min(64vw,760px);
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+  .sdock .np .th{width:11.5vh;height:11.5vh}
+  .sdock .np .nb{font-size:4.4vh}
+  .sdock .np .ns{font-size:max(12px,2vh)}
   @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}.img,.slides{transition:none!important}}`;
 /* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>). */
 const SS_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink", "violet",
@@ -253,6 +291,8 @@ class JamScreensaver extends JamBase {
     if (c.active_hours && (jamSsMinutes(c.active_hours.from) === null || jamSsMinutes(c.active_hours.to) === null)) throw new Error('jam-screensaver: active_hours needs from/to as "HH:MM"');
     for (const d of this._disables(c)) if (!d || typeof d.entity !== "string") throw new Error("jam-screensaver: disable_on needs an entity");
     if (c.mode_entity !== undefined && typeof c.mode_entity !== "string") throw new Error("jam-screensaver: mode_entity is an entity id");
+    if (c.now !== undefined && !Array.isArray(c.now)) throw new Error("jam-screensaver: now must be a list");
+    for (const n of c.now || []) if (!n || !["media", "weather"].includes(n.type) || typeof n.entity !== "string") throw new Error("jam-screensaver: now sources are {type: media | weather, entity}");
     if (c.kiosk !== undefined && c.kiosk !== true && c.kiosk !== false && c.kiosk !== "url") throw new Error('jam-screensaver: kiosk is true, false or "url"');
   }
   setConfig(config) {
@@ -279,14 +319,16 @@ class JamScreensaver extends JamBase {
     this._wasBlocked = blocked;
     if (blocked && this._shown) this._hide();
     else if (!blocked && was && !this._shown) this._restartIdle(); /* e.g. media stopped: count idle from now */
-    // While shown, the texts change only with the weather / temperature entity or the locale (the clock has its own timer):
+    // While shown, the texts change only with the weather / temperature / now entities or the locale (the clock has its own timer):
     // a kiosk on the screensaver gets hundreds of unrelated updates a minute.
     const ts = this._textSig(), old = this._tsig;
     if (this._shown && !(old && ts.every((x, i) => x === old[i]))) this._texts();
   }
   _textSig() {
     const h = this._hass, c = this._config, st = (h && h.states) || {};
-    return [st[c.weather_entity], st[c.temperature_entity], h && h.locale, h && h.language];
+    const out = [st[c.weather_entity], st[c.temperature_entity], h && h.locale, h && h.language];
+    for (const n of this._nowSrcs()) out.push(st[n.entity], n.app_entity ? st[n.app_entity] : null);
+    return out;
   }
   get hass() { return this._hass; }
   connectedCallback() {
@@ -332,11 +374,14 @@ class JamScreensaver extends JamBase {
     this._time = el("div", "time num"); this._date = el("div", "date");
     this._wx = el("div", "wx"); this._word = el("span", "word"); this._temp = el("span", "temp num");
     if (this._kick) txt.append(this._kick);
-    txt.append(this._time, this._date, this._wx);
+    this._np = [this._npBlock(), this._npBlock()]; /* [poster block, photos label] */
+    this._npKey = null; this._npArt = null; this._npPre = null;
+    txt.append(this._time, this._date, this._wx, this._np[0].box);
     poster.append(...shapes, txt);
     const slides = el("div", "slides");
     this._chip = el("div", "tchip"); this._ctime = el("div", "tt num"); this._cap = el("div", "cap");
-    this._chip.append(this._ctime, this._cap); slides.append(this._chip);
+    this._chip.append(this._ctime, this._cap);
+    this._sdock = el("div", "sdock"); this._sdock.append(this._chip, this._np[1].box); slides.append(this._sdock);
     ov.append(poster, slides);
     /* Everything that reaches the overlay stays there (it is the top layer; HA must not see these events). */
     for (const t of ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "contextmenu"]) {
@@ -425,7 +470,8 @@ class JamScreensaver extends JamBase {
     this._shown = true; this._gone = false; this._k = 0; this._posterTurn = false;
     this._live = this._mode();
     this._ov.classList.remove("gone");
-    this._ov.dataset.view = "poster";
+    /* Pure Photos (mode_entity): the photos layer from the start (ink + time chip until the first photo); else the poster. */
+    this._ov.dataset.view = this._live === "images" && this._config.mode_entity ? "images" : "poster";
     this._setLayout(false);
     this._texts();
     this._ov.classList.add("show");
@@ -545,6 +591,59 @@ class JamScreensaver extends JamBase {
     if (w || ts) {
       if (isFinite(temp)) { this._temp.textContent = Math.round(temp) + (unit ? unit.replace(/^°?/, "°").replace(/[CF]$/, "") : "°"); this._wx.append(this._temp); }
     }
+    this._nowRender();
+  }
+  /* ---- now playing (0.7.1) ---- */
+  _nowSrcs() { return (this._config.now || []).filter(n => n && n.type === "media" && typeof n.entity === "string"); }
+  _npBlock() {
+    /* The cover is a background (not an <img>): the overlay's <img>s are the slideshow's, max 2. */
+    const box = el("div", "np off"), th = el("div", "th bars"), img = el("div", "cv"), nt = el("div", "nt");
+    const kick = el("div", "kick nk"), big = el("div", "nb"), sub = el("div", "ns");
+    th.setAttribute("aria-hidden", "true");
+    th.append(img); nt.append(kick, big, sub); box.append(th, nt);
+    return {box, th, img, kick, big, sub, arm: null};
+  }
+  /* The player's area name (entity, else device area), else its friendly name. */
+  _npWhere(id) {
+    const h = this._hass || {}, e = h.entities && h.entities[id], dev = e && e.device_id && h.devices && h.devices[e.device_id];
+    const aid = (e && e.area_id) || (dev && dev.area_id), ar = aid && h.areas && h.areas[aid];
+    return ar && ar.name ? String(ar.name) : friendly(this._hass, id);
+  }
+  /* First active media source -> {id, kick, title, sub, url} or null. */
+  _nowItem() {
+    for (const src of this._nowSrcs()) {
+      const n = jamNowMedia(this._hass, src);
+      if (!n) continue;
+      const app = n.app && n.app !== n.big ? n.app : "";
+      const kick = src.kicker ? src.kicker + (app ? " · " + app : "") : `${n.state === "paused" ? "Paused" : "Now playing"} · ${this._npWhere(src.entity)}`;
+      const sub = src.kicker && app && n.small === app ? "" : n.small;
+      return {id: src.entity, kick, title: n.big, sub, url: jamMuUrl(this._hass, n.attrs.entity_picture_local || n.attrs.entity_picture) || null};
+    }
+    return null;
+  }
+  /* Writes both blocks only when something changed; a new cover is preloaded and swapped in once loaded (never logged). */
+  _nowRender() {
+    const n = this._hass ? this._nowItem() : null, key = n ? JSON.stringify([n.id, n.kick, n.title, n.sub, n.url]) : "";
+    if (key === this._npKey) return;
+    this._npKey = key;
+    for (const b of this._np) {
+      b.box.classList.toggle("off", !n);
+      if (!n) continue;
+      b.kick.textContent = n.kick; b.big.textContent = n.title; b.sub.textContent = n.sub;
+      if (!b.arm || b.arm._id !== n.id) { if (b.arm) b.arm.remove(); b.arm = armBars("jam-screensaver|" + n.id); b.arm._id = n.id; b.th.append(b.arm); }
+    }
+    this._ov.dataset.now = n ? "on" : "off";
+    if (!n) return;
+    const url = n.url;
+    if (url === this._npArt) return;
+    if (this._npPre) { this._npPre.onload = this._npPre.onerror = null; this._npPre = null; }
+    const art = ok => { this._npArt = url; for (const b of this._np) { b.th.classList.toggle("bars", !ok); b.img.style.backgroundImage = ok ? `url(${JSON.stringify(url)})` : ""; } };
+    if (!url) { art(false); return; }
+    const pre = new Image();
+    this._npPre = pre;
+    pre.onload = () => { if (this._npPre !== pre) return; this._npPre = null; art(true); };
+    pre.onerror = () => { if (this._npPre !== pre) return; this._npPre = null; art(false); };
+    pre.src = url;
   }
   /* ---- images mode ---- */
   /* A good list is kept for an hour; an empty one (error / empty folder) is retried after 10 min. */
@@ -609,7 +708,7 @@ class JamScreensaver extends JamBase {
     const it = this._nextItem();
     if (!it) { if (!this._cur) this._view("poster"); return; }
     const img = el("img", "img"); img.alt = ""; img.decoding = "async"; img._item = it;
-    img.onload = () => { img._ok = true; if (!this._cur && this._live === "images" && this._ov.dataset.view === "poster" && !this._posterTurn) this._swap(); };
+    img.onload = () => { img._ok = true; if (!this._cur && this._live === "images" && !this._posterTurn) this._swap(); };
     const gen = this._gen;
     img.onerror = () => {
       img.onerror = img.onload = null;
@@ -620,7 +719,7 @@ class JamScreensaver extends JamBase {
       this._preload();
     };
     this._next = img;
-    this._slides.insertBefore(img, this._chip);
+    this._slides.insertBefore(img, this._sdock);
     if (!it.id) { img.src = it.url; return; }
     /* Media source: resolve right before use; the signed URL lives only on this <img>. */
     const h = this._hass;
@@ -689,7 +788,7 @@ class JamScreensaver extends JamBase {
       return;
     }
     if (m === "poster") { this._armSlide(); return; }
-    const every = Math.round(Number(this._config.poster_every)) || 0;
+    const every = this._config.mode_entity ? 0 : Math.round(Number(this._config.poster_every)) || 0; /* pure Photos with a mode_entity */
     this._k++;
     this._posterTurn = every > 0 && this._k % every === 0;
     if (this._posterTurn || !this._list || !this._list.length) { this._view("poster"); this._setLayout(true); }
