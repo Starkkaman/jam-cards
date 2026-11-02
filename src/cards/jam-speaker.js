@@ -261,7 +261,7 @@ class JamSpeaker extends JamBase {
   _favPress() {
     const id = this._favId(), s = stateObj(this._hass, this._config.entity), k = this._trackKey(s);
     if (!id) return;
-    this._hass.callService("button", "press", {entity_id: id});
+    jamCall(this, this._hass, "button", "press", {entity_id: id});
     if (k) { jamMuFavSet(k, true); this._render(false); }
   }
   /* MA-queue playback: ask get_queue once per track whether it is a favourite (lights the key). */
@@ -284,13 +284,13 @@ class JamSpeaker extends JamBase {
     if (this._config.show_shuffle === false || ((Number(a.supported_features) || 0) & JAM_SPK_SHUFFLE) === 0) return null;
     const on = a.shuffle === true;
     const k = jamMuKey("shuffle", "Shuffle", "shuffle", "shuf" + (on ? " on" : ""),
-      () => this._hass.callService("media_player", "shuffle_set", {entity_id: this._config.entity, shuffle: !on}), off);
+      () => jamCall(this, this._hass, "media_player", "shuffle_set", {entity_id: this._config.entity, shuffle: !on}), off);
     k.setAttribute("aria-pressed", String(on));
     return k;
   }
   /* Prev / Play-Pause / Next glyph keys (card, kiosk, panel dock). */
   _transportKeys(s, off) {
-    const id = this._config.entity, call = svc => () => this._hass.callService("media_player", svc, {entity_id: id});
+    const id = this._config.entity, call = svc => () => jamCall(this, this._hass, "media_player", svc, {entity_id: id});
     const playing = !!s && s.state === "playing";
     return [
       jamMuKey("prev", "Previous track", "prev", "", call("media_previous_track"), off),
@@ -301,8 +301,8 @@ class JamSpeaker extends JamBase {
   _power(s) {
     const c = this._config, h = this._hass, f = Number(s && s.attributes.supported_features) || 0;
     if (c.power_action) { runAction(this, h, c.power_action, c.entity); return; }
-    if (f & JAM_SPK_POWER) h.callService("media_player", "toggle", {entity_id: c.entity});
-    else h.callService("media_player", s && JAM_SPK_ACTIVE.has(s.state) ? "media_stop" : "media_play", {entity_id: c.entity});
+    if (f & JAM_SPK_POWER) jamCall(this, h, "media_player", "toggle", {entity_id: c.entity});
+    else jamCall(this, h, "media_player", s && JAM_SPK_ACTIVE.has(s.state) ? "media_stop" : "media_play", {entity_id: c.entity});
   }
   _powerKey(s, off) {
     const down = !s || ["off", "standby"].includes(s.state), f = Number(s && s.attributes.supported_features) || 0;
@@ -322,7 +322,7 @@ class JamSpeaker extends JamBase {
   _play(it) {
     const d = {entity_id: this._config.entity, media_id: it.uri};
     if (JAM_MU_PLAYABLE.has(it.media_type)) d.media_type = it.media_type;
-    this._hass.callService("music_assistant", "play_media", d);
+    jamCall(this, this._hass, "music_assistant", "play_media", d);
   }
   _openPanel() {
     if (this._panel && this._panel.isOpen()) return;
@@ -337,7 +337,7 @@ class JamSpeaker extends JamBase {
     const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; track.setAttribute("aria-valuenow", cur); if (onShow) onShow(cur); };
     fill.style.width = (off ? 0 : cur) + "%";
     if (off) return {track, cur: () => cur, set: () => {}};
-    const send = () => this._hass.callService("media_player", "volume_set", {entity_id: id, volume_level: cur / 100});
+    const send = () => jamCall(this, this._hass, "media_player", "volume_set", {entity_id: id, volume_level: cur / 100});
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", friendly(this._hass, id) + " volume");
     track.setAttribute("aria-valuemin", 0); track.setAttribute("aria-valuemax", 100); track.setAttribute("aria-valuenow", cur);
     const at = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100; };
@@ -374,7 +374,7 @@ class JamSpeaker extends JamBase {
       if (ok) {
         const joined = this._isJoined(x.entity);
         const t = this._key(joined ? "Playing" : "Join", "group", "tog" + (joined ? " on" : "") + (joined && stampIds.has(x.entity) ? " jam-stamp" : ""),
-          () => joined ? h.callService("media_player", "unjoin", {entity_id: x.entity}) : h.callService("media_player", "join", {entity_id: c.entity, group_members: [x.entity]}));
+          () => joined ? jamCall(this, h, "media_player", "unjoin", {entity_id: x.entity}) : jamCall(this, h, "media_player", "join", {entity_id: c.entity, group_members: [x.entity]}));
         t.setAttribute("aria-pressed", String(joined));
         row.append(t);
       } else row.append(el("span"));

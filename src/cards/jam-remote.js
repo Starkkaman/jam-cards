@@ -167,7 +167,7 @@ function jamHoldRepeat(btn, run, owner) {
 /* Keyboard sheet (Android TV, as universal-remote-card): text via "text:<s>", Backspace "DEL", Enter "ENTER".
    o: {entity (remote.*), name (kicker), title, accent (accent name), hass: () => hass, onClose}. Returns the sheet. */
 function jamRemoteKeyboard(host, o) {
-  const send = command => o.hass().callService("remote", "send_command", {entity_id: o.entity, command});
+  const send = command => jamCall(sheet.face, o.hass(), "remote", "send_command", {entity_id: o.entity, command}, "send", "Couldn't send to the TV");
   const sheet = openSheet({from: host, kicker: o.name || "Remote", title: o.title || "Keyboard", accent: accentVar(o.accent) || undefined,
     css: JAM_REMOTE_KB_CSS, onClose: o.onClose});
   const box = el("div", "kb"), field = el("input");
@@ -246,8 +246,8 @@ class JamRemote extends JamBase {
     if (!ctx.entity) return;
     if (k === "keyboard") { this._keyboard(ctx); return; }
     const cmd = ctx.commands[k] || (k === "power" ? null : JAM_REMOTE_CMDS[k]);
-    if (cmd) h.callService("remote", "send_command", {entity_id: ctx.entity, command: cmd});
-    else if (k === "power") h.callService("remote", "toggle", {entity_id: ctx.entity});
+    if (cmd) jamCall(this, h, "remote", "send_command", {entity_id: ctx.entity, command: cmd}, "send");
+    else if (k === "power") jamCall(this, h, "remote", "toggle", {entity_id: ctx.entity}, "toggle");
   }
   _known(k, ctx = this._ctx()) {
     if (ctx.actions[k]) return true;

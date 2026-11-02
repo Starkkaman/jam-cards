@@ -189,21 +189,46 @@ function runAction(node, hass, action, entityId) {
 /* Failed actions (0.7.2): the shared action path calls HA with notifyOnError = false (HA's own toast would carry the whole
    error text) and shows a compact flat strip instead (actionError). The container is resolved at tap time, because a
    Source sheet refill or a card re-render may replace the tapped node before HA answers. */
-function callAction(node, hass, domain, service, data, target, verb, what) {
+function callAction(node, hass, domain, service, data, target, verb, what, head) {
+  node = pressedIn(node);
   const box = errorBox(node), name = actionName(node);
-  const fail = err => actionError(node, box, err, name ? `Couldn't ${verb} ${name}` : `Couldn't ${verb === "toggle" ? "toggle" : "run " + (what || domain + "." + service)}`);
+  const fail = err => { actionError(node, box, err, head || (name ? `Couldn't ${verb} ${name}` : `Couldn't ${verb === "toggle" ? "toggle" : "run " + (what || domain + "." + service)}`)); return false; };
   let p;
-  try { p = hass.callService(domain, service, data, target, false); } catch (e) { fail(e); return; }
-  if (p && typeof p.then === "function") p.then(null, fail);
+  try { p = hass.callService(domain, service, data, target, false); } catch (e) { return Promise.resolve(fail(e)); }
+  return p && typeof p.then === "function" ? p.then(() => true, fail) : Promise.resolve(true);
 }
-/* A tapped node's name: data-app (jam-tv tiles), data-jam-name, else its aria-label without a "(…)" note. */
+/* Direct service calls from cards (0.7.2): same error handling as runAction. node = the tapped control, or the card itself
+   (then the control pressed in it during the last 2 s is used, see pressedIn). verb: "toggle" / "start" / "send" / "set" /
+   "run" (default); head overrides the headline. Resolves to true / false (failed). */
+function jamCall(node, hass, domain, service, data, verb, head) {
+  return callAction(node, hass, domain, service, data, undefined, verb || "run", undefined, head);
+}
+/* Last pressed control on the page (capture phase, across shadow roots), so a card-level call can find its key / tile. */
+let JAM_PRESSED = null;
+function trackPress(e) {
+  if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+  const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+  const n = path.find(x => x && x.nodeType === 1 && typeof x.matches === "function" && x.matches("button,[role=button],[role=slider],.track"));
+  JAM_PRESSED = n ? {n, t: Date.now()} : null;
+}
+for (const t of ["pointerdown", "keydown", "click"]) document.addEventListener(t, trackPress, true);
+function pressedIn(node) {
+  if (!node || !node.shadowRoot || !JAM_PRESSED || Date.now() - JAM_PRESSED.t > 2000) return node;
+  const n = JAM_PRESSED.n;
+  return n.isConnected && n !== node && composedChain(n).includes(node) ? n : node;
+}
+/* A tapped node's name: data-app (jam-tv tiles), data-jam-name, else its aria-label without a "(…)" note, else its short text. */
 function actionName(node) {
-  if (!node || !node.getAttribute) return "";
+  if (!node || !node.getAttribute || node.shadowRoot) return "";
   const d = node.dataset || {};
-  return String(d.jamName || d.app || node.getAttribute("aria-label") || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const t = String(d.jamName || d.app || node.getAttribute("aria-label") || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (t) return t;
+  const x = String(node.textContent || "").replace(/\s+/g, " ").trim();
+  return x.length <= 32 ? x : "";
 }
 /* Where the message goes: the open sheet's face when the node lives in an openSheet, else the card's .host. */
 function errorBox(node) {
+  if (node && node.shadowRoot) return node.shadowRoot.querySelector(".host");
   const r = node && node.getRootNode ? node.getRootNode() : null;
   if (r && r.host) {
     if (r.host.classList && r.host.classList.contains("jam-sheet-host")) return r.querySelector(".sheet > .face");
@@ -225,7 +250,7 @@ const ERR_MS = 6000;
    grid it covers never changes. The tapped node gets a one-shot shake when motion is on. */
 function actionError(node, box, err, headline) {
   const e = shortError(err);
-  if (node && node.isConnected && motionOn()) oneShot(node, "jam-shake");
+  if (node && node.isConnected && !node.shadowRoot && motionOn()) oneShot(node, "jam-shake");
   if (!box || !box.isConnected) return null;
   const old = box.querySelector(":scope > .jam-err");
   if (old) { clearTimeout(old._t); old.remove(); }
@@ -843,7 +868,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
-  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError,
+  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

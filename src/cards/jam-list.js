@@ -45,7 +45,7 @@ class JamList extends JamBase {
         const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""), "chip");
         key.setAttribute("aria-pressed", on ? "true" : "false");
         key.setAttribute("aria-label", `${r.name || friendly(h, r.entity)}: ${on ? "on" : "off"}`);
-        key.onclick = e => { e.stopPropagation(); this._hass.callService("homeassistant", "toggle", {entity_id: r.entity}); };
+        key.onclick = e => { e.stopPropagation(); jamCall(key, this._hass, "homeassistant", "toggle", {entity_id: r.entity}, "toggle", `Couldn't toggle ${r.name || friendly(h, r.entity)}`); };
         row.append(key);
       } else {
         const t = tone(s);

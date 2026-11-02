@@ -96,7 +96,7 @@ class JamHouse extends JamBase {
       let chip;
       if (st === "unlocked") {
         chip = el("button", "chip red", "Door unlocked · lock");
-        chip.onclick = () => this._hass.callService("lock", "lock", {entity_id: c.lock_entity});
+        chip.onclick = () => jamCall(chip, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door");
       } else {
         const red = st === "jammed" || st === "open" || UNAVAILABLE.has(st);
         chip = el("button", "chip" + (red ? " red" : ""), st === "locked" ? "Door locked" : `Door ${st}`);

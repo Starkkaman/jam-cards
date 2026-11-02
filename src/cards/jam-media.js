@@ -149,7 +149,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     try { if (h && typeof h.hassUrl === "function") return h.hassUrl(u); } catch (e) { /* fall through */ }
     return u;
   }
-  _call(svc, data) { this._hass.callService("media_player", svc, {entity_id: this._id, ...data}); }
+  _call(svc, data) { jamCall(this, this._hass, "media_player", svc, {entity_id: this._id, ...data}); }
   _chipRow(label, items, kind) {
     const g = el("div", "grp " + kind); g.append(el("div", "label", label));
     const row = el("div", "chips"); g.append(row);
@@ -313,7 +313,7 @@ class JamMedia extends JamSheetHost(JamBase) {
       wrap.append(this._chipRow("Group", grp.map(g => {
         const gs = stateObj(h, g), joined = members.includes(g) || ((gs && gs.attributes.group_members) || []).includes(id);
         return {key: g, text: friendly(h, g), on: joined, disabled: off || !gs || UNAVAILABLE.has(gs.state),
-          run: () => joined ? h.callService("media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};
+          run: () => joined ? jamCall(this, h, "media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};
       }), "group"));
     }
     b.append(root);

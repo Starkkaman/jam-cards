@@ -107,7 +107,7 @@ class JamButton extends JamBase {
     if (this._accWait) this._render(false); // the corner shade needs the resolved face colour
     else if (this._k && !this._ro) this._fit(this._k);
   }
-  _power() { if (this._config.entity) this._hass.callService("homeassistant", "toggle", {entity_id: this._config.entity}); }
+  _power() { if (this._config.entity) jamCall(this, this._hass, "homeassistant", "toggle", {entity_id: this._config.entity}, "toggle"); }
   disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
   /* Safety net for fallback fonts: shrink a label that still overflows its key (a word never breaks). */
   _fit(k) {

@@ -21,10 +21,10 @@ class JamSlider extends JamBase {
   _send(v) {
     const c = this._config, h = this._hass, m = this._model();
     if (!m) return;
-    if (m.d === "light") h.callService("light", "turn_on", {entity_id: c.entity, brightness_pct: v});
-    else if (m.d === "media_player") h.callService("media_player", "volume_set", {entity_id: c.entity, volume_level: v / 100});
-    else if (m.d === "fan") h.callService("fan", "set_percentage", {entity_id: c.entity, percentage: v});
-    else h.callService(m.d, "set_value", {entity_id: c.entity, value: v});
+    if (m.d === "light") jamCall(this, h, "light", "turn_on", {entity_id: c.entity, brightness_pct: v});
+    else if (m.d === "media_player") jamCall(this, h, "media_player", "volume_set", {entity_id: c.entity, volume_level: v / 100});
+    else if (m.d === "fan") jamCall(this, h, "fan", "set_percentage", {entity_id: c.entity, percentage: v});
+    else jamCall(this, h, m.d, "set_value", {entity_id: c.entity, value: v});
   }
   render(b) {
     const c = this._config, h = this._hass, m = this._model();

@@ -207,21 +207,46 @@ function runAction(node, hass, action, entityId) {
 /* Failed actions (0.7.2): the shared action path calls HA with notifyOnError = false (HA's own toast would carry the whole
    error text) and shows a compact flat strip instead (actionError). The container is resolved at tap time, because a
    Source sheet refill or a card re-render may replace the tapped node before HA answers. */
-function callAction(node, hass, domain, service, data, target, verb, what) {
+function callAction(node, hass, domain, service, data, target, verb, what, head) {
+  node = pressedIn(node);
   const box = errorBox(node), name = actionName(node);
-  const fail = err => actionError(node, box, err, name ? `Couldn't ${verb} ${name}` : `Couldn't ${verb === "toggle" ? "toggle" : "run " + (what || domain + "." + service)}`);
+  const fail = err => { actionError(node, box, err, head || (name ? `Couldn't ${verb} ${name}` : `Couldn't ${verb === "toggle" ? "toggle" : "run " + (what || domain + "." + service)}`)); return false; };
   let p;
-  try { p = hass.callService(domain, service, data, target, false); } catch (e) { fail(e); return; }
-  if (p && typeof p.then === "function") p.then(null, fail);
+  try { p = hass.callService(domain, service, data, target, false); } catch (e) { return Promise.resolve(fail(e)); }
+  return p && typeof p.then === "function" ? p.then(() => true, fail) : Promise.resolve(true);
 }
-/* A tapped node's name: data-app (jam-tv tiles), data-jam-name, else its aria-label without a "(…)" note. */
+/* Direct service calls from cards (0.7.2): same error handling as runAction. node = the tapped control, or the card itself
+   (then the control pressed in it during the last 2 s is used, see pressedIn). verb: "toggle" / "start" / "send" / "set" /
+   "run" (default); head overrides the headline. Resolves to true / false (failed). */
+function jamCall(node, hass, domain, service, data, verb, head) {
+  return callAction(node, hass, domain, service, data, undefined, verb || "run", undefined, head);
+}
+/* Last pressed control on the page (capture phase, across shadow roots), so a card-level call can find its key / tile. */
+let JAM_PRESSED = null;
+function trackPress(e) {
+  if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+  const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+  const n = path.find(x => x && x.nodeType === 1 && typeof x.matches === "function" && x.matches("button,[role=button],[role=slider],.track"));
+  JAM_PRESSED = n ? {n, t: Date.now()} : null;
+}
+for (const t of ["pointerdown", "keydown", "click"]) document.addEventListener(t, trackPress, true);
+function pressedIn(node) {
+  if (!node || !node.shadowRoot || !JAM_PRESSED || Date.now() - JAM_PRESSED.t > 2000) return node;
+  const n = JAM_PRESSED.n;
+  return n.isConnected && n !== node && composedChain(n).includes(node) ? n : node;
+}
+/* A tapped node's name: data-app (jam-tv tiles), data-jam-name, else its aria-label without a "(…)" note, else its short text. */
 function actionName(node) {
-  if (!node || !node.getAttribute) return "";
+  if (!node || !node.getAttribute || node.shadowRoot) return "";
   const d = node.dataset || {};
-  return String(d.jamName || d.app || node.getAttribute("aria-label") || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+  const t = String(d.jamName || d.app || node.getAttribute("aria-label") || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (t) return t;
+  const x = String(node.textContent || "").replace(/\s+/g, " ").trim();
+  return x.length <= 32 ? x : "";
 }
 /* Where the message goes: the open sheet's face when the node lives in an openSheet, else the card's .host. */
 function errorBox(node) {
+  if (node && node.shadowRoot) return node.shadowRoot.querySelector(".host");
   const r = node && node.getRootNode ? node.getRootNode() : null;
   if (r && r.host) {
     if (r.host.classList && r.host.classList.contains("jam-sheet-host")) return r.querySelector(".sheet > .face");
@@ -243,7 +268,7 @@ const ERR_MS = 6000;
    grid it covers never changes. The tapped node gets a one-shot shake when motion is on. */
 function actionError(node, box, err, headline) {
   const e = shortError(err);
-  if (node && node.isConnected && motionOn()) oneShot(node, "jam-shake");
+  if (node && node.isConnected && !node.shadowRoot && motionOn()) oneShot(node, "jam-shake");
   if (!box || !box.isConnected) return null;
   const old = box.querySelector(":scope > .jam-err");
   if (old) { clearTimeout(old._t); old.remove(); }
@@ -861,7 +886,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
-  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError,
+  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];
@@ -1120,7 +1145,7 @@ class JamButton extends JamBase {
     if (this._accWait) this._render(false); // the corner shade needs the resolved face colour
     else if (this._k && !this._ro) this._fit(this._k);
   }
-  _power() { if (this._config.entity) this._hass.callService("homeassistant", "toggle", {entity_id: this._config.entity}); }
+  _power() { if (this._config.entity) jamCall(this, this._hass, "homeassistant", "toggle", {entity_id: this._config.entity}, "toggle"); }
   disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
   /* Safety net for fallback fonts: shrink a label that still overflows its key (a word never breaks). */
   _fit(k) {
@@ -1173,7 +1198,7 @@ class JamChoice extends JamBase {
       const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""), "chip");
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.disabled = !s || UNAVAILABLE.has(s.state);
-      btn.onclick = () => { btn.classList.add("busy"); h.callService(dom, "select_option", {entity_id: c.entity, option: o}); };
+      btn.onclick = () => { btn.classList.add("busy"); jamCall(btn, h, dom, "select_option", {entity_id: c.entity, option: o}, "choose").then(ok => { if (!ok) btn.classList.remove("busy"); }); };
       box.append(btn);
     }
     if (!list.length) box.append(el("div", "c-dim", s ? "No options" : "Entity not found"));
@@ -1247,7 +1272,7 @@ class JamFan extends JamBase {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
     const bad = !s || UNAVAILABLE.has(s.state), on = !bad && s.state === "on", feat = Number(a.supported_features) || 0;
     const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (bad ? " unavail" : "")});
-    const call = (svc, data) => h.callService("fan", svc, {entity_id: c.entity, ...data});
+    const call = (svc, data) => jamCall(this, h, "fan", svc, {entity_id: c.entity, ...data});
 
     const head = el("div", "head"), nm = el("div", "nm");
     const name = c.name || friendly(h, c.entity), power = () => { if (!bad) call(on ? "turn_off" : "turn_on"); };
@@ -2026,7 +2051,7 @@ class JamHouse extends JamBase {
       let chip;
       if (st === "unlocked") {
         chip = el("button", "chip red", "Door unlocked · lock");
-        chip.onclick = () => this._hass.callService("lock", "lock", {entity_id: c.lock_entity});
+        chip.onclick = () => jamCall(chip, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door");
       } else {
         const red = st === "jammed" || st === "open" || UNAVAILABLE.has(st);
         chip = el("button", "chip" + (red ? " red" : ""), st === "locked" ? "Door locked" : `Door ${st}`);
@@ -2773,7 +2798,7 @@ class JamLight extends JamBase {
     this._drag = false; this._sdrag = false;
     if (this._pending) { this._pending = false; this._render(false); }
   }
-  _call(domain, service, data) { this._hass.callService(domain, service, data); }
+  _call(domain, service, data) { jamCall(this, this._hass, domain, service, data); }
   _setPct(id, v) {
     if (v > 0) this._call("light", "turn_on", {entity_id: id, brightness_pct: v});
     else this._call("light", "turn_off", {entity_id: id});
@@ -3284,7 +3309,7 @@ class JamList extends JamBase {
         const on = s.state === "on", key = cutKey(on ? "On" : "Off", `jam-list|${r.entity}|key`, "sw" + (on ? " on" : ""), "chip");
         key.setAttribute("aria-pressed", on ? "true" : "false");
         key.setAttribute("aria-label", `${r.name || friendly(h, r.entity)}: ${on ? "on" : "off"}`);
-        key.onclick = e => { e.stopPropagation(); this._hass.callService("homeassistant", "toggle", {entity_id: r.entity}); };
+        key.onclick = e => { e.stopPropagation(); jamCall(key, this._hass, "homeassistant", "toggle", {entity_id: r.entity}, "toggle", `Couldn't toggle ${r.name || friendly(h, r.entity)}`); };
         row.append(key);
       } else {
         const t = tone(s);
@@ -3453,7 +3478,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     try { if (h && typeof h.hassUrl === "function") return h.hassUrl(u); } catch (e) { /* fall through */ }
     return u;
   }
-  _call(svc, data) { this._hass.callService("media_player", svc, {entity_id: this._id, ...data}); }
+  _call(svc, data) { jamCall(this, this._hass, "media_player", svc, {entity_id: this._id, ...data}); }
   _chipRow(label, items, kind) {
     const g = el("div", "grp " + kind); g.append(el("div", "label", label));
     const row = el("div", "chips"); g.append(row);
@@ -3617,7 +3642,7 @@ class JamMedia extends JamSheetHost(JamBase) {
       wrap.append(this._chipRow("Group", grp.map(g => {
         const gs = stateObj(h, g), joined = members.includes(g) || ((gs && gs.attributes.group_members) || []).includes(id);
         return {key: g, text: friendly(h, g), on: joined, disabled: off || !gs || UNAVAILABLE.has(gs.state),
-          run: () => joined ? h.callService("media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};
+          run: () => joined ? jamCall(this, h, "media_player", "unjoin", {entity_id: g}) : this._call("join", {group_members: [g]})};
       }), "group"));
     }
     b.append(root);
@@ -4669,7 +4694,7 @@ function jamHoldRepeat(btn, run, owner) {
 /* Keyboard sheet (Android TV, as universal-remote-card): text via "text:<s>", Backspace "DEL", Enter "ENTER".
    o: {entity (remote.*), name (kicker), title, accent (accent name), hass: () => hass, onClose}. Returns the sheet. */
 function jamRemoteKeyboard(host, o) {
-  const send = command => o.hass().callService("remote", "send_command", {entity_id: o.entity, command});
+  const send = command => jamCall(sheet.face, o.hass(), "remote", "send_command", {entity_id: o.entity, command}, "send", "Couldn't send to the TV");
   const sheet = openSheet({from: host, kicker: o.name || "Remote", title: o.title || "Keyboard", accent: accentVar(o.accent) || undefined,
     css: JAM_REMOTE_KB_CSS, onClose: o.onClose});
   const box = el("div", "kb"), field = el("input");
@@ -4748,8 +4773,8 @@ class JamRemote extends JamBase {
     if (!ctx.entity) return;
     if (k === "keyboard") { this._keyboard(ctx); return; }
     const cmd = ctx.commands[k] || (k === "power" ? null : JAM_REMOTE_CMDS[k]);
-    if (cmd) h.callService("remote", "send_command", {entity_id: ctx.entity, command: cmd});
-    else if (k === "power") h.callService("remote", "toggle", {entity_id: ctx.entity});
+    if (cmd) jamCall(this, h, "remote", "send_command", {entity_id: ctx.entity, command: cmd}, "send");
+    else if (k === "power") jamCall(this, h, "remote", "toggle", {entity_id: ctx.entity}, "toggle");
   }
   _known(k, ctx = this._ctx()) {
     if (ctx.actions[k]) return true;
@@ -4949,7 +4974,7 @@ class JamScenes extends JamBase {
       if (on && !active) active = {btn, id: sc.entity};
       const s = stateObj(h, sc.entity);
       if (!s || UNAVAILABLE.has(s.state)) btn.classList.add("unavail");
-      btn.onclick = () => this._hass.callService(sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity});
+      btn.onclick = () => jamCall(btn, this._hass, sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity}, "start");
       row.append(btn);
     }
     b.append(row);
@@ -5787,10 +5812,10 @@ class JamSlider extends JamBase {
   _send(v) {
     const c = this._config, h = this._hass, m = this._model();
     if (!m) return;
-    if (m.d === "light") h.callService("light", "turn_on", {entity_id: c.entity, brightness_pct: v});
-    else if (m.d === "media_player") h.callService("media_player", "volume_set", {entity_id: c.entity, volume_level: v / 100});
-    else if (m.d === "fan") h.callService("fan", "set_percentage", {entity_id: c.entity, percentage: v});
-    else h.callService(m.d, "set_value", {entity_id: c.entity, value: v});
+    if (m.d === "light") jamCall(this, h, "light", "turn_on", {entity_id: c.entity, brightness_pct: v});
+    else if (m.d === "media_player") jamCall(this, h, "media_player", "volume_set", {entity_id: c.entity, volume_level: v / 100});
+    else if (m.d === "fan") jamCall(this, h, "fan", "set_percentage", {entity_id: c.entity, percentage: v});
+    else jamCall(this, h, m.d, "set_value", {entity_id: c.entity, value: v});
   }
   render(b) {
     const c = this._config, h = this._hass, m = this._model();
@@ -6090,7 +6115,7 @@ class JamSpeaker extends JamBase {
   _favPress() {
     const id = this._favId(), s = stateObj(this._hass, this._config.entity), k = this._trackKey(s);
     if (!id) return;
-    this._hass.callService("button", "press", {entity_id: id});
+    jamCall(this, this._hass, "button", "press", {entity_id: id});
     if (k) { jamMuFavSet(k, true); this._render(false); }
   }
   /* MA-queue playback: ask get_queue once per track whether it is a favourite (lights the key). */
@@ -6113,13 +6138,13 @@ class JamSpeaker extends JamBase {
     if (this._config.show_shuffle === false || ((Number(a.supported_features) || 0) & JAM_SPK_SHUFFLE) === 0) return null;
     const on = a.shuffle === true;
     const k = jamMuKey("shuffle", "Shuffle", "shuffle", "shuf" + (on ? " on" : ""),
-      () => this._hass.callService("media_player", "shuffle_set", {entity_id: this._config.entity, shuffle: !on}), off);
+      () => jamCall(this, this._hass, "media_player", "shuffle_set", {entity_id: this._config.entity, shuffle: !on}), off);
     k.setAttribute("aria-pressed", String(on));
     return k;
   }
   /* Prev / Play-Pause / Next glyph keys (card, kiosk, panel dock). */
   _transportKeys(s, off) {
-    const id = this._config.entity, call = svc => () => this._hass.callService("media_player", svc, {entity_id: id});
+    const id = this._config.entity, call = svc => () => jamCall(this, this._hass, "media_player", svc, {entity_id: id});
     const playing = !!s && s.state === "playing";
     return [
       jamMuKey("prev", "Previous track", "prev", "", call("media_previous_track"), off),
@@ -6130,8 +6155,8 @@ class JamSpeaker extends JamBase {
   _power(s) {
     const c = this._config, h = this._hass, f = Number(s && s.attributes.supported_features) || 0;
     if (c.power_action) { runAction(this, h, c.power_action, c.entity); return; }
-    if (f & JAM_SPK_POWER) h.callService("media_player", "toggle", {entity_id: c.entity});
-    else h.callService("media_player", s && JAM_SPK_ACTIVE.has(s.state) ? "media_stop" : "media_play", {entity_id: c.entity});
+    if (f & JAM_SPK_POWER) jamCall(this, h, "media_player", "toggle", {entity_id: c.entity});
+    else jamCall(this, h, "media_player", s && JAM_SPK_ACTIVE.has(s.state) ? "media_stop" : "media_play", {entity_id: c.entity});
   }
   _powerKey(s, off) {
     const down = !s || ["off", "standby"].includes(s.state), f = Number(s && s.attributes.supported_features) || 0;
@@ -6151,7 +6176,7 @@ class JamSpeaker extends JamBase {
   _play(it) {
     const d = {entity_id: this._config.entity, media_id: it.uri};
     if (JAM_MU_PLAYABLE.has(it.media_type)) d.media_type = it.media_type;
-    this._hass.callService("music_assistant", "play_media", d);
+    jamCall(this, this._hass, "music_assistant", "play_media", d);
   }
   _openPanel() {
     if (this._panel && this._panel.isOpen()) return;
@@ -6166,7 +6191,7 @@ class JamSpeaker extends JamBase {
     const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; track.setAttribute("aria-valuenow", cur); if (onShow) onShow(cur); };
     fill.style.width = (off ? 0 : cur) + "%";
     if (off) return {track, cur: () => cur, set: () => {}};
-    const send = () => this._hass.callService("media_player", "volume_set", {entity_id: id, volume_level: cur / 100});
+    const send = () => jamCall(this, this._hass, "media_player", "volume_set", {entity_id: id, volume_level: cur / 100});
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", friendly(this._hass, id) + " volume");
     track.setAttribute("aria-valuemin", 0); track.setAttribute("aria-valuemax", 100); track.setAttribute("aria-valuenow", cur);
     const at = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 100; };
@@ -6203,7 +6228,7 @@ class JamSpeaker extends JamBase {
       if (ok) {
         const joined = this._isJoined(x.entity);
         const t = this._key(joined ? "Playing" : "Join", "group", "tog" + (joined ? " on" : "") + (joined && stampIds.has(x.entity) ? " jam-stamp" : ""),
-          () => joined ? h.callService("media_player", "unjoin", {entity_id: x.entity}) : h.callService("media_player", "join", {entity_id: c.entity, group_members: [x.entity]}));
+          () => joined ? jamCall(this, h, "media_player", "unjoin", {entity_id: x.entity}) : jamCall(this, h, "media_player", "join", {entity_id: c.entity, group_members: [x.entity]}));
         t.setAttribute("aria-pressed", String(joined));
         row.append(t);
       } else row.append(el("span"));
@@ -6494,14 +6519,14 @@ class JamTile extends JamBase {
       const on = s.state === "on";
       key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""), "chip");
       key.setAttribute("aria-pressed", on ? "true" : "false");
-      call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
+      call = () => jamCall(key, h, "homeassistant", "toggle", {entity_id: c.entity}, "toggle", `Couldn't toggle ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "lock") {
       const locked = s.state === "locked";
       key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""), "chip");
-      call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
+      call = () => jamCall(key, h, "lock", locked ? "unlock" : "lock", {entity_id: c.entity}, "run", `Couldn't ${locked ? "unlock" : "lock"} ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "press") {
       key = cutKey("Press", k, "sw", "chip");
-      call = () => h.callService(d, "press", {entity_id: c.entity});
+      call = () => jamCall(key, h, d, "press", {entity_id: c.entity}, "run", `Couldn't press ${c.name || friendly(h, c.entity)}`);
     } else return null;
     if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);
     key.onclick = e => { e.stopPropagation(); call(); };
@@ -6790,7 +6815,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (a) return () => runAction(this, this._hass, a, rc.entity);
     if (!rc.entity) return null;
     const cmd = (rc.commands && rc.commands.home) || "HOME";
-    return () => this._hass.callService("remote", "send_command", {entity_id: rc.entity, command: cmd});
+    return () => jamCall(this, this._hass, "remote", "send_command", {entity_id: rc.entity, command: cmd}, "start");
   }
   _isInput(l) { const m = l.match; return !!(m && typeof m === "object" && !Array.isArray(m) && [].concat(m.input || []).filter(Boolean).length); }
   /* One source tile (chip cut): colour block, glyph, name; cur = on screen (outline + "On now"). */
@@ -6855,8 +6880,8 @@ class JamTv extends JamSheetHost(JamBase) {
   _power() {
     const c = this._config, h = this._hass;
     if (c.power_action) runAction(this, h, c.power_action, c.remote || c.media_player);
-    else if (c.remote) h.callService("remote", "toggle", {entity_id: c.remote});
-    else h.callService("media_player", "toggle", {entity_id: c.media_player});
+    else if (c.remote) jamCall(this, h, "remote", "toggle", {entity_id: c.remote}, "toggle");
+    else jamCall(this, h, "media_player", "toggle", {entity_id: c.media_player}, "toggle");
   }
   /* Art sampler (kept for jam-speaker, which shares it; jam-tv itself puts its text on a solid ink band since round 3):
      sample the text area (lower 60%, left 75%) on a small canvas; cross-origin art -> busy (band). */
@@ -6921,7 +6946,7 @@ class JamTv extends JamSheetHost(JamBase) {
   /* On: transport, rocker, Remote / Source tabs. */
   _onPane(s) {
     const c = this._config, h = this._hass, pane = el("div", "pane");
-    const call = svc => () => h.callService("media_player", svc, {entity_id: c.media_player});
+    const call = svc => () => jamCall(this, this._hass, "media_player", svc, {entity_id: c.media_player});
     const pl = s && s.state === "playing";
     const keys = el("div", "keys");
     keys.append(this._gkey("prev", "Previous", "prev", "", call("media_previous_track")),

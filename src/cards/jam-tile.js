@@ -30,14 +30,14 @@ class JamTile extends JamBase {
       const on = s.state === "on";
       key = cutKey(on ? "On" : "Off", k, "sw" + (on ? " on" : ""), "chip");
       key.setAttribute("aria-pressed", on ? "true" : "false");
-      call = () => h.callService("homeassistant", "toggle", {entity_id: c.entity});
+      call = () => jamCall(key, h, "homeassistant", "toggle", {entity_id: c.entity}, "toggle", `Couldn't toggle ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "lock") {
       const locked = s.state === "locked";
       key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""), "chip");
-      call = () => h.callService("lock", locked ? "unlock" : "lock", {entity_id: c.entity});
+      call = () => jamCall(key, h, "lock", locked ? "unlock" : "lock", {entity_id: c.entity}, "run", `Couldn't ${locked ? "unlock" : "lock"} ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "press") {
       key = cutKey("Press", k, "sw", "chip");
-      call = () => h.callService(d, "press", {entity_id: c.entity});
+      call = () => jamCall(key, h, d, "press", {entity_id: c.entity}, "run", `Couldn't press ${c.name || friendly(h, c.entity)}`);
     } else return null;
     if (ctl !== "toggle") key.disabled = UNAVAILABLE.has(s.state);
     key.onclick = e => { e.stopPropagation(); call(); };

@@ -259,7 +259,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (a) return () => runAction(this, this._hass, a, rc.entity);
     if (!rc.entity) return null;
     const cmd = (rc.commands && rc.commands.home) || "HOME";
-    return () => this._hass.callService("remote", "send_command", {entity_id: rc.entity, command: cmd});
+    return () => jamCall(this, this._hass, "remote", "send_command", {entity_id: rc.entity, command: cmd}, "start");
   }
   _isInput(l) { const m = l.match; return !!(m && typeof m === "object" && !Array.isArray(m) && [].concat(m.input || []).filter(Boolean).length); }
   /* One source tile (chip cut): colour block, glyph, name; cur = on screen (outline + "On now"). */
@@ -324,8 +324,8 @@ class JamTv extends JamSheetHost(JamBase) {
   _power() {
     const c = this._config, h = this._hass;
     if (c.power_action) runAction(this, h, c.power_action, c.remote || c.media_player);
-    else if (c.remote) h.callService("remote", "toggle", {entity_id: c.remote});
-    else h.callService("media_player", "toggle", {entity_id: c.media_player});
+    else if (c.remote) jamCall(this, h, "remote", "toggle", {entity_id: c.remote}, "toggle");
+    else jamCall(this, h, "media_player", "toggle", {entity_id: c.media_player}, "toggle");
   }
   /* Art sampler (kept for jam-speaker, which shares it; jam-tv itself puts its text on a solid ink band since round 3):
      sample the text area (lower 60%, left 75%) on a small canvas; cross-origin art -> busy (band). */
@@ -390,7 +390,7 @@ class JamTv extends JamSheetHost(JamBase) {
   /* On: transport, rocker, Remote / Source tabs. */
   _onPane(s) {
     const c = this._config, h = this._hass, pane = el("div", "pane");
-    const call = svc => () => h.callService("media_player", svc, {entity_id: c.media_player});
+    const call = svc => () => jamCall(this, this._hass, "media_player", svc, {entity_id: c.media_player});
     const pl = s && s.state === "playing";
     const keys = el("div", "keys");
     keys.append(this._gkey("prev", "Previous", "prev", "", call("media_previous_track")),

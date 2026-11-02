@@ -82,6 +82,34 @@ module.exports = async (page, check) => {
   check(b.head && /^Couldn't (start Movie night|run script\.movie_night)$/.test(b.head) && b.pos === "absolute" && b.h0 === b.h1,
     `action error: jam-button on the shared path shows "${b.head}" over its card, height ${b.h0} -> ${b.h1}`);
 
+  // Direct calls (0.7.2 follow-up): a failing remote key in the TV's Remote sheet and a failing transport key on the card take
+  // the same path (notifyOnError = false, strip, no layout change).
+  await page.evaluate(() => { window.__errCalls.length = 0; });
+  await tv.locator('button[data-key="remote"]').click(); await page.waitForTimeout(450);
+  const rsheet = page.locator(".jam-sheet-host").last(), rem = rsheet.locator("jam-remote");
+  await rem.evaluate(r => { r.hass = {...window.__hass}; });
+  const keyHs = () => rem.evaluate(r => [...r.shadowRoot.querySelectorAll("button[data-key]")].map(b => Math.round(b.getBoundingClientRect().height)).join(","));
+  const kh0 = await keyHs();
+  const rk = rem.locator('button[data-key="up"]').first();
+  const rkName = await rk.getAttribute("aria-label");
+  await rk.click(); await page.waitForTimeout(120);
+  const re = await rem.evaluate(r => { const e = r.shadowRoot.querySelector(".host > .jam-err"); return e ? {head: e.querySelector(".eh").textContent, msg: e.querySelector(".em").textContent, pos: getComputedStyle(e).position} : null; });
+  const rc = await page.evaluate(() => window.__errCalls.slice());
+  check(re && re.head === `Couldn't send ${rkName}` && re.pos === "absolute" && /^Option Jamfin is not valid/.test(re.msg) && rc.length === 1 && rc[0].d === "remote" && rc[0].notify === false && await keyHs() === kh0,
+    `action error: a failing remote key (${rc.map(x => x.d + "." + x.s).join(",")}, notify ${rc[0] && rc[0].notify}) shows "${re && re.head}" in the jam-remote, key heights unchanged`);
+  await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+  await page.evaluate(() => { window.__errCalls.length = 0; });
+  const ph0 = await tv.evaluate(t => Math.round(t.getBoundingClientRect().height));
+  const tk = tv.locator('.pane .keys button[data-key="next"]');
+  if (await tk.count()) {
+    await tk.click(); await page.waitForTimeout(120);
+    const te = await tv.evaluate(t => { const e = t.shadowRoot.querySelector(".host > .jam-err"); return e ? e.querySelector(".eh").textContent : null; });
+    const tc = await page.evaluate(() => window.__errCalls.slice());
+    check(te === "Couldn't run Next" && tc.length === 1 && tc[0].s === "media_next_track" && tc[0].notify === false && await tv.evaluate(t => Math.round(t.getBoundingClientRect().height)) === ph0,
+      `action error: a failing transport key on the jam-tv card shows "${te}" over the card (card height ${ph0} unchanged)`);
+    await tv.evaluate(t => { const e = t.shadowRoot.querySelector(".jam-err"); if (e) e.click(); });
+  } else check(false, "action error: jam-tv transport key present");
+
   await page.evaluate(() => { const h = window.__hass; h.callService = h.__errOrig; delete h.__errOrig;
     const nh = {...h}; for (const e of document.querySelectorAll("jam-tv")) e.hass = nh; });
   await page.setViewportSize({width: 1280, height: 900}); await page.waitForTimeout(100);

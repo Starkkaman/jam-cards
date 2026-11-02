@@ -28,7 +28,7 @@ class JamChoice extends JamBase {
       const btn = cutKey(o, `jam-choice|${c.entity}|${o}`, "opt" + (on ? " on" : ""), "chip");
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.disabled = !s || UNAVAILABLE.has(s.state);
-      btn.onclick = () => { btn.classList.add("busy"); h.callService(dom, "select_option", {entity_id: c.entity, option: o}); };
+      btn.onclick = () => { btn.classList.add("busy"); jamCall(btn, h, dom, "select_option", {entity_id: c.entity, option: o}, "choose").then(ok => { if (!ok) btn.classList.remove("busy"); }); };
       box.append(btn);
     }
     if (!list.length) box.append(el("div", "c-dim", s ? "No options" : "Entity not found"));

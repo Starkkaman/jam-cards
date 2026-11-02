@@ -61,7 +61,7 @@ class JamFan extends JamBase {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
     const bad = !s || UNAVAILABLE.has(s.state), on = !bad && s.state === "on", feat = Number(a.supported_features) || 0;
     const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (bad ? " unavail" : "")});
-    const call = (svc, data) => h.callService("fan", svc, {entity_id: c.entity, ...data});
+    const call = (svc, data) => jamCall(this, h, "fan", svc, {entity_id: c.entity, ...data});
 
     const head = el("div", "head"), nm = el("div", "nm");
     const name = c.name || friendly(h, c.entity), power = () => { if (!bad) call(on ? "turn_off" : "turn_on"); };

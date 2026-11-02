@@ -60,7 +60,7 @@ class JamScenes extends JamBase {
       if (on && !active) active = {btn, id: sc.entity};
       const s = stateObj(h, sc.entity);
       if (!s || UNAVAILABLE.has(s.state)) btn.classList.add("unavail");
-      btn.onclick = () => this._hass.callService(sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity});
+      btn.onclick = () => jamCall(btn, this._hass, sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity}, "start");
       row.append(btn);
     }
     b.append(row);

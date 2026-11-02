@@ -259,7 +259,7 @@ class JamLight extends JamBase {
     this._drag = false; this._sdrag = false;
     if (this._pending) { this._pending = false; this._render(false); }
   }
-  _call(domain, service, data) { this._hass.callService(domain, service, data); }
+  _call(domain, service, data) { jamCall(this, this._hass, domain, service, data); }
   _setPct(id, v) {
     if (v > 0) this._call("light", "turn_on", {entity_id: id, brightness_pct: v});
     else this._call("light", "turn_off", {entity_id: id});
