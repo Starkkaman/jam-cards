@@ -100,6 +100,13 @@ button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outlin
 @keyframes jam-print{to{transform:translate(3px,3px) scale(.96)}}
 @keyframes jam-uncover{from{clip-path:inset(0)}to{clip-path:inset(0 0 0 100%)}}
 @keyframes jam-retreat{from{clip-path:inset(0)}to{clip-path:inset(0 100% 0 0)}}
+/* Failed action (0.7.2): flat strip over the bottom of the card / sheet (out of flow), and a one-shot shake on the tile. */
+.jam-err{position:absolute;left:8px;right:8px;bottom:8px;z-index:20;display:grid;gap:2px;padding:7px 12px 8px;background:var(--ink);color:#ece2c9;
+  border-left:6px solid var(--red);font:500 .8rem/1.3 var(--body);text-align:left;text-transform:none;letter-spacing:0;cursor:pointer;pointer-events:auto}
+.jam-err > span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jam-err > .eh{font-weight:600}
+.jam-shake{animation:jam-shake 180ms steps(1,end)}
+@keyframes jam-shake{0%{transform:translateX(-6px)}33%{transform:translateX(6px)}66%{transform:translateX(-3px)}to{transform:none}}
 @keyframes jam-stamp{from{transform:scale(1.08)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
   .press:active > .face,.pressing > .face{transform:none}}
@@ -166,18 +173,72 @@ function runAction(node, hass, action, entityId) {
   if (a.confirmation && !window.confirm(a.confirmation.text || "Are you sure?")) return;
   switch (a.action) {
     case "none": return;
-    case "toggle": if (entityId) hass.callService("homeassistant", "toggle", {entity_id: entityId}); return;
+    case "toggle": if (entityId) callAction(node, hass, "homeassistant", "toggle", {entity_id: entityId}, undefined, "toggle"); return;
     case "navigate": if (a.navigation_path) navigate(a.navigation_path); return;
     case "url": if (a.url_path) window.open(a.url_path, "_blank", "noopener"); return;
     case "perform-action": case "call-service": {
       const svc = a.perform_action || a.service;
       if (!svc || !svc.includes(".")) return;
       const [d, s] = svc.split(".", 2);
-      hass.callService(d, s, a.data || a.service_data || {}, a.target);
+      callAction(node, hass, d, s, a.data || a.service_data || {}, a.target, "start", svc);
       return;
     }
     default: moreInfo(node, a.entity || entityId);
   }
+}
+/* Failed actions (0.7.2): the shared action path calls HA with notifyOnError = false (HA's own toast would carry the whole
+   error text) and shows a compact flat strip instead (actionError). The container is resolved at tap time, because a
+   Source sheet refill or a card re-render may replace the tapped node before HA answers. */
+function callAction(node, hass, domain, service, data, target, verb, what) {
+  const box = errorBox(node), name = actionName(node);
+  const fail = err => actionError(node, box, err, name ? `Couldn't ${verb} ${name}` : `Couldn't ${verb === "toggle" ? "toggle" : "run " + (what || domain + "." + service)}`);
+  let p;
+  try { p = hass.callService(domain, service, data, target, false); } catch (e) { fail(e); return; }
+  if (p && typeof p.then === "function") p.then(null, fail);
+}
+/* A tapped node's name: data-app (jam-tv tiles), data-jam-name, else its aria-label without a "(…)" note. */
+function actionName(node) {
+  if (!node || !node.getAttribute) return "";
+  const d = node.dataset || {};
+  return String(d.jamName || d.app || node.getAttribute("aria-label") || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+/* Where the message goes: the open sheet's face when the node lives in an openSheet, else the card's .host. */
+function errorBox(node) {
+  const r = node && node.getRootNode ? node.getRootNode() : null;
+  if (r && r.host) {
+    if (r.host.classList && r.host.classList.contains("jam-sheet-host")) return r.querySelector(".sheet > .face");
+    return r.querySelector(".host") || node.parentElement;
+  }
+  return node ? node.parentElement : null;
+}
+/* HA's message without the "Failed to perform the action x.y." prefix and without a "valid options are: …" list. */
+function shortError(err) {
+  const m = err == null ? "" : typeof err === "string" ? err : err.message || (err.error && err.error.message) || err.code || String(err);
+  let s = String(m).trim().replace(/^Failed to (?:perform the action|call service)\s+\S+?\.(?:\s+|$)/i, "");
+  s = s.replace(/[\s,;.]*valid options are\s*:[\s\S]*$/i, "").trim();
+  if (s && !/[.!?]$/.test(s)) s += ".";
+  return {short: s || "Home Assistant returned an error.", full: String(m).trim()};
+}
+const ERR_MS = 6000;
+/* Shows a flat strip pinned to the bottom of box (ink, red left rule, cream text, 2 lines: headline + the short HA
+   message, each cut with an ellipsis; full text in title / aria-label). Gone after 6 s or on tap. Out of flow, so the
+   grid it covers never changes. The tapped node gets a one-shot shake when motion is on. */
+function actionError(node, box, err, headline) {
+  const e = shortError(err);
+  if (node && node.isConnected && motionOn()) oneShot(node, "jam-shake");
+  if (!box || !box.isConnected) return null;
+  const old = box.querySelector(":scope > .jam-err");
+  if (old) { clearTimeout(old._t); old.remove(); }
+  if (getComputedStyle(box).position === "static") box.style.position = "relative";
+  const full = headline + ". " + (e.full || e.short);
+  const n = el("div", "jam-err");
+  n.setAttribute("role", "alert"); n.setAttribute("aria-label", full); n.title = full;
+  n.append(el("span", "eh", headline), el("span", "em", e.short));
+  const gone = () => { clearTimeout(n._t); n.remove(); };
+  n.addEventListener("click", ev => { ev.stopPropagation(); gone(); });
+  n._t = setTimeout(gone, ERR_MS);
+  box.append(n);
+  return n;
 }
 /* tap_action / hold_action (500 ms) / double_tap_action (<=250 ms) on one node. Without double_tap_action a tap
    runs at once (no delay). Presses on nested buttons/sliders are ignored. `hass` may be a getter (() => hass).
@@ -782,7 +843,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
-  motionOn, oneShot, staggerIn, treeOrder,
+  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];
