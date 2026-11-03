@@ -1,6 +1,6 @@
 # Theming plan: global "looks" for Jam Cards + the JamBoard theme
 
-Status: architecture brief (investigation only, 2026-11-03). Nothing here is built yet. Line numbers refer to jam-cards
+Status: architecture brief (2026-11-03); R0-R2 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
 `15d5e65` (0.7.2) and jam-theme `themes/jamboard.yaml` as of 2026-10-27.
 
 **Goal.** Whole-look overhauls (after the JamDash looks: Depth, Braun, NERV, LCARS and the v8 designer looks Transit, Olympia,
@@ -360,3 +360,31 @@ What HA offers (frontend APIs for custom cards):
 3. Token source in jam-cards with the theme YAML generated into jam-theme (2.6), or keep jam-theme hand-written.
 4. Switch UI: `input_select` + automation only, or also a `jam-looks` picker card.
 5. Should the Echo Show / iPad kiosks follow the global look, or stay pinned to Poster?
+
+---
+
+## Progress
+
+User decisions (2026-11-03): first looks are **Braun** and **Olympia** (not LCARS); JamBoard / Poster stays the default;
+kiosks follow the global look; the global switch is a Look picker card on Jam Control backed by `input_select` +
+automation (later task); the token source lives in jam-cards and generates the jam-theme YAML (2.6); DESIGN.md hard
+rules re-scoped into "universal" + "per look (Poster)".
+
+Pixel proof for every step: `JAM_SHOTS=<dir> JAM_BASELINE=<dir> pw-node preview/shoot.js` against a baseline written with
+`JAM_BASELINE_WRITE=1` on the commit before the step. The {dark,light}-{390,1280} shots use a fixed clock, and JAM_SHOTS
+adds a fixed-clock screensaver set (6 layouts + photos, 961x601, both modes). The `screensaver-*` shots in preview/shots
+follow the wall clock and the 87 kiosk sheets read Date.now for media progress, so only those may differ between runs.
+
+- **R0 (done).** Deviation from 2.6: the token source is `tokens/` (registry.mjs, looks/poster.mjs, ha.mjs, index.mjs),
+  not `src/looks/`, because src/ is concatenated into the bundle and the theme data (HA keys, card-mod CSS) must not ship
+  in jam-cards.js; `src/looks/` stays free for the runtime look packs (R6). `tools/themes.mjs` writes
+  `../jam-theme/themes/jamboard.yaml`; the regenerated file equals the hand-written one byte for byte apart from a
+  "GENERATED" header line. The HA keys come from a template over the palette with per-mode aliases (ground, primary,
+  chrome-* ...; light mode overrides 7 of them); the primary ramp stays a literal list per mode (an OKLCH generator is
+  only needed when a new look has no hand-tuned ramp, R10). `bundle.mjs` writes the TOKEN_CSS chunk (BASE_CSS `:host`)
+  and `preview/looks.css`; `--check` also checks the theme when ../jam-theme exists. Pixel diff vs 0.7.2: every card
+  shot identical; moving the preview tokens from an inline `<style>` to `<link href=looks.css>` changes 9 anti-aliased
+  pixels (±1 per channel on the CLOSE key's cut) in kiosk-sheet-tv-{dark,light}-1024 only; with the old index.html and
+  the new bundle that shot is identical, so the harness, not the cards, causes it. R1/R2 are diffed against R0.
+- Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
+  place); it can link `../../jam-cards/preview/looks.css` instead.
