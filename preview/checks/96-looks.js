@@ -3,6 +3,7 @@
 // jam-screensaver overlay carry data-look, and the body-layer token copy list (JamCards.TOKENS) holds every token.
 // R2: a --jam-shape-<kind> / --jam-radius-<kind> token on <html> reshapes every paper of that kind, the chips, strips and
 // power corners (computed clip-path / border-radius), and removing it brings the Poster cuts back.
+// R4: the colour maths (textOn / inkOn / cornerColors, jam-light faces + corners) follow the look's --jam-on-fg / --jam-ink-fg.
 // The page is left as it was (tokens, themes object, looks). No fixture. Runs on the dark/1280 preview page.
 // Contract: module.exports = async (page, check, helpers) => {}.
 module.exports = async (page, check) => {
@@ -68,12 +69,53 @@ module.exports = async (page, check) => {
       out.padded.every((p, i) => p.every((v, j) => v === Math.max(padBefore[i][j], i ? 11 : 30))) &&
       JSON.stringify([card, key, zero].map(pads)) === JSON.stringify(padBefore);
     out.padInfo = JSON.stringify({before: padBefore, padded: out.padded});
+    // Colour maths per look (R4): the text pair comes from the look's --jam-on-fg / --jam-ink-fg; a theme switch re-renders
+    // jam-light's face text and power-corner glyph in it; the idle-art pool reads jam-art-1..8.
+    const lights = cards.filter(c => c.localName === "jam-light");
+    const lc = () => lights.map(c => { const p = c.shadowRoot.querySelector(".paper.lc.on"), g = c.shadowRoot.querySelector(".pw");
+      return p ? [p.style.getPropertyValue("--lc-fg"), g ? g.style.getPropertyValue("--pw-fg") : ""] : null; }).filter(Boolean);
+    const lcBefore = lc(), tcBefore = J.textColors(tile.shadowRoot.querySelector(".host"));
+    de.style.setProperty("--jam-on-fg", "#202a44"); de.style.setProperty("--jam-ink-fg", "rgb(255, 250, 240)");
+    for (const c of lights) c.hass = {...h, themes: {...h.themes}};
+    await tick();
+    const tc = J.textColors(tile.shadowRoot.querySelector(".host")), lcAfter = lc();
+    out.tc = {before: [tcBefore.darkCss, tcBefore.lightCss], after: [tc.darkCss, tc.lightCss, tc.dark.join(","), tc.light.join(",")],
+      textOn: [J.textOn([255, 200, 120], tc).fg, J.textOn([40, 30, 90], tc).fg, J.inkOn([255, 200, 120], tc), J.cornerColors([255, 200, 120], null, tc)[1]],
+      lcBefore, lcAfter};
+    de.style.removeProperty("--jam-on-fg"); de.style.removeProperty("--jam-ink-fg");
+    for (const c of lights) c.hass = {...h, themes: {...h.themes}};
+    await tick();
+    out.tc.lcBack = JSON.stringify(lc()) === JSON.stringify(lcBefore);
+    // R4: jam-border (card + sheet faces only), jam-rule-h, jam-stripe-w.
+    const heading = cards.find(c => c.localName === "jam-heading"), rule = heading && heading.shadowRoot.querySelector(".rule");
+    const stripe = tops.map(r => r.querySelector(".stripe")).find(Boolean);
+    const geo = () => ({card: getComputedStyle(card).borderTopWidth + " " + getComputedStyle(card).borderTopStyle, key: getComputedStyle(key).borderTopWidth,
+      zero: zero ? getComputedStyle(zero).borderTopWidth : "", rule: rule ? rule.getBoundingClientRect().height : 0, stripe: stripe ? getComputedStyle(stripe).borderLeftWidth : ""});
+    out.geo = {before: geo()};
+    de.style.setProperty("--jam-border", "1px solid rgb(9, 9, 9)"); de.style.setProperty("--jam-rule-h", "2px"); de.style.setProperty("--jam-stripe-w", "3px");
+    out.geo.set = geo();
+    for (const t of ["border", "rule-h", "stripe-w"]) de.style.removeProperty("--jam-" + t);
+    out.geo.back = geo();
+    const art = document.createElement("div"); document.body.append(art);
+    out.pool = (() => { const probe = document.createElement("i"); art.append(probe);
+      de.style.setProperty("--jam-art-3", "rgb(1, 2, 3)"); probe.style.background = "var(--jam-art-3,var(--ochre))";
+      const v = getComputedStyle(probe).backgroundColor; de.style.removeProperty("--jam-art-3"); art.remove(); return v; })();
     return out;
   });
   check(r.shaped[0] === "inset(0px round 0px 26px 26px 0px)" && r.shaped[1] === "none" && r.keyRadius === "12px" && r.shaped[2] === "inset(0px round 4px)" &&
     r.shaped[3] === "none" && r.shaped[4] === "circle(50% at 100% 0%)" && r.shapesBack,
     `looks: shape tokens reshape card / key (+ radius ${r.keyRadius}) / chip / strip end / power corner (${r.shaped.join(" | ")}), Poster cuts back without them (${r.shapesBack})`);
   check(r.padOk, `looks: pad tokens raise each side of card / key faces to at least --jam-pad-<kind> (a 0px side too), Poster paddings back without them ${r.padInfo}`);
+  const T = r.tc, used = T.lcAfter.flat().filter(Boolean);
+  check(T.before.join() === "#141210,#ece2c9" && T.after.join() === "#202a44,rgb(255, 250, 240),32,42,68,255,250,240" &&
+    T.textOn.join() === "#202a44,rgb(255, 250, 240),#202a44,#202a44" && T.lcBefore.length > 0 &&
+    used.length > 0 && used.every(v => v === "#202a44" || v === "rgb(255, 250, 240)" || v === "var(--ink-fg)") && used.includes("#202a44") && T.lcAfter.length === T.lcBefore.length && T.lcBack,
+    `looks: colour maths take the look's text pair (--jam-on-fg / --jam-ink-fg): textOn / inkOn / cornerColors and jam-light face text + corner glyph follow it, Poster back after (${JSON.stringify(T)})`);
+  const G = r.geo;
+  check(G.before.card === "0px none" && G.before.rule === 5 && G.before.stripe === "6px" && G.set.card === "1px solid" && G.set.key === G.before.key &&
+    G.set.rule === 2 && G.set.stripe === "3px" && JSON.stringify(G.back) === JSON.stringify(G.before),
+    `looks: jam-border sets card faces only (keys keep theirs), jam-rule-h / jam-stripe-w size the title rule and tone stripe, Poster back after (${JSON.stringify(G)})`);
+  check(r.pool === "rgb(1, 2, 3)", `looks: idle-art colours read jam-art-<n> tokens (${r.pool})`);
   check(r.before === "poster" && r.cards > 80, `looks: every card host has data-look=poster without a --jam-look token (${r.before}, ${r.cards} cards)`);
   check(r.missing.length === 0, `looks: JamCards.TOKENS (body-layer copy list) holds every token incl. alert-text, ink-fg, slab3, look` + (r.missing.length ? " — missing " + r.missing.join(", ") : ""));
   check(r.same === 0, `looks: a new hass with the same themes object re-renders nothing (${r.same} mutations)`);

@@ -138,6 +138,16 @@ Shape (R2; theme top level, all optional: unset = the Poster geometry written at
 A value must be a valid `clip-path` (polygon, `inset(... round ...)`, `circle()`, `none`): an invalid one leaves the element
 unclipped. preview/shoot.js checks that every paper's computed clip equals its kind token; 96-looks reshapes the kinds live.
 
+Colour maths and lines (R4; theme top level unless noted):
+| var (short name) | sets | Poster |
+|---|---|---|
+| `--jam-on-fg`, `--jam-ink-fg` (palette, above) | also the dark / light text of every flat-colour decision (`textColors()`): jam-light face text, label plates and power-corner glyphs, jam-button corners, the jam-speaker K1 panel (art colour or the look's violet) | #141210, #ece2c9 |
+| `--jam-art-1` .. `--jam-art-8` (per mode, optional) | the cut-paper idle art colours (covers without an image) | ink, ink-fg, ochre, teal, blue, pink, violet, green |
+| `--jam-border` (optional) | border of card and sheet faces (`:where(.face)`, so `.stripe`, key borders and a card's border-left still win), e.g. `1px solid var(--jam-line)` | none |
+| `--jam-rule-h` (`--rule-h`) | accent rule under titles (jam-heading, sheets, jam-popup) | 5px |
+| `--jam-stripe-w` (`--stripe-w`) | left tone stripe (`.stripe`, jam-remote groups, the error strip) | 6px |
+Look-neutral, left as they are: `shade()` (HSL lightness of the face itself), jam-tv's unused `_artTone` luminance test.
+
 Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
 `--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and
 `--jam-stamp-from` are local.
@@ -272,9 +282,14 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 ### Core helpers (window.JamCards, src/core.js)
 - Colour: `ACCENTS`, `accentName`, `accentVar`, `accentFg`, `setAccent`; light colour `kelvinToRgb`, `lightRgb` (a light's output
   colour), `fullRgb` (scale [r,g,b] so the max channel is 255; null for black/missing), `rgbCss`, `luminance`, `inkOn` (ink/paper text).
-- Round 3: `contrastRatio(a, b)`, `textOn(rgb)` → `{fg, plate}`, `shade(rgb, depth)` (1 = mid, 2 = deep), `resolveRgb(node, css)`
+- Round 3: `contrastRatio(a, b)`, `textOn(rgb, tc?)` → `{fg, plate, dark}`, `shade(rgb, depth)` (1 = mid, 2 = deep), `resolveRgb(node, css)`
   (computed rgb of a token, null while detached), `POWER_CSS` + `powerCorner({name, on, disabled, bg, fg, onClick})`,
-  `cornerColors(faceRgb, glyph)` → `[bg, glyph]` (see "Power corner").
+  `cornerColors(faceRgb, glyph, tc?)` → `[bg, glyph]` (see "Power corner").
+- Looks (R4): `textColors(node)` → `{dark, light, darkCss, lightCss}`, the look's text pair for flat-colour maths: the
+  node's `--on-fg` and `--ink-fg`, sorted by luminance (Poster: #141210 / #ece2c9 in both modes = `TEXT_POSTER`, also the
+  fallback when the node is detached or a value is not rgb). `inkOn`, `textOn`, `cornerColors` and jam-music-panel's
+  `jamMuReadable` take it as an optional last argument (default Poster); jam-light, jam-button and jam-speaker K1 pass
+  their own. `parseRgb(css)` reads hex / rgb() strings.
 - Units: `keepUnit(node, stateObj | unit)` wraps a trailing unit in `<span class="unit">` (text-transform:none) so uppercase display
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).

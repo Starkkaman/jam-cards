@@ -80,7 +80,8 @@ function jamMuKey(icon, label, key, cls, run, disabled) {
 /* Cut-paper idle art (seeded, flat, no motion): a palette ground + 2-3 shapes (disc, ring, bar, strip, tilted square).
    Sizes in cqmin (the box is a size container), so one seed reads the same on a poster, a thumb or the kiosk art. Red is
    left out (reserved for alerts). Same seed = same picture. */
-const JAM_MU_POOL = ["var(--ink)", "var(--ink-fg)", "var(--ochre)", "var(--teal)", "var(--blue)", "var(--pink)", "var(--violet)", "var(--green)"];
+const JAM_MU_POOL = ["var(--ink)", "var(--ink-fg)", "var(--ochre)", "var(--teal)", "var(--blue)", "var(--pink)", "var(--violet)", "var(--green)"]
+  .map((c, i) => `var(--jam-art-${i + 1},${c})`); // a look may set its own 8 colours (tokens jam-art-1..8; R4)
 function jamMuIdleArt(sd) {
   const r = rng((sd >>> 0) ^ 0x5bd1e995), pick = a => a[Math.floor(r() * a.length)], box = el("div", "abs");
   box.setAttribute("aria-hidden", "true");
@@ -109,20 +110,21 @@ function jamMuThumb(h, src, key, cls) {
   return t;
 }
 /* ---- colour ---- */
-const JAM_MU_INK = [20, 18, 16], JAM_MU_PAPER = [236, 226, 201];
 const jamMuContrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
-/* A fill [r,g,b] and its text: ink or paper, whichever reads better; a mid-tone where neither reaches 4.5:1 is pushed
-   lighter (ink text) or darker (paper text) until it does. -> {bg, fg, ink, track} (track = a flat 22% mix of fg into bg). */
-function jamMuReadable(rgb) {
+/* A fill [r,g,b] and its text: the look's dark or light text (tc = textColors(node), default Poster ink / paper), whichever
+   reads better; a mid-tone where neither reaches 4.5:1 is pushed lighter (dark text) or darker (light text) until it does.
+   -> {bg, fg, ink, track} (ink = dark text; track = a flat 22% mix of fg into bg). */
+function jamMuReadable(rgb, tc = JAM_TEXT_POSTER) {
   let c = rgb.slice(0, 3).map(v => Math.max(0, Math.min(255, Number(v) || 0)));
-  const ink = jamMuContrast(c, JAM_MU_INK) >= jamMuContrast(c, JAM_MU_PAPER), to = ink ? [255, 255, 255] : [0, 0, 0], fgc = ink ? JAM_MU_INK : JAM_MU_PAPER;
+  const ink = jamMuContrast(c, tc.dark) >= jamMuContrast(c, tc.light), to = ink ? [255, 255, 255] : [0, 0, 0], fgc = ink ? tc.dark : tc.light;
   for (let i = 0; i < 20 && jamMuContrast(c, fgc) < 4.5; i++) c = c.map((v, j) => v + (to[j] - v) * .12);
   c = c.map(Math.round);
   return {bg: rgbCss(c), fg: rgbCss(fgc), ink, track: rgbCss(c.map((v, j) => v + (fgc[j] - v) * .22)), rgb: c};
 }
 const JAM_MU_VIOLET = [155, 109, 214];
-/* Dominant colour of a loaded <img> (24x24 canvas, 3 bits per channel buckets, the biggest wins; saturation counts up to
-   1.5x, so a cream sleeve stays cream but a vivid block beats a dull one of similar size), made readable.
+/* Dominant colour [r,g,b] of a loaded <img> (24x24 canvas, 3 bits per channel buckets, the biggest wins; saturation counts up
+   to 1.5x, so a cream sleeve stays cream but a vivid block beats a dull one of similar size); jamMuReadable makes it a panel
+   in the look's text colours (R4: the cache keeps the raw colour, so a look or mode switch needs no re-sampling).
    null when the canvas is tainted (cross-origin art) or the image is empty. Bounded cache by src. */
 function jamMuArtColor(img, key) {
   const k = key || img.currentSrc || img.src;
@@ -143,7 +145,7 @@ function jamMuArtColor(img, key) {
       const n = e[3], c = [e[0] / n, e[1] / n, e[2] / n], mx = Math.max(...c), mn = Math.min(...c), sc = n * (1 + .5 * (mx ? (mx - mn) / mx : 0));
       if (sc > bs) { bs = sc; best = c; }
     }
-    out = best ? jamMuReadable(best) : null;
+    out = best;
   } catch (e) { out = null; }
   if (JAM_MU.art.size >= 64) JAM_MU.art.delete(JAM_MU.art.keys().next().value);
   JAM_MU.art.set(k, out);

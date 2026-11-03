@@ -457,7 +457,9 @@ class JamSpeaker extends JamBase {
     const src = !idle && this._artSrc(s);
     if (!src) this._kcol = null;
     else if (JAM_MU.art.has(src)) this._kcol = JAM_MU.art.get(src); // null = tainted / empty art: violet
-    this._kpaint(root, this._kcol || jamMuReadable(JAM_MU_VIOLET));
+    // Panel = the art's colour (else the look's violet) in the look's text colours (R4).
+    const tc = textColors(this._body), panel = col => jamMuReadable(col || resolveRgb(this._body, "var(--violet)") || JAM_MU_VIOLET, tc);
+    this._kpaint(root, panel(this._kcol));
     const g = el("div", "kg");
     face.append(g);
     if (view === "speakers") {
@@ -471,7 +473,7 @@ class JamSpeaker extends JamBase {
       art.append(this._art(s, off, idle, art, (img, key) => {
         const col = JAM_MU.art.has(key) ? JAM_MU.art.get(key) : jamMuArtColor(img, key);
         this._kcol = col;
-        if (this._kroot === root) this._kpaint(root, col || jamMuReadable(JAM_MU_VIOLET));
+        if (this._kroot === root) this._kpaint(root, panel(col));
       }));
       const open = el("button", "open"); open.type = "button"; open.dataset.key = "more";
       open.setAttribute("aria-label", `${this._room()} music: library`); open.onclick = () => this._openPanel();

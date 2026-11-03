@@ -206,7 +206,7 @@ class JamRemote extends JamBase {
     .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1.5rem * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));text-transform:var(--disp-case);overflow-wrap:anywhere;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     /* Sections (round 3): flat group face with a 6px left rule in the group accent; header = kicker + power key. */
-    .sec > .face{--p-t:12px;--p-r:12px;--p-b:12px;--p-l:12px;display:grid;gap:10px;align-content:start;border-left:6px solid var(--acc)}
+    .sec > .face{--p-t:12px;--p-r:12px;--p-b:12px;--p-l:12px;display:grid;gap:10px;align-content:start;border-left:var(--stripe-w) solid var(--acc)}
     .sec .gh{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
     .sec .gh .label{color:var(--fg)}
     .sec .gh .pw{min-width:48px}

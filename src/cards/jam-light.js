@@ -199,7 +199,7 @@ class JamLight extends JamBase {
      [51,20,0] paints [255,100,0]); ink/paper text chosen on that scaled colour. The accent when it is on without a colour. */
   _paint(s) {
     const rgb = fullRgb(lightRgb(s));
-    return rgb ? [rgbCss(rgb), inkOn(rgb)] : ["var(--acc)", "var(--acc-fg)"];
+    return rgb ? [rgbCss(rgb), inkOn(rgb, textColors(this._body))] : ["var(--acc)", "var(--acc-fg)"];
   }
   /* Card face [r,g,b] of an ON light, or null when it only has the accent token and that cannot be resolved yet.
      Group: the average of the members that are on (each at full value); members without a colour count as the group's
@@ -275,8 +275,9 @@ class JamLight extends JamBase {
     const rgb = dead ? null : this._faceRgb(s);
     this._accWait = !dead && !rgb;
     let fill = "var(--acc)", corner = null;
+    const tc = textColors(b); // the look's dark / light text (R4)
     if (rgb) {
-      const t = textOn(rgb);
+      const t = textOn(rgb, tc);
       fill = rgbCss(rgb);
       root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", t.fg);
       root.style.setProperty("--lc-mid", rgbCss(shade(rgb, 1))); root.style.setProperty("--lc-deep", rgbCss(shade(rgb, 2)));
@@ -324,7 +325,7 @@ class JamLight extends JamBase {
       face.append(bands);
       if (on) root.style.setProperty("--bw", full ? `max(46px, min(${16 * ids.length}px, 40%))` : "46px");
     }
-    let [pbg, pfg] = cornerColors(on ? corner : null);
+    let [pbg, pfg] = cornerColors(on ? corner : null, null, tc);
     if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
     face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power()}));
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
@@ -560,7 +561,7 @@ class JamLight extends JamBase {
       const sel = edit && this._editW === i;
       const {root, face} = paper("button", "jam-light|white|" + i, {kind: "card", cls: "press wt" + (cur || sel ? " on" : "") + (edit ? " ed" : "")});
       root.type = "button"; root.dataset.k = "w|" + i;
-      face.style.background = rgbCss(rgb); face.style.color = inkOn(rgb);
+      face.style.background = rgbCss(rgb); face.style.color = inkOn(rgb, textColors(this._body));
       const nb = el("b", null, w.name), kb = el("small", "num", k + " K");
       face.append(nb, kb);
       if (edit) {
@@ -601,7 +602,7 @@ class JamLight extends JamBase {
       const rgb = kelvinToRgb(v);
       fi.style.width = (hi > lo ? ((v - lo) / (hi - lo)) * 100 : 100) + "%"; fi.style.background = rgbCss(rgb);
       val.textContent = v + " K"; wrap.setAttribute("aria-valuetext", v + " kelvin");
-      tile.face.style.background = rgbCss(rgb); tile.face.style.color = inkOn(rgb); tile.kb.textContent = v + " K";
+      tile.face.style.background = rgbCss(rgb); tile.face.style.color = inkOn(rgb, textColors(this._body)); tile.kb.textContent = v + " K";
     };
     show(k0);
     const at = e => { const r = wrap.getBoundingClientRect(); return Math.round((lo + clampN((e.clientX - r.left) / r.width, 0, 1) * (hi - lo)) / 10) * 10; };
@@ -655,7 +656,7 @@ class JamLight extends JamBase {
       face.style.background = rgbCss(col);
       if (edit) {
         // × (round 3 Edit mode): tap removes the saved colour (jam_colors).
-        face.style.color = inkOn(col); face.append(lightGlyph("x"));
+        face.style.color = inkOn(col, textColors(this._body)); face.append(lightGlyph("x"));
         root.setAttribute("aria-label", `Remove saved colour ${i + 1}`);
         root.onclick = () => this._removeColor(i);
       } else {

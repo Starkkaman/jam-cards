@@ -49,6 +49,8 @@
   --jam-key-weight:600;
   --jam-key-case:uppercase;
   --jam-key-track-scale:1;
+  --jam-rule-h:5px;
+  --jam-stripe-w:6px;
   --jam-look:poster;
   --primary-background-color:#141210;
 }
@@ -101,6 +103,8 @@
   --jam-key-weight:600;
   --jam-key-case:uppercase;
   --jam-key-track-scale:1;
+  --jam-rule-h:5px;
+  --jam-stripe-w:6px;
   --jam-look:poster;
   --primary-background-color:#ece2c9;
 }
@@ -153,6 +157,8 @@
   --jam-key-weight:600;
   --jam-key-case:none;
   --jam-key-track-scale:.4;
+  --jam-rule-h:5px;
+  --jam-stripe-w:6px;
   --jam-look:stress;
   --primary-background-color:#141210;
 }
@@ -205,6 +211,8 @@
   --jam-key-weight:600;
   --jam-key-case:none;
   --jam-key-track-scale:.4;
+  --jam-rule-h:5px;
+  --jam-stripe-w:6px;
   --jam-look:stress;
   --primary-background-color:#ece2c9;
 }

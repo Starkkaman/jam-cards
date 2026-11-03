@@ -441,8 +441,25 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   sheets' safe-area bottom padding). Optional tokens for card / key / chip / hero / sheet / poster, unset in Poster; faces
   with an explicit `padding:0` (art, glyph keys) are not padded. 96-looks raises card / key pads live (a 0px side too) and
   checks the Poster paddings come back. Pixel diff: identical.
-- Open for R3+: the colour maths still assume the Poster ink / paper (`inkOn`, `textOn`, `cornerColors`, jam-light
-  `textOn` / `shade`, jam-tv art luminance, jam-speaker K1 panel colour: R4); motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
+- **R4 (done).** Colour maths per look: `textColors(node)` reads the look's text pair from `--on-fg` / `--ink-fg` (sorted
+  by luminance; cached by value) and `inkOn` / `textOn` / `cornerColors` / `jamMuReadable` take it as an optional last
+  argument (default = the Poster pair, so the exported API keeps working). Deviation from 2.3: not `--ink` / `--paper`,
+  because Poster's light mode sets `jam-paper` to #141210 (the hero turns ink), so ink / paper is not a dark / light pair
+  in every mode; on-fg ("text on any fill") and ink-fg ("text on ink") are. Wired: jam-light (face text, label plates via
+  `textOn().plate`, power corner, pop-up bars, white tiles, kelvin editor, swatch ×), jam-button corner, jam-speaker K1
+  panel (the art-colour cache now keeps the raw dominant colour and the panel is made readable at paint time, so a look or
+  mode switch needs no re-sampling; the no-art panel is the look's resolved `--violet`). jam-tv's art luminance test is
+  unused (`_artTone`, no caller) and look-neutral; `shade()` works on the face itself. Idle-art pool = `jam-art-1..8`
+  (optional, per mode; fallback the old 8 tokens). Also added: `jam-rule-h` (5px) and `jam-stripe-w` (6px) (theme, Poster
+  sets them), optional `jam-border` on card and sheet faces (`:where(.face)`; a first try on `.face` itself overrode
+  `.stripe`'s border-left, which the new check caught). `jam-strip-h` is not added: the 22px strip is `inset:5px 0` in a
+  track whose height differs per card (32px, kiosk 48-56px), so one height value would move pixels; a look pack can
+  restyle `.strip` (R6). 96-looks: a live --jam-on-fg / --jam-ink-fg pair re-colours textOn / inkOn / cornerColors and
+  jam-light faces + corners and comes back; jam-art-3, jam-border (card faces only, keys keep theirs), rule-h and
+  stripe-w apply and come back. Pixel diff vs R3: identical (one full run caught tv-source-sheet-390 mid "On now" stamp,
+  a 150 ms wait after the tap in 70-tv; three reruns of 00/70-tv on the same code match the baseline: timing, not R4).
+  Contrast QA (jam-home preview/qa) not rerun: Poster is pixel-identical, so its findings cannot change.
+- Open for R5+: motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
   "now: a new cover is not shown before it has loaded" (93-now-playing) fails in about half the runs on 0.7.2 already
   (the local server serves the cover before the check looks); it is not caused by R0-R2.
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th

@@ -27,6 +27,7 @@ export default {
     "jam-display-weight": "900", "jam-display-case": "uppercase", "jam-display-lead": "1", "jam-display-scale": "1",
     "jam-label-weight": "600", "jam-label-case": "uppercase", "jam-label-track-scale": "1",
     "jam-key-weight": "600", "jam-key-case": "uppercase", "jam-key-track-scale": "1",
+    "jam-rule-h": "5px", "jam-stripe-w": "6px",
     "jam-look": "poster",
   },
   // Home Assistant chrome keys at the theme's top level (both modes), in file order; the theme-level tokens follow them.

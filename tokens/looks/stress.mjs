@@ -10,6 +10,7 @@ export default {
   id: "stress",
   harness: true, // tools/themes.mjs writes no theme for it
   tokens: {
+    ...poster.tokens, // every other theme-level token as Poster
     "jam-display": ARCHIVO,
     "jam-body": ARCHIVO,
     "jam-display-weight": "700", "jam-display-case": "none", "jam-display-lead": "1.12", "jam-display-scale": ".85",
