@@ -297,6 +297,7 @@ class JamScreensaver extends JamBase {
   setConfig(config) {
     if (!config) throw new Error("Invalid configuration");
     this.validate(config);
+    jamFxOption(this, config);
     /* Keep the browsed list (and its hourly throttle) when HA re-applies the same images config. */
     const imgSig = JSON.stringify([config.mode, config.images || null]);
     if (imgSig !== this._imgSig) { this._list = null; this._listAt = 0; this._imgSig = imgSig; }
@@ -364,7 +365,6 @@ class JamScreensaver extends JamBase {
     const st = el("style"); st.textContent = ":host{display:block;height:0;overflow:visible}";
     const layer = el("div", "jam-screensaver-layer"), sr = layer.attachShadow({mode: "open"});
     layer.style.cssText = "display:block;height:0;overflow:visible";
-    const lst = el("style"); lst.textContent = BASE_CSS + SS_CSS;
     const ov = el("div", "ov"); ov.dataset.view = "poster";
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Screensaver, tap to close");
     setAccent(ov, c.accent);
@@ -388,7 +388,8 @@ class JamScreensaver extends JamBase {
     for (const t of ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "contextmenu"]) {
       ov.addEventListener(t, e => { e.stopPropagation(); if (e.cancelable && t !== "touchstart") e.preventDefault(); if (t === "click" || t === "pointerup") this._settle(t); });
     }
-    sr.append(lst, ov);
+    sr.append(ov);
+    jamStyle(sr, SS_CSS, this.dataset.look);
     root.append(st, layer);
     this._layer = layer; this._ov = ov; this._poster = poster; this._slides = slides;
     this._shown = false; this._gone = false;
@@ -467,15 +468,17 @@ class JamScreensaver extends JamBase {
     try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return 0; } catch (e) { /* old engine */ }
     return isFinite(f) && f > 0 ? Math.min(f, 5000) : 0;
   }
-  /* Theme tokens onto the layer (it lives in document.body when an HA ancestor would clip it). */
-  _copyTokens() {
-    const cs = getComputedStyle(this);
-    for (const v of JAM_TOKENS) { const x = cs.getPropertyValue(v).trim(); if (x) this._layer.style.setProperty(v, x); else this._layer.style.removeProperty(v); }
-  }
-  /* queueLook (connect, theme switch): data-look on the overlay; a body layer gets the new tokens. */
+  /* Theme tokens onto the layer (it lives in document.body when an HA ancestor would clip it); only changed ones. */
+  _copyTokens() { copyTokens(this, this._layer); }
+  /* queueLook (connect, theme switch): data-look + the look pack's sheet on the overlay's layer. */
   _lookChanged(look) {
     if (this._ov && this._ov.dataset.look !== look) this._ov.dataset.look = look;
+    if (this._layer && this._layer.shadowRoot) jamRestyle(this._layer.shadowRoot, look);
+  }
+  /* Every queueLook batch (also a dark / light switch, same look): a body layer re-copies the tokens; data-fx follows the card. */
+  _themeRefresh() {
     if (this._layer && this._layer.parentNode === document.body) this._copyTokens();
+    if (this._ov) setFx(this._ov, this.hasAttribute("data-fx"));
   }
   _show() {
     this._shown = true; this._gone = false; this._k = 0; this._posterTurn = false;
@@ -487,6 +490,7 @@ class JamScreensaver extends JamBase {
     this._texts();
     const look = this.dataset.look || "poster";
     if (this._ov.dataset.look !== look) this._ov.dataset.look = look;
+    jamRestyle(this._layer.shadowRoot, look); setFx(this._ov, this.hasAttribute("data-fx"));
     this._ov.classList.add("show");
     this._mount();
     this._arm();

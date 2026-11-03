@@ -511,9 +511,29 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   `JamCards.motion = false` (JS gates, `--jam-motion: 0` on the print). New 95-motion check: dur 1.5 / ease / kf / press
   tokens re-time a stamp, a press and a wash live (computed name, duration, timing, transform), Poster comes back, and with
   reduced motion emulated the same tokens still give `animation: none`. Pixel diff vs R4: identical.
-- Open for R6+: data-look is set but no look pack reads it yet (R6). Braun / Olympia fonts (Archivo, Albert Sans) are
-  not in fonts/ yet; the stress look only proves fit with a wider fallback face (R6 loader + files, then re-run fit.js
-  with the real faces and a font-load re-measure in jam-kiosk). jam-button's label fit assumes Londrina's .5em average
+- **R6 (done).** Look packs: `src/looks/<id>.js` call `registerLook({id, name, css, fonts, motifs})` (bundled after core.js);
+  `JamCards.looks()` / `lookPack(id)`; Poster has no pack. **Shared constructable stylesheets**: every shadow root (cards,
+  openSheet, jam-popup, jam-kiosk, the screensaver layer) adopts `[BASE, own css, pack css]` through `jamStyle()`; one
+  `CSSStyleSheet` per distinct text, so BASE_CSS is parsed once per page (27 distinct sheets on the preview page instead of
+  ~100 `<style>` parses); `<style data-jam-style>` fallback without adoptedStyleSheets. Deviation from 2.3: the pack sheet
+  comes **last** (not between BASE and the card), so pack CSS wins at equal specificity without !important. **Live switch**:
+  the queueLook batch first refreshes open sheets (re-copies the opener's tokens, data-look, pack sheet, fx), then per card
+  sets data-look, re-adopts the pack (`jamRestyle`), re-renders a card whose motifs differ (`_relook`, R7 hook) and calls
+  `_lookChanged`; every card then gets `_themeRefresh` (the screensaver body layer re-copies its tokens on any theme switch,
+  dark / light included; token copies now write only changed values). **Fonts**: `JAM_ASSET_BASE` = 
+  `window.JamCardsConfig.assetBase`, else the script's own src, else the last `<script src*="jam-cards.js">`, else
+  `/hacsfiles/jam-cards/`; every pack's faces are URL `@font-face` rules on `<base>fonts/` in the one
+  `<style data-jam-fonts>` (declared, fetched only when text uses them; a pack registered later appends its faces). **fx**:
+  optional theme token `jam-fx` (registry; Poster unset): `data-fx` on cards, `.pop` and the screensaver `.ov` while
+  `--jam-fx` > 0; a card's `fx: false` sets `--jam-fx: 0` on its host (copied into its sheets / layer). jam-kiosk
+  re-measures (`_fit`, lock label) on `document.fonts` `loadingdone` (JamBase `_watchFonts` for cards with `_fontsLoaded`,
+  added on connect, removed on disconnect). **Braun / Olympia prepared**: empty packs with their fonts (Archivo variable
+  400-700, 34.9 KB; Albert Sans variable 300-600, 32.0 KB; Google Fonts latin subsets, OFL files next to them) and draft
+  token looks (`tokens/looks/braun.mjs`, `olympia.mjs`, `draft: true`: Poster + the font stack, a looks.css block for
+  `?look=braun|olympia`, no theme file until designed). The stress look's stack now starts with an undeclared family
+  ("Stress Wide") so it keeps testing the wider DejaVu fallback instead of the real Archivo. New check 96-packs.js;
+  95-motion also reads adopted sheets.
+- Open for R7+: jam-button's label fit assumes Londrina's .5em average
   glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
   width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in
   labels: a look decision. Poster-only assertions that R9 must make look-aware: shoot.js fonts / CUTS / heading rule 5px,

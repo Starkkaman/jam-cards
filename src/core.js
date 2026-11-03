@@ -1,10 +1,36 @@
-/* Fonts are bundled (FONT_CSS, generated from fonts/*.woff2 by tools/bundle.mjs). @font-face only works at document
-   level, not inside shadow roots, so the rules go into document.head once. */
+/* Asset base (theming plan 2.5, R6): the folder the bundle was loaded from, ending in "/", for the look packs' font files
+   (<base>fonts/<file>.woff2; HACS serves dist/ at /hacsfiles/jam-cards/). window.JamCardsConfig.assetBase overrides it;
+   else this script's own src (a classic script), else the last <script src*="jam-cards.js"> (HA loads module resources
+   as script elements), else the HACS default. Read once, while the bundle runs. */
+const JAM_ASSET_BASE = (() => {
+  const dir = u => new URL(".", new URL(u, location.href)).href;
+  try {
+    const cfg = window.JamCardsConfig && window.JamCardsConfig.assetBase;
+    if (typeof cfg === "string" && cfg) return dir(cfg.endsWith("/") ? cfg : cfg + "/");
+    const cur = document.currentScript && document.currentScript.src;
+    if (cur && /jam-cards\.js/.test(cur)) return dir(cur);
+    const tags = [...document.querySelectorAll('script[src*="jam-cards.js"]')];
+    if (tags.length) return dir(tags[tags.length - 1].src);
+  } catch (e) { /* no DOM / bad URL: the default below */ }
+  return "/hacsfiles/jam-cards/";
+})();
+
+/* Fonts. Poster's are bundled (FONT_CSS, generated from fonts/*.woff2 by tools/bundle.mjs). Every other look pack's
+   fonts are URL @font-face rules on <asset base>fonts/ (lookFontCss): a declared face costs nothing until text uses it,
+   so only the active look downloads, and a missing file leaves the look's fallback stack. @font-face only works at
+   document level, not inside shadow roots, so all the rules go into ONE <style data-jam-fonts> in document.head. */
+function lookFontCss(pack) {
+  return (pack.fonts || []).map(f => `@font-face{font-family:"${f.family}";font-style:${f.style || "normal"};font-weight:${f.weight};font-display:swap;` +
+    `src:url("${JAM_ASSET_BASE}fonts/${f.file}") format("woff2");unicode-range:${f.range || FONT_LATIN}}`).join("\n");
+}
 function loadFonts() {
-  if (document.head.querySelector("style[data-jam-fonts]")) return;
-  const s = document.createElement("style");
-  s.dataset.jamFonts = "1"; s.textContent = FONT_CSS;
+  let s = document.head.querySelector("style[data-jam-fonts]");
+  if (s) return s;
+  s = document.createElement("style");
+  s.dataset.jamFonts = "1";
+  s.textContent = [FONT_CSS, ...[...JAM_LOOK_PACKS.values()].map(lookFontCss)].filter(Boolean).join("\n");
   document.head.append(s);
+  return s;
 }
 
 /* Poster cut per element kind: [corner, size px]. Every Poster surface is a straight rectangle with exactly one 45° cut
@@ -690,8 +716,79 @@ function lookOf(node) {
     return /^[a-z][a-z0-9-]*$/.test(v) ? v : "poster";
   } catch (e) { return "poster"; }
 }
+/* Effects switch (R6): --jam-fx > 0 in the look's theme turns the pack's effects on (gradients, translucency, scanlines);
+   the element then carries data-fx, so pack CSS gates them with :host([data-fx]) / .pop[data-fx] / .ov[data-fx]. A card
+   with `fx: false` sets --jam-fx: 0 on its own host (jamFxOption), which its sheets and screensaver layer copy too. */
+function fxOf(node) {
+  try { return parseFloat(getComputedStyle(node).getPropertyValue("--jam-fx")) > 0; } catch (e) { return false; }
+}
+function jamFxOption(card, config) {
+  if (config && config.fx === false) { if (card.style.getPropertyValue("--jam-fx") !== "0") card.style.setProperty("--jam-fx", "0"); }
+  else if (card.style.getPropertyValue("--jam-fx")) card.style.removeProperty("--jam-fx");
+}
+function setFx(node, on) { if (node && node.hasAttribute("data-fx") !== on) node.toggleAttribute("data-fx", on); }
+
+/* ---------- look packs (theming plan 2.1, R6) ---------- */
+/* A look = an HA theme (every --jam-* token, --jam-look: <id>) + an optional pack registered here (src/looks/<id>.js):
+   {id, name, css (skin over the stable class hooks, adopted after BASE_CSS and the card's own CSS while the look is
+   active), fonts ([{family, weight, file, style?, range?}] = woff2 files in <asset base>fonts/), motifs ({name: fn},
+   R7)}. Poster is the built-in look and has no pack: no extra sheet, no extra font, the Poster motifs. */
+const JAM_LOOK_PACKS = new Map();
+function registerLook(pack) {
+  if (!pack || !/^[a-z][a-z0-9-]*$/.test(pack.id || "") || pack.id === "poster") throw new Error("JamCards.registerLook: a pack needs an id (not poster)");
+  for (const f of pack.fonts || [])
+    if (!/^[\w .-]+$/.test(f.family || "") || !/^[\w.-]+\.woff2$/.test(f.file || "") || !/^\d{3}( \d{3})?$/.test(String(f.weight)))
+      throw new Error(`JamCards.registerLook(${pack.id}): bad font ${JSON.stringify(f)}`);
+  const p = Object.freeze({id: pack.id, name: pack.name || pack.id, css: String(pack.css || ""), fonts: Object.freeze([...(pack.fonts || [])]),
+    motifs: Object.freeze({...(pack.motifs || {})})});
+  JAM_LOOK_PACKS.set(p.id, p);
+  // A pack registered after the font style exists (a third-party pack loaded later) adds its faces to it.
+  const fs = document.head && document.head.querySelector("style[data-jam-fonts]");
+  if (fs && p.fonts.length) fs.textContent += "\n" + lookFontCss(p);
+  return p;
+}
+function lookPack(look) { return JAM_LOOK_PACKS.get(look) || null; }
+/* True when two looks draw a motif differently (a pack overrides it in one and not the same way in the other). */
+function motifsDiffer(a, b) {
+  const A = (lookPack(a) || {}).motifs || {}, B = (lookPack(b) || {}).motifs || {};
+  return [...new Set([...Object.keys(A), ...Object.keys(B)])].some(k => A[k] !== B[k]);
+}
+
+/* Shared constructable stylesheets (R6): one CSSStyleSheet per distinct CSS text (BASE_CSS, each card's css(), each look
+   pack), so the page parses BASE_CSS once instead of once per card. A shadow root adopts [BASE, own css, look pack css];
+   the pack comes last so it wins at equal specificity. Without adoptedStyleSheets (old engines) one <style
+   data-jam-style> holds the same texts. root._jamStyle remembers {css, look} for jamRestyle (live look switch). */
+const JAM_ADOPT = (() => { try { return "adoptedStyleSheets" in ShadowRoot.prototype && typeof new CSSStyleSheet().replaceSync === "function"; } catch (e) { return false; } })();
+const JAM_SHEETS = new Map();
+function jamSheet(css) {
+  let s = JAM_SHEETS.get(css);
+  if (!s) { s = new CSSStyleSheet(); s.replaceSync(css); s.jamText = css; JAM_SHEETS.set(css, s); }
+  return s;
+}
+function jamStyle(root, css, look) {
+  const pack = lookPack(look), parts = [BASE_CSS, css || "", pack ? pack.css : ""].filter(Boolean);
+  root._jamStyle = {css: css || "", look: look || "poster"};
+  if (JAM_ADOPT) { root.adoptedStyleSheets = parts.map(jamSheet); return; }
+  let st = [...root.children].find(e => e.localName === "style" && e.hasAttribute("data-jam-style"));
+  if (!st) { st = document.createElement("style"); st.dataset.jamStyle = ""; }
+  const text = parts.join("\n");
+  if (st.textContent !== text) st.textContent = text;
+  if (root.firstChild !== st) root.prepend(st);
+}
+/* Re-skins a root styled by jamStyle for another look (only when its pack sheet changes). */
+function jamRestyle(root, look) {
+  const s = root && root._jamStyle;
+  if (!s || s.look === look) return;
+  const a = lookPack(s.look), b = lookPack(look);
+  if ((a ? a.css : "") === (b ? b.css : "")) { s.look = look; return; }
+  jamStyle(root, s.css, look);
+}
+
 /* Cards connected in the same task read their look in one batch (one style recalc instead of one per card), then set
-   data-look on their host (only when it changed, so nothing is written on a re-attach). */
+   data-look on their host (only when it changed, so nothing is written on a re-attach). A look change also re-adopts the
+   look pack's sheet, re-renders a card whose motifs change (R7) and calls the card's _lookChanged(look); every card in the
+   batch then gets _themeRefresh() (body layers re-copy the tokens: a dark / light switch keeps the look id). Open sheets
+   are refreshed first, so cards inside them read the new tokens. */
 const LOOK_Q = {cards: new Set(), pending: false};
 function queueLook(card) {
   LOOK_Q.cards.add(card);
@@ -699,11 +796,32 @@ function queueLook(card) {
   LOOK_Q.pending = true;
   Promise.resolve().then(() => {
     LOOK_Q.pending = false;
+    for (const s of SHEET_STACK.slice()) s._refresh();
     const cards = [...LOOK_Q.cards].filter(c => c.isConnected);
     LOOK_Q.cards.clear();
-    const looks = cards.map(lookOf);
-    cards.forEach((c, i) => { if (c.dataset.look !== looks[i]) { c.dataset.look = looks[i]; if (typeof c._lookChanged === "function") c._lookChanged(looks[i]); } });
+    const looks = cards.map(lookOf), fx = cards.map(fxOf);
+    cards.forEach((c, i) => {
+      const look = looks[i];
+      setFx(c, fx[i]);
+      if (c.dataset.look !== look) {
+        c.dataset.look = look;
+        jamRestyle(c.shadowRoot, look);
+        if (typeof c._relook === "function") c._relook(look);
+        if (typeof c._lookChanged === "function") c._lookChanged(look);
+      }
+      if (typeof c._themeRefresh === "function") c._themeRefresh();
+    });
   });
+}
+/* Copies every --jam-* token (JAM_TOKENS) from `from` onto a body layer's holder; writes only what changed. */
+function copyTokens(from, holder) {
+  let cs;
+  try { cs = getComputedStyle(from); } catch (e) { return; }
+  for (const t of JAM_TOKENS) {
+    const v = cs.getPropertyValue(t).trim();
+    if (v === holder.style.getPropertyValue(t).trim()) continue;
+    if (v) holder.style.setProperty(t, v); else holder.style.removeProperty(t);
+  }
 }
 
 /* ---------- sheet (pop-up) helpers ---------- */
@@ -780,13 +898,7 @@ const SHEET_STACK = [];
    Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
 function openSheet(opts = {}) {
   const o = opts, holder = el("div", "jam-sheet-host"), sr = holder.attachShadow({mode: "open"});
-  if (o.from) {
-    try {
-      const cs = getComputedStyle(o.from);
-      for (const t of JAM_TOKENS) { const v = cs.getPropertyValue(t).trim(); if (v) holder.style.setProperty(t, v); }
-    } catch (e) { /* tokens fall back to the dark palette */ }
-  }
-  const st = el("style"); st.textContent = BASE_CSS + SHEET_CSS + (o.css || "");
+  if (o.from) copyTokens(o.from, holder); // a failed read leaves the dark palette fallbacks
   const pop = el("div", "pop" + (o.fullscreen ? " full" : "") + (o.cls ? " " + o.cls : ""));
   if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
   const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
@@ -810,7 +922,7 @@ function openSheet(opts = {}) {
   face.append(head);
   if (o.rule !== false) { const r = el("div", "rule"); r.setAttribute("aria-hidden", "true"); face.append(r); }
   face.append(body);
-  stage.append(sheet); pop.append(veil, spiral, stage); sr.append(st, pop);
+  stage.append(sheet); pop.append(veil, spiral, stage); sr.append(pop);
 
   const id = "jam-sheet-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   let open = true, pushed = false;
@@ -834,6 +946,14 @@ function openSheet(opts = {}) {
   const api = {
     root: holder, pop, face, body,
     isOpen: () => open,
+    /* Live theme / look switch (queueLook): re-copy the opener's tokens, then the look (data-look, pack sheet) and fx. */
+    _refresh() {
+      if (!open) return;
+      if (o.from && o.from.isConnected) copyTokens(o.from, holder);
+      const look = lookOf(holder);
+      if (pop.dataset.look !== look) { pop.dataset.look = look; jamRestyle(sr, look); }
+      setFx(pop, fxOf(holder));
+    },
     /* close({silent}): hide; step back out of our history entry unless silent (e.g. the card was removed). */
     close({silent = false} = {}) {
       if (!open) return;
@@ -853,6 +973,8 @@ function openSheet(opts = {}) {
   de.style.overflow = "hidden"; bd.style.overflow = "hidden";
   document.body.append(holder);
   pop.dataset.look = lookOf(holder); // the copied --jam-look (or the page's own)
+  jamStyle(sr, SHEET_CSS + (o.css || ""), pop.dataset.look);
+  setFx(pop, fxOf(holder));
   if (motionOn()) pop.classList.add("opening");
   // The caller fills `body` right after this returns; its children then slide in one after another (once).
   Promise.resolve().then(() => { if (open) staggerIn(body.children); });
@@ -871,6 +993,7 @@ class JamBase extends HTMLElement {
   setConfig(config) {
     if (!config) throw new Error("Invalid configuration");
     this.validate(config);
+    jamFxOption(this, config);
     this._config = config; this._sig = null; this._render(true);
   }
   validate() {}
@@ -901,10 +1024,23 @@ class JamBase extends HTMLElement {
     return changed;
   }
   /* Subclasses with their own connectedCallback call super.connectedCallback() (or queueLook(this) when they skip it). */
-  connectedCallback() { queueLook(this); enterView(this); }
+  connectedCallback() { queueLook(this); enterView(this); this._watchFonts(true); }
   /* Subclasses that hold timers, observers, window/document listeners or body-appended nodes release them here (and call
      super); HA detaches and re-attaches cards on view switches, so connectedCallback re-arms them. */
-  disconnectedCallback() {}
+  disconnectedCallback() { this._watchFonts(false); }
+  /* A card with _fontsLoaded() (text measured in JS: jam-kiosk) re-measures when web fonts finish loading: a look's URL
+     fonts arrive after the first layout (font-display: swap), also on a live look switch. */
+  _watchFonts(on) {
+    if (typeof this._fontsLoaded !== "function" || !document.fonts || !document.fonts.addEventListener) return;
+    if (!this._onFonts) this._onFonts = () => { if (this.isConnected) this._fontsLoaded(); };
+    if (on) document.fonts.addEventListener("loadingdone", this._onFonts); else document.fonts.removeEventListener("loadingdone", this._onFonts);
+  }
+  /* Look switch (queueLook): a rendered card whose motifs differ between the old and the new look renders again (R7). */
+  _relook(look) {
+    if (this._renderLook == null || this._renderLook === look || !this._config || !this._hass || !this._body) return;
+    if (!motifsDiffer(this._renderLook, look)) { this._renderLook = look; return; }
+    this._sig = null; this._render(false);
+  }
   /* View entrance (once per card): called by enterView with this card's stagger delay. */
   _enter(ms) {
     if (this._body) oneShot(this._body, "jam-enter", ms);
@@ -917,14 +1053,14 @@ class JamBase extends HTMLElement {
     const root = this.shadowRoot;
     if (force || !root.firstChild) {
       root.textContent = "";
-      const st = el("style"); st.textContent = BASE_CSS + this.css();
-      root.append(st);
+      jamStyle(root, this.css(), this.dataset.look);
       this._body = el("div", "host");
       setAccent(this._body, this._config.accent);
       root.append(this._body);
       if (this._enterMs != null) { oneShot(this._body, "jam-enter", this._enterMs); this._enterMs = null; }
     }
     if (!this._hass) return;
+    this._renderLook = this.dataset.look || "poster";
     this._body.textContent = "";
     this.render(this._body);
   }
@@ -943,6 +1079,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
+  registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

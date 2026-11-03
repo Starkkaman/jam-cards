@@ -65,6 +65,7 @@ class JamPopup extends JamBase {
   setConfig(config) {
     if (!config) throw new Error("Invalid configuration");
     this.validate(config);
+    jamFxOption(this, config);
     this._config = config;
     this._shell();
     const sig = JSON.stringify(config.cards || []);
@@ -98,7 +99,6 @@ class JamPopup extends JamBase {
   _shell() {
     const c = this._config, root = this.shadowRoot;
     root.textContent = "";
-    const st = el("style"); st.textContent = BASE_CSS + POPUP_CSS;
     const pop = el("div", "pop"); setAccent(pop, c.accent);
     const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
     veil.onclick = () => this.close();
@@ -123,7 +123,8 @@ class JamPopup extends JamBase {
     face.append(head, rule, this._bodyEl);
     stage.append(sheet);
     pop.append(veil, spiral, stage);
-    root.append(st, pop);
+    root.append(pop);
+    jamStyle(root, POPUP_CSS, this.dataset.look);
     this._pop = pop; this._face = face;
     if (this._open) pop.classList.add("open");
   }

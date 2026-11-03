@@ -42,9 +42,9 @@ export function themeYaml(look) {
   return L.join("\n") + "\n";
 }
 
-/* {absolute path: content} for every look (not the harness-only ones). */
+/* {absolute path: content} for every look (not the harness-only or draft ones). */
 export function themeFiles(dir = THEME_DIR) {
-  return Object.fromEntries(LOOKS.filter(l => !l.harness).map(l => [path.join(dir, l.file), themeYaml(l)]));
+  return Object.fromEntries(LOOKS.filter(l => !l.harness && !l.draft).map(l => [path.join(dir, l.file), themeYaml(l)]));
 }
 /* Stale theme files (list of paths); [] when dir does not exist and optional is set. */
 export function staleThemes(dir = THEME_DIR, optional = false) {

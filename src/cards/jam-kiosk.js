@@ -169,7 +169,6 @@ class JamKioskHome extends JamBase {
   _shell() {
     const c = this._config, root = this.shadowRoot;
     root.textContent = "";
-    const st = el("style"); st.textContent = BASE_CSS + this.css();
     this._body = el("div", "host");
     setAccent(this._body, c.accent);
     const k = el("div", "k"), poster = el("div", "poster"), bar = el("div", "bar"), left = el("div", "left");
@@ -203,7 +202,8 @@ class JamKioskHome extends JamBase {
     });
     k.append(poster, dock);
     this._body.append(k);
-    root.append(st, this._body);
+    root.append(this._body);
+    jamStyle(root, this.css(), this.dataset.look);
     this._k = k; this._clockKey = null;
     if (this._kh) k.style.setProperty("--kh", this._kh + "px");
   }
@@ -272,6 +272,8 @@ class JamKioskHome extends JamBase {
     if (!this._config || !this.isConnected || document.hidden) return;
     this._tick = setTimeout(() => { this._tick = null; if (this._hass && this._k) this._update(); this._fit(); this._arm(); }, 60e3 - (Date.now() % 60e3) + 50);
   }
+  /* A look's web fonts arrived (core _watchFonts): the clock / lock label were measured with the fallback face. */
+  _fontsLoaded() { this._fit(); }
   /* Height: from the card's top to the bottom of the viewport, minus the view's bottom padding (16px); one correction
      pass when the page still scrolls by a few pixels (HA paddings differ from the guess). */
   _fit() {

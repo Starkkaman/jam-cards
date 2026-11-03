@@ -262,7 +262,7 @@ const server = http.createServer((req, res) => {
             lbl: {tt: key.textTransform, fw: key.fontWeight}, key: ch ? {tt: getComputedStyle(ch).textTransform, ls: getComputedStyle(ch).letterSpacing} : null};
         });
         // tile value: 1.7rem x .85 = 23.12px, line-height .95 x 1.12; tile name .74rem = 11.84px, .14em x .4 tracking = .6630px
-        check(t.look === "stress" && t.val.tt === "none" && t.val.fw === "700" && t.val.fs === "23.12px" && /^Archivo/.test(t.val.ff) &&
+        check(t.look === "stress" && t.val.tt === "none" && t.val.fw === "700" && t.val.fs === "23.12px" && /^"?Stress Wide/.test(t.val.ff) &&
           Math.abs(parseFloat(t.val.lh) - 23.12 * .95 * 1.12) < .05 && t.name.tt === "none" && Math.abs(parseFloat(t.name.ls) - 11.84 * .14 * .4) < .01 &&
           t.lbl.tt === "none" && t.lbl.fw === "700" && t.key && t.key.tt === "none",
           `stress look re-types the cards through the type tokens (${JSON.stringify(t)})`);

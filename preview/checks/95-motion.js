@@ -30,6 +30,7 @@ module.exports = async (page, check) => {
     let infinite = 0;
     for (const r of roots) {
       for (const s of r.querySelectorAll("style")) if (!s.dataset.jamFonts) texts.add(s.textContent);
+      for (const s of r.adoptedStyleSheets || []) texts.add(s.jamText || [...s.cssRules].map(x => x.cssText).join("\n")); // R6: shared sheets
       for (const e of r.querySelectorAll("*")) if (getComputedStyle(e).animationIterationCount.split(",").some(v => v.trim() === "infinite")) infinite++;
     }
     const OK = new Set(["transform", "transform-origin", "clip-path", "opacity", "visibility"]);

@@ -42,6 +42,18 @@ own section and may replace them).
   must not clip its own overflow (clamped titles use `clampTitle()`: div.title > span.tl, the span clamps). A tappable
   chip draws its face as a clipped `::before` (`--chip-bg`) so the button itself is unclipped. Stacked targets with < 44px
   between their centres share the overlap (the later one wins); every control's centre still hits itself.
+- Look packs (R6): a look's own CSS lives in its pack (`src/looks/<id>.js`, `registerLook({id, css, fonts, motifs})`), never
+  in a card. Every shadow root adopts shared constructable stylesheets `[BASE_CSS, its own css, the active pack's css]` (one
+  parse per page; the pack last, so it wins at equal specificity; a `<style data-jam-style>` where adoptedStyleSheets is
+  missing). Packs skin only the stable hooks: `.host .paper[data-cut] .face .key .chip .disp .label .kick .title .rule
+  .stripe .tmk .track .strip .fill .pw .band .arm`, `:host([data-look])` / `:host([data-fx])`, `.pop[data-look]` /
+  `.pop[data-fx]` (openSheet) and `.ov[data-look]` / `.ov[data-fx]` (screensaver layer); renaming one is a breaking change.
+  Effects only under `data-fx`. A look switch (new `hass.themes`) re-adopts the pack on every card, open sheet and the
+  screensaver layer without a reload. Poster has no pack and embeds its fonts; a pack's fonts are woff2 files in
+  `<asset base>fonts/` (HACS `dist/fonts/`, SIL OFL / Apache with their licence next to them), declared once as URL
+  `@font-face` in the one `<style data-jam-fonts>`: only the active look's files download, a missing file leaves the look's
+  fallback stack, never a request to Google Fonts. Text measured in JS (jam-kiosk) re-measures on `document.fonts`
+  `loadingdone` (`_fontsLoaded`).
 - Long-running kiosks (0.3.8): a card re-renders only when one of its own `watched()` state objects changed (compared by
   reference, HA replaces changed states); timers, observers, window/document listeners, subscriptions and sheets are
   released in `disconnectedCallback` and re-armed in `connectedCallback` (HA detaches cards on view switches).
@@ -156,6 +168,11 @@ Motion (R5; theme top level):
 | `--jam-ease-2`, `-3`, `-4` (optional) | timing function of the 2- / 3- / 4-step motions (press, wash out, screensaver text / wash in, stamps, screensaver shapes / entrance, stagger, sheet opening); e.g. `cubic-bezier(.2,.8,.2,1)` or a spring `linear(...)` | `steps(n,end)` (jam-popup sheet `steps(4,start)`) |
 | `--jam-kf-<name>` (optional): `enter print uncover retreat stamp shake sheet flash ss-cut ss-pop` | animation-name per motion, for a look pack's own `@keyframes` | the Poster keyframes (`jam-enter` ...; `sheet` = `jam-sheet-up` / jam-popup `jam-wipe`, `flash` = the spiral flash) |
 Left literal: `steps(1,end)` hard cuts (spiral flash = visibility, shake) and the stagger delays (set in ms by JS).
+
+Effects (R6; theme top level, optional):
+| var | sets | Poster |
+|---|---|---|
+| `--jam-fx` | 0 / 1: with 1, cards, openSheet's `.pop` and the jam-screensaver overlay carry `data-fx`, so a look pack's effects (gradients, translucency, scanlines) apply; a card's `fx: false` sets `--jam-fx: 0` on its own host (its sheets and screensaver layer copy it) | unset (0) |
 
 Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
 `--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and
@@ -309,6 +326,9 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
 - Looks / tokens (R1): `lookOf(node)` (the look id, `poster` by default), `TOKENS` (every `--jam-*` name a body layer copies).
+- Look packs (R6): `registerLook({id, name, css, fonts, motifs})`, `lookPack(id)` (null for Poster), `looks()` (registered ids,
+  Poster first), `ASSET_BASE` (folder of jam-cards.js: `window.JamCardsConfig.assetBase`, else the script's src, else
+  `/hacsfiles/jam-cards/`), `jamStyle(root, css, look)` (adopt the shared sheets on a shadow root), `fxOf(node)`.
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`, `asButton` (0.3.8).
 - Motion: `motion` (accessor), `motionOn`, `oneShot`, `staggerIn`, `treeOrder` (see "Motion").
 - Air quality: `AQI_WORDS`, `aqWord(state)` (0.5.0; US AQI number → category word, word states capitalised; jam-house, jam-kiosk).

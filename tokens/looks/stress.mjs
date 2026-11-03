@@ -1,11 +1,12 @@
 // Stress look: a harness-only look (no theme file, never shipped). It pushes the type tokens the way Braun / Olympia
 // will (mixed case, a wide grotesque instead of Londrina, display scale .85, looser leading) on the Poster palette, so
 // preview/shoot.js can prove that text still fits: `?look=stress` in the preview (preview/looks.css block
-// :root[data-look="stress"]). The Archivo stack falls back to a system sans (DejaVu Sans in the container, wider than
-// Archivo), which makes it a harder test than the real Braun font.
+// :root[data-look="stress"]). The stack names a face no pack declares ("Stress Wide"), so it falls back to a system sans
+// (DejaVu Sans in the container, wider than Archivo), a harder test than the real Braun font. (Until R6 it named
+// "Archivo", which now resolves to the Braun pack's real Archivo file.)
 import poster from "./poster.mjs";
 
-const ARCHIVO = '"Archivo", "Helvetica Neue", Arial, sans-serif';
+const ARCHIVO = '"Stress Wide", "Helvetica Neue", Arial, sans-serif';
 export default {
   id: "stress",
   harness: true, // tools/themes.mjs writes no theme for it
