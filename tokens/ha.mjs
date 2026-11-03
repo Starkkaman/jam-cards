@@ -12,6 +12,8 @@ export const HA_ALIASES = {
   "chrome-fg": "{jam-fg}",
   "chrome-dim": "{jam-dim}",
   "chrome-accent": "{jam-ochre}", // selected sidebar item
+  yellow: "{jam-ochre}",        // HA yellow-color / amber-color (a look without a yellow hue token)
+  cyan: "{jam-teal}",           // HA cyan-color
 };
 const RAMP = ["05", "10", "20", "30", "40", "50", "60", "70", "80", "90", "95"];
 export const HA_KEYS = [
@@ -53,10 +55,10 @@ export const HA_KEYS = [
   "# HA named colours (tile/button cards, `color:` options) -> jam palette",
   ["red-color", "{jam-red}"],
   ["orange-color", "{jam-ochre}"],
-  ["amber-color", "{jam-ochre}"],
-  ["yellow-color", "{jam-ochre}"],
+  ["amber-color", "{yellow}"],
+  ["yellow-color", "{yellow}"],
   ["teal-color", "{jam-teal}"],
-  ["cyan-color", "{jam-teal}"],
+  ["cyan-color", "{cyan}"],
   ["blue-color", "{jam-blue}"],
   ["pink-color", "{jam-pink}"],
   ["purple-color", "{jam-violet}"],
