@@ -143,14 +143,14 @@ const JAM_SPK_KIOSK_CSS = `
     .kspk{grid-area:1/1/2/3;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;padding:16px 24px 12px;background:var(--slab);overflow:hidden}
     .kspk .kh{display:flex;justify-content:space-between;align-items:center;gap:12px}
     .kspk .kh b{font:var(--disp-w) calc(36px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case)}
-    .kspk .kh .key > .face{display:flex;align-items:center;height:56px;--p-t:0;--p-b:0;--p-l:20px;--p-r:22px;font-size:18px;letter-spacing:calc(.12em * var(--key-track))}
+    .kspk .kh .key > .face{display:flex;align-items:center;height:56px;--p-t:0px;--p-b:0px;--p-l:20px;--p-r:22px;font-size:18px;letter-spacing:calc(.12em * var(--key-track))}
     .klist{display:grid;gap:0;align-content:start;overflow:auto;min-height:0}
     .klist .spk{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(120px,auto);gap:16px;min-height:72px;padding:8px 0}
     .klist .spk:first-child{border-top:0}
     .klist .spk .n{font-size:calc(30px * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
     .klist .spk .vt.thin{height:44px} .klist .spk .vt.thin .strip{inset:8px 0}
     .klist .spk .n{grid-row:1;grid-column:1} .klist .spk .vt{grid-column:2;grid-row:1} .klist .spk > :nth-child(2){grid-column:3;grid-row:1}
-    .klist .spk .tog > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;min-height:56px;display:flex;align-items:center;justify-content:center;font-size:18px}
+    .klist .spk .tog > .face{--p-t:0px;--p-b:0px;--p-l:14px;--p-r:16px;min-height:56px;display:flex;align-items:center;justify-content:center;font-size:18px}
     .klist .spk .here{font-size:18px;text-align:center}
     @container (max-height:420px){ .ktx .title{--tl:2} .side{gap:8px} .kb{gap:8px} }
     @container (max-height:360px){ .ktx .title{font-size:calc(36px * var(--disp-scale))} .ktx{gap:4px} .khead .kk{padding-top:4px} .kbk .ikey > .face{width:44px;height:44px} }

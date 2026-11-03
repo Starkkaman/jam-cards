@@ -157,13 +157,13 @@ class JamTv extends JamSheetHost(JamBase) {
     .gl svg{display:block;width:20px;height:20px}
     .keys{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);gap:8px}
     .keys .key{min-width:0}
-    .keys .key > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center}
+    .keys .key > .face{--p-t:0px;--p-b:0px;min-height:60px;display:flex;align-items:center;justify-content:center}
     .keys .gl svg{width:26px;height:26px}
     .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .seg .key{min-width:0}
-    .seg .key > .face{--p-t:0;--p-b:0;--p-l:8px;--p-r:10px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:9px;
+    .seg .key > .face{--p-t:0px;--p-b:0px;--p-l:8px;--p-r:10px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:9px;
       font-size:.72rem;letter-spacing:calc(.14em * var(--key-track));--ol:var(--dim)}
-    .turnon > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center;gap:12px;
+    .turnon > .face{--p-t:0px;--p-b:0px;min-height:60px;display:flex;align-items:center;justify-content:center;gap:12px;
       font:var(--disp-w) calc(1.6rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);letter-spacing:var(--jam-display-track,.01em)}
     .turnon .gl svg{width:24px;height:24px}
     .src{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}

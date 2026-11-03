@@ -96,7 +96,7 @@ const JAM_OUTLINE_CSS = `
 /* Volume rocker (round 3): ONE flat block (key cut) in --rk (default the accent) split into − | Mute | + by 3px ink gaps. */
 const JAM_ROCKER_CSS = `
     .rock{height:auto}
-    .rock > .face{--p-t:0;--p-r:0;--p-b:0;--p-l:0;display:grid;gap:3px;background:var(--ink);min-height:56px;height:100%}
+    .rock > .face{--p-t:0px;--p-r:0px;--p-b:0px;--p-l:0px;display:grid;gap:3px;background:var(--ink);min-height:56px;height:100%}
     .rock .key{position:relative;min-width:0;height:100%}
     .rock .key > .face{clip-path:none;border:0;height:100%;display:flex;align-items:center;justify-content:center;gap:8px;
       background:var(--rk,var(--acc));color:var(--on-fg);font:var(--key-w) .8rem/1 var(--body);letter-spacing:calc(.16em * var(--key-track))}
@@ -210,7 +210,7 @@ class JamRemote extends JamBase {
     .sec .gh{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
     .sec .gh .label{color:var(--fg)}
     .sec .gh .pw{min-width:48px}
-    .sec .gh .pw > .face{--p-t:0;--p-b:0;--p-l:12px;--p-r:12px;height:36px;display:flex;align-items:center;justify-content:center}
+    .sec .gh .pw > .face{--p-t:0px;--p-b:0px;--p-l:12px;--p-r:12px;height:36px;display:flex;align-items:center;justify-content:center}
     .sec .gh .pw.on > .face{background:var(--acc);color:var(--acc-fg)}
     .gl{display:block;flex:none}
     .gl svg{display:block;width:20px;height:20px}

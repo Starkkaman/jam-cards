@@ -32,7 +32,7 @@ const JAM_MEDIA_KIOSK_CSS = `
     .ktxt .sub{font:500 20px/1.25 var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .kkeys{flex:none;flex-wrap:nowrap;gap:8px}
     .kkeys .key{min-width:0;flex:1 1 0}
-    .kkeys .key > .face{--p-t:0;--p-b:0;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:calc(.1em * var(--key-track))}
+    .kkeys .key > .face{--p-t:0px;--p-b:0px;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:calc(.1em * var(--key-track))}
     .kkeys .more > .face{font-size:34px;letter-spacing:0}
     @container (max-width:300px){ .kkeys .key > .face{font-size:14px;letter-spacing:calc(.06em * var(--key-track))} }`;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;

@@ -56,11 +56,24 @@ module.exports = async (page, check) => {
     for (const t of ["card", "key", "chip", "strip-end", "pw"]) de.style.removeProperty("--jam-shape-" + t);
     de.style.removeProperty("--jam-radius-key");
     out.shapesBack = JSON.stringify(shapes()) === JSON.stringify(before) && before.every(v => v.startsWith("polygon("));
+    // Pad tokens (R3): --jam-pad-<kind> raises the least inner padding of that kind's faces (incl. faces whose card sets a 0px side).
+    const pads = e => { const cs = getComputedStyle(e); return [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(parseFloat); };
+    const P = ["--p-t", "--p-r", "--p-b", "--p-l"], zero = tops.map(r => [...r.querySelectorAll('.paper[data-cut=key] > .face')]
+      .find(f => pads(f).some((v, j) => v === 0 && getComputedStyle(f).getPropertyValue(P[j]).trim() === "0px"))).find(Boolean);
+    const padBefore = [card, key, zero].map(e => e ? pads(e) : null);
+    de.style.setProperty("--jam-pad-card", "30px"); de.style.setProperty("--jam-pad-key", "11px");
+    out.padded = [card, key, zero].map(e => e ? pads(e) : null);
+    de.style.removeProperty("--jam-pad-card"); de.style.removeProperty("--jam-pad-key");
+    out.padOk = !!zero && out.padded[0].every(v => v >= 30) && out.padded.slice(1).every(p => p.every(v => v >= 11)) &&
+      out.padded.every((p, i) => p.every((v, j) => v === Math.max(padBefore[i][j], i ? 11 : 30))) &&
+      JSON.stringify([card, key, zero].map(pads)) === JSON.stringify(padBefore);
+    out.padInfo = JSON.stringify({before: padBefore, padded: out.padded});
     return out;
   });
   check(r.shaped[0] === "inset(0px round 0px 26px 26px 0px)" && r.shaped[1] === "none" && r.keyRadius === "12px" && r.shaped[2] === "inset(0px round 4px)" &&
     r.shaped[3] === "none" && r.shaped[4] === "circle(50% at 100% 0%)" && r.shapesBack,
     `looks: shape tokens reshape card / key (+ radius ${r.keyRadius}) / chip / strip end / power corner (${r.shaped.join(" | ")}), Poster cuts back without them (${r.shapesBack})`);
+  check(r.padOk, `looks: pad tokens raise each side of card / key faces to at least --jam-pad-<kind> (a 0px side too), Poster paddings back without them ${r.padInfo}`);
   check(r.before === "poster" && r.cards > 80, `looks: every card host has data-look=poster without a --jam-look token (${r.before}, ${r.cards} cards)`);
   check(r.missing.length === 0, `looks: JamCards.TOKENS (body-layer copy list) holds every token incl. alert-text, ink-fg, slab3, look` + (r.missing.length ? " — missing " + r.missing.join(", ") : ""));
   check(r.same === 0, `looks: a new hass with the same themes object re-renders nothing (${r.same} mutations)`);

@@ -415,9 +415,7 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   Poster cuts come back. Pixel diff vs R1: identical. Harness: the 87 kiosk-sheet pages now use a fixed clock (media
   progress times), and the pixel diff reports the wall-clock `screensaver-*` shots and differences of at most 2 per
   channel (the CLOSE-key anti-aliasing noise) as INFO instead of failing.
-  Deferred from 2.2: `jam-pad-<kind>` (a `max(var(--p-t), var(--jam-pad-x))` padding turns invalid wherever a card sets a
-  unitless `--p-t:0`, which drops all four paddings; needs a per-card pass, best with the first look whose shapes need
-  more padding than the Poster cuts), `jam-border`, `jam-rule-h`, `jam-stripe-w`, `jam-strip-h` (no consumer yet).
+  Deferred from 2.2: `jam-pad-<kind>` (done in R3, see there), `jam-border`, `jam-rule-h`, `jam-stripe-w`, `jam-strip-h` (no consumer yet).
 - **R3 (done).** Type tokens (registry "type" block, theme top level; Poster sets them, so jamboard.yaml gains 10 keys):
   display `jam-display-weight` / `-case` / `-lead` (factor) / `-scale` (factor) and the optional `jam-display-track` (one
   value for every display site; unset = each site's own -.01em..02em); numerals `jam-num-font` / `jam-num-scale` (optional,
@@ -438,6 +436,11 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   page scroll or text block outside the viewport (19 checks, all pass; `JAM_FIT_LOOKS=` skips them, review shots
   `look-stress-*.png` go to JAM_SHOTS). Pixel diff vs R2: identical (the only other difference, speaker-kitchen-390 by 1px
   at the progress fill end, is the wall clock: that JAM_SHOTS shot comes from the check page, not a fixed clock).
+  **`jam-pad-<kind>`** (deferred from R2, separate commit): the 24 unitless `--p-*:0` in the cards are now `0px`, so `.face`
+  pads each side with `max(var(--p-x), var(--pad, 0px))`, `--pad` = `var(--jam-pad-<kind>, 0px)` from SHAPE_CSS (also the
+  sheets' safe-area bottom padding). Optional tokens for card / key / chip / hero / sheet / poster, unset in Poster; faces
+  with an explicit `padding:0` (art, glyph keys) are not padded. 96-looks raises card / key pads live (a 0px side too) and
+  checks the Poster paddings come back. Pixel diff: identical.
 - Open for R3+: the colour maths still assume the Poster ink / paper (`inkOn`, `textOn`, `cornerColors`, jam-light
   `textOn` / `shade`, jam-tv art luminance, jam-speaker K1 panel colour: R4); motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
   "now: a new cover is not shown before it has loaded" (93-now-playing) fails in about half the runs on 0.7.2 already

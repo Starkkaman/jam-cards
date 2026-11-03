@@ -89,6 +89,12 @@ export const TOKENS = [
   {name: "jam-radius-hero", css: "", scope: "theme", optional: true, note: "border-radius of the hero kind (default 0; for a shape of none)"},
   {name: "jam-radius-sheet", css: "", scope: "theme", optional: true, note: "border-radius of the sheet kind (default 0; for a shape of none)"},
   {name: "jam-radius-poster", css: "", scope: "theme", optional: true, note: "border-radius of the poster kind (default 0; for a shape of none)"},
+  {name: "jam-pad-card", css: "", scope: "theme", optional: true, note: "least inner padding of card faces, each side (default 0px: the faces keep their own padding, which already clears the Poster cut)"},
+  {name: "jam-pad-key", css: "", scope: "theme", optional: true, note: "least inner padding of key faces"},
+  {name: "jam-pad-chip", css: "", scope: "theme", optional: true, note: "least inner padding of chip-kind faces"},
+  {name: "jam-pad-hero", css: "", scope: "theme", optional: true, note: "least inner padding of the hero face"},
+  {name: "jam-pad-sheet", css: "", scope: "theme", optional: true, note: "least inner padding of sheet faces"},
+  {name: "jam-pad-poster", css: "", scope: "theme", optional: true, note: "least inner padding of poster faces (most set padding:0 for their art and stay so)"},
   // ---- identity (R1) ----
   {name: "jam-look", css: "", scope: "theme", note: "look id (poster, braun, ...): cards set data-look=<id> on their host, sheets and the screensaver layer"},
 ];

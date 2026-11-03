@@ -38,7 +38,7 @@ const POPUP_CSS = `
   @media (max-width:600px){
     .stage{align-items:flex-end;padding:0}
     .sheet{max-width:none}
-    .sheet > .face{padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
+    .sheet > .face{padding-bottom:calc(max(var(--p-b),var(--pad,0px)) + env(safe-area-inset-bottom,0px))}
     .pop.opening .wipe{animation-name:jam-wipe-up}
   }
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;

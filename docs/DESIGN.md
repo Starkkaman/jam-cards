@@ -134,6 +134,7 @@ Shape (R2; theme top level, all optional: unset = the Poster geometry written at
 | `--jam-shape-tab`, `-scene`, `-icon`, `-pin`, `-plate` | jam-tabs tab (tr 8px), jam-scenes key (br 10px), jam-button icon square (30% corner), music pin tab (triangle), jam-light label plate (12px diagonal end) | as listed |
 | `--jam-shape-key-plate`, `-chip-plate` | jam-remote outlined key: inner plate, cut parallel to the key / chip cut | tr 10.2px / br 4.2px |
 | `--jam-radius-<kind>` (card key chip hero sheet poster) | border-radius of those faces (for a look whose shape is `none`) | 0 |
+| `--jam-pad-<kind>` (card key chip hero sheet poster; R3) | least inner padding of those faces, each side: `max(<the card's own --p-*>, token)` (a face with an explicit `padding:0`, e.g. art and glyph faces, stays 0) | 0px (unset) |
 A value must be a valid `clip-path` (polygon, `inset(... round ...)`, `circle()`, `none`): an invalid one leaves the element
 unclipped. preview/shoot.js checks that every paper's computed clip equals its kind token; 96-looks reshapes the kinds live.
 

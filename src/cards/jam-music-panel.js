@@ -296,7 +296,7 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .row > .thumb{width:44px;height:44px}
   .row .nm{font:var(--disp-w) calc(16px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .row .dt{font:500 12px/1.25 var(--body);color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .row .play > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;height:34px;display:flex;align-items:center;font-size:12px;background:var(--slab3)}
+  .row .play > .face{--p-t:0px;--p-b:0px;--p-l:14px;--p-r:16px;height:34px;display:flex;align-items:center;font-size:12px;background:var(--slab3)}
   .pin{position:absolute;right:0;top:0;width:28px;height:28px;color:var(--fg)}
   .pin::before{content:"";position:absolute;inset:0;background:var(--slab3);clip-path:var(--jam-shape-pin,polygon(0 0,100% 0,100% 100%))}
   .pin.on::before{background:var(--acc)}
@@ -306,13 +306,13 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .pin:focus-visible{outline-offset:-3px}
   .msg{padding:18px 6px;display:grid;gap:12px;justify-items:start;font:500 14px/1.4 var(--body);color:var(--dim)}
   .msg b{font:var(--disp-w) calc(18px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg)}
-  .msg .key > .face{display:flex;align-items:center;height:40px;--p-t:0;--p-b:0}
+  .msg .key > .face{display:flex;align-items:center;height:40px;--p-t:0px;--p-b:0px}
   .grp{font:var(--lbl-w) 11px/1 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);padding:12px 6px 6px}
   .sbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding-bottom:8px}
   .sbar input{min-width:0;height:44px;border:0;border-bottom:3px solid var(--slab3);background:var(--slab2);color:var(--fg);padding:0 12px;
     font:500 16px/1 var(--body);border-radius:0;outline:none;-webkit-appearance:none;appearance:none}
   .sbar input:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-  .sbar .key > .face{display:flex;align-items:center;height:44px;--p-t:0;--p-b:0}
+  .sbar .key > .face{display:flex;align-items:center;height:44px;--p-t:0px;--p-b:0px}
   .res{display:grid;gap:2px}
   .spks{display:grid;gap:8px;padding:4px 2px}
   .dock{flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--band);color:var(--band-fg);padding:8px}
