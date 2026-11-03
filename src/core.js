@@ -36,7 +36,7 @@ button.chip::before{content:"";position:absolute;inset:0;z-index:-1;background:v
 .hit::after,.key::after,.track::after,button.chip::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);
   transform:translate(-50%,-50%)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 /* A clip-path clips the element's own outline too: self-clipped chips draw the ring inside (text colour on filled chips). */
 .chip:focus-visible{outline-offset:-3px}
 .stripe{border-left:6px solid var(--line)}
@@ -73,7 +73,7 @@ button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outlin
 .track{position:relative;height:32px;touch-action:none}
 .strip{position:absolute;inset:5px 0;background:var(--slab2)}
 .fill{position:absolute;inset:0 auto 0 0;background:var(--acc);clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)}
-.track:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+.track:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 /* Golden Arm bars motif (empty-state placeholder): straight bars. */
 .arm{display:flex;align-items:flex-end;gap:6px;height:44px}
 .arm span{background:var(--acc)}
@@ -92,7 +92,7 @@ button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outlin
 @keyframes jam-uncover{from{clip-path:inset(0)}to{clip-path:inset(0 0 0 100%)}}
 @keyframes jam-retreat{from{clip-path:inset(0)}to{clip-path:inset(0 100% 0 0)}}
 /* Failed action (0.7.2): flat strip over the bottom of the card / sheet (out of flow), and a one-shot shake on the tile. */
-.jam-err{position:absolute;left:8px;right:8px;bottom:8px;z-index:20;display:grid;gap:2px;padding:7px 12px 8px;background:var(--ink);color:#ece2c9;
+.jam-err{position:absolute;left:8px;right:8px;bottom:8px;z-index:20;display:grid;gap:2px;padding:7px 12px 8px;background:var(--band);color:var(--band-fg);
   border-left:6px solid var(--red);font:500 .8rem/1.3 var(--body);text-align:left;text-transform:none;letter-spacing:0;cursor:pointer;pointer-events:auto}
 .jam-err > span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jam-err > .eh{font-weight:600}
@@ -327,7 +327,7 @@ function accentVar(a) { const n = accentName(a); return n ? `var(--${n})` : null
 /* Text colour on an accent fill: ink (--on-fg) on every hue; paper-fg on paper; a light ink-fg on ink. */
 function accentFg(a) {
   const n = accentName(a);
-  return n === "paper" ? "var(--paper-fg)" : n === "ink" ? "var(--jam-ink-fg,#ece2c9)" : "var(--on-fg)";
+  return n === "paper" ? "var(--paper-fg)" : n === "ink" ? "var(--ink-fg)" : "var(--on-fg)";
 }
 /* Sets --acc / --acc-fg on node for a configured accent; returns false (and sets nothing) when it is unknown. */
 function setAccent(node, a) {
@@ -509,7 +509,7 @@ const POWER_CSS = `
   .pw .tri{position:absolute;inset:0;background:var(--pw-bg,var(--slab2));clip-path:polygon(0 0,100% 0,100% 100%)}
   .pw svg{position:absolute;right:6px;top:6px;width:17px;height:17px;color:var(--pw-fg,var(--fg))}
   .pw:disabled{cursor:default} .pw:disabled svg{color:var(--dim)}
-  .pw:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}`;
+  .pw:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}`;
 /* Power corner (ROUND3): a real <button class="pw"> = 46px top-right triangle with a power glyph; tap = power toggle.
    opts: {name (aria-label "<name> power"), on (aria-pressed), disabled, bg (CSS colour of the triangle: a shade of the
    card face, see shade(); default slab2), fg (glyph colour; default --fg), cls, onClick}. Put it as the last child of a
@@ -634,6 +634,31 @@ function staggerIn(nodes, startMs = 60) {
   [...nodes].forEach((n, i) => { if (n.nodeType === 1) oneShot(n, "jam-in", startMs + Math.min(i, ENTER_MAX) * ENTER_STEP); });
 }
 
+/* ---------- looks (theming plan 2.3) ---------- */
+/* The active look of node's tree: the --jam-look token (set by a look's theme, a view theme included), "poster" when it is
+   unset or not an id (HA's default theme, a theme without looks). Computed style is the truth; hass.themes is the trigger. */
+function lookOf(node) {
+  try {
+    const v = getComputedStyle(node).getPropertyValue("--jam-look").trim().replace(/["']/g, "").toLowerCase();
+    return /^[a-z][a-z0-9-]*$/.test(v) ? v : "poster";
+  } catch (e) { return "poster"; }
+}
+/* Cards connected in the same task read their look in one batch (one style recalc instead of one per card), then set
+   data-look on their host (only when it changed, so nothing is written on a re-attach). */
+const LOOK_Q = {cards: new Set(), pending: false};
+function queueLook(card) {
+  LOOK_Q.cards.add(card);
+  if (LOOK_Q.pending) return;
+  LOOK_Q.pending = true;
+  Promise.resolve().then(() => {
+    LOOK_Q.pending = false;
+    const cards = [...LOOK_Q.cards].filter(c => c.isConnected);
+    LOOK_Q.cards.clear();
+    const looks = cards.map(lookOf);
+    cards.forEach((c, i) => { if (c.dataset.look !== looks[i]) { c.dataset.look = looks[i]; if (typeof c._lookChanged === "function") c._lookChanged(looks[i]); } });
+  });
+}
+
 /* ---------- sheet (pop-up) helpers ---------- */
 /* Vertigo spiral (Archimedean, 5 turns) as an aria-hidden SVG stroked in currentColor. */
 function vertigoSpiral() {
@@ -653,9 +678,8 @@ function deepActive() {
   while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
   return a;
 }
-/* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>). */
-const SHEET_TOKENS = ["ink", "slab", "slab2", "slab3", "paper", "paper-fg", "paper-dim", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink",
-  "violet", "green", "on-fg", "shadow", "s1", "s2", "s3", "s4", "s5", "display", "body", "accent"].map(n => "--jam-" + n);
+/* Theme tokens copied from the opening card onto a sheet (HA may set a theme on the view, not on <html>): every --jam-*
+   token (JAM_TOKENS, generated from tokens/ by tools/bundle.mjs, --jam-look included). */
 const SHEET_CSS = `
   .pop{position:fixed;inset:0;z-index:10000;--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg)}
   .veil{position:absolute;inset:0;background:var(--ink)}
@@ -712,7 +736,7 @@ function openSheet(opts = {}) {
   if (o.from) {
     try {
       const cs = getComputedStyle(o.from);
-      for (const t of SHEET_TOKENS) { const v = cs.getPropertyValue(t).trim(); if (v) holder.style.setProperty(t, v); }
+      for (const t of JAM_TOKENS) { const v = cs.getPropertyValue(t).trim(); if (v) holder.style.setProperty(t, v); }
     } catch (e) { /* tokens fall back to the dark palette */ }
   }
   const st = el("style"); st.textContent = BASE_CSS + SHEET_CSS + (o.css || "");
@@ -781,6 +805,7 @@ function openSheet(opts = {}) {
   SHEET_STACK.push(api);
   de.style.overflow = "hidden"; bd.style.overflow = "hidden";
   document.body.append(holder);
+  pop.dataset.look = lookOf(holder); // the copied --jam-look (or the page's own)
   if (motionOn()) pop.classList.add("opening");
   // The caller fills `body` right after this returns; its children then slide in one after another (once).
   Promise.resolve().then(() => { if (open) staggerIn(body.children); });
@@ -804,8 +829,10 @@ class JamBase extends HTMLElement {
   validate() {}
   /* HA sets hass on every state change in the house (hundreds a minute). A card re-renders only when one of its own
      watched() entities changed: HA replaces a state object when it changes, so the objects are compared by reference
-     (_sig = [id, state object, ...]; _sig = null forces the next update to render). */
+     (_sig = [id, state object, ...]; _sig = null forces the next update to render). A theme or dark-mode switch
+     (hass.themes / hass.selectedTheme, new objects only when they change) forces a render and re-reads the look. */
   set hass(h) {
+    if (this._themeChanged(h)) this._sig = null;
     this._hass = h;
     if (!this._config || !h) return;
     const ids = this.watched(), st = h.states || {}, prev = this._sig;
@@ -817,8 +844,17 @@ class JamBase extends HTMLElement {
     this._sig = sig; this._render(false);
   }
   get hass() { return this._hass; }
-  /* Subclasses with their own connectedCallback call super.connectedCallback(). */
-  connectedCallback() { enterView(this); }
+  /* True when h carries other themes / selectedTheme objects than the last hass (compared by reference; false on the
+     first hass); queues a look re-read then. Subclasses with their own hass setter call it too. */
+  _themeChanged(h) {
+    const th = h ? h.themes : undefined, sel = h ? h.selectedTheme : undefined, seen = this._thSeen;
+    const changed = !!seen && (th !== this._th || sel !== this._sel);
+    this._thSeen = true; this._th = th; this._sel = sel;
+    if (changed && this.isConnected) queueLook(this);
+    return changed;
+  }
+  /* Subclasses with their own connectedCallback call super.connectedCallback() (or queueLook(this) when they skip it). */
+  connectedCallback() { queueLook(this); enterView(this); }
   /* Subclasses that hold timers, observers, window/document listeners or body-appended nodes release them here (and call
      super); HA detaches and re-attaches cards on view switches, so connectedCallback re-arms them. */
   disconnectedCallback() {}
@@ -859,7 +895,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
-  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall,
+  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

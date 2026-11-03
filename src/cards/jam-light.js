@@ -46,7 +46,7 @@ const LIGHT_LOOKS = {
 /* Per-user saved colours and whites (shared by every jam-light on the page): null = not loaded yet.
    LIGHT_WHITES_SAVED = {entity_id: [{name, kelvin}, {name, kelvin}]} (user data key jam_whites). */
 let LIGHT_COLORS = null, LIGHT_COLORS_LOAD = null, LIGHT_WHITES_SAVED = null;
-const LIGHT_PLATE = "#141210", LIGHT_PLATE_FG = "#ece2c9";
+const LIGHT_PLATE = "var(--plate)", LIGHT_PLATE_FG = "var(--plate-fg)";
 /* Local helpers. */
 const rgbDist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : Infinity);
 const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -116,7 +116,7 @@ const LIGHT_SHEET_CSS = `
   .wp.on > .face::after{content:"";position:absolute;inset:0;border:3px solid var(--fg)}
   .wp > .face{padding:0;height:74px;background:var(--slab2);position:relative;overflow:hidden}
   .wp svg{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .wp b{position:absolute;left:8px;right:16px;bottom:8px;font:900 1.05rem/.9 var(--display);text-transform:uppercase;color:#ece2c9;text-align:left;overflow-wrap:anywhere}
+  .wp b{position:absolute;left:8px;right:16px;bottom:8px;font:900 1.05rem/.9 var(--display);text-transform:uppercase;color:var(--plate-fg);text-align:left;overflow-wrap:anywhere}
   .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px}
   .chips .key{min-width:0}
   .hwrap{position:relative;cursor:crosshair;touch-action:none}
@@ -143,12 +143,12 @@ const LIGHT_SHEET_CSS = `
   .wedit{display:grid;gap:6px;background:var(--slab2);padding:12px 14px 16px 12px;clip-path:${cutPath("br", 14)}}
   .nin{font:900 1.3rem/1 var(--display);text-transform:uppercase;color:var(--fg);background:var(--slab);border:0;border-bottom:3px solid var(--fg);
     padding:10px 10px 8px;min-height:44px;width:100%;border-radius:0;outline:none}
-  .nin:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+  .nin:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
   .kwrap{position:relative;cursor:ew-resize;touch-action:none}
   .kbar{position:relative;height:48px;background:var(--slab)}
   .kbar i{position:absolute;inset:0 auto 0 0;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
   .kbar b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:900 1.4rem/1 var(--display);color:var(--fg);padding:3px 6px;background:var(--slab)}
-  .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible,.kwrap:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}`;
+  .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible,.kwrap:focus-visible{outline:3px solid var(--focus);outline-offset:2px}`;
 
 class JamLight extends JamBase {
   validate(c) {
@@ -245,10 +245,10 @@ class JamLight extends JamBase {
     .bands.corner{top:46px}
     .bands i{flex:1;display:block}
     .lc:not(.on) .bands{display:none}
-    .tap:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
+    .tap:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
     @supports selector(:has(a)){
       .tap:focus-visible{outline:none}
-      .lc:has(.tap:focus-visible){outline:3px solid var(--ochre);outline-offset:2px}
+      .lc:has(.tap:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
     }`; }
   _render(force) {
     // A hass update mid-drag would rebuild the card/sheet under the pointer; render once the drag ends instead.
@@ -325,7 +325,7 @@ class JamLight extends JamBase {
       if (on) root.style.setProperty("--bw", full ? `max(46px, min(${16 * ids.length}px, 40%))` : "46px");
     }
     let [pbg, pfg] = cornerColors(on ? corner : null);
-    if (on && ids.length && full) { pbg = "var(--ink)"; pfg = LIGHT_PLATE_FG; } // V2: ink corner on top of the bands
+    if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
     face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power()}));
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();

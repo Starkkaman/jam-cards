@@ -124,7 +124,7 @@ const JAM_REMOTE_KB_CSS = `
   .kb input{box-sizing:border-box;width:100%;min-width:0;height:52px;padding:0 14px;border:0;border-radius:0;background:var(--slab2);color:var(--fg);
     font:500 1.15rem/1 var(--body);outline:none;-webkit-appearance:none;appearance:none}
   .kb input::placeholder{color:var(--dim)}
-  .kb input:focus-visible{outline:3px solid var(--ochre);outline-offset:-3px}
+  .kb input:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
   .kb .keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .kb .keys .key{min-width:0}
   .kb .keys .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center}`;

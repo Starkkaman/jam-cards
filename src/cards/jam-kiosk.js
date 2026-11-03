@@ -117,11 +117,11 @@ class JamKioskHome extends JamBase {
       background:var(--lk-bg);color:var(--lk-gl);border:0}
     .lk .disc svg{width:56%;height:56%;display:block}
     .lk{--lk-bg:var(--fg);--lk-gl:var(--ink);--lk-tx:var(--fg)}
-    .host.light .lk:not(.alert):not(.off){--lk-gl:#ece2c9}
+    .host.light .lk:not(.alert):not(.off){--lk-gl:var(--ink-fg)}
     .lk.alert{--lk-bg:var(--red);--lk-gl:var(--on-fg);--lk-tx:var(--alert-text)}
     .lk.off .disc{background:none;border:4px solid var(--dim)}
     .lk.off{--lk-gl:var(--dim);--lk-tx:var(--dim)}
-    .lk .disc:focus-visible{outline:3px solid var(--ochre);outline-offset:4px}
+    .lk .disc:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
     .lk .disc.stamp{animation:jam-stamp 210ms steps(3,end)}
     .lk .lbl{font:600 18px/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--lk-tx);white-space:nowrap;
       max-width:36cqw;overflow:hidden;text-align:right}
@@ -144,8 +144,8 @@ class JamKioskHome extends JamBase {
     .blk{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;min-width:0;padding:0 22px;
       text-align:left;background:var(--bc,var(--acc));color:var(--bf,var(--acc-fg))}
     .blk.none{--bc:var(--slab2);--bf:var(--fg)}
-    .host.light .blk.none{--bc:var(--ink);--bf:#ece2c9}
-    .host.light .blk.none .st{color:#b4a88f}
+    .host.light .blk.none{--bc:var(--ink);--bf:var(--ink-fg)}
+    .host.light .blk.none .st{color:var(--ink-dim2)}
     .blk:focus-visible{outline:3px solid currentColor;outline-offset:-7px}
     .nm{font-family:var(--display);font-weight:900;font-size:clamp(32px,3.6cqw,36px);line-height:.9;text-transform:uppercase;max-width:100%;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

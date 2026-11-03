@@ -26,8 +26,20 @@
   --jam-s3:#d43a1c;
   --jam-s4:#a66cc4;
   --jam-s5:#7f9b2a;
+  --jam-ink-fg:#ece2c9;
+  --jam-ink-dim:#9a8f7c;
+  --jam-ink-dim2:#b4a88f;
+  --jam-band:#141210;
+  --jam-band-fg:#ece2c9;
+  --jam-band-dim:#9a8f7c;
+  --jam-band-key:#36312b;
+  --jam-band-off:#6b6152;
+  --jam-band-tile:#2c2824;
+  --jam-plate:#141210;
+  --jam-plate-fg:#ece2c9;
   --jam-display:"Londrina Solid", "Arial Black", Impact, sans-serif;
   --jam-body:"Jost", "Helvetica Neue", Arial, sans-serif;
+  --jam-look:poster;
   --primary-background-color:#141210;
 }
 :root.light{
@@ -56,7 +68,19 @@
   --jam-s3:#c2361a;
   --jam-s4:#8a52ad;
   --jam-s5:#5f7d1c;
+  --jam-ink-fg:#ece2c9;
+  --jam-ink-dim:#9a8f7c;
+  --jam-ink-dim2:#b4a88f;
+  --jam-band:#141210;
+  --jam-band-fg:#ece2c9;
+  --jam-band-dim:#9a8f7c;
+  --jam-band-key:#36312b;
+  --jam-band-off:#6b6152;
+  --jam-band-tile:#2c2824;
+  --jam-plate:#141210;
+  --jam-plate-fg:#ece2c9;
   --jam-display:"Londrina Solid", "Arial Black", Impact, sans-serif;
   --jam-body:"Jost", "Helvetica Neue", Arial, sans-serif;
+  --jam-look:poster;
   --primary-background-color:#ece2c9;
 }

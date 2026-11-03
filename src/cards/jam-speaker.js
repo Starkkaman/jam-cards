@@ -43,7 +43,7 @@ const JAM_SPK_SHUFFLE = 32768, JAM_SPK_POWER = 128 | 256;
 const JAM_SPK_CSS = `
     .wrap{display:grid;gap:10px;align-content:start;--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px}
     .poster,.poster > .face{height:auto}
-    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:#ece2c9;display:grid;grid-template-rows:var(--ah,150px) auto}
+    .poster > .face{padding:0;position:relative;overflow:hidden;background:var(--acc);color:var(--band-fg);display:grid;grid-template-rows:var(--ah,150px) auto}
     .poster.off > .face{background:var(--slab2)}
     .pa{position:relative;overflow:hidden;min-height:0}
     .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
@@ -52,11 +52,11 @@ const JAM_SPK_CSS = `
     .poster.off .arm span{background:var(--slab3)}
     .open{position:absolute;inset:0;z-index:1;cursor:pointer}
     .open:focus-visible{outline-offset:-4px}
-    .band{position:relative;z-index:2;background:var(--ink);color:#ece2c9;padding:10px 12px 12px 14px;display:grid;
+    .band{position:relative;z-index:2;background:var(--band);color:var(--band-fg);padding:10px 12px 12px 14px;display:grid;
       grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:10px;pointer-events:none}
     .bt{display:grid;gap:3px;min-width:0}
-    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:600 11px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#9a8f7c}
-    .kk i{flex:none;width:10px;height:10px;background:var(--b,#9a8f7c)}
+    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:600 11px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--band-dim)}
+    .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--band-dim))}
     .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal}
     .band .title{font-family:var(--display);font-weight:900;font-size:30px;line-height:.95;text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:anywhere}
     .band .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -64,10 +64,10 @@ const JAM_SPK_CSS = `
     .poster.small .band{padding:6px 10px 8px 12px} .poster.small .band .title{font-size:24px} .poster.small .band .title > .tl{-webkit-line-clamp:1}
     .bk{display:flex;gap:6px;pointer-events:auto}
     .bk .ikey{min-width:0;width:32px;height:32px}
-    .bk .ikey > .face{height:32px;--ic:16px;background:#36312b;color:#ece2c9}
+    .bk .ikey > .face{height:32px;--ic:16px;background:var(--band-key);color:var(--band-fg)}
     .bk .shuf.on > .face{background:var(--acc);color:var(--acc-fg)}
-    .bk .fav > .face{color:var(--pink)} .bk .fav.on > .face{background:var(--pink);color:#141210}
-    .bk .ikey:disabled > .face{color:#6b6152}
+    .bk .fav > .face{color:var(--pink)} .bk .fav.on > .face{background:var(--pink);color:var(--on-fg)}
+    .bk .ikey:disabled > .face{color:var(--band-off)}
     .pg{position:absolute;left:0;bottom:0;height:5px;z-index:3;background:var(--acc);pointer-events:none}
     .pw{z-index:4} /* shared power corner (core powerCorner / POWER_CSS): ink, accent glyph; red with a cream glyph when off */
     .keys{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px}
@@ -103,7 +103,7 @@ const JAM_SPK_KIOSK_CSS = `
     .kbk .ikey{min-width:0}
     .kbk .ikey > .face{width:48px;height:48px;--ic:24px;background:none;color:var(--kfg);border:3px solid var(--kfg)}
     .kbk .shuf.on > .face{background:var(--kfg);color:var(--kbg)}
-    .kbk .fav.on > .face{background:var(--pink);color:#141210;border-color:var(--pink)}
+    .kbk .fav.on > .face{background:var(--pink);color:var(--on-fg);border-color:var(--pink)}
     .kbk .ikey:disabled > .face{border-style:dashed}
     .ktx{min-height:0;overflow:hidden;display:grid;align-content:start;gap:8px}
     .ktx .title{--tl:3;font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.005em;line-height:.92;overflow-wrap:anywhere;
@@ -128,15 +128,15 @@ const JAM_SPK_KIOSK_CSS = `
     .kv .vt{height:clamp(48px,15cqh,56px)} .kv .vt .strip{inset:0;background:var(--ktr)} .kv .vt .fill{background:var(--kfg)}
     .kv .vn{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:900 22px/1 var(--display);color:var(--kfg);pointer-events:none}
     .kv .vn.hi{color:var(--kbg)}
-    .shelf{grid-area:2/1/3/3;display:grid;grid-template-columns:auto repeat(6,minmax(0,1fr));background:var(--ink);min-height:0;color:#ece2c9}
-    .shelf .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:600 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:#9a8f7c;
+    .shelf{grid-area:2/1/3/3;display:grid;grid-template-columns:auto repeat(6,minmax(0,1fr));background:var(--band);min-height:0;color:var(--band-fg)}
+    .shelf .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:600 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--band-dim);
       display:grid;place-items:center;padding:0 10px;white-space:nowrap;overflow:hidden}
-    .shelf .none{grid-column:2/7;align-self:center;padding:0 16px;font:500 18px/1.3 var(--body);color:#9a8f7c}
-    .tile{position:relative;overflow:hidden;min-width:0;border-left:4px solid var(--ink);background:#2c2824;color:#ece2c9;cursor:pointer}
+    .shelf .none{grid-column:2/7;align-self:center;padding:0 16px;font:500 18px/1.3 var(--body);color:var(--band-dim)}
+    .tile{position:relative;overflow:hidden;min-width:0;border-left:4px solid var(--band);background:var(--band-tile);color:var(--band-fg);cursor:pointer}
     .tile > .thumb{position:absolute;inset:0;width:auto;height:auto}
-    .tile .nm{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:var(--ink);color:#ece2c9;font:900 18px/1 var(--display);
+    .tile .nm{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:var(--band);color:var(--band-fg);font:900 18px/1 var(--display);
       text-transform:uppercase;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tile.browse{background:#36312b}
+    .tile.browse{background:var(--band-key)}
     .tile.browse > .ico{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);--ic:40px}
     .tile:focus-visible{outline-offset:-4px}
     .kart .open:focus-visible{outline-offset:-4px}

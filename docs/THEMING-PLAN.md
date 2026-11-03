@@ -382,9 +382,22 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   "GENERATED" header line. The HA keys come from a template over the palette with per-mode aliases (ground, primary,
   chrome-* ...; light mode overrides 7 of them); the primary ramp stays a literal list per mode (an OKLCH generator is
   only needed when a new look has no hand-tuned ramp, R10). `bundle.mjs` writes the TOKEN_CSS chunk (BASE_CSS `:host`)
-  and `preview/looks.css`; `--check` also checks the theme when ../jam-theme exists. Pixel diff vs 0.7.2: every card
-  shot identical; moving the preview tokens from an inline `<style>` to `<link href=looks.css>` changes 9 anti-aliased
-  pixels (±1 per channel on the CLOSE key's cut) in kiosk-sheet-tv-{dark,light}-1024 only; with the old index.html and
-  the new bundle that shot is identical, so the harness, not the cards, causes it. R1/R2 are diffed against R0.
+  and `preview/looks.css`; `--check` also checks the theme when ../jam-theme exists. Pixel diff vs 0.7.2: identical, except
+  kiosk-sheet-tv-{dark,light}-1024, which differs in 8-9 anti-aliased pixels (±1 per channel on the CLOSE key's cut) in
+  some runs of the same code (two runs of the 0.7.2 / R0 code differ from each other the same way): render timing noise of
+  that check's screenshot, not a change.
+- **R1 (done).** One generated `JAM_TOKENS` list (every registry token + runtime `jam-accent` / `jam-spotify`, exported as
+  `JamCards.TOKENS`) replaces `SHEET_TOKENS` and `SS_TOKENS`, so sheets and the screensaver layer now also carry
+  alert-text, slab3, paper-dim, s1-s5, the new tokens and `--jam-look`. New colour tokens (all in the Poster theme, same
+  value in both modes): `ink-fg`, `ink-dim`, `ink-dim2` (jam-kiosk light-mode dock state, #b4a88f), `band`, `band-fg`,
+  `band-dim`, `band-key`, `band-off`, `band-tile`, `plate`, `plate-fg`, and `focus` (optional, default the ochre token; the
+  13 focus rings use it). Every CSS hex literal in the cards is now a token; the only hex values left in src/ are the
+  generated fallbacks, the Spotify brand dot (`--jam-spotify`) and the colour maths in core.js (`inkOn` / `textOn` /
+  `cornerColors`, R4). `lookOf(node)` + `data-look` on every card host (batched per task: one style read for all cards
+  connected together), on openSheet's `.pop` and on the jam-screensaver overlay (its body layer re-copies the tokens on a
+  look change). `JamBase.set hass` compares `hass.themes` / `hass.selectedTheme` by reference: a change forces a render
+  and re-reads the look (jam-alerts, jam-popup and jam-screensaver, which have their own setters, do the same), which
+  fixes jam-kiosk's stale light class. New check `preview/checks/96-looks.js`; 97-robust still 0 DOM writes. Theme:
+  `jam-look: poster` at the top level and the new colour tokens per mode. Pixel diff vs R0: identical (same caveat).
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
   place); it can link `../../jam-cards/preview/looks.css` instead.

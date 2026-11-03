@@ -101,9 +101,9 @@ const JAM_TV_TILE_CSS = `
     .tile .nm{min-width:0;overflow-wrap:normal;word-break:normal;hyphens:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .tile .gl{position:absolute;right:10px;top:10px}
     .tile .gl svg,.tile ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}
-    .tile .now{position:absolute;left:10px;top:10px;font:600 .62rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;background:var(--ink);color:#ece2c9;padding:4px 5px}
+    .tile .now{position:absolute;left:10px;top:10px;font:600 .62rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;background:var(--band);color:var(--band-fg);padding:4px 5px}
     .tile.cur{outline:4px solid var(--fg);outline-offset:3px}
-    .tile.cur:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .tile.cur:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .tile.home > .face{background:var(--slab3);color:var(--fg)}
     .key.tile:not(:disabled):hover > .face{border:0}`;
 const JAM_TV_SHEET_CSS = `
@@ -139,7 +139,7 @@ class JamTv extends JamSheetHost(JamBase) {
     .poster .arm{position:absolute;right:60px;bottom:0;height:84%;gap:7px;align-items:flex-end}
     .poster .arm span{background:var(--acc-fg)}
     /* The text always sits on a solid ink band (round 3), so it is cream in both modes. */
-    .poster .band{position:relative;background:var(--ink);color:#ece2c9;padding:10px 14px 14px;display:grid;gap:4px;min-width:0}
+    .poster .band{position:relative;background:var(--band);color:var(--band-fg);padding:10px 14px 14px;display:grid;gap:4px;min-width:0}
     .poster .kick{font:600 13px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .poster .title{font-family:var(--display);font-weight:900;font-size:34px;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;

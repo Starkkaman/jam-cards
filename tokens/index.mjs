@@ -1,10 +1,10 @@
 // The single token source (theming plan §2.6): registry + looks + the generators shared by tools/bundle.mjs (cards
 // fallbacks, preview/looks.css) and tools/themes.mjs (HA theme YAML). Node only; nothing here is bundled.
-import {TOKENS} from "./registry.mjs";
+import {TOKENS, RUNTIME_TOKENS} from "./registry.mjs";
 import {HA_KEYS, haValue} from "./ha.mjs";
 import poster from "./looks/poster.mjs";
 
-export {TOKENS, HA_KEYS, haValue};
+export {TOKENS, RUNTIME_TOKENS, HA_KEYS, haValue};
 /* Every look, Poster first (it is the default and the cards' fallback). */
 export const LOOKS = [poster];
 export const POSTER = poster;
@@ -16,6 +16,7 @@ const cssStack = v => v.replace(/,\s+/g, ","); // font stacks: theme form '"A", 
 export function validateLook(look) {
   const errs = [], known = new Set(TOKENS.map(t => t.name));
   for (const t of TOKENS) {
+    if (t.optional) continue;
     if (t.scope === "theme" && !(look.tokens && t.name in look.tokens)) errs.push(`${look.id}: theme token ${t.name} missing`);
     if (t.scope === "mode") for (const m of MODES) if (!(look.modes[m] && t.name in look.modes[m].tokens)) errs.push(`${look.id}/${m}: ${t.name} missing`);
   }
@@ -29,10 +30,14 @@ LOOKS.forEach(validateLook);
 /* Value of a token in a look + mode (theme-level tokens are the same in both). */
 export const tokenValue = (look, mode, name) => (look.tokens && name in look.tokens ? look.tokens[name] : look.modes[mode].tokens[name]);
 
-/* BASE_CSS :host declarations: --short:var(--jam-name,<Poster dark value>); one line per token. */
+/* Every --jam-* name a body layer copies from its card (openSheet, jam-screensaver): the registry + runtime tokens. */
+export const copyTokens = () => [...TOKENS.map(t => t.name), ...RUNTIME_TOKENS].map(n => "--" + n);
+
+/* BASE_CSS :host declarations: --short:var(--jam-name,<Poster dark value, else the registry fallback>); one per line. */
 export function hostCss() {
   return TOKENS.filter(t => t.css).map(t => {
-    const v = tokenValue(poster, "dark", t.name);
+    const v = tokenValue(poster, "dark", t.name) ?? t.fallback;
+    if (v == null) throw new Error("token source: " + t.name + " has no Poster value and no fallback");
     return `  --${t.css}:var(--${t.name},${t.scope === "theme" ? cssStack(v) : v});`;
   }).join("\n");
 }
@@ -47,7 +52,7 @@ export function looksCss() {
     const sel = look === poster ? ":root" : `:root[data-look="${look.id}"]`;
     for (const m of MODES) {
       const mode = look.modes[m], decl = [];
-      for (const t of TOKENS) decl.push(`--${t.name}:${tokenValue(look, m, t.name)}`);
+      for (const t of TOKENS) { const v = tokenValue(look, m, t.name); if (v != null) decl.push(`--${t.name}:${v}`); }
       decl.push("--primary-background-color:" + haValue("{ground}", mode));
       out.push(`${sel}${m === "light" ? ".light" : ""}{\n  ${decl.join(";\n  ")};\n}`);
     }

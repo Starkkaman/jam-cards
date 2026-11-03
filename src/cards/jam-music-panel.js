@@ -80,7 +80,7 @@ function jamMuKey(icon, label, key, cls, run, disabled) {
 /* Cut-paper idle art (seeded, flat, no motion): a palette ground + 2-3 shapes (disc, ring, bar, strip, tilted square).
    Sizes in cqmin (the box is a size container), so one seed reads the same on a poster, a thumb or the kiosk art. Red is
    left out (reserved for alerts). Same seed = same picture. */
-const JAM_MU_POOL = ["var(--ink)", "#ece2c9", "var(--ochre)", "var(--teal)", "var(--blue)", "var(--pink)", "var(--violet)", "var(--green)"];
+const JAM_MU_POOL = ["var(--ink)", "var(--ink-fg)", "var(--ochre)", "var(--teal)", "var(--blue)", "var(--pink)", "var(--violet)", "var(--green)"];
 function jamMuIdleArt(sd) {
   const r = rng((sd >>> 0) ^ 0x5bd1e995), pick = a => a[Math.floor(r() * a.length)], box = el("div", "abs");
   box.setAttribute("aria-hidden", "true");
@@ -260,7 +260,7 @@ const JAM_MU_ROWS_CSS = `
     .vt[role=slider]{cursor:pointer}
     .vt .strip{inset:0}
     .vt.thin{height:22px} .vt.thin .strip{inset:7px 0}
-    .vt:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .vt:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .spk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding-top:8px;border-top:2px solid var(--line)}
     .spk .n{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:1rem;line-height:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .spk .vt{grid-column:1/-1}
@@ -311,21 +311,21 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .sbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding-bottom:8px}
   .sbar input{min-width:0;height:44px;border:0;border-bottom:3px solid var(--slab3);background:var(--slab2);color:var(--fg);padding:0 12px;
     font:500 16px/1 var(--body);border-radius:0;outline:none;-webkit-appearance:none;appearance:none}
-  .sbar input:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+  .sbar input:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
   .sbar .key > .face{display:flex;align-items:center;height:44px;--p-t:0;--p-b:0}
   .res{display:grid;gap:2px}
   .spks{display:grid;gap:8px;padding:4px 2px}
-  .dock{flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--ink);color:#ece2c9;padding:8px}
+  .dock{flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--band);color:var(--band-fg);padding:8px}
   .dock.nofav{grid-template-columns:44px minmax(0,1fr) 44px 56px 44px}
   .dock > .thumb{width:44px;height:44px}
   .dock .tt{font:900 15px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .dock .st{font:500 11px/1.3 var(--body);color:#9a8f7c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dock .st{font:500 11px/1.3 var(--body);color:var(--band-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dock .ikey{min-width:0}
-  .dock .ikey > .face{height:44px;background:#36312b;color:#ece2c9;--ic:20px}
+  .dock .ikey > .face{height:44px;background:var(--band-key);color:var(--band-fg);--ic:20px}
   .dock .ikey.main > .face{background:var(--acc);color:var(--acc-fg)}
   .dock .ikey.fav > .face{color:var(--pink)}
-  .dock .ikey.fav.on > .face{background:var(--pink);color:#141210}
-  .dock .ikey:disabled > .face{color:#6b6152}
+  .dock .ikey.fav.on > .face{background:var(--pink);color:var(--on-fg)}
+  .dock .ikey:disabled > .face{color:var(--band-off)}
   /* phones: tabs fit the width, the room name may take two lines */
   @media (max-width:600px){
     .tabs button{padding:12px 7px;letter-spacing:.06em}

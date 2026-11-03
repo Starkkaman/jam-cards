@@ -72,11 +72,13 @@ class JamPopup extends JamBase {
     if (this.isConnected) this._sync(true);
   }
   set hass(h) {
+    this._themeChanged(h); // re-reads the look (data-look); the child cards re-render themselves
     this._hass = h;
     for (const k of this._kids) { try { k.hass = h; } catch (e) { /* child without hass setter */ } }
   }
   get hass() { return this._hass; }
   connectedCallback() {
+    queueLook(this);
     window.addEventListener("location-changed", this._onLoc);
     window.addEventListener("hashchange", this._onLoc);
     window.addEventListener("popstate", this._onLoc);

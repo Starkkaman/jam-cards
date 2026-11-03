@@ -195,7 +195,7 @@ class JamGraph extends JamBase {
     .lg .v{color:var(--fg);letter-spacing:.04em}
     .sq{display:inline-block;width:10px;height:10px;flex:none;background:var(--c)}
     .plot{position:relative;min-width:0;outline:none}
-    .plot:focus-visible{outline:3px solid var(--ochre);outline-offset:2px}
+    .plot:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .plot svg{display:block;width:100%;touch-action:pan-y}
     .ax{font:500 .72rem var(--body);fill:var(--dim)}
     .rule{stroke:var(--line);stroke-width:1;shape-rendering:crispEdges}

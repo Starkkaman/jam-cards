@@ -62,7 +62,7 @@
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
-    --sfg:var(--jam-ink-fg,#ece2c9);--sdim:var(--jam-ink-dim,#9a8f7c);--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg);
+    --sfg:var(--ink-fg);--sdim:var(--ink-dim);--acc:var(--jam-accent,var(--ochre));--acc-fg:var(--on-fg);
     color:var(--sfg);cursor:none;user-select:none;-webkit-user-select:none;touch-action:none}
   .ov.show{display:block}
   .ov.gone{background:transparent} .ov.gone > *{visibility:hidden}
@@ -134,9 +134,8 @@ const SS_CSS = `
   .sdock .np .nb{font-size:4.4vh}
   .sdock .np .ns{font-size:max(12px,2vh)}
   @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}.img,.slides{transition:none!important}}`;
-/* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>). */
-const SS_TOKENS = ["ink", "slab", "slab2", "paper", "paper-fg", "fg", "dim", "line", "ochre", "red", "teal", "blue", "pink", "violet",
-  "green", "on-fg", "display", "body", "accent", "ink-fg", "ink-dim"].map(n => "--jam-" + n);
+/* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>):
+   every --jam-* token (JAM_TOKENS from core, generated from tokens/). */
 const SS_LAYOUTS = 6;
 const SS_ALIGN = ["", "r", "", "c", "", "r"]; /* text alignment per layout */
 function jamSsMinutes(s) {
@@ -313,6 +312,7 @@ class JamScreensaver extends JamBase {
     else if (!off && this._motionOff) { this._motionOff = false; window.JamCards.motion = true; }
   }
   set hass(h) {
+    this._themeChanged(h); // a theme / dark-mode switch re-reads the look (and re-copies the tokens onto a body layer)
     this._hass = h;
     if (!this._config) return;
     const blocked = this._blocked(), was = this._wasBlocked;
@@ -332,6 +332,7 @@ class JamScreensaver extends JamBase {
   }
   get hass() { return this._hass; }
   connectedCallback() {
+    queueLook(this);
     this._motion(true);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.addEventListener(t, this._onAct, {capture: true, passive: false});
     document.addEventListener("visibilitychange", this._onVis);
@@ -466,6 +467,16 @@ class JamScreensaver extends JamBase {
     try { if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return 0; } catch (e) { /* old engine */ }
     return isFinite(f) && f > 0 ? Math.min(f, 5000) : 0;
   }
+  /* Theme tokens onto the layer (it lives in document.body when an HA ancestor would clip it). */
+  _copyTokens() {
+    const cs = getComputedStyle(this);
+    for (const v of JAM_TOKENS) { const x = cs.getPropertyValue(v).trim(); if (x) this._layer.style.setProperty(v, x); else this._layer.style.removeProperty(v); }
+  }
+  /* queueLook (connect, theme switch): data-look on the overlay; a body layer gets the new tokens. */
+  _lookChanged(look) {
+    if (this._ov && this._ov.dataset.look !== look) this._ov.dataset.look = look;
+    if (this._layer && this._layer.parentNode === document.body) this._copyTokens();
+  }
   _show() {
     this._shown = true; this._gone = false; this._k = 0; this._posterTurn = false;
     this._live = this._mode();
@@ -474,6 +485,8 @@ class JamScreensaver extends JamBase {
     this._ov.dataset.view = this._live === "images" && this._config.mode_entity ? "images" : "poster";
     this._setLayout(false);
     this._texts();
+    const look = this.dataset.look || "poster";
+    if (this._ov.dataset.look !== look) this._ov.dataset.look = look;
     this._ov.classList.add("show");
     this._mount();
     this._arm();
@@ -534,8 +547,7 @@ class JamScreensaver extends JamBase {
       return e && e.getRootNode && e.getRootNode() === sr;
     });
     if (top) return;
-    const cs = getComputedStyle(this);
-    for (const v of SS_TOKENS) { const x = cs.getPropertyValue(v).trim(); if (x) this._layer.style.setProperty(v, x); }
+    this._copyTokens();
     document.body.append(this._layer);
   }
   /* ---- clock: one timeout per minute, aligned to the minute boundary ---- */

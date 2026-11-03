@@ -24,6 +24,7 @@ export default {
   tokens: {
     "jam-display": '"Londrina Solid", "Arial Black", Impact, sans-serif',
     "jam-body": '"Jost", "Helvetica Neue", Arial, sans-serif',
+    "jam-look": "poster",
   },
   // Home Assistant chrome keys at the theme's top level (both modes), in file order; the theme-level tokens follow them.
   chrome: [
@@ -117,6 +118,9 @@ export default {
         "jam-ochre": "#e5a31b", "jam-red": "#e0553b", "jam-alert-text": "#ff8a6e", "jam-teal": "#22a39a", "jam-blue": "#4a7be0",
         "jam-pink": "#e2658f", "jam-violet": "#9b6dd6", "jam-green": "#86a83a", "jam-on-fg": "#141210", "jam-shadow": "#0a0908",
         "jam-s1": "#bd8000", "jam-s2": "#1f9fb0", "jam-s3": "#d43a1c", "jam-s4": "#a66cc4", "jam-s5": "#7f9b2a",
+        "jam-ink-fg": "#ece2c9", "jam-ink-dim": "#9a8f7c", "jam-ink-dim2": "#b4a88f",
+        "jam-band": "#141210", "jam-band-fg": "#ece2c9", "jam-band-dim": "#9a8f7c", "jam-band-key": "#36312b", "jam-band-off": "#6b6152",
+        "jam-band-tile": "#2c2824", "jam-plate": "#141210", "jam-plate-fg": "#ece2c9",
       },
       // Home Assistant keys (tokens/ha.mjs): aliases over the defaults, and the primary ramp 05..95.
       ha: {
@@ -132,11 +136,14 @@ export default {
         "jam-ochre": "#d99410", "jam-red": "#e0553b", "jam-alert-text": "#a12a14", "jam-teal": "#22a39a", "jam-blue": "#4a7be0",
         "jam-pink": "#d24f7c", "jam-violet": "#9b6dd6", "jam-green": "#6d8f22", "jam-on-fg": "#141210", "jam-shadow": "#c9bb98",
         "jam-s1": "#a86e00", "jam-s2": "#00879c", "jam-s3": "#c2361a", "jam-s4": "#8a52ad", "jam-s5": "#5f7d1c",
+        "jam-ink-fg": "#ece2c9", "jam-ink-dim": "#9a8f7c", "jam-ink-dim2": "#b4a88f",
+        "jam-band": "#141210", "jam-band-fg": "#ece2c9", "jam-band-dim": "#9a8f7c", "jam-band-key": "#36312b", "jam-band-off": "#6b6152",
+        "jam-band-tile": "#2c2824", "jam-plate": "#141210", "jam-plate-fg": "#ece2c9",
       },
       ha: {
         // Paper ground with an ink header and sidebar; red primary (ink text on it).
         ground: "#ece2c9", ground2: "{jam-slab2}", primary: "{jam-red}", secondary: "{jam-ochre}",
-        "chrome-fg": "#ece2c9", "chrome-dim": "#9a8f7c", "chrome-accent": "#e5a31b",
+        "chrome-fg": "{jam-ink-fg}", "chrome-dim": "{jam-ink-dim}", "chrome-accent": "#e5a31b",
         ramp: ["#2c0300", "#510a00", "#6f1200", "#ab2100", "#e0553b", "#ff8269", "#ff9781", "#ffb09e", "#ffd2c8", "#ffeae5", "#fff4f2"],
       },
     },

@@ -52,6 +52,7 @@ class JamAlerts extends JamBase {
   /* Auto mode and the unavailable count depend on every state, so the signature also carries the automation id set
      and the unavailable count. */
   set hass(h) {
+    if (this._themeChanged(h)) this._sig = null; // theme / dark-mode switch: render again
     this._hass = h;
     if (!this._config) return;
     const ids = this._config.auto ? Object.keys(h.states).filter(id => id.startsWith("automation.")) : this.watched();
