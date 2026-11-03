@@ -30,7 +30,7 @@ class JamButton extends JamBase {
     .kf.on{background:var(--acc);color:var(--acc-fg)}
     .k{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;container-type:inline-size}
     .sq{flex:none;display:grid;place-items:center;width:28px;height:28px;background:var(--acc);color:var(--acc-fg);
-      clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
+      clip-path:var(--jam-shape-icon,polygon(0 0,100% 0,100% 70%,70% 100%,0 100%))}
     .big .sq{width:36px;height:36px}
     .on .sq{background:var(--acc-fg);color:var(--acc)}
     .layer{min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;margin-top:auto}

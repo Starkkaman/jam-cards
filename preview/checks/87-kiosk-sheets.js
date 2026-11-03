@@ -33,6 +33,7 @@ module.exports = async (page, check) => {
     const ctx = await browser.newContext({viewport: {width: w, height: h}, timezoneId: "America/Los_Angeles"});
     const p = await ctx.newPage();
     p.on("pageerror", e => errs.push(`${w}/${mode}: ${e.message}`));
+    await p.clock.setFixedTime(new Date("2026-10-28T14:41:00-07:00")); // media progress times render the same in every run (pixel diff)
     await p.goto(`${base}?view=none&mode=${mode}`);
     await p.waitForFunction(() => window.__ready);
     await p.evaluate(cfg => {

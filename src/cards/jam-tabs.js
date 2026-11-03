@@ -33,7 +33,7 @@ class JamTabs extends JamBase {
     .tabs{display:flex;gap:4px}
     .tab{flex:1 1 0;min-width:0;position:relative;font:600 .6rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;
       padding:10px 4px 12px;background:var(--slab2);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-      clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+      clip-path:var(--jam-shape-tab,polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%))}
     .tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--c)}
     .tab:hover{color:var(--fg)}
     .tab.on{background:var(--c);color:var(--acc-fg)}

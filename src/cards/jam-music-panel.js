@@ -298,7 +298,7 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .row .dt{font:500 12px/1.25 var(--body);color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .row .play > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;height:34px;display:flex;align-items:center;font-size:12px;background:var(--slab3)}
   .pin{position:absolute;right:0;top:0;width:28px;height:28px;color:var(--fg)}
-  .pin::before{content:"";position:absolute;inset:0;background:var(--slab3);clip-path:polygon(0 0,100% 0,100% 100%)}
+  .pin::before{content:"";position:absolute;inset:0;background:var(--slab3);clip-path:var(--jam-shape-pin,polygon(0 0,100% 0,100% 100%))}
   .pin.on::before{background:var(--acc)}
   .pin.on{color:var(--acc-fg)}
   .pin .ico{position:absolute;right:2px;top:2px;--ic:13px}

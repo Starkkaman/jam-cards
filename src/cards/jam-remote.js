@@ -89,8 +89,8 @@ function jamGlyph(name, cls) {
 const JAM_OUTLINE_CSS = `
     .ol > .face{background:var(--ol,var(--dim));isolation:isolate}
     .ol > .face::before{content:"";position:absolute;inset:3px;z-index:-1;background:var(--slab);
-      clip-path:polygon(0 0,calc(100% - 10.2px) 0,100% 10.2px,100% 100%,0 100%)}
-    .ol[data-cut=chip] > .face::before{clip-path:polygon(0 0,100% 0,100% calc(100% - 4.2px),calc(100% - 4.2px) 100%,0 100%)}
+      clip-path:var(--jam-shape-key-plate,polygon(0 0,calc(100% - 10.2px) 0,100% 10.2px,100% 100%,0 100%))}
+    .ol[data-cut=chip] > .face::before{clip-path:var(--jam-shape-chip-plate,polygon(0 0,100% 0,100% calc(100% - 4.2px),calc(100% - 4.2px) 100%,0 100%))}
     .ol.on > .face::before{display:none}
     .ol.on > .face{background:var(--acc);color:var(--acc-fg)}`;
 /* Volume rocker (round 3): ONE flat block (key cut) in --rk (default the accent) split into − | Mute | + by 3px ink gaps. */

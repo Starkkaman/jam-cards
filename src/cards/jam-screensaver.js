@@ -71,7 +71,7 @@ const SS_CSS = `
   .ov.xf .poster,.ov.xf .slides{display:block} /* poster <-> photos crossfade: both layers while the slides layer fades */
   /* Poster: flat accent shapes + a text block; each layout (l0-l5) only moves them (no transform for placement). */
   .sh{position:absolute;background:var(--acc);width:0;height:0}
-  .bar{clip-path:polygon(0 0,100% 0,100% calc(100% - 3vh),calc(100% - 3vh) 100%,0 100%)}
+  .bar{clip-path:var(--jam-shape-card,polygon(0 0,100% 0,100% calc(100% - 3vh),calc(100% - 3vh) 100%,0 100%))}
   .disc{clip-path:circle(50% at 50% 50%)}
   .txt{position:absolute;display:grid;gap:1.6vh;justify-items:start}
   .kick{font:600 max(12px,2.1vh)/1.2 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
@@ -108,7 +108,7 @@ const SS_CSS = `
   .img.cut{animation:jam-ss-pop 120ms steps(2,end) 1 both}
   .sdock{position:absolute;left:3vw;bottom:4vh;display:grid;gap:1.4vh;justify-items:start}
   .tchip{display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
-    clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
+    clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
   .tchip .tt{font-family:var(--display);font-weight:900;font-size:8vh;line-height:.85;white-space:nowrap}
   .tchip small{color:var(--acc-fg)}
   .tchip .cap{font:600 max(11px,1.8vh)/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;max-width:40vw}
@@ -129,7 +129,7 @@ const SS_CSS = `
   .np .ns:empty{display:none}
   .r .np{flex-direction:row-reverse;text-align:right} .r .np .nt{justify-items:end}
   .sdock .np{margin:0;gap:2vh;padding:1.6vh 3vh 1.6vh 1.6vh;background:var(--ink);max-width:min(64vw,760px);
-    clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+    clip-path:var(--jam-shape-card,polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%))}
   .sdock .np .th{width:11.5vh;height:11.5vh}
   .sdock .np .nb{font-size:4.4vh}
   .sdock .np .ns{font-size:max(12px,2vh)}

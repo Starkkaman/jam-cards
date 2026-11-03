@@ -29,7 +29,7 @@ class JamScenes extends JamBase {
     .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:900;font-size:1rem;line-height:1;
       text-transform:uppercase;color:var(--fg);white-space:nowrap}
     .scene > .sf{position:relative;display:block;padding:12px 14px;background:var(--slab2);
-      clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%)}
+      clip-path:var(--jam-shape-scene,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
     .scene.on > .sf{background:var(--acc);color:var(--acc-fg)}
     .scene:focus-visible{outline-offset:-2px} .scene.on:focus-visible{outline-color:var(--fg)}

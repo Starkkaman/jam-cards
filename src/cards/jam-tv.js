@@ -148,7 +148,7 @@ class JamTv extends JamSheetHost(JamBase) {
     .poster .sub{font:500 13px/1.2 var(--body);letter-spacing:.06em}
     .poster .prog{position:absolute;left:0;right:0;bottom:0;height:5px}
     .poster .prog i{position:absolute;inset:0 auto 0 0;background:var(--acc)}
-    .pw{position:absolute;z-index:2;right:0;top:0;width:44px;height:44px;background:var(--on-fg);color:var(--acc);clip-path:polygon(0 0,100% 0,100% 100%)}
+    .pw{position:absolute;z-index:2;right:0;top:0;width:44px;height:44px;background:var(--on-fg);color:var(--acc);clip-path:var(--jam-shape-pw,polygon(0 0,100% 0,100% 100%))}
     .pw.off{background:var(--red);color:var(--on-fg)}
     .pw svg{position:absolute;right:5px;top:5px;width:16px;height:16px}
     .pw:focus-visible{outline-offset:-3px}

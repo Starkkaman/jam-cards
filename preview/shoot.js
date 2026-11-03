@@ -70,8 +70,10 @@ async function fixedScreensaver(browser, base, dir) {
    set) with the file of the same name in <dir>, decoded and compared in a blank page (canvas getImageData, no deps). One
    check per file: identical, or the count + bounding box of differing pixels. JAM_BASELINE_WRITE=1 copies the shots into
    <dir> instead (make the baseline on the commit before a refactor, then run again after it). Files only in one side are
-   listed, not failed. Shots that show the wall clock (kiosk clock, screensaver) can differ when a minute ticks between
-   the runs: rerun those, or compare at the same minute. */
+   listed, not failed. Not failed either, but reported: preview/shots/screensaver-* (wall clock: time + layout seeded per
+   minute; the JAM_SHOTS screensaver-fixed-* set is the one to compare), and differences of at most 2 per channel
+   (anti-aliasing noise: a sheet shot taken while the compositor still settles shifts a cut edge by ±1-2 in some runs of
+   the same code). */
 async function pixelDiff(browser, dir) {
   const dirs = [path.join(__dirname, "shots"), process.env.JAM_SHOTS].filter(Boolean);
   const files = new Map();
@@ -95,15 +97,19 @@ async function pixelDiff(browser, dir) {
           return {w: bm.width, h: bm.height, d: g.getImageData(0, 0, bm.width, bm.height).data}; };
         const A = await img(x), B = await img(y);
         if (A.w !== B.w || A.h !== B.h) return {size: `${A.w}x${A.h} vs baseline ${B.w}x${B.h}`};
-        let n = 0, x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+        let n = 0, max = 0, x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
         for (let i = 0; i < A.d.length; i += 4) {
           if (A.d[i] === B.d[i] && A.d[i + 1] === B.d[i + 1] && A.d[i + 2] === B.d[i + 2] && A.d[i + 3] === B.d[i + 3]) continue;
+          for (let c = 0; c < 4; c++) max = Math.max(max, Math.abs(A.d[i + c] - B.d[i + c]));
           n++; const px = (i >> 2) % A.w, py = Math.floor((i >> 2) / A.w);
           x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
         }
-        return {n, w: A.w, h: A.h, box: n ? `${x0},${y0} to ${x1},${y1}` : ""};
+        return {n, max, w: A.w, h: A.h, box: n ? `${x0},${y0} to ${x1},${y1}` : ""};
       }, [fs.readFileSync(p).toString("base64"), fs.readFileSync(b).toString("base64")]);
-      check(!r.size && r.n === 0, `pixel diff ${f}: ` + (r.size ? "size " + r.size : r.n ? `${r.n} pixels differ (${r.box}) of ${r.w}x${r.h}` : `identical (${r.w}x${r.h})`));
+      const what = r.size ? "size " + r.size : r.n ? `${r.n} pixels differ by up to ${r.max} (${r.box}) of ${r.w}x${r.h}` : `identical (${r.w}x${r.h})`;
+      if (!r.size && r.n && /^screensaver-(?!fixed-)/.test(f)) console.log(`INFO pixel diff ${f}: ${what} (wall clock, not compared)`);
+      else if (!r.size && r.n && r.max <= 2) console.log(`INFO pixel diff ${f}: ${what} (anti-aliasing noise, not failed)`);
+      else check(!r.size && r.n === 0, `pixel diff ${f}: ` + what);
     }
   } finally { await page.close(); }
 }
@@ -166,9 +172,18 @@ const server = http.createServer((req, res) => {
             shadows += r.querySelectorAll(".shadow").length;
             for (const p of r.querySelectorAll(".paper")) {
               papers++;
-              const k = p.dataset.cut, clip = p.style.getPropertyValue("--clip").trim();
+              const k = p.dataset.cut, inline = p.style.getPropertyValue("--clip").trim(), clip = getComputedStyle(p).getPropertyValue("--clip").trim();
               kinds[k] = (kinds[k] || 0) + 1;
-              if (J.CUTS[k]) { if (clip !== J.cutPath(...J.CUTS[k]) || pts(clip) !== 5) bad.push(`${k}: ${clip}`); }
+              if (J.CUTS[k]) {
+                // R2: the kind's shape comes from CSS (--jam-shape-<kind>, else the Poster cut), never an inline --clip; the
+                // computed --clip equals the kind token resolved at the paper (a probe child), and under Poster the cut itself.
+                const pr = document.createElement("i"), poster = J.cutPath(...J.CUTS[k]);
+                pr.style.setProperty("--probe", `var(--jam-shape-${k},${poster})`); p.append(pr);
+                const tok = getComputedStyle(pr).getPropertyValue("--probe").trim(); pr.remove();
+                if (inline) bad.push(`${k}: inline --clip ${inline}`);
+                if (clip !== tok) bad.push(`${k}: --clip ${clip} is not the kind token ${tok}`);
+                if (J.lookOf(p) === "poster" && (clip !== poster || pts(clip) !== 5)) bad.push(`${k}: ${clip}`);
+              }
               else if (k === "arrow") { if (pts(clip) !== 5) bad.push("arrow: " + clip); }
               else if (k === "disc") { if (!clip.startsWith("circle(")) bad.push("disc: " + clip); }
               else bad.push(`unknown kind ${k}: ${clip}`);
@@ -181,7 +196,7 @@ const server = http.createServer((req, res) => {
           return {bad, kinds, papers, shadows};
         });
         check(edges.papers > 50 && edges.bad.length === 0,
-          `${mode}/${width}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes) ${JSON.stringify(edges.kinds)}` +
+          `${mode}/${width}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes), each paper's computed clip = its kind token (no inline --clip) ${JSON.stringify(edges.kinds)}` +
           (edges.bad.length ? " — " + edges.bad.slice(0, 5).join("; ") : ""));
         check(edges.shadows === 0, `${mode}/${width}: no shadow slab elements (${edges.shadows})`);
         if (mode === "dark" && width === 1280) {

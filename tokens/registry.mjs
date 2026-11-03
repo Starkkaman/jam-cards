@@ -51,6 +51,28 @@ export const TOKENS = [
   // ---- type ----
   {name: "jam-display", css: "display", scope: "theme", note: "display font stack"},
   {name: "jam-body", css: "body", scope: "theme", note: "body / label font stack"},
+  // ---- shape (R2; optional: unset = the Poster geometry written at each use, so the Poster theme sets none of them) ----
+  {name: "jam-shape-card", css: "", scope: "theme", optional: true, note: "clip-path of card faces, panels (+ jam-light pop-up bars / hue strip / white editor, screensaver bars + photos now label)"},
+  {name: "jam-shape-key", css: "", scope: "theme", optional: true, note: "clip-path of jam-button, jam-remote row keys"},
+  {name: "jam-shape-chip", css: "", scope: "theme", optional: true, note: "clip-path of pills, option / temp / source chips, transport keys, popup close (+ .chip, screensaver time chip)"},
+  {name: "jam-shape-hero", css: "", scope: "theme", optional: true, note: "clip-path of jam-hero"},
+  {name: "jam-shape-sheet", css: "", scope: "theme", optional: true, note: "clip-path of openSheet / jam-popup sheet"},
+  {name: "jam-shape-poster", css: "", scope: "theme", optional: true, note: "clip-path of jam-tv / jam-speaker poster"},
+  {name: "jam-shape-pw", css: "", scope: "theme", optional: true, note: "clip-path of power corner triangle (POWER_CSS, jam-tv 44px corner)"},
+  {name: "jam-shape-strip-end", css: "", scope: "theme", optional: true, note: "clip-path of accent fill end of strips (.fill, jam-light bars / band strips)"},
+  {name: "jam-shape-tab", css: "", scope: "theme", optional: true, note: "clip-path of jam-tabs tab"},
+  {name: "jam-shape-scene", css: "", scope: "theme", optional: true, note: "clip-path of jam-scenes key"},
+  {name: "jam-shape-icon", css: "", scope: "theme", optional: true, note: "clip-path of jam-button icon square"},
+  {name: "jam-shape-pin", css: "", scope: "theme", optional: true, note: "clip-path of jam-music-panel pin corner tab"},
+  {name: "jam-shape-plate", css: "", scope: "theme", optional: true, note: "clip-path of jam-light label plate (contrast fallback)"},
+  {name: "jam-shape-key-plate", css: "", scope: "theme", optional: true, note: "clip-path of jam-remote outlined key: inner plate (key cut)"},
+  {name: "jam-shape-chip-plate", css: "", scope: "theme", optional: true, note: "clip-path of jam-remote outlined key: inner plate (chip cut)"},
+  {name: "jam-radius-card", css: "", scope: "theme", optional: true, note: "border-radius of the card kind (default 0; for a shape of none)"},
+  {name: "jam-radius-key", css: "", scope: "theme", optional: true, note: "border-radius of the key kind (default 0; for a shape of none)"},
+  {name: "jam-radius-chip", css: "", scope: "theme", optional: true, note: "border-radius of the chip kind (default 0; for a shape of none)"},
+  {name: "jam-radius-hero", css: "", scope: "theme", optional: true, note: "border-radius of the hero kind (default 0; for a shape of none)"},
+  {name: "jam-radius-sheet", css: "", scope: "theme", optional: true, note: "border-radius of the sheet kind (default 0; for a shape of none)"},
+  {name: "jam-radius-poster", css: "", scope: "theme", optional: true, note: "border-radius of the poster kind (default 0; for a shape of none)"},
   // ---- identity (R1) ----
   {name: "jam-look", css: "", scope: "theme", note: "look id (poster, braun, ...): cards set data-look=<id> on their host, sheets and the screensaver layer"},
 ];

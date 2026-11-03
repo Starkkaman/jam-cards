@@ -103,8 +103,8 @@ const LIGHT_SHEET_CSS = `
   .lsheet .t .kick{color:var(--dim)}
   .sec{display:grid;gap:8px}
   .bwrap{position:relative;cursor:ew-resize;touch-action:none}
-  .bigbar{position:relative;height:72px;background:var(--slab2);clip-path:${cutPath("br", 14)}}
-  .bigbar i{position:absolute;inset:0 auto 0 0;background:var(--lc);clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%)}
+  .bigbar{position:relative;height:72px;background:var(--slab2);clip-path:var(--jam-shape-card,${cutPath("br", 14)})}
+  .bigbar i{position:absolute;inset:0 auto 0 0;background:var(--lc);clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%))}
   .bigbar b{position:absolute;right:18px;top:50%;transform:translateY(-50%);font:900 2.2rem/1 var(--display);color:var(--fg)}
   .bigbar.hi b{color:var(--lc-fg)}
   .bwrap[aria-disabled=true]{cursor:default}
@@ -120,7 +120,7 @@ const LIGHT_SHEET_CSS = `
   .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px}
   .chips .key{min-width:0}
   .hwrap{position:relative;cursor:crosshair;touch-action:none}
-  .hb{display:flex;height:64px;clip-path:${cutPath("br", 12)}}
+  .hb{display:flex;height:64px;clip-path:var(--jam-shape-card,${cutPath("br", 12)})}
   .hb span{flex:1}
   .mk{position:absolute;top:-6px;bottom:-6px;width:10px;margin-left:-5px;background:var(--fg);outline:3px solid var(--ink);pointer-events:none}
   .sws{display:flex;flex-wrap:wrap;gap:6px}
@@ -140,13 +140,13 @@ const LIGHT_SHEET_CSS = `
   .wt .gl{position:absolute;right:10px;top:10px;width:20px;height:20px}
   .sw.rm > .face{display:grid;place-items:center}
   .sw .gl{width:16px;height:16px}
-  .wedit{display:grid;gap:6px;background:var(--slab2);padding:12px 14px 16px 12px;clip-path:${cutPath("br", 14)}}
+  .wedit{display:grid;gap:6px;background:var(--slab2);padding:12px 14px 16px 12px;clip-path:var(--jam-shape-card,${cutPath("br", 14)})}
   .nin{font:900 1.3rem/1 var(--display);text-transform:uppercase;color:var(--fg);background:var(--slab);border:0;border-bottom:3px solid var(--fg);
     padding:10px 10px 8px;min-height:44px;width:100%;border-radius:0;outline:none}
   .nin:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
   .kwrap{position:relative;cursor:ew-resize;touch-action:none}
   .kbar{position:relative;height:48px;background:var(--slab)}
-  .kbar i{position:absolute;inset:0 auto 0 0;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+  .kbar i{position:absolute;inset:0 auto 0 0;clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%))}
   .kbar b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:900 1.4rem/1 var(--display);color:var(--fg);padding:3px 6px;background:var(--slab)}
   .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible,.kwrap:focus-visible{outline:3px solid var(--focus);outline-offset:2px}`;
 
@@ -235,10 +235,10 @@ class JamLight extends JamBase {
     .lc.dead .pct small{color:var(--alert-text)}
     /* Contrast fallback (ROUND3): neither ink nor paper reaches 4.5:1 on the face -> ink label plates. */
     .lc.on.plate .top{margin:-12px 0 0 -14px;padding:10px 18px 10px 14px;background:${LIGHT_PLATE};color:${LIGHT_PLATE_FG};
-      clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
+      clip-path:var(--jam-shape-plate,polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%))}
     .lc.on.plate .pct{margin-left:-8px;padding:4px 8px;background:${LIGHT_PLATE};color:${LIGHT_PLATE_FG}}
     .bs{position:absolute;left:0;right:0;bottom:0;height:10px;background:var(--lc-deep,rgba(0,0,0,.3));pointer-events:none}
-    .bs i{position:absolute;inset:0 auto 0 0;background:var(--lc-mid,currentColor);clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
+    .bs i{position:absolute;inset:0 auto 0 0;background:var(--lc-mid,currentColor);clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%))}
     .lc:not(.on) .bs{display:none}
     /* Ink gaps (3px on the left edge, 2px between bands) keep a band readable when its colour equals the face. */
     .bands{position:absolute;right:0;top:0;bottom:10px;width:var(--bw);display:flex;gap:2px;padding-left:3px;background:var(--ink);pointer-events:none}

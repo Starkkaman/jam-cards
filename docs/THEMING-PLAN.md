@@ -399,5 +399,29 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   and re-reads the look (jam-alerts, jam-popup and jam-screensaver, which have their own setters, do the same), which
   fixes jam-kiosk's stale light class. New check `preview/checks/96-looks.js`; 97-robust still 0 DOM writes. Theme:
   `jam-look: poster` at the top level and the new colour tokens per mode. Pixel diff vs R0: identical (same caveat).
+- **R2 (done).** `paper()` no longer writes an inline `--clip`: `SHAPE_CSS` (built from `CUTS` in BASE_CSS) sets
+  `.paper[data-cut=<kind>]{--clip:var(--jam-shape-<kind>, <Poster cut>); --rad:var(--jam-radius-<kind>, 0px)}` and `.face`
+  takes `border-radius: var(--rad)`. Every literal polygon outside cutPath is now a kind token with its own Poster
+  geometry as the fallback: `chip` (.chip, button.chip::before, screensaver time chip), `strip-end` (.fill, jam-light
+  bars / bands / white bars), `pw` (POWER_CSS, jam-tv 44px corner), `tab`, `scene`, `icon` (jam-button square), `pin`
+  (music pin tab), `plate` (jam-light label plate), `key-plate` / `chip-plate` (jam-remote outlined keys), `card`
+  (jam-light pop-up bars / hue strip / white editor, screensaver bars + photos now label). Geometry that stays literal:
+  jam-remote d-pad arrows, arrow marks and OK disc (inline `--clip`, `data-cut=arrow|disc`), the screensaver disc and the
+  kiosk lock circle. Shape and radius tokens are optional and the Poster theme sets none of them: a family such as
+  `strip-end` has several Poster sizes (8 / 9 / 10 / 12 / 14px), so one theme value would change pixels; unset keeps each
+  site's own cut. shoot.js now checks, in every mode / width, that no paper has an inline `--clip` and that each paper's
+  computed `--clip` equals its kind token resolved at the paper (and the Poster cut when the look is poster); 96-looks
+  sets card / key (+ radius) / chip / strip-end / pw tokens live and checks the computed clip-path / radius, then that the
+  Poster cuts come back. Pixel diff vs R1: identical. Harness: the 87 kiosk-sheet pages now use a fixed clock (media
+  progress times), and the pixel diff reports the wall-clock `screensaver-*` shots and differences of at most 2 per
+  channel (the CLOSE-key anti-aliasing noise) as INFO instead of failing.
+  Deferred from 2.2: `jam-pad-<kind>` (a `max(var(--p-t), var(--jam-pad-x))` padding turns invalid wherever a card sets a
+  unitless `--p-t:0`, which drops all four paddings; needs a per-card pass, best with the first look whose shapes need
+  more padding than the Poster cuts), `jam-border`, `jam-rule-h`, `jam-stripe-w`, `jam-strip-h` (no consumer yet).
+- Open for R3+: the colour maths still assume the Poster ink / paper (`inkOn`, `textOn`, `cornerColors`, jam-light
+  `textOn` / `shade`, jam-tv art luminance, jam-speaker K1 panel colour: R4); type literals (57 uppercase, 50 weight-900,
+  75 tracking: R3); motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
+  "now: a new cover is not shown before it has loaded" (93-now-playing) fails in about half the runs on 0.7.2 already
+  (the local server serves the cover before the check looks); it is not caused by R0-R2.
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
   place); it can link `../../jam-cards/preview/looks.css` instead.
