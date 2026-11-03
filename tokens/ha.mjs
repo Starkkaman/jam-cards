@@ -12,6 +12,7 @@ export const HA_ALIASES = {
   "chrome-fg": "{jam-fg}",
   "chrome-dim": "{jam-dim}",
   "chrome-accent": "{jam-ochre}", // selected sidebar item
+  "header-rule": "4px solid {primary}", // app header bottom border
 };
 const RAMP = ["05", "10", "20", "30", "40", "50", "60", "70", "80", "90", "95"];
 export const HA_KEYS = [
@@ -63,7 +64,7 @@ export const HA_KEYS = [
   ["green-color", "{jam-green}"],
   ["app-header-background-color", "{chrome-bg}"],
   ["app-header-text-color", "{chrome-fg}"],
-  ["app-header-border-bottom", "4px solid {primary}"],
+  ["app-header-border-bottom", "{header-rule}"],
   ["sidebar-background-color", "{chrome-bg}"],
   ["sidebar-text-color", "{chrome-fg}"],
   ["sidebar-icon-color", "{chrome-dim}"],

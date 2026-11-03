@@ -328,6 +328,12 @@ function bindActions(node, hass, config, entityId) {
     e.preventDefault(); run(c.tap_action);
   });
 }
+/* Clock text "h:mm" with the colon in its own <span class="colon"> (a look pack may colour it; Braun: the signal orange).
+   textContent stays "h:mm". Used by jam-kiosk and jam-screensaver. */
+function jamClockText(node, h, mm) {
+  node.textContent = String(h);
+  node.append(el("span", "colon", ":"), String(mm));
+}
 /* A non-button node that acts as a button (titles, temperatures, air lines): role=button, tabIndex 0, .focusable ring,
    click and Enter/Space run fn. */
 function asButton(node, fn) {

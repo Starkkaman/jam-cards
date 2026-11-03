@@ -598,9 +598,9 @@ class JamScreensaver extends JamBase {
       if (f.h12) {
         let per = d.getHours() < 12 ? "AM" : "PM";
         try { const x = new Intl.DateTimeFormat(f.loc, {hour: "numeric", hour12: true}).formatToParts(d).find(p => p.type === "dayPeriod"); if (x) per = x.value; } catch (e) { /* keep AM/PM */ }
-        node.textContent = `${d.getHours() % 12 || 12}:${mm}`;
+        jamClockText(node, d.getHours() % 12 || 12, mm);
         node.append(el("small", "", per));
-      } else node.textContent = `${String(d.getHours()).padStart(2, "0")}:${mm}`;
+      } else jamClockText(node, String(d.getHours()).padStart(2, "0"), mm);
     };
     setTime(this._time); setTime(this._ctime);
     let date = "";

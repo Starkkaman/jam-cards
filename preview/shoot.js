@@ -128,12 +128,14 @@ async function fixedScreensaver(browser, base, dir) {
    minute; the JAM_SHOTS screensaver-fixed-* set is the one to compare), and differences of at most 2 per channel
    (anti-aliasing noise: a sheet shot taken while the compositor still settles shifts a cut edge by ±1-2 in some runs of
    the same code). */
-async function pixelDiff(browser, dir) {
+async function pixelDiff(browser, dir, looks, allLooks) {
   const dirs = [path.join(__dirname, "shots"), process.env.JAM_SHOTS].filter(Boolean);
   const files = new Map(); // relative name (R9: <look>/x.png, cards/<look>/NN.png) -> path
   const pngs = (d, rel = "") => fs.existsSync(d) ? fs.readdirSync(d, {withFileTypes: true}).flatMap(e =>
     e.isDirectory() ? pngs(path.join(d, e.name), rel + e.name + "/") : e.name.endsWith(".png") ? [[rel + e.name, path.join(d, e.name)]] : []) : [];
-  for (const d of dirs) for (const [f, p] of pngs(d)) files.set(f, p);
+  // Only the looks of this run: another look's folder (<look>/..., cards/<look>/...) holds shots of an earlier run.
+  const other = f => { const m = /^(?:cards\/)?([a-z][a-z0-9-]*)\//.exec(f); return !!m && allLooks.includes(m[1]) && !looks.includes(m[1]); };
+  for (const d of dirs) for (const [f, p] of pngs(d)) if (!other(f)) files.set(f, p);
   fs.mkdirSync(dir, {recursive: true});
   if (process.env.JAM_BASELINE_WRITE) {
     for (const [f, p] of files) { fs.mkdirSync(path.dirname(path.join(dir, f)), {recursive: true}); fs.copyFileSync(p, path.join(dir, f)); }
@@ -142,7 +144,7 @@ async function pixelDiff(browser, dir) {
   }
   const page = await browser.newPage();
   try {
-    const only = pngs(dir).map(([f]) => f).filter(f => !files.has(f));
+    const only = pngs(dir).map(([f]) => f).filter(f => !files.has(f) && !other(f));
     if (only.length) console.log("baseline only (not written this run): " + only.join(", "));
     for (const [f, p] of [...files].sort()) {
       const b = path.join(dir, f);
@@ -363,11 +365,14 @@ const server = http.createServer((req, res) => {
     }
     if (fitIds.length) await require("./fit.js")(browser, base, check, {looks: fitIds, dir: process.env.JAM_SHOTS, fitCheck,
       lookDir: id => (id !== "stress" && LOOKS.includes(id) ? shotDir(id) : null)});
+    // Review views of every non-Poster look (preview/views.js): its sheets, panel B, kiosk sheets and screensaver in both
+    // modes (shots/<look>/views/), each with a controls-present check. JAM_NO_VIEWS=1 skips them.
+    if (!process.env.JAM_NO_VIEWS) for (const look of LOOKS.filter(l => l !== "poster")) await require("./views.js")(browser, base, check, {look, dir: shotDir(look)});
     if (!process.env.JAM_NO_CONTACT) {
       const n = await contactSheet(browser, base, LOOKS);
       check(n > 10, `contact sheet preview/shots/looks.html: ${n} items x ${LOOKS.length} looks (${LOOKS.join(", ")})`);
     }
-    if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE);
+    if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE, LOOKS, ALL_LOOKS.map(l => l.id));
     check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));
   } finally { await browser.close(); server.close(); }
