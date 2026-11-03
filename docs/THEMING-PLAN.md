@@ -283,10 +283,10 @@ What HA offers (frontend APIs for custom cards):
     `custom_value`), `icon`, `ui_action` (tap/hold/double_tap), `ui_color`.
   - Layout types: `grid` and `expandable`.
   - `assertConfig` throwing sends the user to YAML for configs the form cannot represent.
-  - Keys outside the schema are kept, because ha-form spreads the data (verify).
+  - Keys outside the schema are kept, because ha-form spreads the data (verified below).
   - Available since HA 2024.11-12; the repo already requires 2024.12.0.
-- `object` selector with `fields` + `multiple` (a list of sub-forms). Newer HA; **verify on the user's 2026.10** before
-  relying on it in phase 2.
+- `object` selector with `fields` + `multiple` (a list of sub-forms). Present in the 2026.10 frontend (verified below);
+  `reorder` only from 2026.11.
 - `static getConfigElement()` returns a custom editor element: `setConfig()`, `hass`, and it fires `config-changed`
   (`bubbles`, `composed`).
   - It can embed `ha-form`, which is lazy-loaded. A known workaround creates a built-in card's editor first.
@@ -310,6 +310,48 @@ What HA offers (frontend APIs for custom cards):
 - Phase 3 is M-L per card. Ship phase 3 last and keep YAML documented as the full reference.
 - Add `preview/checks/editors.js`. For each card it calls `getConfigForm()`, validates the selector names, and confirms
   that `getStubConfig(fakeHass)` passes `setConfig`.
+
+**Checked against the HA 2026.10 frontend (2026-11-03).** HA 2026.10.0 pins `home-assistant-frontend==20260930.2`; read in
+that tag's source (`src/components/ha-form/ha-form.ts`, `src/panels/lovelace/editor/hui-element-editor.ts`,
+`.../card-editor/hui-card-element-editor.ts`, `.../config-elements/hui-form-editor.ts`, `.../get-card-stub-config.ts`,
+`src/data/selector.ts`) and the contributor docs (contributors.home-assistant.io/frontend/custom-ui/card-editor/):
+- `getConfigForm` is read from the card class (`customElements.get(tag).getConfigForm()`); the form editor exists since
+  frontend PR #16142 (2023) and custom cards use the same path. `getConfigElement` wins when a card has both.
+- **Unknown keys survive (verified):** ha-form merges each change as `this.data = {...this.data, ...newValue}` and
+  hui-form-editor fires `config-changed` with that object, so YAML-only keys (chips, tones, whites, presets, speeds ...)
+  are kept by form edits. assertConfig is therefore only needed for keys that ARE in the schema but hold a shape the
+  selector cannot show.
+- `grid` / `expandable` write their fields at the top level only when the group has no `name` or has `flatten: true`;
+  a named group without flatten writes a sub-object (used on purpose for jam-gauge `severity`). Expandables take `title`.
+- A non-required field's `default` is passed as the selector's placeholder only (a boolean shows it as its checked
+  state); nothing is written to the config. So default-true booleans use `default: true`.
+- `assertConfig(config)` is called by hui-form-editor's setConfig on every change; throwing disables the visual editor
+  (YAML) until the config fits.
+- `getStubConfig(hass, entities, entitiesFallback)`: HA spreads the result over `{type}`, so the stub has no `type`;
+  `entities` = not yet on the dashboard, `entitiesFallback` = already on it; both skip unavailable ones and may be empty.
+- `customCards[]`: `type`, `name`, `description`, `preview` (default false), `documentationURL`, `getEntitySuggestion`.
+- **`object` selector** in 20260930.2: `{label_field, description_field, translation_key, fields, multiple}` exists, so
+  phase 2 can use `fields` + `multiple` on 2026.10. `reorder` only arrives in frontend 20261028 (HA 2026.11): on 2026.10
+  object lists cannot be reordered in the form.
+- `text` with `multiple: true` (jam-choice `options`) and `config_entry` with `integration` (jam-speaker) are in the same
+  selector set.
+
+**Phase 1 (done 2026-11-03, branch `editors`).** `src/editors.js` (bundled after the cards) attaches `getConfigForm` and
+`getStubConfig` to the 13 phase 1 cards by tag (no card file or CSS changed) and completes every jam `customCards` entry
+with `documentationURL` (README anchor) and `preview: true` for those 13. Shared helpers: field builders, `JE_ACCENT`
+(select of the hue names ochre ... paper, `custom_value` for room aliases), an Actions expandable (ui_action), labels,
+and `jeAssert`, which derives assertConfig from the schema: any schema field whose value the selector cannot show (a
+`{entity, name}` item in an entity list, a `sensor: {entity, name}` object, a non-boolean in a boolean ...) sends the
+card to YAML; YAML-only keys are never checked. Stubs pick real entities from `hass` (`entities` first, available ones
+first; e.g. first light, first fan, first weather, a numeric `%` sensor for the gauge, a Music Assistant player for
+jam-speaker) and fall back to a fixed id so setConfig never throws on an empty house. YAML-only per card: jam-hero
+`chips`; jam-tile `tones`; jam-light `whites`, `presets`; jam-fan `speeds`, `presets`; jam-speaker `pinned`; jam-graph
+per-series names (an entities list with objects goes to YAML). Check: `preview/checks/94-editors.js` (form keys vs the
+README option table, selectors, stubs on the preview hass and an empty hass through assertConfig + setConfig + render
+with `card.preview = true`, an ha-form style edit keeping an unknown key, customCards entries; logs how many fixture
+configs fit the form: all but one jam-graph with named series).
+Still to do: phase 1b (jam-media, jam-house, jam-screensaver: these three must honour `card.preview` before they get
+`preview: true`), phase 2 (object lists; `object` selector confirmed above), phase 3 (custom editors).
 
 ---
 
