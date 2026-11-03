@@ -7,7 +7,8 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03); the global switch will be a Look
+the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03; both built in R10, see "Braun
+rules" and "Olympia rules"); the global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
 own section and may replace them).
@@ -98,6 +99,23 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   powerGlyph = 1.75px stroke, screensaver = the AB-1 dial ring (a hairline circle with an orange dot) on a panel page.
 - Motion: smooth `cubic-bezier(.2,.7,.3,1)` at the Poster durations; press = scale .98; entrance / sheets fade and rise;
   stamps settle, washes and wipes are gone. Reduced motion = none (BASE_CSS).
+
+## Olympia rules (the Olympia look, theme "Jam Olympia"; brief docs/looks/OLYMPIA.md)
+- Tokens (`tokens/looks/olympia.mjs`): light ground #f4f6f7 (HA ground alias; `jam-ink` is the navy ink #1f3b4d / #10202b
+  for the sheet veil, plates and the screensaver ground), white / #172b38 faces with a 1px hairline (`jam-border`), face 2
+  #e7edf0 / #223a49 for keys and tracks; every shape token `none` (square, no cut corners); Albert Sans 400 lowercase at
+  .87 (labels 400, keys 500, tracking x .15); `jam-rule-h` / `jam-stripe-w` 4px; calm motion (x1.15, ease-in-out, no
+  stamps / washes / spiral flash). Room hues on the spectrum: ochre (living, default) = orange, teal (kitchen) = green,
+  blue = blue, pink (marissa) = light blue, violet (music) = blue, green = green, red (alerts) = orange: no red anywhere.
+- Text on spectrum fills (`jam-on-fg`) is the deep navy #10202b in both modes (white and #1f3b4d stay under 4.5:1 on the
+  blue / green); light dim #52697a and alert text #9a4700 are the contrast-safe values (brief: #6b8291 / orange).
+- Pack (`src/looks/olympia.js`): a 4px top stripe on every card face (room / tone colour; the Poster left tone stripe moves
+  to the top; jam-light: the light's colour when on, silver when off); lowercase everything except form fields; 6px
+  strips; the power corner = a 32px square (on: filled accent / light colour, off: face 2), 1.75px glyph; jam-light on =
+  plain face, colour in the stripe, bar and the number when it reads (`--lc-num`), group members as thin bars with 1px
+  face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
+  band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
+  stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,

@@ -282,6 +282,10 @@ class JamLight extends JamBase {
       root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", t.fg);
       root.style.setProperty("--lc-mid", rgbCss(shade(rgb, 1))); root.style.setProperty("--lc-deep", rgbCss(shade(rgb, 2)));
       if (t.plate) root.classList.add("plate");
+      // Look hook (R10): the light's colour as text on the plain card face when it reads (>= 4.5:1), else the text colour.
+      // Poster never reads it; a look whose on-face stays the card face (Olympia) colours the big number with it.
+      let slab = null; try { slab = parseRgb(getComputedStyle(b).getPropertyValue("--slab").trim()); } catch (e) { /* not in a page */ }
+      root.style.setProperty("--lc-num", slab && contrastRatio(rgb, slab) >= 4.5 ? fill : "var(--fg)");
       corner = rgb;
     } else { root.style.setProperty("--lc", "var(--acc)"); root.style.setProperty("--lc-fg", "var(--acc-fg)"); }
     // Wash (0.3.5): on a real on/off change (not the first render, not a plain update) the colour wipes in across the

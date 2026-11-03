@@ -625,3 +625,20 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   every R3-R5 run and failed once in the R6 verification run (passed in the R7 run on top of it).
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
   place); it can link `../../jam-cards/preview/looks.css` instead.
+- **R10 Olympia (done, 2026-11-03).** The second look from the user's brief (docs/looks/OLYMPIA.md, decisions and
+  deviations listed there under "Built"). `tokens/looks/olympia.mjs` is no longer a draft: full palette per mode (light
+  primary), every shape token `none`, `jam-border` 1px hairline, Albert Sans 400 lowercase at .87 (labels 400 / keys 500,
+  tracking x .15), rule / stripe 4px, motion x1.15 ease-in-out with stamps / washes / the spiral flash off (`none`) and
+  three pack keyframes (`jam-oly-enter`, `-sheet`, `-fade`); theme "Jam Olympia" generated to
+  `../jam-theme/themes/jamboard-olympia.yaml` (jam-theme branch look-olympia). `src/looks/olympia.js`: pack CSS (top
+  stripes, lowercase, 6px strips, square power corner incl. jam-tv's own, jam-light / jam-button plain "on" faces, group
+  bars, weight-300 numerals, kiosk dock spectrum, screensaver panel, 2px focus) and four motifs (empty, idleArt,
+  powerGlyph, screensaver; the screensaver motif returns four nodes like Poster's, so fit.js's DOM paths stay comparable).
+  Shared-code hooks (additive, Poster pixel-identical): jam-light sets `--lc-num` (the light's colour when it reaches 4.5:1
+  on the card face, else `var(--fg)`; the face colour is read from the computed `--slab`, not with a resolveRgb probe
+  element, which shifted the Poster nerveos-sheet-390 shot of a later check); tokens/ha.mjs aliases `yellow` / `cyan` (default `{jam-ochre}` / `{jam-teal}`, so
+  jamboard.yaml is unchanged). Harness: preview/fit.js now also runs the kiosk Music / TV sheets and the 6 screensaver
+  layouts in light mode (`-light` shot names; dark names unchanged) and checks text contrast (preview/contrast.js) on the
+  look's kiosk home, kiosk sheets and screensaver layouts. Not automated yet (reviewed by hand with contrast.js, 0
+  findings in both modes): the jam-light pop-up (group, WLED), jam-tv Source / Remote sheets, jam-speaker panel B, the
+  screensaver photos view; behaviour checks still run on Poster only (R9 note).
