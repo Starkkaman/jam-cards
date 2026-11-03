@@ -1,24 +1,33 @@
-# Jam design system (v0.3 "Poster") — the source of truth for every jam card
+# Jam design system — the source of truth for every jam card (default look: v0.3 "Poster")
 
 Saul Bass graphic design (Anatomy of a Murder, The Man with the Golden Arm, Vertigo, North by Northwest), as a poster:
 **flat colour blocks on an ink ground, cut with scissors in straight lines.** One accent colour per card (per room),
 filled into whatever is on. Fun comes from shape and colour blocking, never from effects.
 v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with the approved mockup variant "A · Poster".
 
-## Hard rules
-- Flat colour only. No gradients, blur, glows, shadows of any kind, rounded corners, opacity fades as decoration.
-- Separation comes from flat surfaces: card face `--slab` on the ink ground, inner controls `--slab2`. No shadow slabs.
+**Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
+and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
+the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03); the global switch will be a Look
+picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
+rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
+own section and may replace them).
+
+## Universal rules (every look)
+- Tokens, not literals: colours and shapes come from the `--jam-*` tokens (see "Token reference"); card CSS writes no hex
+  colour and no clip-path polygon except as a token's Poster fallback (`var(--jam-shape-card, polygon(...))`) and the listed
+  geometry exceptions (jam-remote d-pad arrows / arrow marks / OK disc, circles). Cards never fork per look; a look needs
+  only its theme (and later its pack CSS over the stable class hooks).
+- Look hooks: every card host, openSheet's `.pop` and the jam-screensaver overlay carry `data-look=<id>` (`lookOf()`:
+  the computed `--jam-look`, `poster` when unset). A theme or dark-mode switch (a new `hass.themes` / `hass.selectedTheme`
+  object) re-renders the cards and re-reads the look; body layers copy every token (`JamCards.TOKENS`).
 - Inside a sheet (jam-popup, openSheet / jamCardSheet) the sheet face is `--slab` and child cards move one step up: the
   sheet body sets `--jam-slab: slab2` and `--jam-slab2: slab3`, so child faces are slab2 and their keys slab3 (theme key
   `jam-slab3` in both modes of ../jam-theme). Content a sheet builds itself (jam-light pop-up) keeps slab2 controls.
-- Edges are **straight**: every surface is a rectangle with ONE 45° cut corner, fixed per element kind (see "Edge system").
-  Nothing is torn or jagged; nothing is random per seed. Text never sits in a cut.
-- Display type: Londrina Solid 900, UPPERCASE, tight leading (.9), slight negative tracking allowed (-.005em).
-  Body/labels: Jost 400-600; labels UPPERCASE .72rem letter-spacing .16em.
-- Motion = cut paper: one-shot only, `steps()`, ≤ 300 ms, transform / clip-path / opacity only, no infinite animation, no
-  rAF loops (see "Motion"). `prefers-reduced-motion: reduce` and `JamCards.motion = false` turn it all off.
+- Motion is one-shot only: no infinite animation, no rAF loops (kiosks run for days on weak hardware).
+  `prefers-reduced-motion: reduce` and `JamCards.motion = false` turn it all off (see "Motion").
 - Entity names, states, attributes → `textContent` only. Never innerHTML with data.
-- Every control is a real `<button>` / keyboard reachable, visible focus = 3px ochre outline offset 2px. Non-button controls
+- Every control is a real `<button>` / keyboard reachable, visible focus = 3px `--focus` outline (theme `jam-focus`; Poster:
+  ochre) offset 2px. Non-button controls
   (titles, temperatures, rows) use `asButton()` (role=button, tabIndex 0, Enter/Space). A self-clipped element (`.chip`,
   `.scene`, `.tab`) draws the ring inside (offset -3px; on a filled one in its text colour), because a clip-path also clips
   the outline. Toggles carry `aria-pressed`, icon-only keys an `aria-label`, sheets are `role=dialog` + `aria-modal`,
@@ -39,7 +48,26 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
   preview/checks/97-robust.js enforces both.
 - No dependencies, no build step, everything in `jam-cards.js`. Keep each card lean: no feature nobody configured.
 
-## Tokens (CSS custom properties; theme sets `--jam-*`, cards fall back to the dark values)
+## Poster rules (the Poster look)
+- Flat colour only. No gradients, blur, glows, shadows of any kind, rounded corners, opacity fades as decoration.
+- Separation comes from flat surfaces: card face `--slab` on the ink ground, inner controls `--slab2`. No shadow slabs.
+- Edges are **straight**: every surface is a rectangle with ONE 45° cut corner, fixed per element kind (see "Edge system").
+  Nothing is torn or jagged; nothing is random per seed. Text never sits in a cut.
+- Display type: Londrina Solid 900, UPPERCASE, tight leading (.9), slight negative tracking allowed (-.005em).
+  Body/labels: Jost 400-600; labels UPPERCASE .72rem letter-spacing .16em.
+- Motion = cut paper: `steps()`, ≤ 300 ms, transform / clip-path / opacity only (see "Motion").
+- Focus ring and default accent: ochre.
+
+## Token reference
+Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
+scope: per mode or theme-wide, optional or not); `tokens/looks/poster.mjs` holds the Poster values; `tokens/ha.mjs`
+derives Home Assistant's own keys from a palette. Generated from it: the BASE_CSS `:host` declarations (`TOKEN_CSS`:
+`--ink: var(--jam-ink, <Poster dark>)` ..., so the cards fall back to Poster dark), `JAM_TOKENS` (= `JamCards.TOKENS`, the
+copy list of openSheet / jam-screensaver), `preview/looks.css` (`node tools/bundle.mjs`) and
+`../jam-theme/themes/jamboard.yaml` (`node tools/themes.mjs`; `bundle --check` fails while any of them is stale). Edit the
+source, never the outputs. Inside a card use the short names (`var(--band)`); the `--jam-*` names are for themes.
+
+Colour (theme sets both modes; the cards fall back to the dark column):
 | Role | var | dark (ink) | light (paper) |
 |---|---|---|---|
 | ground | `--jam-ink` | #141210 | #141210 |
@@ -63,6 +91,32 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 | alert TEXT (0.3.9) | `--jam-alert-text` | #ff8a6e | #a12a14 |
 | (unused since v0.3, kept for themes) | `--jam-shadow` | #0a0908 | #c9bb98 |
 | series 1-5 | `--jam-s1`..`--jam-s5` | #bd8000 #1f9fb0 #d43a1c #a66cc4 #7f9b2a | #a86e00 #00879c #c2361a #8a52ad #5f7d1c |
+| text / muted on ink (R1: ink accent text, screensaver, kiosk light-mode lock glyph + dock) | `--jam-ink-fg`, `--jam-ink-dim` | #ece2c9, #9a8f7c | same |
+| muted on ink at kiosk size (jam-kiosk light-mode dock state) | `--jam-ink-dim2` | #b4a88f | same |
+| fixed band (jam-tv poster band + On now stamp, jam-speaker band + K1 shelf, music dock, error strip) | `--jam-band`, `--jam-band-fg`, `--jam-band-dim` | #141210, #ece2c9, #9a8f7c | same |
+| key face / disabled glyph / cover tile on a band | `--jam-band-key`, `--jam-band-off`, `--jam-band-tile` | #36312b, #6b6152, #2c2824 | same |
+| label plate (jam-light contrast fallback, WLED preset names) | `--jam-plate`, `--jam-plate-fg` | #141210, #ece2c9 | same |
+| focus ring (optional) | `--jam-focus` | the ochre token | same |
+
+Type and identity (theme top level, both modes): `--jam-display` (Londrina Solid stack), `--jam-body` (Jost stack),
+`--jam-look` (`poster`; R1). Type tokens for weight / case / tracking follow in R3.
+
+Shape (R2; theme top level, all optional: unset = the Poster geometry written at each use, so the JamBoard theme sets none):
+| var | shapes | Poster fallback |
+|---|---|---|
+| `--jam-shape-card` | `.paper[data-cut=card]` faces; jam-light pop-up brightness bar / hue strip / white editor; screensaver bars + photos now label | br 14px (hue strip 12px, screensaver bars 3vh) |
+| `--jam-shape-key`, `-chip`, `-hero`, `-sheet`, `-poster` | `.paper[data-cut=<kind>]` faces; `-chip` also `.chip` / `button.chip::before` and the screensaver time chip (10px) | the CUTS table below |
+| `--jam-shape-pw` | power corner triangle (POWER_CSS, jam-tv 44px corner) | `polygon(0 0,100% 0,100% 100%)` |
+| `--jam-shape-strip-end` | accent fill of strips (`.fill`; jam-light brightness / bands / white bars) | straight end with an 8px diagonal (jam-light 14 / 10 / 9px) |
+| `--jam-shape-tab`, `-scene`, `-icon`, `-pin`, `-plate` | jam-tabs tab (tr 8px), jam-scenes key (br 10px), jam-button icon square (30% corner), music pin tab (triangle), jam-light label plate (12px diagonal end) | as listed |
+| `--jam-shape-key-plate`, `-chip-plate` | jam-remote outlined key: inner plate, cut parallel to the key / chip cut | tr 10.2px / br 4.2px |
+| `--jam-radius-<kind>` (card key chip hero sheet poster) | border-radius of those faces (for a look whose shape is `none`) | 0 |
+A value must be a valid `clip-path` (polygon, `inset(... round ...)`, `circle()`, `none`): an invalid one leaves the element
+unclipped. preview/shoot.js checks that every paper's computed clip equals its kind token; 96-looks reshapes the kinds live.
+
+Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
+`--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and
+`--jam-stamp-from` are local.
 
 Series palette validated with the dataviz validator (both modes, all checks PASS); unchanged in v0.3. Order fixed, never
 cycled; a 6th series is not allowed (fold into fewer series). Status colours are never series colours in the same card.
@@ -100,7 +154,9 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
   | `sheet` | top-right | 18px | jam-popup sheet (desktop and phone bottom sheet) |
   | `poster` | bottom-right | 16px | jam-tv poster (0.3.4), jam-speaker poster (0.3.6) |
 - `cutPath(corner, size)` → a 5-point CSS `polygon()`. `paper(tag, key, {kind, cls, face})` → `{root, face}`: root
-  `.paper` with `data-cut=kind` and `--clip`, face `.face` clipped by it. `cutKey(label, key, cls, kind = "key")` → a
+  `.paper` with `data-cut=kind`, face `.face` clipped by `--clip`. Since R2 `--clip` comes from CSS, not an inline style:
+  `SHAPE_CSS` in BASE_CSS sets `.paper[data-cut=<kind>]{--clip:var(--jam-shape-<kind>, <the CUTS polygon>);
+  --rad:var(--jam-radius-<kind>, 0px)}` (the face's border-radius), so a look reshapes every surface of a kind. `cutKey(label, key, cls, kind = "key")` → a
   real `<button>` on it. The `key` argument and the v0.2 options (edges/depth/step/cut) are accepted and ignored.
 - Face padding is at least the cut size, so content never enters the cut.
 - Strips (slider, light brightness, media volume, gauge bar): 32px touch track, 22px `--slab2` strip, accent fill whose
@@ -108,7 +164,8 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
 - Chips in jam-heading / jam-hero: flat blocks (no border) with the chip cut. jam-heading chips (0.3.9): 32px tall, value in
   `--fg` after an 8px tone mark.
 - Exceptions with their own straight shapes: jam-remote d-pad arms (5-point arrow with a 45° point, `data-cut=arrow`) and
-  the OK disc (`circle()`, `data-cut=disc`); the jam-button icon square (30% corner cut).
+  the OK disc (`circle()`, `data-cut=disc`), set as an inline `--clip` (geometry, not a look's shape); the jam-button icon
+  square (30% corner cut, `--jam-shape-icon`).
 - Press feedback (buttons, tiles, keys, light cards): the face "prints" — `jam-print`, 2 steps to `translate(3px,3px) scale(.96)`
   on pointerdown, snaps back on release (0.3.5). Motion off: a hard cut to that state; reduced motion: none.
 - Legacy: `seed`, `rng`, `tornPath` stay exported for compatibility; no card uses `tornPath` any more.
@@ -197,6 +254,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 - Units: `keepUnit(node, stateObj | unit)` wraps a trailing unit in `<span class="unit">` (text-transform:none) so uppercase display
   type never changes a unit's case (µg/m³ stays µg/m³); used by heading chips, tile, list, panel, button, alerts, hero, graph, house.
 - Weather: `CONDITION_WORDS`, `conditionWord(state)` (one map for jam-weather, jam-house, jam-screensaver).
+- Looks / tokens (R1): `lookOf(node)` (the look id, `poster` by default), `TOKENS` (every `--jam-*` name a body layer copies).
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`, `asButton` (0.3.8).
 - Motion: `motion` (accessor), `motionOn`, `oneShot`, `staggerIn`, `treeOrder` (see "Motion").
 - Air quality: `AQI_WORDS`, `aqWord(state)` (0.5.0; US AQI number → category word, word states capitalised; jam-house, jam-kiosk).
