@@ -1,6 +1,6 @@
 # Theming plan: global "looks" for Jam Cards + the JamBoard theme
 
-Status: architecture brief (2026-11-03); R0-R5 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
+Status: architecture brief (2026-11-03); R0-R9 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
 `15d5e65` (0.7.2) and jam-theme `themes/jamboard.yaml` as of 2026-10-27.
 
 **Goal.** Whole-look overhauls (after the JamDash looks: Depth, Braun, NERV, LCARS and the v8 designer looks Transit, Olympia,
@@ -568,16 +568,43 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   Not verified on a live HA (no test instance; HA access is read-only): the fonts' fallback stacks keep every look usable
   if `/hacsfiles/jam-cards/fonts/` 404s. jam-home's preview / QA and home-assistant/dashboards/preview still load
   `../jam-cards/jam-cards.js` and need `dist/` in that path (other repos, not changed here).
-- Open for R9+: jam-button's label fit assumes Londrina's .5em average
+- **R9 (done).** Harness look matrix in preview/shoot.js: `LOOKS=<id,...>` (default `SHOT_LOOKS` = every non-harness look in
+  tokens/: poster, braun, olympia) x dark / light x 390 / 1280. Per page: page errors, every card's data-look, fonts
+  (Poster: the bundled Londrina / Jost as before; another look: its pack's faces loaded, fetched from `<asset base>fonts/`,
+  no other font host, the display type in the pack's family), papers fit / no face overflow, the R2 clip check (already
+  look-aware: computed `--clip` = kind token; the <= 5-point Poster cut only under Poster), no shadow slabs, and at 1280
+  **text contrast** (preview/contrast.js, the DOM pass of jam-home's QA ported: >= 4.5:1, large >= 3:1, translucent
+  layers + `::before` face plates blended, text over images skipped; Poster: 0 findings of ~600 texts in both modes, the
+  same as jam-home's pixel pass). **Poster-only invariants** (bundled fonts, CUTS sizes, 5px heading rule, the API /
+  accent checks and every behaviour check in preview/checks/) run on Poster dark/1280 only, as before; those checks
+  assert Poster sizes and Londrina by design. Deviation from 3.2: behaviour checks do not (yet) run once on a non-Poster
+  look: many assert Poster type (85 date line in Londrina 900, 80 panel values in Londrina) and the two prepared looks have
+  no pack CSS that could hide controls; add it with the first pack CSS (a `JAM_CHECK_LOOK` run with those assertions made
+  look-aware). **Kiosk sizes per look**: preview/fit.js runs for stress + every non-Poster look of LOOKS (jam-kiosk home
+  1024x768 / 961x601 both modes, kiosk Music / TV sheets, the 6 screensaver layouts: no added overflow / spill /
+  sub-18px text / scroll vs Poster) and writes that look's kiosk / screensaver shots (fixed clock) to `shots/<look>/`;
+  Poster's scenarios now run once per run instead of once per look; it waits for `document.fonts.ready` before measuring
+  (URL fonts swap in late). Shots: Poster stays in `shots/` (so its pixel baselines keep their names), other looks in
+  `shots/<look>/{dark,light}-{390,1280}.png`; the pixel diff walks subfolders. **Contact sheet** `shots/looks.html`: one row
+  per preview item (`#view > *`, dark, 1280, fixed clock; crops in `shots/cards/<look>/NN.png`), one column per look, plus
+  links to every look's full pages and kiosk screens (`JAM_NO_CONTACT=1` skips it). **Draft looks** (`draft: true`: braun,
+  olympia until designed) report text fit as INFO instead of FAIL; every other check is hard for them.
+  First matrix result for the drafts (Poster type tokens + the new face): fonts load, contrast passes, clips and kiosk
+  screens fit; the preview page overflows in 3-4 places, all display-type words that cannot wrap: the tile / gauge
+  "UNAVAILABLE" value (Archivo 213px / Albert Sans 193px in a 169-191px face), the gauge "NAS_Effect 45TB" bar at 390
+  (179 > 175) and, Braun only, the jam-choice key "JellyWatch Player" (101 > 98). So both designs must set
+  `jam-display-scale` (Archivo about .78-.8 when uppercase, Albert Sans about .87) or mixed case (the stress look, mixed
+  case at .85, fits everywhere).
+- Open for R10: jam-button's label fit assumes Londrina's .5em average
   glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
   width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in
-  labels: a look decision. Poster-only assertions that R9 must make look-aware: shoot.js fonts / CUTS / heading rule 5px,
-  95-motion "stepped and <= 300 ms", 85/87 kiosk sizes and Londrina / uppercase checks; preview/fit.js already covers
-  fit for any look in `JAM_FIT_LOOKS`. Harness noise seen in R3-R5 runs: speaker-kitchen-390 (JAM_SHOTS, progress fill
+  labels: a look decision. Still Poster-only (they run on Poster only, see R9): 95-motion "stepped and <= 300 ms", 85/87
+  kiosk sizes and the Londrina / uppercase assertions; make them look-aware before running preview/checks under a look.
+  Harness noise seen in R3-R9 runs: speaker-kitchen-390 (JAM_SHOTS, progress fill
   follows the wall clock), tv-source-sheet-390 (shot 150 ms after a tap, sometimes mid stamp), the kiosk CLOSE-key
   anti-aliasing (INFO); 95-motion's sheet-stagger check fails when 95 runs alone (needs the earlier checks' page state),
   passes in the full run. The `preview/checks` "now: a new cover is not shown before it has loaded" (93-now-playing)
   fails in about half the runs on 0.7.2 already (the local server serves the cover before the check looks); it passed in
-  every R3-R5 run.
+  every R3-R5 run and failed once in the R6 verification run (passed in the R7 run on top of it).
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
   place); it can link `../../jam-cards/preview/looks.css` instead.

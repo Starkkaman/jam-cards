@@ -1,5 +1,6 @@
 // Text-fit harness for non-Poster looks (theming plan R3: "a stress look passes the fit / overflow checks"). Called by
-// preview/shoot.js after the Poster run: fitLooks(browser, base, check, {looks, dir}).
+// preview/shoot.js after the Poster run: fitLooks(browser, base, check, {looks, dir, lookDir}) (R9: lookDir(id) = preview/shots/<id>/ for
+// the kiosk / screensaver shots of a real look; Poster scenarios run once and are compared with every look).
 // Every scenario runs twice, under Poster and under the look (?look=<id>, a preview/looks.css block), with the same steps,
 // and the look must not add an overflow that Poster does not have (Poster's own fit is asserted by shoot.js and the
 // checks). Measured per scenario, across every shadow root:
@@ -50,7 +51,9 @@ function measure(kiosk) {
 /* Look-only entries of one list (keys in the look run that the Poster run does not have). */
 const added = (look, poster) => Object.entries(look).filter(([k]) => !(k in poster)).map(([, v]) => v);
 
-module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
+/* lookDir(look) -> folder for that look's kiosk / screensaver shots (R9: preview/shots/<look>/), or null. */
+/* fitCheck(look) -> the check function for that look's fit results (shoot.js: INFO instead of FAIL for draft looks). */
+module.exports = async function fitLooks(browser, base, check, {looks, dir, lookDir = () => null, fitCheck = () => check}) {
   const errs = [];
   const open = async (look, mode, viewport, query = "") => {
     const ctx = await browser.newContext({viewport, timezoneId: "America/Los_Angeles"});
@@ -62,7 +65,13 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
     await p.evaluate(() => document.fonts.ready);
     return {ctx, p};
   };
-  const shot = async (p, name) => { if (dir && !name.startsWith("look-poster-")) await p.screenshot({path: path.join(dir, name), fullPage: true}); };
+  const shot = async (p, name) => {
+    if (dir && !name.startsWith("look-poster-")) await p.screenshot({path: path.join(dir, name), fullPage: true});
+    const m = /^look-([a-z][a-z0-9-]*?)-((kiosk|screensaver)-.*)$/.exec(name), d = m && m[1] !== "poster" && lookDir(m[1]);
+    if (d) await p.screenshot({path: path.join(d, m[2]), fullPage: true}); // R9: kiosk screens per look
+  };
+  // A look's URL fonts load when text first uses them: measure only after they are in (a swap would change the widths).
+  const meas = async (p, kiosk) => { await p.evaluate(() => document.fonts.ready); return p.evaluate(measure, kiosk); };
   // Fixture configs (taken from a normal preview page).
   const cfgs = await (async () => {
     const {ctx, p} = await open("poster", "dark", {width: 1280, height: 900});
@@ -88,7 +97,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
     const {ctx, p} = await open(look, mode, {width, height: 900});
     try {
       await p.waitForTimeout(1500);
-      const m = await p.evaluate(measure, false);
+      const m = await meas(p, false);
       // Same rule as shoot.js: every card's paper stays inside the card box.
       m.layout = await p.evaluate(() => {
         const bad = [];
@@ -111,7 +120,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
         await mountCard(p, cfgs.home, "jam-kiosk");
         await p.waitForTimeout(400);
         await shot(p, `look-${look}-kiosk-home-${mode}-${w}.png`);
-        return [{label: "", m: await p.evaluate(measure, true)}];
+        return [{label: "", m: await meas(p, true)}];
       } finally { await ctx.close(); }
     }]);
     if (cfgs.spk && cfgs.tv && cfgs.nv) scenarios.push([`kiosk sheets ${w}x${h} dark`, async look => {
@@ -125,7 +134,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
         for (const [i, name] of [[0, "music"], [1, "tv"]]) {
           await p.evaluate(i => document.querySelector("jam-kiosk").shadowRoot.querySelectorAll(".blk")[i].click(), i);
           await p.waitForTimeout(1000);
-          const m = await p.evaluate(measure, true);
+          const m = await meas(p, true);
           m.body = await p.evaluate(() => { const b = [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector(".body");
             return b.scrollHeight > b.clientHeight + 1 ? `${b.scrollHeight} > ${b.clientHeight}` : ""; });
           await shot(p, `look-${look}-kiosk-sheet-${name}-${w}.png`);
@@ -154,7 +163,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
         await p.evaluate(n => { const o = window.__fx.overlay; o.dataset.view = "poster";
           o.querySelector(".poster").className = "poster l" + n + " " + ["", "r", "", "c", "", "r"][n]; }, n);
         await p.waitForTimeout(300);
-        const m = await p.evaluate(measure, true);
+        const m = await meas(p, true);
         m.outside = await p.evaluate(() => { const t = window.__fx.overlay.querySelector(".poster .txt").getBoundingClientRect();
           return t.left < 0 || t.top < 0 || t.right > innerWidth + 1 || t.bottom > innerHeight + 1 ? `${Math.round(t.left)},${Math.round(t.top)} to ${Math.round(t.right)},${Math.round(t.bottom)}` : ""; });
         await shot(p, `look-${look}-screensaver-l${n}-961.png`);
@@ -164,9 +173,10 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
     } finally { await ctx.close(); }
   }]);
 
+  const posterRuns = {};
   for (const look of looks) {
     for (const [name, run] of scenarios) {
-      const P = await run("poster"), L = await run(look);
+      const P = posterRuns[name] || (posterRuns[name] = await run("poster")), L = await run(look); // Poster runs once per scenario
       for (let i = 0; i < L.length; i++) {
         const a = L[i].m, b = (P[i] || {m: {face: {}, spill: {}, small: {}}}).m, tag = `look ${look}: ${name}${L[i].label ? " " + L[i].label : ""}`;
         const bad = [...added(a.face, b.face).map(x => "overflows: " + x), ...added(a.spill, b.spill).map(x => "spills: " + x),
@@ -176,7 +186,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir}) {
         if (a.outside && !b.outside) bad.push("text block outside the viewport " + a.outside);
         if (a.layout && a.layout.length) bad.push(...a.layout);
         if ("applied" in a && a.applied !== look) bad.push(`cards carry data-look=${a.applied}, not ${look}`);
-        check(bad.length === 0, `${tag}: text fits as under Poster` + (bad.length ? " — " + bad.slice(0, 6).join("; ") + (bad.length > 6 ? ` (+${bad.length - 6})` : "") : ""));
+        fitCheck(look)(bad.length === 0, `${tag}: text fits as under Poster` + (bad.length ? " — " + bad.slice(0, 6).join("; ") + (bad.length > 6 ? ` (+${bad.length - 6})` : "") : ""));
       }
     }
   }

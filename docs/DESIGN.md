@@ -33,7 +33,8 @@ own section and may replace them).
   the outline. Toggles carry `aria-pressed`, icon-only keys an `aria-label`, sheets are `role=dialog` + `aria-modal`,
   labelled by their title.
 - Contrast (0.3.9): every text >= 4.5:1 on its real background (large text >= 3:1), in both modes, measured by
-  ../jam-home/preview/qa/run.js. Accent colours are for fills and marks, never small text: a tone shows as an 8px flat
+  ../jam-home/preview/qa/run.js (pixel pass) and, for every look x mode, by preview/contrast.js in preview/shoot.js (DOM
+  pass, R9). Accent colours are for fills and marks, never small text: a tone shows as an 8px flat
   `.tmk` square (`.t-on/.t-alert/.t-calm/.t-dim`) or a stripe, the value stays `--fg` (`.c-on`/`.c-calm` = `--fg`). Red TEXT
   (bad values, "unavailable", "N/A") uses `--jam-alert-text` (`.c-alert`); red FILLS (power keys, alert chips with ink text)
   stay `--jam-red`. No opacity-dimmed text: use `--dim` (`.unavail` = `--dim` text, not opacity).

@@ -618,3 +618,6 @@ from it, `node tools/themes.mjs` writes the JamBoard theme YAML into a [jam-them
 clone next to this repo, and `node tools/bundle.mjs --check` fails while any generated file is stale. To prove a refactor
 changes no pixel: `JAM_BASELINE=<dir> JAM_BASELINE_WRITE=1 pw-node preview/shoot.js` on the commit before it, then
 `JAM_BASELINE=<dir> pw-node preview/shoot.js` after it (add `JAM_SHOTS=<dir>` for the fixed-clock screensaver set).
+Every look is checked too: `LOOKS=poster,braun pw-node preview/shoot.js` narrows the matrix (default: every look in
+`tokens/looks/`); other looks' shots go to `preview/shots/<look>/` and `preview/shots/looks.html` is a contact sheet with
+one row per preview card and one column per look.

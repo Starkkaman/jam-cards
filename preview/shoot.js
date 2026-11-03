@@ -1,11 +1,18 @@
 // Screenshots, layout + generic checks for preview/index.html; per-fixture interaction checks live in preview/checks/*.js. Run: pw-node preview/shoot.js  (exit 0 = all checks passed)
 // Writes preview/shots/{dark,light}-{390,1280}.png (fixed clock). JAM_SHOTS=<dir>: extra review shots (some checks + the fixed-clock
 // screensaver set). JAM_BASELINE=<dir>: pixel diff of every shot against <dir> (JAM_BASELINE_WRITE=1 writes it), see pixelDiff.
+// Look matrix (theming plan R9): LOOKS=<id,...> (default: every non-harness look of tokens/, Poster first) runs the page checks
+// per look x mode x width; Poster's shots stay in preview/shots/, another look's go to preview/shots/<look>/ (full pages +
+// kiosk screens), per-card crops to preview/shots/cards/<look>/ and the contact sheet preview/shots/looks.html (one row per
+// preview item, one column per look). Poster-only invariants (bundled Londrina / Jost, the CUTS sizes, the 5px heading rule
+// and every behaviour check in preview/checks/) run on Poster dark/1280 only; text contrast (preview/contrast.js) runs per
+// look x mode, text fit + kiosk sizes (preview/fit.js) per non-Poster look.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const {chromium} = require("playwright");
 const {execFileSync} = require("child_process");
+const {pathToFileURL} = require("url");
 
 const ROOT = path.join(__dirname, "..");
 execFileSync(process.execPath, [path.join(ROOT, "tools", "bundle.mjs")], {stdio: "inherit"}); // dist/jam-cards.js + fixtures/index.js are generated
@@ -25,13 +32,60 @@ async function fixedPage(browser, url, viewport) {
   await p.evaluate(() => document.fonts.ready);
   return p;
 }
-/* preview/shots/{mode}-{width}.png (full page). */
-async function fixedShot(browser, base, mode, width) {
-  const p = await fixedPage(browser, `${base}?mode=${mode}`, {width, height: 900});
+/* Query string of a look + mode page; Poster is the page's own default (no look parameter). */
+const lookQuery = (look, mode) => `?mode=${mode}${look === "poster" ? "" : "&look=" + look}`;
+/* Shot folder of a look: preview/shots/ for Poster (as before R9, so its pixel baselines keep their names), else shots/<look>/. */
+const shotDir = look => { const d = path.join(__dirname, "shots", ...(look === "poster" ? [] : [look])); fs.mkdirSync(d, {recursive: true}); return d; };
+/* <shot dir of look>/{mode}-{width}.png (full page). */
+async function fixedShot(browser, base, look, mode, width) {
+  const p = await fixedPage(browser, base + lookQuery(look, mode), {width, height: 900});
   try {
     await p.waitForTimeout(1500); // layout + view entrance settle
-    await p.screenshot({path: path.join(__dirname, "shots", `${mode}-${width}.png`), fullPage: true});
+    await p.screenshot({path: path.join(shotDir(look), `${mode}-${width}.png`), fullPage: true});
   } finally { await p.close(); }
+}
+/* Contact sheet (R9): every top-level preview item (#view > *: a card or a section) of every look, dark mode at 1280 on a
+   fixed clock, cropped to preview/shots/cards/<look>/NN.png, and preview/shots/looks.html = one row per item, one column per
+   look (plus links to each look's full-page and kiosk shots). */
+async function contactSheet(browser, base, looks) {
+  const root = path.join(__dirname, "shots"), rows = [];
+  for (const look of looks) {
+    const dir = path.join(root, "cards", look);
+    fs.rmSync(dir, {recursive: true, force: true}); fs.mkdirSync(dir, {recursive: true});
+    const p = await fixedPage(browser, base + lookQuery(look, "dark"), {width: 1280, height: 900});
+    try {
+      await p.waitForTimeout(1500);
+      const items = await p.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => {
+        const first = e.localName.startsWith("jam-") ? e : e.querySelector("[class], *");
+        const cfg = (first && first._config) || {}, c = e.localName.startsWith("jam-") ? e : first;
+        return `${c ? c.localName : e.localName}${cfg.title ? " · " + cfg.title : cfg.name ? " · " + cfg.name : ""}${e.localName.startsWith("jam-") ? "" : ` (+${e.children.length - 1})`}`;
+      }));
+      for (let i = 0; i < items.length; i++) {
+        const name = String(i + 1).padStart(2, "0") + ".png";
+        await p.locator("#view > *").nth(i).screenshot({path: path.join(dir, name)});
+        (rows[i] = rows[i] || {label: items[i], cells: {}}).cells[look] = `cards/${look}/${name}`;
+      }
+    } finally { await p.close(); }
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+  const sub = look => (look === "poster" ? "" : look + "/");
+  const link = (look, f) => fs.existsSync(path.join(root, sub(look) + f)) ? `<a href="${sub(look)}${f}">${f.replace(".png", "")}</a>` : "";
+  const pages = ["dark-390.png", "dark-1280.png", "light-390.png", "light-1280.png"];
+  const kiosk = look => look === "poster" ? ["kiosk-home-dark-1024.png", "kiosk-home-light-961.png", "kiosk-sheet-music-dark-1024.png", "kiosk-sheet-tv-dark-1024.png"]
+    : fs.existsSync(path.join(root, look)) ? fs.readdirSync(path.join(root, look)).filter(f => /^(kiosk|screensaver)-/.test(f)).sort() : [];
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jam Cards looks</title><style>body{margin:0;padding:16px;background:#141210;color:#ece2c9;font:14px/1.4 system-ui,sans-serif}
+table{border-collapse:collapse}th,td{border:1px solid #3a342d;padding:6px;vertical-align:top;text-align:left}th{position:sticky;top:0;background:#1f1c19}
+td img{display:block;max-width:420px;height:auto}a{color:#e5a31b;margin-right:8px}.l{white-space:nowrap;color:#9a8f7c;max-width:160px;white-space:normal}</style></head><body>
+<h1>Jam Cards looks</h1><p>GENERATED by preview/shoot.js (theming plan R9): one row per preview item (dark, 1280 px, fixed clock), one column per look.</p>
+<table><thead><tr><th>item</th>${looks.map(l => `<th>${esc(l)}</th>`).join("")}</tr></thead><tbody>
+<tr><td class="l">pages</td>${looks.map(l => `<td>${pages.map(f => link(l, f)).join(" ")}</td>`).join("")}</tr>
+<tr><td class="l">kiosk</td>${looks.map(l => `<td>${kiosk(l).map(f => link(l, f)).join(" ")}</td>`).join("")}</tr>
+${rows.map((r, i) => `<tr><td class="l">${i + 1}. ${esc(r.label)}</td>${looks.map(l => `<td>${r.cells[l] ? `<img loading="lazy" src="${r.cells[l]}" alt="">` : ""}</td>`).join("")}</tr>`).join("\n")}
+</tbody></table></body></html>
+`;
+  fs.writeFileSync(path.join(root, "looks.html"), html);
+  return rows.length;
 }
 /* With JAM_SHOTS=<dir>: the jam-screensaver poster in all 6 layouts (with the now block) and the photos view, at the
    Echo Show 8 size, dark + light, on a fixed clock: <dir>/screensaver-fixed-{mode}-{l0..l5,photos}-961.png. The
@@ -76,17 +130,19 @@ async function fixedScreensaver(browser, base, dir) {
    the same code). */
 async function pixelDiff(browser, dir) {
   const dirs = [path.join(__dirname, "shots"), process.env.JAM_SHOTS].filter(Boolean);
-  const files = new Map();
-  for (const d of dirs) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith(".png")) files.set(f, path.join(d, f));
+  const files = new Map(); // relative name (R9: <look>/x.png, cards/<look>/NN.png) -> path
+  const pngs = (d, rel = "") => fs.existsSync(d) ? fs.readdirSync(d, {withFileTypes: true}).flatMap(e =>
+    e.isDirectory() ? pngs(path.join(d, e.name), rel + e.name + "/") : e.name.endsWith(".png") ? [[rel + e.name, path.join(d, e.name)]] : []) : [];
+  for (const d of dirs) for (const [f, p] of pngs(d)) files.set(f, p);
   fs.mkdirSync(dir, {recursive: true});
   if (process.env.JAM_BASELINE_WRITE) {
-    for (const [f, p] of files) fs.copyFileSync(p, path.join(dir, f));
+    for (const [f, p] of files) { fs.mkdirSync(path.dirname(path.join(dir, f)), {recursive: true}); fs.copyFileSync(p, path.join(dir, f)); }
     console.log(`baseline: wrote ${files.size} PNGs to ${dir}`);
     return;
   }
   const page = await browser.newPage();
   try {
-    const only = [...fs.readdirSync(dir)].filter(f => f.endsWith(".png") && !files.has(f));
+    const only = pngs(dir).map(([f]) => f).filter(f => !files.has(f));
     if (only.length) console.log("baseline only (not written this run): " + only.join(", "));
     for (const [f, p] of [...files].sort()) {
       const b = path.join(dir, f);
@@ -128,26 +184,56 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch();
   const errors = [], fontRequests = [];
   try {
-    for (const mode of ["dark", "light"]) {
+    const {SHOT_LOOKS, LOOKS: ALL_LOOKS} = await import(pathToFileURL(path.join(ROOT, "tokens", "index.mjs")).href);
+    const LOOKS = process.env.LOOKS ? process.env.LOOKS.split(",").map(x => x.trim()).filter(Boolean) : SHOT_LOOKS;
+    const unknown = LOOKS.filter(l => !ALL_LOOKS.some(x => x.id === l));
+    if (unknown.length) throw new Error("LOOKS: unknown look(s) " + unknown.join(", ") + " (tokens/looks/)");
+    console.log("looks: " + LOOKS.join(", "));
+    /* A draft look (tokens/looks/<id>.mjs draft: true: registered with its fonts, design pending) reports text fit as INFO,
+       not FAIL: Poster's type tokens with another face do not fit everywhere, and choosing the look's case / scale is its
+       design task. Every other check is hard for it; removing `draft` makes fit hard too. */
+    const DRAFTS = ALL_LOOKS.filter(l => l.draft).map(l => l.id);
+    const fitCheck = look => !DRAFTS.includes(look) ? check : (ok, what) => console.log((ok ? "PASS " : "INFO (draft look, design pending) ") + what);
+    for (const look of LOOKS) for (const mode of ["dark", "light"]) {
       for (const width of [390, 1280]) {
+        const T = (look === "poster" ? "" : look + " ") + `${mode}/${width}`; // check label (Poster keeps its pre-R9 labels)
         const page = await browser.newPage({viewport: {width, height: 900}});
-        page.on("pageerror", e => errors.push(`${mode}/${width}: ${e.message}`));
+        page.on("pageerror", e => errors.push(`${T}: ${e.message}`));
         page.on("request", r => { if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) fontRequests.push(r.url()); });
-        await page.goto(`${base}?mode=${mode}`);
+        await page.goto(base + lookQuery(look, mode));
         await page.waitForFunction(() => window.__ready);
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(1500); // layout settles
-        // Fonts are bundled: both faces load from the data: URIs that core injects once into document.head.
-        const fonts = await page.evaluate(async () => {
-          await Promise.all(['900 1em "Londrina Solid"', '400 1em "Jost"', '600 1em "Jost"'].map(f => document.fonts.load(f)));
-          await document.fonts.ready;
-          const faces = [...document.fonts].filter(f => f.status === "loaded").map(f => f.family.replace(/"/g, "") + " " + f.weight);
-          return {londrina: document.fonts.check('900 1em "Londrina Solid"'), jost: document.fonts.check('400 1em "Jost"') && document.fonts.check('600 1em "Jost"'),
-            styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length, faces};
-        });
-        check(fonts.londrina && fonts.jost && fonts.faces.includes("Londrina Solid 900") && fonts.faces.includes("Jost 400 600") && fonts.styles === 1 && fonts.links === 0,
-          `${mode}/${width}: bundled fonts loaded (${fonts.faces.join(", ")}), one font style in head, no Google Fonts link`);
-        await fixedShot(browser, base, mode, width); // the shot itself comes from a page with a fixed clock (pixel diff)
+        if (look === "poster") {
+          // Fonts are bundled: both faces load from the data: URIs that core injects once into document.head.
+          const fonts = await page.evaluate(async () => {
+            await Promise.all(['900 1em "Londrina Solid"', '400 1em "Jost"', '600 1em "Jost"'].map(f => document.fonts.load(f)));
+            await document.fonts.ready;
+            const faces = [...document.fonts].filter(f => f.status === "loaded").map(f => f.family.replace(/"/g, "") + " " + f.weight);
+            return {londrina: document.fonts.check('900 1em "Londrina Solid"'), jost: document.fonts.check('400 1em "Jost"') && document.fonts.check('600 1em "Jost"'),
+              styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length, faces};
+          });
+          check(fonts.londrina && fonts.jost && fonts.faces.includes("Londrina Solid 900") && fonts.faces.includes("Jost 400 600") && fonts.styles === 1 && fonts.links === 0,
+            `${T}: bundled fonts loaded (${fonts.faces.join(", ")}), one font style in head, no Google Fonts link`);
+        } else {
+          // A look pack's fonts (R6/R8): URL faces on <asset base>fonts/, fetched because the cards use them, from no other host.
+          const fonts = await page.evaluate(async look => {
+            const J = window.JamCards, pack = J.lookPack(look), want = pack ? pack.fonts : [];
+            await document.fonts.ready;
+            const loaded = want.map(f => [...document.fonts].some(x => x.family.replace(/"/g, "") === f.family && x.status === "loaded"));
+            const got = performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2(\?|$)/.test(n));
+            const fam = getComputedStyle(document.querySelector("#view jam-tile").shadowRoot.querySelector(".val")).fontFamily;
+            return {pack: !!pack, families: want.map(f => f.family), loaded, fromBase: want.every(f => got.includes(J.ASSET_BASE + "fonts/" + f.file)),
+              foreign: got.filter(n => !n.startsWith(J.ASSET_BASE + "fonts/")), fam, looks: [...new Set([...document.querySelectorAll("#view > *, #view .sec > *")].filter(c => c._config).map(c => c.dataset.look))],
+              styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length};
+          }, look);
+          check(fonts.looks.length === 1 && fonts.looks[0] === look, `${T}: every card carries data-look=${look} (${fonts.looks.join(",")})`);
+          check(fonts.loaded.every(Boolean) && fonts.fromBase && fonts.foreign.length === 0 && fonts.styles === 1 && fonts.links === 0 &&
+            (!fonts.families.length || fonts.fam.replace(/"/g, "").startsWith(fonts.families[0])),
+            `${T}: the look's fonts (${fonts.families.join(", ") || "none"}) loaded from the asset base fonts/, display type in ${fonts.fam.split(",")[0]}, one font style, no other font host` +
+            (fonts.foreign.length ? " — " + fonts.foreign.join(", ") : ""));
+        }
+        await fixedShot(browser, base, look, mode, width); // the shot itself comes from a page with a fixed clock (pixel diff)
         // Layout: every card's paper stays inside the card box; no face overflows sideways.
         const layout = await page.evaluate(() => {
           const bad = [];
@@ -159,7 +245,7 @@ const server = http.createServer((req, res) => {
           }
           return [...new Set(bad)];
         });
-        check(layout.length === 0, `${mode}/${width}: papers fit their boxes` + (layout.length ? " — " + layout.join("; ") : ""));
+        fitCheck(look)(layout.length === 0, `${T}: papers fit their boxes` + (layout.length ? " — " + layout.join("; ") : ""));
         // Edge system (every mode/width): straight cuts only, one cut corner per surface fixed by kind, no shadow slabs.
         const edges = await page.evaluate(() => {
           const J = window.JamCards, roots = [];
@@ -196,10 +282,16 @@ const server = http.createServer((req, res) => {
           return {bad, kinds, papers, shadows};
         });
         check(edges.papers > 50 && edges.bad.length === 0,
-          `${mode}/${width}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes), each paper's computed clip = its kind token (no inline --clip) ${JSON.stringify(edges.kinds)}` +
+          `${T}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes), each paper's computed clip = its kind token (no inline --clip) ${JSON.stringify(edges.kinds)}` +
           (edges.bad.length ? " — " + edges.bad.slice(0, 5).join("; ") : ""));
-        check(edges.shadows === 0, `${mode}/${width}: no shadow slab elements (${edges.shadows})`);
-        if (mode === "dark" && width === 1280) {
+        check(edges.shadows === 0, `${T}: no shadow slab elements (${edges.shadows})`);
+        if (width === 1280) {
+          // Text contrast per look x mode (R9): >= 4.5:1, large text >= 3:1, DOM background walk (preview/contrast.js).
+          const ct = await require("./contrast.js")(page);
+          check(ct.texts > 300 && ct.findings.length === 0, `${T}: text contrast >= 4.5:1 (large >= 3:1) for ${ct.texts} texts (${ct.approx} over images skipped)` +
+            (ct.findings.length ? " — " + ct.findings.slice(0, 5).map(f => `${f.card} ${f.el} "${f.text}" ${f.ratio}:1 ${f.fg} on ${f.bg} ${f.font}`).join("; ") + (ct.findings.length > 5 ? ` (+${ct.findings.length - 5})` : "") : ""));
+        }
+        if (look === "poster" && mode === "dark" && width === 1280) {
           // Edge + colour system API.
           const core = await page.evaluate(() => {
             const J = window.JamCards;
@@ -243,10 +335,11 @@ const server = http.createServer((req, res) => {
       }
     }
     if (process.env.JAM_SHOTS) await fixedScreensaver(browser, base, process.env.JAM_SHOTS);
-    // Looks other than Poster (theming plan R3): the harness-only stress look (tokens/looks/stress.mjs: mixed case, a wide
-    // fallback grotesque, display scale .85) must re-type the cards through the tokens and still fit everywhere
-    // (preview/fit.js). JAM_FIT_LOOKS=<id,...> picks the looks ("" skips the fit runs).
-    const fitIds = (process.env.JAM_FIT_LOOKS ?? "stress").split(",").map(x => x.trim()).filter(Boolean);
+    // Looks other than Poster (theming plan R3 / R9): the harness-only stress look (tokens/looks/stress.mjs: mixed case, a wide
+    // fallback grotesque, display scale .85) must re-type the cards through the tokens, and it and every non-Poster look of
+    // LOOKS must still fit everywhere, kiosk sizes included (preview/fit.js; each look's kiosk screens are written to
+    // preview/shots/<look>/). JAM_FIT_LOOKS=<id,...> picks the looks ("" skips the fit runs).
+    const fitIds = (process.env.JAM_FIT_LOOKS ?? ["stress", ...LOOKS.filter(l => l !== "poster")].join(",")).split(",").map(x => x.trim()).filter(Boolean);
     if (fitIds.includes("stress")) {
       const p = await browser.newPage({viewport: {width: 1280, height: 900}});
       try {
@@ -268,7 +361,12 @@ const server = http.createServer((req, res) => {
           `stress look re-types the cards through the type tokens (${JSON.stringify(t)})`);
       } finally { await p.close(); }
     }
-    if (fitIds.length) await require("./fit.js")(browser, base, check, {looks: fitIds, dir: process.env.JAM_SHOTS});
+    if (fitIds.length) await require("./fit.js")(browser, base, check, {looks: fitIds, dir: process.env.JAM_SHOTS, fitCheck,
+      lookDir: id => (id !== "stress" && LOOKS.includes(id) ? shotDir(id) : null)});
+    if (!process.env.JAM_NO_CONTACT) {
+      const n = await contactSheet(browser, base, LOOKS);
+      check(n > 10, `contact sheet preview/shots/looks.html: ${n} items x ${LOOKS.length} looks (${LOOKS.join(", ")})`);
+    }
     if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE);
     check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));
