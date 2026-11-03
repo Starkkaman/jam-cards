@@ -1,5 +1,6 @@
 // Screenshots, layout + generic checks for preview/index.html; per-fixture interaction checks live in preview/checks/*.js. Run: pw-node preview/shoot.js  (exit 0 = all checks passed)
-// Writes preview/shots/{dark,light}-{390,1280}.png.
+// Writes preview/shots/{dark,light}-{390,1280}.png (fixed clock). JAM_SHOTS=<dir>: extra review shots (some checks + the fixed-clock
+// screensaver set). JAM_BASELINE=<dir>: pixel diff of every shot against <dir> (JAM_BASELINE_WRITE=1 writes it), see pixelDiff.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -8,9 +9,104 @@ const {execFileSync} = require("child_process");
 
 const ROOT = path.join(__dirname, "..");
 execFileSync(process.execPath, [path.join(ROOT, "tools", "bundle.mjs")], {stdio: "inherit"}); // jam-cards.js + fixtures/index.js are generated
-const TYPES = {".html": "text/html", ".js": "text/javascript", ".png": "image/png"};
+const TYPES = {".html": "text/html", ".js": "text/javascript", ".png": "image/png", ".css": "text/css"};
 let failures = 0;
 const check = (cond, what) => { console.log((cond ? "PASS " : "FAIL ") + what); if (!cond) failures++; };
+
+/* Deterministic shots: the page clock is fixed (Playwright clock.setFixedTime: Date is frozen, timers keep running), so
+   clocks, relative times and graph histories render the same in every run and a pixel diff (below) means a real change.
+   The checks run on a normal page; only screenshots use these. */
+const FIXED_TIME = new Date("2026-10-28T14:41:00-07:00");
+async function fixedPage(browser, url, viewport) {
+  const p = await browser.newPage({viewport});
+  await p.clock.setFixedTime(FIXED_TIME);
+  await p.goto(url);
+  await p.waitForFunction(() => window.__ready);
+  await p.evaluate(() => document.fonts.ready);
+  return p;
+}
+/* preview/shots/{mode}-{width}.png (full page). */
+async function fixedShot(browser, base, mode, width) {
+  const p = await fixedPage(browser, `${base}?mode=${mode}`, {width, height: 900});
+  try {
+    await p.waitForTimeout(1500); // layout + view entrance settle
+    await p.screenshot({path: path.join(__dirname, "shots", `${mode}-${width}.png`), fullPage: true});
+  } finally { await p.close(); }
+}
+/* With JAM_SHOTS=<dir>: the jam-screensaver poster in all 6 layouts (with the now block) and the photos view, at the
+   Echo Show 8 size, dark + light, on a fixed clock: <dir>/screensaver-fixed-{mode}-{l0..l5,photos}-961.png. The
+   preview/shots screensaver shots follow the wall clock (layout seeded per minute), so these are the ones to diff. */
+async function fixedScreensaver(browser, base, dir) {
+  for (const mode of ["dark", "light"]) {
+    const p = await fixedPage(browser, `${base}?view=none&mode=${mode}`, {width: 961, height: 601});
+    try {
+      await p.evaluate(async () => {
+        const st = (id, state, attributes = {}) => ({entity_id: id, state, attributes, last_changed: "x", last_updated: "x"});
+        const h = window.__hass;
+        Object.assign(h.states, {"media_player.fx_speaker": st("media_player.fx_speaker", "playing",
+          {friendly_name: "Living Room Speakers", media_title: "Lobby", media_artist: "AERwave"})});
+        const e = document.createElement("jam-screensaver");
+        e.setConfig({type: "custom:jam-screensaver", idle_seconds: 3600, weather_entity: "weather.bungalo_weather", kicker: "The Bungalow · living room",
+          accent: "living", images: {index: "fixtures/slides/index.json", interval: 3600, fade: 0},
+          now: [{type: "media", entity: "media_player.fx_speaker", states: ["playing"]}]});
+        e.hass = {...h}; document.body.append(e); window.__fx = e; e._show();
+      });
+      await p.waitForTimeout(400);
+      for (let n = 0; n < 6; n++) {
+        await p.evaluate(n => { const o = window.__fx.overlay; o.dataset.view = "poster";
+          o.querySelector(".poster").className = "poster l" + n + " " + ["", "r", "", "c", "", "r"][n]; }, n);
+        await p.waitForTimeout(300);
+        await p.screenshot({path: path.join(dir, `screensaver-fixed-${mode}-l${n}-961.png`)});
+      }
+      await p.evaluate(() => { window.__fx.overlay.dataset.view = "images"; });
+      await p.waitForFunction(() => [...window.__fx.overlay.querySelectorAll("img.cur")].some(i => i.complete && i.naturalWidth > 0), null, {timeout: 5000}).catch(() => {});
+      await p.waitForTimeout(300);
+      await p.screenshot({path: path.join(dir, `screensaver-fixed-${mode}-photos-961.png`)});
+    } finally { await p.close(); }
+  }
+}
+
+/* Pixel diff (theming plan §3): JAM_BASELINE=<dir> compares every PNG this run wrote (preview/shots/, plus JAM_SHOTS when
+   set) with the file of the same name in <dir>, decoded and compared in a blank page (canvas getImageData, no deps). One
+   check per file: identical, or the count + bounding box of differing pixels. JAM_BASELINE_WRITE=1 copies the shots into
+   <dir> instead (make the baseline on the commit before a refactor, then run again after it). Files only in one side are
+   listed, not failed. Shots that show the wall clock (kiosk clock, screensaver) can differ when a minute ticks between
+   the runs: rerun those, or compare at the same minute. */
+async function pixelDiff(browser, dir) {
+  const dirs = [path.join(__dirname, "shots"), process.env.JAM_SHOTS].filter(Boolean);
+  const files = new Map();
+  for (const d of dirs) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith(".png")) files.set(f, path.join(d, f));
+  fs.mkdirSync(dir, {recursive: true});
+  if (process.env.JAM_BASELINE_WRITE) {
+    for (const [f, p] of files) fs.copyFileSync(p, path.join(dir, f));
+    console.log(`baseline: wrote ${files.size} PNGs to ${dir}`);
+    return;
+  }
+  const page = await browser.newPage();
+  try {
+    const only = [...fs.readdirSync(dir)].filter(f => f.endsWith(".png") && !files.has(f));
+    if (only.length) console.log("baseline only (not written this run): " + only.join(", "));
+    for (const [f, p] of [...files].sort()) {
+      const b = path.join(dir, f);
+      if (!fs.existsSync(b)) { console.log("new shot (no baseline): " + f); continue; }
+      const r = await page.evaluate(async ([x, y]) => {
+        const img = async s => { const bm = await createImageBitmap(await (await fetch("data:image/png;base64," + s)).blob());
+          const c = new OffscreenCanvas(bm.width, bm.height), g = c.getContext("2d"); g.drawImage(bm, 0, 0);
+          return {w: bm.width, h: bm.height, d: g.getImageData(0, 0, bm.width, bm.height).data}; };
+        const A = await img(x), B = await img(y);
+        if (A.w !== B.w || A.h !== B.h) return {size: `${A.w}x${A.h} vs baseline ${B.w}x${B.h}`};
+        let n = 0, x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+        for (let i = 0; i < A.d.length; i += 4) {
+          if (A.d[i] === B.d[i] && A.d[i + 1] === B.d[i + 1] && A.d[i + 2] === B.d[i + 2] && A.d[i + 3] === B.d[i + 3]) continue;
+          n++; const px = (i >> 2) % A.w, py = Math.floor((i >> 2) / A.w);
+          x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
+        }
+        return {n, w: A.w, h: A.h, box: n ? `${x0},${y0} to ${x1},${y1}` : ""};
+      }, [fs.readFileSync(p).toString("base64"), fs.readFileSync(b).toString("base64")]);
+      check(!r.size && r.n === 0, `pixel diff ${f}: ` + (r.size ? "size " + r.size : r.n ? `${r.n} pixels differ (${r.box}) of ${r.w}x${r.h}` : `identical (${r.w}x${r.h})`));
+    }
+  } finally { await page.close(); }
+}
 
 const server = http.createServer((req, res) => {
   const p = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -45,7 +141,7 @@ const server = http.createServer((req, res) => {
         });
         check(fonts.londrina && fonts.jost && fonts.faces.includes("Londrina Solid 900") && fonts.faces.includes("Jost 400 600") && fonts.styles === 1 && fonts.links === 0,
           `${mode}/${width}: bundled fonts loaded (${fonts.faces.join(", ")}), one font style in head, no Google Fonts link`);
-        await page.screenshot({path: path.join(__dirname, "shots", `${mode}-${width}.png`), fullPage: true});
+        await fixedShot(browser, base, mode, width); // the shot itself comes from a page with a fixed clock (pixel diff)
         // Layout: every card's paper stays inside the card box; no face overflows sideways.
         const layout = await page.evaluate(() => {
           const bad = [];
@@ -131,6 +227,8 @@ const server = http.createServer((req, res) => {
         await page.close();
       }
     }
+    if (process.env.JAM_SHOTS) await fixedScreensaver(browser, base, process.env.JAM_SHOTS);
+    if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE);
     check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));
   } finally { await browser.close(); server.close(); }
