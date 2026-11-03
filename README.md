@@ -20,6 +20,11 @@ Fonts (OFL): Londrina Solid and Jost (the default look) are embedded in `jam-car
 fonts are files in `fonts/` next to it, loaded only while that look is active. Licences are in `dist/fonts/`. Nothing is
 fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
 
+**0.8.0: looks.** Two new looks next to Poster, Braun and Olympia: install or update the
+[jam-theme](https://github.com/Starkkaman/jam-theme) repo and switch with Home Assistant's theme picker (profile, or
+`frontend.set_theme`): **Jam Braun** or **Jam Olympia** (JamBoard = Poster). Also visual editors for 13 cards, a short
+error strip on the card for failed taps (instead of Home Assistant's raw error), and `dist/` packaging (below).
+
 **Upgrading from 0.7.x (files moved to `dist/`).** The repository now ships `dist/jam-cards.js` plus `dist/fonts/`; HACS
 downloads the whole `dist/` folder into the same place as before, so the dashboard resource stays
 `/hacsfiles/jam-cards/jam-cards.js` and nothing needs changing: update in HACS and reload the browser. The look fonts are then
@@ -603,7 +608,9 @@ list with every default is in [docs/DESIGN.md](docs/DESIGN.md) "Token reference"
 `data-look=<id>` from `--jam-look` (`poster` by default), and a theme or dark-mode switch re-renders the cards at once.
 Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun** (after Dieter Rams: warm-white or
 anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Braun rules"); Olympia is planned ([docs/THEMING-PLAN.md](docs/THEMING-PLAN.md)).
+[docs/DESIGN.md](docs/DESIGN.md) "Braun rules") and **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
+ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
+rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"). Pick a look in the theme picker; JamBoard is Poster.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while
 the look is active; if they cannot load, the look's fallback fonts are used. `--jam-fx: 1` in a look's theme turns on its
