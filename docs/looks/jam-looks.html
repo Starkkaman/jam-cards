@@ -1,0 +1,189 @@
+<title>Jam Looks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Jost:wght@400;500;600&family=Archivo:wght@400;500;700&family=Saira+Extra+Condensed:wght@500;800&family=Share+Tech+Mono&family=Antonio:wght@500;700&family=Hanken+Grotesk:wght@400;500;700;800&family=Albert+Sans:wght@300;400;600&family=Noto+Sans+JP:wght@500&display=swap">
+<style>
+/* Layout: one band per look; each band shows the SAME four Jam cards (light on, light off, group light, speaker) and a kiosk dock row, restyled only by that look's tokens + decor. */
+:root{--page:#141210;--page-fg:#ece2c9;--page-dim:#a89d88;--sans:"Jost",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--page-fg);font-family:var(--sans);margin:0}
+main{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
+header h1{font:900 clamp(34px,6vw,58px)/.95 "Londrina Solid",Impact,sans-serif;text-transform:uppercase;margin:0}
+header p{color:var(--page-dim);max-width:72ch;line-height:1.5;margin:10px 0 0}
+.band{padding:22px;display:grid;gap:16px;background:var(--bg);color:var(--fg)}
+.band .meta{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}
+.band .meta h2{margin:0;font:var(--title-font);text-transform:var(--case);letter-spacing:var(--title-track,0)}
+.band .meta small{font:500 13px/1.4 var(--sans);opacity:.75;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;align-items:start}
+.dock{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap,8px)}
+@media (max-width:600px){.dock{grid-template-columns:1fr}}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}.swatches i{width:28px;height:14px;display:block}
+
+/* ---------- shared card skeleton (token-driven) ---------- */
+.card{position:relative;min-height:96px;padding:12px 14px;background:var(--card);color:var(--card-fg);border:var(--border);border-radius:var(--radius);clip-path:var(--cut);overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
+.card .nm{font:var(--name-font);text-transform:var(--case);letter-spacing:var(--name-track,0)}
+.card .sub{font:var(--label-font);text-transform:var(--label-case,uppercase);letter-spacing:var(--label-track,.14em);opacity:.8}
+.card .big{font:var(--num-font)}
+.card .big small{font-size:.55em}
+.card .bar{position:absolute;left:0;right:0;bottom:0;height:var(--bar-h,10px);background:var(--bar-track)}
+.card .bar i{display:block;height:100%;background:var(--bar-fill)}
+.card .pw{position:absolute;right:0;top:0;width:44px;height:44px;display:grid;place-items:start end;padding:6px}
+.card .pw svg{width:18px;height:18px}
+.on{background:var(--on);color:var(--on-fg)}
+.bands{position:absolute;right:0;top:0;bottom:var(--bar-h,10px);width:48px;display:flex;gap:2px;background:var(--band-gap);border-left:3px solid var(--band-gap)}
+.bands i{flex:1;display:block}
+.spk .art{height:84px;margin:-12px -14px 0;background:var(--art)}
+.spk .row{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px;margin-top:8px}
+.spk .row b{height:36px;display:grid;place-items:center;background:var(--key);color:var(--key-fg);border-radius:var(--key-radius,0);font:600 12px/1 var(--sans)}
+.spk .row b.p{background:var(--accent);color:var(--accent-fg)}
+.dk{min-height:84px;padding:14px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;border-radius:var(--radius);clip-path:var(--dock-cut,none)}
+.dk b{font:var(--name-font);text-transform:var(--case)}
+.dk span{font:var(--label-font);text-transform:uppercase;letter-spacing:.14em}
+
+/* ---------- JamBoard (today) ---------- */
+.jamboard{--bg:#141210;--fg:#ece2c9;--card:#2c2824;--card-fg:#ece2c9;--on:#ffa040;--on-fg:#141210;--radius:0;--border:0;
+ --cut:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);--case:uppercase;
+ --title-font:900 34px/1 "Londrina Solid",Impact,sans-serif;--name-font:900 24px/1 "Londrina Solid",Impact,sans-serif;--label-font:600 10px/1 Jost,sans-serif;--num-font:900 26px/1 "Londrina Solid",Impact,sans-serif;
+ --bar-track:#7a3e06;--bar-fill:#b25d10;--band-gap:#141210;--key:#36312b;--key-fg:#ece2c9;--accent:#9b6dd6;--accent-fg:#141210;--art:#e8d6b0}
+.jamboard .pw{clip-path:polygon(0 0,100% 0,100% 100%);background:#b25d10}
+
+/* ---------- Braun (Rams) ---------- */
+.braun{--bg:#e7e3da;--fg:#262626;--card:#f2efe8;--card-fg:#262626;--on:#f2efe8;--on-fg:#262626;--radius:14px;--border:1px solid #d6d1c6;--cut:none;--case:none;
+ --title-font:700 30px/1 Archivo,sans-serif;--name-font:500 17px/1.1 Archivo,sans-serif;--label-font:500 10px/1 Archivo,sans-serif;--num-font:400 26px/1 Archivo,sans-serif;--label-track:.06em;
+ --bar-h:4px;--bar-track:#dcd7cc;--bar-fill:#f07d1e;--band-gap:#f2efe8;--key:#e4e0d6;--key-fg:#262626;--key-radius:999px;--accent:#f07d1e;--accent-fg:#fff;--art:#d8d2c6;--gap:10px}
+.braun .card{box-shadow:0 1px 0 #fff inset,0 2px 8px rgba(0,0,0,.08)}
+.braun .card.on::before{content:"";position:absolute;left:14px;top:14px;width:8px;height:8px;border-radius:50%;background:#f07d1e}
+.braun .card.on .nm{padding-left:16px}
+.braun .pw{padding:10px}.braun .pw svg{display:none}
+.braun .pw::after{content:"";width:34px;height:18px;border-radius:9px;background:#cfc9bd;box-shadow:inset 0 0 0 2px #cfc9bd}
+.braun .on .pw::after{background:#262626;box-shadow:inset -16px 0 0 2px #262626,inset 0 0 0 9px #262626}
+.braun .bands{width:auto;left:auto;top:12px;bottom:auto;right:56px;height:10px;background:none;border:0;gap:4px}
+.braun .bands i{width:10px;flex:none;border-radius:50%}
+.braun .dk{background:#f2efe8;border:1px solid #d6d1c6;color:#262626}
+.braun .dk.a{background:#262626;color:#f2efe8}
+
+/* ---------- NERV / SIGNAL//DECK ---------- */
+.nerv{--bg:#0d0b14;--fg:#efe7d6;--card:#16131f;--card-fg:#efe7d6;--on:#16131f;--on-fg:#efe7d6;--radius:0;--border:1px solid #3a3350;--cut:none;--case:uppercase;
+ --title-font:800 38px/1 "Saira Extra Condensed",sans-serif;--name-font:800 26px/1 "Saira Extra Condensed",sans-serif;--label-font:400 11px/1 "Share Tech Mono","Noto Sans JP",monospace;--num-font:400 24px/1 "Share Tech Mono",monospace;--title-track:.02em;
+ --bar-h:6px;--bar-track:#241f33;--bar-fill:#ff9a1f;--band-gap:#0d0b14;--key:#241f33;--key-fg:#efe7d6;--accent:#ff9a1f;--accent-fg:#0d0b14;--art:repeating-linear-gradient(0deg,#16131f 0 3px,#1c1828 3px 4px)}
+.nerv .card{border-left:4px solid #3a3350}
+.nerv .card.on{border-color:#ff9a1f;box-shadow:inset 0 0 0 1px #ff9a1f}
+.nerv .card .sub::before{content:"照明 // ";color:#ff9a1f}
+.nerv .card.spk .sub::before{content:"音楽 // "}
+.nerv .pw svg{stroke:#ff9a1f}
+.nerv .dk{background:#16131f;border:1px solid #3a3350;color:#efe7d6;border-top:4px solid var(--c,#ff9a1f)}
+.nerv .dk span::after{content:attr(data-jp);margin-left:8px;color:var(--c,#ff9a1f)}
+
+/* ---------- LCARS ---------- */
+.lcars{--bg:#000;--fg:#ff9900;--card:#000;--card-fg:#ffcc99;--on:#000;--on-fg:#ff9900;--radius:0;--border:0;--cut:none;--case:uppercase;
+ --title-font:700 34px/1 Antonio,sans-serif;--name-font:700 22px/1 Antonio,sans-serif;--label-font:500 11px/1 Antonio,sans-serif;--num-font:500 26px/1 Antonio,sans-serif;--label-track:.1em;
+ --bar-h:8px;--bar-track:#332211;--bar-fill:#ff9900;--band-gap:#000;--key:#9999ff;--key-fg:#000;--key-radius:999px;--accent:#ff9966;--accent-fg:#000;--art:#cc99cc}
+.lcars .card{padding-left:40px;border-top:14px solid #cc99cc;border-left:28px solid #cc99cc;border-top-left-radius:26px}
+.lcars .card.on{border-color:#ff9900}
+.lcars .card .bar{left:-28px;border-radius:0 6px 6px 0}
+.lcars .pw{top:-14px;width:auto;height:14px;padding:0;right:8px}
+.lcars .pw svg{display:none}.lcars .pw::after{content:"PWR";font:700 11px/14px Antonio,sans-serif;color:#000;background:#ff9966;padding:0 8px;border-radius:7px}
+.lcars .spk .art{margin:-12px -14px 0 -40px}
+.lcars .dk{border-radius:999px 0 0 999px;background:var(--c,#ff9900);color:#000;align-items:flex-end;text-align:right;min-height:64px}
+.lcars .bands{border:0;background:#000;gap:3px;width:40px}.lcars .bands i{border-radius:4px}
+
+/* ---------- Transit (Vignelli) ---------- */
+.transit{--bg:#fff;--fg:#111;--card:#111;--card-fg:#fff;--on:#111;--on-fg:#fff;--radius:0;--border:0;--cut:none;--case:none;
+ --title-font:800 32px/1 "Hanken Grotesk",sans-serif;--name-font:700 18px/1.1 "Hanken Grotesk",sans-serif;--label-font:500 10px/1 "Hanken Grotesk",sans-serif;--num-font:500 24px/1 "Hanken Grotesk",sans-serif;--label-track:.04em;
+ --bar-h:3px;--bar-track:#333;--bar-fill:#fff;--band-gap:#111;--key:#2a2a2a;--key-fg:#fff;--key-radius:999px;--accent:#fff;--accent-fg:#111;--art:#2a2a2a}
+.transit .card{border-top:6px solid #111}
+.transit .card .nm{display:flex;gap:10px;align-items:center}
+.transit .card .nm::before{content:var(--ln,"L");width:24px;height:24px;border-radius:50%;background:var(--line,#ee352e);color:#fff;display:grid;place-items:center;font:700 13px/1 "Hanken Grotesk",sans-serif;flex:none}
+.transit .card.off{background:#e9e9e9;color:#111}
+.transit .card.off .nm::before{background:#a7a9ac}
+.transit .pw svg{stroke:#fff}.transit .off .pw svg{stroke:#111}
+.transit .bands{border:0;width:auto;height:8px;top:auto;bottom:16px;right:14px;background:none;gap:4px}.transit .bands i{width:8px;flex:none;border-radius:50%}
+.transit .dk{background:#111;color:#fff;border-top:6px solid var(--c,#ee352e)}
+
+/* ---------- Olympia (Aicher) ---------- */
+.olympia{--bg:#f4f6f7;--fg:#1f3b4d;--card:#ffffff;--card-fg:#1f3b4d;--on:#f6c445;--on-fg:#1f3b4d;--radius:0;--border:1px solid #d8e1e6;--cut:none;--case:lowercase;
+ --title-font:300 40px/1 "Albert Sans",sans-serif;--name-font:400 19px/1.1 "Albert Sans",sans-serif;--label-font:400 11px/1 "Albert Sans",sans-serif;--num-font:300 34px/1 "Albert Sans",sans-serif;--label-case:lowercase;--label-track:.02em;
+ --bar-h:6px;--bar-track:#e7edf0;--bar-fill:#2aa65c;--band-gap:#fff;--key:#e7edf0;--key-fg:#1f3b4d;--accent:#3a8fd8;--accent-fg:#fff;--art:linear-gradient(90deg,#3a8fd8 0 25%,#2aa65c 0 50%,#f6c445 0 75%,#f08c33 0)}
+.olympia .card .pw svg{stroke:currentColor}
+.olympia .bands{border-left:0;background:none;gap:0;width:36px}
+.olympia .dk{background:var(--c,#3a8fd8);color:#fff}
+.olympia .dk b{font:300 26px/1 "Albert Sans",sans-serif}
+.olympia .card::after{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--stripe,transparent)}
+</style>
+<main>
+  <header>
+    <h1>Jam looks</h1>
+    <p>The same four Jam cards and the kiosk's bottom row, drawn in six looks. JamBoard is today's Saul Bass look; the other five come from the looks the JamDash agent designed for the smol-boi dashboard. Only colour, type, shape and a little decor change; every card keeps its layout and controls. Mockups only.</p>
+  </header>
+
+  <!-- template repeated per look -->
+  <section class="band jamboard">
+    <div class="meta"><h2>JamBoard</h2><small>Today. Saul Bass cut paper: torn corners, bold display type, flat colour.</small></div>
+    <div class="grid">
+      <div class="card on"><div><div class="nm">Living room</div><div class="sub">Group · 2 bulbs</div></div><div class="big">75<small>%</small></div><div class="bar"><i style="width:75%"></i></div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke="#141210" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card"><div><div class="nm">Kitchen lamp</div><div class="sub">Off</div></div><div class="big">Off</div><div class="pw" style="background:#36312b"><svg viewBox="0 0 24 24" fill="none" stroke="#a89d88" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card on" style="background:#f6884e"><div><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="big">60<small>%</small></div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div></div>
+      <div class="card spk" style="background:#221f1b"><div class="art"></div><div><div class="sub" style="margin-top:8px">Kitchen · Spotify</div><div class="nm">Saturn</div></div><div class="row"><b>◀◀</b><b class="p">❚❚</b><b>▶▶</b></div></div>
+    </div>
+    <div class="dock"><div class="dk" style="background:#e5a31b;color:#141210"><b>Lights</b><span>4 on</span></div><div class="dk" style="background:#22a39a;color:#141210"><b>TV</b><span>Live TV</span></div><div class="dk" style="background:#9b6dd6;color:#141210"><b>Music</b><span>Idle</span></div></div>
+  </section>
+
+  <section class="band braun">
+    <div class="meta"><h2>Braun</h2><small>After Dieter Rams. A warm-white appliance: soft panels, one orange signal, toggle switches for power, a dot that glows when a light is on. Calm in a bright room.</small></div>
+    <div class="grid">
+      <div class="card on"><div><div class="nm">Living room</div><div class="sub">Group · 2 bulbs</div></div><div class="big">75<small>%</small></div><div class="bar"><i style="width:75%"></i></div><div class="pw"></div></div>
+      <div class="card"><div><div class="nm">Kitchen lamp</div><div class="sub">Off</div></div><div class="big" style="color:#9a958b">Off</div><div class="pw"></div></div>
+      <div class="card on"><div><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="big">60<small>%</small></div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div><div class="pw"></div></div>
+      <div class="card spk"><div class="art"></div><div><div class="sub" style="margin-top:8px">Kitchen · Spotify</div><div class="nm">Saturn</div></div><div class="row"><b>◀◀</b><b class="p">❚❚</b><b>▶▶</b></div></div>
+    </div>
+    <div class="dock"><div class="dk a"><b>Lights</b><span>4 on</span></div><div class="dk"><b>TV</b><span>Live TV</span></div><div class="dk"><b>Music</b><span>Idle</span></div></div>
+  </section>
+
+  <section class="band nerv">
+    <div class="meta"><h2>NERV · Signal//Deck</h2><small>From the NervOS couch frontend: near-black, compressed heavy type, mono readouts, Japanese echo labels, amber focus. Matches the TV box.</small></div>
+    <div class="grid">
+      <div class="card on"><div><div class="nm">Living room</div><div class="sub">Group · 2 bulbs</div></div><div class="big">075%</div><div class="bar"><i style="width:75%"></i></div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card"><div><div class="nm">Kitchen lamp</div><div class="sub">Standby</div></div><div class="big" style="color:#6d6585">OFF</div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" style="stroke:#6d6585"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card on"><div><div class="nm">Stove lights</div><div class="sub">Group · 3 units</div></div><div class="big">060%</div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div></div>
+      <div class="card spk"><div class="art"></div><div><div class="sub" style="margin-top:8px">Kitchen · Spotify</div><div class="nm">Saturn</div></div><div class="row"><b>PREV</b><b class="p">PAUSE</b><b>NEXT</b></div></div>
+    </div>
+    <div class="dock"><div class="dk" style="--c:#ff9a1f"><b>Lights</b><span data-jp="照明">4 on</span></div><div class="dk" style="--c:#45d6c4"><b>TV</b><span data-jp="映像">Live TV</span></div><div class="dk" style="--c:#b48cff"><b>Music</b><span data-jp="音楽">Idle</span></div></div>
+  </section>
+
+  <section class="band lcars">
+    <div class="meta"><h2>LCARS</h2><small>The Starfleet console: black field, rounded elbows framing each card, pill buttons, Antonio caps, apricot and lilac blocks.</small></div>
+    <div class="grid">
+      <div class="card on"><div><div class="nm">Living room</div><div class="sub">Group · 2 bulbs</div></div><div class="big">75</div><div class="bar"><i style="width:75%"></i></div><div class="pw"></div></div>
+      <div class="card"><div><div class="nm">Kitchen lamp</div><div class="sub">Offline</div></div><div class="big" style="color:#665544">00</div><div class="pw"></div></div>
+      <div class="card on"><div><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="big">60</div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div><div class="pw"></div></div>
+      <div class="card spk"><div class="art"></div><div><div class="sub" style="margin-top:8px">Kitchen · Spotify</div><div class="nm">Saturn</div></div><div class="row"><b>Prev</b><b class="p">Pause</b><b>Next</b></div></div>
+    </div>
+    <div class="dock"><div class="dk" style="--c:#ff9900"><b>Lights</b><span>4 on</span></div><div class="dk" style="--c:#9999ff"><b>TV</b><span>Live TV</span></div><div class="dk" style="--c:#cc99cc"><b>Music</b><span>Idle</span></div></div>
+  </section>
+
+  <section class="band transit">
+    <div class="meta"><h2>Transit</h2><small>After Vignelli's subway signage: black panels, one tidy sans, a coloured line disc per room, white rules. Reads like a platform sign.</small></div>
+    <div class="grid">
+      <div class="card on" style="--ln:'L';--line:#ff6319"><div><div class="nm">Living room</div><div class="sub">Group · 2 bulbs</div></div><div class="big">75<small>%</small></div><div class="bar"><i style="width:75%"></i></div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card off" style="--ln:'K'"><div><div class="nm">Kitchen lamp</div><div class="sub">Not in service</div></div><div class="big">Off</div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="3"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card on" style="--ln:'K';--line:#00933c"><div><div class="nm">Stove lights</div><div class="sub">Group · 3 bulbs</div></div><div class="big">60<small>%</small></div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div></div>
+      <div class="card spk" style="--ln:'M';--line:#b933ad"><div class="art"></div><div><div class="sub" style="margin-top:8px">Kitchen · Spotify</div><div class="nm">Saturn</div></div><div class="row"><b>◀◀</b><b class="p">❚❚</b><b>▶▶</b></div></div>
+    </div>
+    <div class="dock"><div class="dk" style="--c:#ff6319"><b>Lights</b><span>4 on</span></div><div class="dk" style="--c:#0039a6"><b>TV</b><span>Live TV</span></div><div class="dk" style="--c:#b933ad"><b>Music</b><span>Idle</span></div></div>
+  </section>
+
+  <section class="band olympia">
+    <div class="meta"><h2>Olympia</h2><small>After Otl Aicher's Munich 1972: light ground, lowercase thin type, a cool bright spectrum, colour stripes and plain right-angled shapes.</small></div>
+    <div class="grid">
+      <div class="card on" style="--stripe:#f6c445"><div><div class="nm">living room</div><div class="sub">group · 2 bulbs</div></div><div class="big">75<small>%</small></div><div class="bar"><i style="width:75%"></i></div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card"><div><div class="nm">kitchen lamp</div><div class="sub">off</div></div><div class="big" style="color:#9fb0bb">off</div><div class="pw"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v9"/><path d="M6.3 7.5a8 8 0 1 0 11.4 0"/></svg></div></div>
+      <div class="card on" style="background:#fff;--stripe:#f08c33"><div><div class="nm">stove lights</div><div class="sub">group · 3 bulbs</div></div><div class="big">60<small>%</small></div><div class="bands"><i style="background:#ff6a3d"></i><i style="background:#ffb347"></i><i style="background:#e2658f"></i></div><div class="bar"><i style="width:60%"></i></div></div>
+      <div class="card spk"><div class="art"></div><div><div class="sub" style="margin-top:8px">kitchen · spotify</div><div class="nm">saturn</div></div><div class="row"><b>‹‹</b><b class="p">❚❚</b><b>››</b></div></div>
+    </div>
+    <div class="dock"><div class="dk" style="--c:#f08c33"><b>lights</b><span>4 on</span></div><div class="dk" style="--c:#2aa65c"><b>tv</b><span>live tv</span></div><div class="dk" style="--c:#3a8fd8"><b>music</b><span>idle</span></div></div>
+  </section>
+
+  <section class="band" style="--bg:#221f1b;--fg:#ece2c9">
+    <div class="meta"><h2 style="font:900 28px/1 'Londrina Solid',sans-serif;text-transform:uppercase">How switching works (proposal)</h2></div>
+    <p style="margin:0;line-height:1.55;max-width:80ch;color:#cfc5ad">Each look is one Home Assistant theme (JamBoard, Jam Braun, Jam NERV, Jam LCARS, Jam Transit, Jam Olympia). The theme carries the look's colours, fonts, corner shapes and a look name the Jam cards read to switch their small decor (LCARS elbows, Braun toggles, NERV labels). A "Look" picker on Jam Control sets the theme for everyone at once; each person can still pick their own in their profile. Light/dark modes stay per look. The dashboards and kiosk layouts keep their structure in every look.</p>
+  </section>
+</main>
