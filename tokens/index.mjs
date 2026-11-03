@@ -3,10 +3,12 @@
 import {TOKENS, RUNTIME_TOKENS} from "./registry.mjs";
 import {HA_KEYS, haValue} from "./ha.mjs";
 import poster from "./looks/poster.mjs";
+import stress from "./looks/stress.mjs";
 
 export {TOKENS, RUNTIME_TOKENS, HA_KEYS, haValue};
-/* Every look, Poster first (it is the default and the cards' fallback). */
-export const LOOKS = [poster];
+/* Every look, Poster first (it is the default and the cards' fallback). A look with `harness: true` (stress) exists only
+   for preview/shoot.js: it gets a preview/looks.css block but no theme file. */
+export const LOOKS = [poster, stress];
 export const POSTER = poster;
 
 const MODES = ["dark", "light"];

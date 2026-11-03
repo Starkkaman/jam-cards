@@ -8,7 +8,7 @@ class JamHeading extends JamBase {
     .h{display:grid;gap:6px;padding:6px 2px 0}
     .row{display:flex;gap:10px 16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
     .rule{height:5px;background:var(--acc)}
-    h2{font-size:clamp(1.6rem,5.4vw,2.3rem)} .t{display:grid;gap:4px;min-width:0}
+    h2{font-size:calc(clamp(1.6rem,5.4vw,2.3rem) * var(--disp-scale))} .t{display:grid;gap:4px;min-width:0}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .chips .chip{line-height:12px;padding-top:10px;padding-bottom:10px;color:var(--fg)} /* 32px tall (0.3.9), value in --fg after a tone mark */
     .h.tap{cursor:pointer}`; }

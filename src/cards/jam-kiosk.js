@@ -123,22 +123,23 @@ class JamKioskHome extends JamBase {
     .lk.off{--lk-gl:var(--dim);--lk-tx:var(--dim)}
     .lk .disc:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
     .lk .disc.stamp{animation:jam-stamp 210ms steps(3,end)}
-    .lk .lbl{font:600 18px/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--lk-tx);white-space:nowrap;
+    .lk .lbl{font:var(--lbl-w) 18px/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--lk-tx);white-space:nowrap;
       max-width:36cqw;overflow:hidden;text-align:right}
     .left{min-width:0}
-    .clock{font-family:var(--display);font-weight:900;font-size:clamp(96px,min(19cqw,31cqh),200px);line-height:.8;letter-spacing:-.01em;white-space:nowrap}
-    .clock small{font:600 max(18px,.15em)/1 var(--body);letter-spacing:.12em;margin-left:.25em;vertical-align:top;color:var(--dim)}
-    .day{font-family:var(--display);font-weight:900;font-size:clamp(30px,min(3.7cqw,6.2cqh),40px);line-height:1;letter-spacing:.01em;
-      text-transform:uppercase;color:var(--fg);white-space:nowrap;margin-top:16px}
+    .clock{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(clamp(96px,min(19cqw,31cqh),200px) * var(--num-scale));line-height:calc(.8 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.01em);white-space:nowrap}
+    .clock small{font:var(--lbl-w) max(18px,.15em)/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));margin-left:.25em;vertical-align:top;color:var(--dim)}
+    .day{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(clamp(30px,min(3.7cqw,6.2cqh),40px) * var(--disp-scale));line-height:calc(1 * var(--disp-lead));letter-spacing:var(--jam-display-track,.01em);
+      text-transform:var(--disp-case);color:var(--fg);white-space:nowrap;margin-top:16px;
+      max-width:100%;overflow:hidden;text-overflow:ellipsis} /* one line; a wider look's face cuts with an ellipsis */
     .date{font:600 clamp(20px,2.2cqw,22px)/1.3 var(--body);letter-spacing:.03em;color:var(--dim);margin-top:8px;overflow-wrap:normal}
     .date:empty{display:none}
     .date .f{white-space:nowrap}
     .now{display:grid;gap:14px;justify-items:end;text-align:right;min-width:0;align-content:end}
     .now:empty{display:none}
-    .kick,.small{font:600 18px/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);max-width:100%}
-    .small{letter-spacing:.14em}
+    .kick,.small{font:var(--lbl-w) 18px/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);max-width:100%}
+    .small{letter-spacing:calc(.14em * var(--lbl-track))}
     .kick:empty,.small:empty{display:none}
-    .big{font-family:var(--display);font-weight:900;font-size:clamp(52px,6cqw,60px);line-height:.9;text-transform:uppercase;letter-spacing:-.005em;
+    .big{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(clamp(52px,6cqw,60px) * var(--disp-scale));line-height:calc(.9 * var(--disp-lead));text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);
       max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}
     .dock{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;height:120px}
     .blk{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px;min-width:0;padding:0 22px;
@@ -147,9 +148,9 @@ class JamKioskHome extends JamBase {
     .host.light .blk.none{--bc:var(--ink);--bf:var(--ink-fg)}
     .host.light .blk.none .st{color:var(--ink-dim2)}
     .blk:focus-visible{outline:3px solid currentColor;outline-offset:-7px}
-    .nm{font-family:var(--display);font-weight:900;font-size:clamp(32px,3.6cqw,36px);line-height:.9;text-transform:uppercase;max-width:100%;
+    .nm{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(clamp(32px,3.6cqw,36px) * var(--disp-scale));line-height:calc(.9 * var(--disp-lead));text-transform:var(--disp-case);max-width:100%;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .st{font:600 18px/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase;max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .st{font:var(--lbl-w) 18px/1.1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .blk.none .st{color:var(--dim)}
     .st:empty{display:none}
     .blk.stamp{z-index:1;animation:jam-stamp 210ms steps(3,end)}

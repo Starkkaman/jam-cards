@@ -7,7 +7,7 @@ class JamSlider extends JamBase {
   css() { return `
     .wrap{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-    .v{font-family:var(--display);font-weight:900;font-size:1.7rem;line-height:1}
+    .v{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(1.7rem * var(--num-scale));line-height:calc(1 * var(--disp-lead))}
     .track[role=slider]{cursor:pointer}`; }
   _model() {
     const c = this._config, s = stateObj(this._hass, c.entity), d = c.entity.split(".")[0];

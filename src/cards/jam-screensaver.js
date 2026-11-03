@@ -74,14 +74,14 @@ const SS_CSS = `
   .bar{clip-path:var(--jam-shape-card,polygon(0 0,100% 0,100% calc(100% - 3vh),calc(100% - 3vh) 100%,0 100%))}
   .disc{clip-path:circle(50% at 50% 50%)}
   .txt{position:absolute;display:grid;gap:1.6vh;justify-items:start}
-  .kick{font:600 max(12px,2.1vh)/1.2 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
-  .time{font-family:var(--display);font-weight:900;font-size:28vh;line-height:.8;letter-spacing:-.01em;color:var(--sfg);white-space:nowrap}
-  .time small,.tchip small{font:600 .14em/1 var(--body);letter-spacing:.12em;margin-left:.25em;vertical-align:top;color:var(--sdim)}
-  .date{font:500 max(13px,3.3vh)/1.15 var(--body);letter-spacing:.18em;text-transform:uppercase;color:var(--sfg)}
+  .kick{font:var(--lbl-w) max(12px,2.1vh)/1.2 var(--body);letter-spacing:calc(.2em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--acc)}
+  .time{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(28vh * var(--num-scale));line-height:calc(.8 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.01em);color:var(--sfg);white-space:nowrap}
+  .time small,.tchip small{font:var(--lbl-w) .14em/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));margin-left:.25em;vertical-align:top;color:var(--sdim)}
+  .date{font:500 max(13px,3.3vh)/1.15 var(--body);letter-spacing:calc(.18em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--sfg)}
   .wx{display:flex;align-items:baseline;gap:0 2.4vh;flex-wrap:wrap}
   .wx:empty{display:none}
-  .word{font-family:var(--display);font-weight:900;font-size:6.4vh;line-height:.9;text-transform:uppercase;color:var(--sfg)}
-  .temp{font-family:var(--display);font-weight:900;font-size:6.4vh;line-height:.9;color:var(--acc)}
+  .word{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(6.4vh * var(--disp-scale));line-height:calc(.9 * var(--disp-lead));text-transform:var(--disp-case);color:var(--sfg)}
+  .temp{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(6.4vh * var(--num-scale));line-height:calc(.9 * var(--disp-lead));color:var(--acc)}
   .r .txt{justify-items:end;text-align:right} .c .txt{justify-items:center;text-align:center}
   .l0 .txt{left:8vw;bottom:10vh}
   .l0 .b1{right:10vw;top:0;width:9vw;height:66vh} .l0 .b2{right:22vw;top:0;width:3.5vw;height:42vh} .l0 .dk{right:5vw;bottom:7vh;width:22vh;height:22vh}
@@ -109,9 +109,9 @@ const SS_CSS = `
   .sdock{position:absolute;left:3vw;bottom:4vh;display:grid;gap:1.4vh;justify-items:start}
   .tchip{display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
     clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
-  .tchip .tt{font-family:var(--display);font-weight:900;font-size:8vh;line-height:.85;white-space:nowrap}
+  .tchip .tt{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(8vh * var(--num-scale));line-height:calc(.85 * var(--disp-lead));white-space:nowrap}
   .tchip small{color:var(--acc-fg)}
-  .tchip .cap{font:600 max(11px,1.8vh)/1.2 var(--body);letter-spacing:.16em;text-transform:uppercase;max-width:40vw}
+  .tchip .cap{font:var(--lbl-w) max(11px,1.8vh)/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);max-width:40vw}
   .tchip .cap:empty{display:none}
   /* Now playing (0.7.1): poster block in the text column; photos label = the same block on solid ink. */
   .np{display:flex;align-items:center;gap:2.6vh;margin-top:2.2vh;max-width:min(62vw,820px);min-width:0;text-align:left}
@@ -122,16 +122,16 @@ const SS_CSS = `
   .np .th .arm span{background:var(--ink);max-width:22%}
   .np .th.bars .cv,.np .th:not(.bars) .arm{display:none}
   .np .nt{display:grid;gap:1vh;min-width:0;justify-items:start}
-  .np .nb{font-family:var(--display);font-weight:900;font-size:5.75vh;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;color:var(--sfg);
+  .np .nb{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(5.75vh * var(--disp-scale));line-height:calc(.92 * var(--disp-lead));text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);color:var(--sfg);
     max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .np .ns{font:600 max(12px,2.3vh)/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--sdim)}
+  .np .ns{font:var(--lbl-w) max(12px,2.3vh)/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--sdim)}
   .np .kick,.np .ns{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .np .ns:empty{display:none}
   .r .np{flex-direction:row-reverse;text-align:right} .r .np .nt{justify-items:end}
   .sdock .np{margin:0;gap:2vh;padding:1.6vh 3vh 1.6vh 1.6vh;background:var(--ink);max-width:min(64vw,760px);
     clip-path:var(--jam-shape-card,polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%))}
   .sdock .np .th{width:11.5vh;height:11.5vh}
-  .sdock .np .nb{font-size:4.4vh}
+  .sdock .np .nb{font-size:calc(4.4vh * var(--disp-scale))}
   .sdock .np .ns{font-size:max(12px,2vh)}
   @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}.img,.slides{transition:none!important}}`;
 /* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>):

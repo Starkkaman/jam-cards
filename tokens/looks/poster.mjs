@@ -24,6 +24,9 @@ export default {
   tokens: {
     "jam-display": '"Londrina Solid", "Arial Black", Impact, sans-serif',
     "jam-body": '"Jost", "Helvetica Neue", Arial, sans-serif',
+    "jam-display-weight": "900", "jam-display-case": "uppercase", "jam-display-lead": "1", "jam-display-scale": "1",
+    "jam-label-weight": "600", "jam-label-case": "uppercase", "jam-label-track-scale": "1",
+    "jam-key-weight": "600", "jam-key-case": "uppercase", "jam-key-track-scale": "1",
     "jam-look": "poster",
   },
   // Home Assistant chrome keys at the theme's top level (both modes), in file order; the theme-level tokens follow them.

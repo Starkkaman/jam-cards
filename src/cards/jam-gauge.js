@@ -14,12 +14,12 @@ class JamGauge extends JamBase {
     .g{display:grid;gap:6px;align-content:start;justify-items:center;text-align:center}
     .g .label{justify-self:stretch;text-align:left}
     svg{display:block;width:100%;max-width:260px;height:auto}
-    .big{font-family:var(--display);font-weight:900;font-size:2.8rem;line-height:.9;text-transform:uppercase}
+    .big{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(2.8rem * var(--num-scale));line-height:calc(.9 * var(--disp-lead));text-transform:var(--disp-case)}
     .u{font:500 .95rem/1 var(--body);color:var(--dim);margin-left:4px;text-transform:none}
-    .un{font-size:1.7rem}
+    .un{font-size:calc(1.7rem * var(--disp-scale))}
     .bar{display:grid;gap:10px;align-content:start}
     .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-    .bar .big{font-size:1.9rem}
+    .bar .big{font-size:calc(1.9rem * var(--num-scale))}
 `; }
   _bands(min, max) {
     const sv = this._config.severity;

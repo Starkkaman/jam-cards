@@ -66,9 +66,9 @@ const JAM_TV_KIOSK_CSS = `
     .kiosk .poster .arm span{min-width:22px}
     /* Kiosk band: kicker and time share the first line, title (30-44px, max 2 lines) under them, so the art keeps most of the poster. */
     .kiosk .poster .band{padding:12px 22px 16px;gap:6px 18px;grid-template-columns:minmax(0,1fr) auto;align-items:baseline}
-    .kiosk .poster .kick{grid-row:1;grid-column:1;font-size:18px;letter-spacing:.14em;-webkit-line-clamp:1}
+    .kiosk .poster .kick{grid-row:1;grid-column:1;font-size:18px;letter-spacing:calc(.14em * var(--lbl-track));-webkit-line-clamp:1}
     .kiosk .poster .sub{grid-row:1;grid-column:2;font-size:18px;white-space:nowrap}
-    .kiosk .poster .title{grid-row:2;grid-column:1/-1;font-size:clamp(30px,8cqh,44px)}
+    .kiosk .poster .title{grid-row:2;grid-column:1/-1;font-size:calc(clamp(30px,8cqh,44px) * var(--disp-scale))}
     .kiosk .poster .prog{height:8px}
     .kiosk .pw{width:72px;height:72px}
     .kiosk .pw svg{right:8px;top:8px;width:26px;height:26px}
@@ -78,30 +78,30 @@ const JAM_TV_KIOSK_CSS = `
     .kiosk .keys .gl svg{width:34px;height:34px}
     .kiosk .rock > .face{min-height:clamp(56px,11cqh,72px)}
     .kiosk .rock .key > .face{font-size:18px}
-    .kiosk .rock .key.vol > .face{font-size:2.4rem}
+    .kiosk .rock .key.vol > .face{font-size:calc(2.4rem * var(--disp-scale))}
     .kiosk .rock .key .gl svg{width:28px;height:28px}
     .kiosk .seg{gap:10px}
     .kiosk .seg .key > .face{min-height:clamp(56px,10cqh,64px);font-size:18px;gap:12px}
     .kiosk .seg .gl svg{width:28px;height:28px}
     .kiosk > .face.wrap.off{grid-template-rows:minmax(0,38%) minmax(0,1fr)}
     .kiosk .wrap.off > .pane{height:100%;grid-template-rows:minmax(64px,.7fr) minmax(0,2fr)}
-    .kiosk .turnon > .face{min-height:64px;height:100%;font-size:32px;gap:14px}
+    .kiosk .turnon > .face{min-height:64px;height:100%;font-size:calc(32px * var(--disp-scale));gap:14px}
     .kiosk .turnon .gl svg{width:32px;height:32px}
     .kiosk .src{min-height:0;gap:10px;grid-auto-rows:minmax(64px,1fr)}
-    .kiosk .src .tile > .face{min-height:64px;height:100%;font-size:24px}
+    .kiosk .src .tile > .face{min-height:64px;height:100%;font-size:calc(24px * var(--disp-scale))}
     .kiosk .src .tile .gl svg{width:26px;height:26px}
-    @container (max-width:440px){ .kiosk .seg .key > .face{letter-spacing:.06em} .kiosk .src .tile > .face{font-size:18px} }
+    @container (max-width:440px){ .kiosk .seg .key > .face{letter-spacing:calc(.06em * var(--key-track))} .kiosk .src .tile > .face{font-size:max(18px, calc(18px * var(--disp-scale)))} }
     @container (max-height:470px){ .kiosk .poster .title > .tl{-webkit-line-clamp:1} .kiosk .poster .band{padding:10px 20px 12px;row-gap:4px} }`;
 /* Source tiles (round 3): big colour block, name bottom-left in display type (ink), glyph top-right; the source on screen
    gets a 4px --fg outline + an "On now" stamp. Used in the Source sheet and (smaller) as the off-state quick tiles. */
 const JAM_TV_TILE_CSS = `
     .tile{min-width:0}
     .tile > .face{--p-t:10px;--p-r:10px;--p-b:10px;--p-l:10px;position:relative;height:84px;display:flex;align-items:flex-end;justify-content:flex-start;
-      background:var(--app);color:var(--on-fg);border:0;font:900 1.2rem/.95 var(--display);letter-spacing:.01em;text-transform:uppercase;text-align:left}
+      background:var(--app);color:var(--on-fg);border:0;font:var(--disp-w) calc(1.2rem * var(--disp-scale))/calc(.95 * var(--disp-lead)) var(--display);letter-spacing:var(--jam-display-track,.01em);text-transform:var(--disp-case);text-align:left}
     .tile .nm{min-width:0;overflow-wrap:normal;word-break:normal;hyphens:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .tile .gl{position:absolute;right:10px;top:10px}
     .tile .gl svg,.tile ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}
-    .tile .now{position:absolute;left:10px;top:10px;font:600 .62rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;background:var(--band);color:var(--band-fg);padding:4px 5px}
+    .tile .now{position:absolute;left:10px;top:10px;font:var(--lbl-w) .62rem/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);white-space:nowrap;background:var(--band);color:var(--band-fg);padding:4px 5px}
     .tile.cur{outline:4px solid var(--fg);outline-offset:3px}
     .tile.cur:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .tile.home > .face{background:var(--slab3);color:var(--fg)}
@@ -112,7 +112,7 @@ const JAM_TV_SHEET_CSS = `
     .grid{display:grid;gap:12px 10px}
     .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
     .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}` + JAM_TV_TILE_CSS + `
-    @media (max-width:420px){ .tile > .face{font-size:1.05rem} .tile .gl{right:8px} .tile .gl svg{width:20px;height:20px} }`;
+    @media (max-width:420px){ .tile > .face{font-size:calc(1.05rem * var(--disp-scale))} .tile .gl{right:8px} .tile .gl svg{width:20px;height:20px} }`;
 /* Art analysis cache: src -> {light, busy} (luminance of the text area + its spread). */
 const JAM_TV_ART = new Map(), JAM_TV_ART_MAX = 64;
 class JamTv extends JamSheetHost(JamBase) {
@@ -140,9 +140,9 @@ class JamTv extends JamSheetHost(JamBase) {
     .poster .arm span{background:var(--acc-fg)}
     /* The text always sits on a solid ink band (round 3), so it is cream in both modes. */
     .poster .band{position:relative;background:var(--band);color:var(--band-fg);padding:10px 14px 14px;display:grid;gap:4px;min-width:0}
-    .poster .kick{font:600 13px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal;
+    .poster .kick{font:var(--lbl-w) 13px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);white-space:normal;overflow-wrap:normal;word-break:normal;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .poster .title{font-family:var(--display);font-weight:900;font-size:34px;line-height:.92;text-transform:uppercase;letter-spacing:-.005em;
+    .poster .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(34px * var(--disp-scale));line-height:calc(.92 * var(--disp-lead));text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);
       overflow-wrap:anywhere;cursor:pointer}
     .poster .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .poster .sub{font:500 13px/1.2 var(--body);letter-spacing:.06em}
@@ -162,12 +162,12 @@ class JamTv extends JamSheetHost(JamBase) {
     .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .seg .key{min-width:0}
     .seg .key > .face{--p-t:0;--p-b:0;--p-l:8px;--p-r:10px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:9px;
-      font-size:.72rem;letter-spacing:.14em;--ol:var(--dim)}
+      font-size:.72rem;letter-spacing:calc(.14em * var(--key-track));--ol:var(--dim)}
     .turnon > .face{--p-t:0;--p-b:0;min-height:60px;display:flex;align-items:center;justify-content:center;gap:12px;
-      font:900 1.6rem/1 var(--display);letter-spacing:.01em}
+      font:var(--disp-w) calc(1.6rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);letter-spacing:var(--jam-display-track,.01em)}
     .turnon .gl svg{width:24px;height:24px}
     .src{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .src .tile > .face{height:auto;min-height:64px;font-size:.95rem}
+    .src .tile > .face{height:auto;min-height:64px;font-size:calc(.95rem * var(--disp-scale))}
     .src .tile .gl svg{width:18px;height:18px}` + JAM_TV_TILE_CSS + JAM_OUTLINE_CSS + JAM_ROCKER_CSS +
     (this._config && this._config.size === "kiosk" ? JAM_TV_KIOSK_CSS : ""); }
   /* Remote sheet config: jam-remote with a TV group (teal) and, with `stereo`, a Stereo group (violet). */

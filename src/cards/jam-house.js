@@ -36,9 +36,9 @@ class JamHouse extends JamBase {
     .row{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
     .in,.out{display:grid;gap:4px;min-width:0}
     .out{text-align:right;justify-items:end}
-    .temp{font-size:2.6rem;line-height:.85;cursor:pointer}
+    .temp{font-family:var(--num-font);font-size:calc(2.6rem * var(--num-scale));line-height:calc(.85 * var(--disp-lead));cursor:pointer}
     .temp small{font:500 1rem/1 var(--body);color:var(--dim);text-transform:none;letter-spacing:0;margin-left:1px}
-    .otemp{font-size:1.8rem;line-height:.85;cursor:pointer;min-width:44px} /* 44px wide box (text aligned as before), so its hit area does not spill */
+    .otemp{font-family:var(--num-font);font-size:calc(1.8rem * var(--num-scale));line-height:calc(.85 * var(--disp-lead));cursor:pointer;min-width:44px} /* 44px wide box (text aligned as before), so its hit area does not spill */
     .aq{margin-top:2px;cursor:pointer}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .chip{padding:8px 10px}
@@ -47,7 +47,7 @@ class JamHouse extends JamBase {
     .chip.home{--chip-bg:var(--teal);color:var(--on-fg)}
     .compact .house{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;--p-t:10px;--p-b:14px}
     .compact .in,.compact .out{text-align:left;justify-items:start}
-    .compact .temp{font-size:1.8rem} .compact .otemp{font-size:1.4rem}
+    .compact .temp{font-size:calc(1.8rem * var(--num-scale))} .compact .otemp{font-size:calc(1.4rem * var(--num-scale))}
     .compact .chips{flex:1 1 auto;justify-content:flex-end}`; }
   /* "Air · Good" line (category word only), or null while the AQ entity is missing / unavailable. */
   _aq(cfg) {

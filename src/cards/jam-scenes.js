@@ -26,8 +26,8 @@ class JamScenes extends JamBase {
     /* 0.3.9: each key is a 44px button (2px transparent above and below, cancelled by the row's -2px margins, so the layout
        is unchanged) with the visible 40px face inside: a 44px touch target with the same look. */
     .scenes{display:flex;gap:6px;overflow-x:auto;margin:-2px 0;padding-bottom:2px;scrollbar-width:thin}
-    .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:900;font-size:1rem;line-height:1;
-      text-transform:uppercase;color:var(--fg);white-space:nowrap}
+    .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1rem * var(--disp-scale));line-height:calc(1 * var(--disp-lead));
+      text-transform:var(--disp-case);color:var(--fg);white-space:nowrap}
     .scene > .sf{position:relative;display:block;padding:12px 14px;background:var(--slab2);
       clip-path:var(--jam-shape-scene,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}

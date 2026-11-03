@@ -186,13 +186,13 @@ class JamGraph extends JamBase {
     .g{display:grid;gap:10px}
     .top{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 14px;flex-wrap:wrap;min-width:0}
     .top .label{overflow-wrap:anywhere}
-    .cur{font-family:var(--display);font-weight:900;font-size:3rem;line-height:.86;letter-spacing:-.005em;cursor:pointer;white-space:nowrap}
+    .cur{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(3rem * var(--num-scale));line-height:calc(.86 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.005em);cursor:pointer;white-space:nowrap}
     .cur.none{color:var(--dim)}
     .cur small{font:600 .9rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:4px}
     .one{display:grid;gap:6px;min-width:0}
     .lg{display:flex;flex-wrap:wrap;gap:6px 14px}
-    .lg button{display:inline-flex;align-items:center;gap:6px;font:600 .7rem/1.2 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);max-width:100%}
-    .lg .v{color:var(--fg);letter-spacing:.04em}
+    .lg button{display:inline-flex;align-items:center;gap:6px;font:var(--lbl-w) .7rem/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);max-width:100%}
+    .lg .v{color:var(--fg);letter-spacing:calc(.04em * var(--lbl-track))}
     .sq{display:inline-block;width:10px;height:10px;flex:none;background:var(--c)}
     .plot{position:relative;min-width:0;outline:none}
     .plot:focus-visible{outline:3px solid var(--focus);outline-offset:2px}

@@ -1,6 +1,6 @@
 # Theming plan: global "looks" for Jam Cards + the JamBoard theme
 
-Status: architecture brief (2026-11-03); R0-R2 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
+Status: architecture brief (2026-11-03); R0-R3 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
 `15d5e65` (0.7.2) and jam-theme `themes/jamboard.yaml` as of 2026-10-27.
 
 **Goal.** Whole-look overhauls (after the JamDash looks: Depth, Braun, NERV, LCARS and the v8 designer looks Transit, Olympia,
@@ -418,9 +418,28 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   Deferred from 2.2: `jam-pad-<kind>` (a `max(var(--p-t), var(--jam-pad-x))` padding turns invalid wherever a card sets a
   unitless `--p-t:0`, which drops all four paddings; needs a per-card pass, best with the first look whose shapes need
   more padding than the Poster cuts), `jam-border`, `jam-rule-h`, `jam-stripe-w`, `jam-strip-h` (no consumer yet).
+- **R3 (done).** Type tokens (registry "type" block, theme top level; Poster sets them, so jamboard.yaml gains 10 keys):
+  display `jam-display-weight` / `-case` / `-lead` (factor) / `-scale` (factor) and the optional `jam-display-track` (one
+  value for every display site; unset = each site's own -.01em..02em); numerals `jam-num-font` / `jam-num-scale` (optional,
+  default the display font / display scale); labels and keys `jam-label-*` / `jam-key-*` weight, case and `-track-scale`
+  (factor on each site's tracking). Deviation from 2.2: sizes, leading and label / key tracking are **factors** on each
+  site's Poster value instead of one value, because Poster sizes and tracking differ per site (one value would change
+  pixels or flatten deliberate per-site tuning); `jam-display-lead` replaces the plan's single .92. Every type literal in
+  the 19 files now reads a short name (`--disp-w`, `--disp-case`, `--disp-scale`, `--disp-lead`, `--num-font`,
+  `--num-scale`, `--lbl-*`, `--key-*`; roles assigned per rule, see DESIGN "Token reference"); left literal on purpose: body
+  text, units, sentence lines, digit counters, two `900 var(--body)` glyph keys, `letter-spacing:0` resets. Kiosk fixes the
+  stress look found: jam-speaker shelf names and jam-tv narrow source tiles keep the 18px floor under a smaller scale, and
+  jam-kiosk's date line cuts with an ellipsis when a wide face does not fit at phone width. **Stress look**
+  (`tokens/looks/stress.mjs`, `harness: true`: looks.css block, no theme file; preview `?look=stress`): mixed case, Archivo
+  stack (DejaVu Sans in the container, wider than Archivo), display 700, scale .85, lead 1.12, label / key tracking .4.
+  shoot.js checks that it re-types the cards (computed case, weight, size, leading, tracking) and preview/fit.js runs the
+  preview page (dark / light x 390 / 1280), jam-kiosk home and the kiosk Music / TV sheets (1024x768, 961x601) and the 6
+  screensaver layouts under Poster and under the look: no added face overflow, text spill, sub-18px kiosk text, sheet /
+  page scroll or text block outside the viewport (19 checks, all pass; `JAM_FIT_LOOKS=` skips them, review shots
+  `look-stress-*.png` go to JAM_SHOTS). Pixel diff vs R2: identical (the only other difference, speaker-kitchen-390 by 1px
+  at the progress fill end, is the wall clock: that JAM_SHOTS shot comes from the check page, not a fixed clock).
 - Open for R3+: the colour maths still assume the Poster ink / paper (`inkOn`, `textOn`, `cornerColors`, jam-light
-  `textOn` / `shade`, jam-tv art luminance, jam-speaker K1 panel colour: R4); type literals (57 uppercase, 50 weight-900,
-  75 tracking: R3); motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
+  `textOn` / `shade`, jam-tv art luminance, jam-speaker K1 panel colour: R4); motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
   "now: a new cover is not shown before it has loaded" (93-now-playing) fails in about half the runs on 0.7.2 already
   (the local server serves the cover before the check looks); it is not caused by R0-R2.
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th

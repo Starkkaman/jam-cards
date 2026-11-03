@@ -262,11 +262,11 @@ const JAM_MU_ROWS_CSS = `
     .vt.thin{height:22px} .vt.thin .strip{inset:7px 0}
     .vt:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .spk{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding-top:8px;border-top:2px solid var(--line)}
-    .spk .n{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:1rem;line-height:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .spk .n{font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);font-size:calc(1rem * var(--disp-scale));line-height:calc(1 * var(--disp-lead));overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .spk .vt{grid-column:1/-1}
     .spk .tog{min-width:0}
-    .spk .tog > .face{--p-t:7px;--p-b:7px;--p-l:10px;--p-r:10px;font-size:.58rem;letter-spacing:.14em}
-    .spk .here{font:600 .58rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}`;
+    .spk .tog > .face{--p-t:7px;--p-b:7px;--p-l:10px;--p-r:10px;font-size:.58rem;letter-spacing:calc(.14em * var(--key-track))}
+    .spk .here{font:var(--lbl-w) .58rem/1 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}`;
 /* Shared glyph-key / thumb / idle-art CSS (card and panel). */
 const JAM_MU_BASE_CSS = `
     .ico{display:block;width:var(--ic,24px);height:var(--ic,24px)} .ico svg{display:block;width:100%;height:100%}
@@ -281,20 +281,20 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .mu .head{align-items:center}
   .mu .head > .thumb{width:52px;height:52px}
   .mu .t{flex:1;gap:3px}
-  .mu .t h2{font-size:22px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mu .t h2{font-size:calc(22px * var(--disp-scale));line-height:calc(1 * var(--disp-lead));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mu .t .ss{font:500 13px/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mu .acts > .key{min-width:0}
   .mu .acts > .key > .face{display:flex;align-items:center}
   .mu .acts .key.sel > .face{background:var(--fg);color:var(--slab)}
   .tabs{flex:none;display:flex;border-bottom:3px solid var(--slab3);overflow-x:auto;scrollbar-width:none}
-  .tabs button{flex:none;position:relative;padding:12px 12px;font:600 12px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .tabs button{flex:none;position:relative;padding:12px 12px;font:var(--key-w) 12px/1 var(--body);letter-spacing:calc(.12em * var(--key-track));text-transform:var(--key-case);color:var(--dim)}
   .tabs button.on{color:var(--fg)}
   .tabs button.on::before{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--acc)}
   .tabs button::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)}
   .mu .body{gap:2px;padding:0;align-content:start}
   .row{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--slab2);padding:6px 34px 6px 6px}
   .row > .thumb{width:44px;height:44px}
-  .row .nm{font:900 16px/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .row .nm{font:var(--disp-w) calc(16px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .row .dt{font:500 12px/1.25 var(--body);color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .row .play > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;height:34px;display:flex;align-items:center;font-size:12px;background:var(--slab3)}
   .pin{position:absolute;right:0;top:0;width:28px;height:28px;color:var(--fg)}
@@ -305,9 +305,9 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .pin:not(.on) .ico{color:var(--dim)}
   .pin:focus-visible{outline-offset:-3px}
   .msg{padding:18px 6px;display:grid;gap:12px;justify-items:start;font:500 14px/1.4 var(--body);color:var(--dim)}
-  .msg b{font:900 18px/1 var(--display);text-transform:uppercase;color:var(--fg)}
+  .msg b{font:var(--disp-w) calc(18px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg)}
   .msg .key > .face{display:flex;align-items:center;height:40px;--p-t:0;--p-b:0}
-  .grp{font:600 11px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);padding:12px 6px 6px}
+  .grp{font:var(--lbl-w) 11px/1 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);padding:12px 6px 6px}
   .sbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;padding-bottom:8px}
   .sbar input{min-width:0;height:44px;border:0;border-bottom:3px solid var(--slab3);background:var(--slab2);color:var(--fg);padding:0 12px;
     font:500 16px/1 var(--body);border-radius:0;outline:none;-webkit-appearance:none;appearance:none}
@@ -318,7 +318,7 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .dock{flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) 44px 56px 44px 44px;gap:6px;align-items:center;background:var(--band);color:var(--band-fg);padding:8px}
   .dock.nofav{grid-template-columns:44px minmax(0,1fr) 44px 56px 44px}
   .dock > .thumb{width:44px;height:44px}
-  .dock .tt{font:900 15px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dock .tt{font:var(--disp-w) calc(15px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dock .st{font:500 11px/1.3 var(--body);color:var(--band-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dock .ikey{min-width:0}
   .dock .ikey > .face{height:44px;background:var(--band-key);color:var(--band-fg);--ic:20px}
@@ -328,32 +328,32 @@ const JAM_MU_PANEL_CSS = JAM_MU_BASE_CSS + JAM_MU_ROWS_CSS + `
   .dock .ikey:disabled > .face{color:var(--band-off)}
   /* phones: tabs fit the width, the room name may take two lines */
   @media (max-width:600px){
-    .tabs button{padding:12px 7px;letter-spacing:.06em}
+    .tabs button{padding:12px 7px;letter-spacing:calc(.06em * var(--key-track))}
     .mu:not(.full) .t h2{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
     .mu:not(.full) .acts > .key > .face{--p-l:9px;--p-r:11px}
   }
   /* kiosk (fullscreen, from a size: kiosk card): bigger type, 18px floor */
   .mu.full .sheet > .face{height:100%}
   .mu.full .head > .thumb{width:64px;height:64px}
-  .mu.full .t h2{font-size:clamp(28px,4vw,40px)}
+  .mu.full .t h2{font-size:calc(clamp(28px,4vw,40px) * var(--disp-scale))}
   .mu.full .t .ss{font-size:18px}
   .mu.full .acts > .key > .face{font-size:18px;--p-l:20px;--p-r:22px}
   .mu.full .tabs button{font-size:18px;padding:16px 18px}
   .mu.full .row{grid-template-columns:64px minmax(0,1fr) auto;padding:6px 44px 6px 6px;gap:16px}
   .mu.full .row > .thumb{width:64px;height:64px}
-  .mu.full .row .nm{font-size:24px}
+  .mu.full .row .nm{font-size:calc(24px * var(--disp-scale))}
   .mu.full .row .dt{font-size:18px}
   .mu.full .row .play > .face{height:52px;font-size:18px;--p-l:20px;--p-r:22px}
   .mu.full .pin{width:38px;height:38px} .mu.full .pin .ico{--ic:16px}
-  .mu.full .msg{font-size:18px} .mu.full .msg b{font-size:24px}
+  .mu.full .msg{font-size:18px} .mu.full .msg b{font-size:calc(24px * var(--disp-scale))}
   .mu.full .grp{font-size:18px}
   .mu.full .sbar input{height:56px;font-size:20px} .mu.full .sbar .key > .face{height:56px;font-size:18px}
   .mu.full .dock{grid-template-columns:64px minmax(0,1fr) 64px 84px 64px 64px;gap:8px;padding:10px}
   .mu.full .dock.nofav{grid-template-columns:64px minmax(0,1fr) 64px 84px 64px}
   .mu.full .dock > .thumb{width:64px;height:64px}
   .mu.full .dock .ikey > .face{height:64px;--ic:28px}
-  .mu.full .dock .tt{font-size:24px} .mu.full .dock .st{font-size:18px}
-  .mu.full .spk .n{font-size:28px} .mu.full .spk .tog > .face,.mu.full .spk .here{font-size:18px}
+  .mu.full .dock .tt{font-size:calc(24px * var(--disp-scale))} .mu.full .dock .st{font-size:18px}
+  .mu.full .spk .n{font-size:calc(28px * var(--disp-scale))} .mu.full .spk .tog > .face,.mu.full .spk .here{font-size:18px}
   .mu.full .spk .vt.thin{height:44px} .mu.full .spk .vt.thin .strip{inset:8px 0}`;
 const JAM_MU_TABS = [["pinned", "Pinned"], ["recent", "Recent"], ["playlists", "Playlists"], ["albums", "Albums"], ["search", "Search"]];
 const JAM_MU_EMPTY = {pinned: ["Nothing pinned yet", "Use the corner tab on any playlist or album to pin it here."],

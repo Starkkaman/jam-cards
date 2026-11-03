@@ -99,8 +99,8 @@ const JAM_ROCKER_CSS = `
     .rock > .face{--p-t:0;--p-r:0;--p-b:0;--p-l:0;display:grid;gap:3px;background:var(--ink);min-height:56px;height:100%}
     .rock .key{position:relative;min-width:0;height:100%}
     .rock .key > .face{clip-path:none;border:0;height:100%;display:flex;align-items:center;justify-content:center;gap:8px;
-      background:var(--rk,var(--acc));color:var(--on-fg);font:600 .8rem/1 var(--body);letter-spacing:.16em}
-    .rock .key.vol > .face{font:900 1.75rem/1 var(--display);letter-spacing:0}
+      background:var(--rk,var(--acc));color:var(--on-fg);font:var(--key-w) .8rem/1 var(--body);letter-spacing:calc(.16em * var(--key-track))}
+    .rock .key.vol > .face{font:var(--disp-w) calc(1.75rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);letter-spacing:0}
     .rock .key .gl svg{display:block;width:20px;height:20px}
     .rock .key:disabled > .face{background:var(--slab2);color:var(--dim)}
     .rock .key:focus-visible{outline-color:var(--on-fg);outline-offset:-4px}`;
@@ -203,7 +203,7 @@ class JamRemote extends JamBase {
   css() { return `
     .wrap{display:grid;gap:12px;align-content:start}
     .wrap.secs{background:none;padding:0;gap:10px}
-    .title{font-family:var(--display);font-weight:900;font-size:1.5rem;line-height:.95;text-transform:uppercase;overflow-wrap:anywhere;
+    .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1.5rem * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));text-transform:var(--disp-case);overflow-wrap:anywhere;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     /* Sections (round 3): flat group face with a 6px left rule in the group accent; header = kicker + power key. */
     .sec > .face{--p-t:12px;--p-r:12px;--p-b:12px;--p-l:12px;display:grid;gap:10px;align-content:start;border-left:6px solid var(--acc)}
@@ -216,7 +216,7 @@ class JamRemote extends JamBase {
     .gl svg{display:block;width:20px;height:20px}
     .sec .gh .pw .gl svg{width:18px;height:18px}
     /* Glyph keys: glyph above a small label. */
-    .sec .row .key.ico > .face{--p-t:8px;--p-b:7px;--p-l:2px;--p-r:2px;min-height:54px;flex-direction:column;gap:5px;font-size:.64rem;letter-spacing:.12em;
+    .sec .row .key.ico > .face{--p-t:8px;--p-b:7px;--p-l:2px;--p-r:2px;min-height:54px;flex-direction:column;gap:5px;font-size:.64rem;letter-spacing:calc(.12em * var(--key-track));
       overflow-wrap:normal;word-break:normal}
     .row.tr{grid-auto-flow:row;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)}
     .row.pick .key > .face{--ol:var(--acc)}
@@ -224,13 +224,13 @@ class JamRemote extends JamBase {
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
     /* Rows of 4+ keys (layout full: SETTINGS / KEYBOARD / CAPTIONS): smaller, tighter labels that never break mid-word. */
-    .row.dense .key > .face{--p-l:3px;--p-r:5px;font-size:.62rem;letter-spacing:.04em;overflow-wrap:normal;word-break:normal}
+    .row.dense .key > .face{--p-l:3px;--p-r:5px;font-size:.62rem;letter-spacing:calc(.04em * var(--key-track));overflow-wrap:normal;word-break:normal}
     .pad{display:grid;grid-template-columns:repeat(3,minmax(56px,78px));grid-template-rows:repeat(3,minmax(56px,78px));justify-content:center;gap:2px;padding:4px 0 8px}
     .pad > .paper{min-width:48px;min-height:48px;aspect-ratio:1}
     .pad > .paper > .face{padding:0;display:grid;place-items:center;background:var(--slab2);color:var(--fg)}
     .pad > .paper:not(:disabled):hover > .face{background:var(--line)}
     .pad .tri{width:34%;height:34%;background:var(--acc)}
-    .pad .ok > .face{background:var(--acc);color:var(--acc-fg);font:900 1.35rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+    .pad .ok > .face{background:var(--acc);color:var(--acc-fg);font:var(--disp-w) calc(1.35rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,.02em)}
     .pad .ok:not(:disabled):hover > .face{background:var(--acc)}
     .pad .up{grid-area:1/2} .pad .left{grid-area:2/1} .pad .ok{grid-area:2/2} .pad .right{grid-area:2/3} .pad .down{grid-area:3/2}` + JAM_OUTLINE_CSS + JAM_ROCKER_CSS; }
   /* Key context: the card's entity/actions/commands/labels, or a section's merged over them. */

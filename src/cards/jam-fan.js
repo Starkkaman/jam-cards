@@ -23,8 +23,8 @@ class JamFan extends JamBase {
     .wrap{display:grid;gap:10px;align-content:start}
     .head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-right:36px;min-height:34px}
     .nm{display:grid;gap:5px;min-width:0}
-    .nm h3{font-size:1.45rem;overflow-wrap:anywhere;cursor:pointer}
-    .nm .label .nc{text-transform:none;letter-spacing:.06em}
+    .nm h3{font-size:calc(1.45rem * var(--disp-scale));overflow-wrap:anywhere;cursor:pointer}
+    .nm .label .nc{text-transform:none;letter-spacing:calc(.06em * var(--lbl-track))}
     .seg{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:4px}
     .seg .key{min-width:0}
     .seg .key > .face{--p-t:14px;--p-b:14px;--p-l:4px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center}

@@ -24,11 +24,11 @@ ${TOKEN_CSS}  display:block; font:15px/1.45 var(--body); color:var(--fg);
 *{box-sizing:border-box}
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
 .unit{text-transform:none}
-.label{font:600 .72rem/1.25 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
-.disp{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:.01em;margin:0;text-wrap:balance}
+.label{font:var(--lbl-w) .72rem/1.25 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+.disp{font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);line-height:calc(.92 * var(--disp-lead));letter-spacing:var(--jam-display-track,.01em);margin:0;text-wrap:balance}
 /* Chips/pills: flat block (--chip-bg, default slab2), bottom-right 6px cut. A tappable chip (button.chip) is not clipped
    itself: its face is a clipped ::before, so its ::after hit area (below) can reach 44px. */
-.chip{font:600 .66rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px 6px 8px;border:0;flex:none;background:var(--chip-bg,var(--slab2));color:inherit;
+.chip{font:var(--key-w) .66rem/1 var(--body);letter-spacing:calc(.14em * var(--key-track));text-transform:var(--key-case);padding:6px 10px 6px 8px;border:0;flex:none;background:var(--chip-bg,var(--slab2));color:inherit;
   clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%));border-radius:var(--jam-radius-chip,0px)}
 button.chip{position:relative;isolation:isolate;background:none;clip-path:none}
 button.chip::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--chip-bg,var(--slab2));
@@ -73,7 +73,7 @@ ${SHAPE_CSS}
 /* Keys (buttons, chips): slab2 off, accent fill + ink text on, red for alert/power. */
 .key{min-width:56px;text-align:center}
 .key > .face{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:12px;background:var(--slab2);color:var(--fg);border:2px solid transparent;
-  font:600 .74rem/1.1 var(--body);letter-spacing:.12em;text-transform:uppercase}
+  font:var(--key-w) .74rem/1.1 var(--body);letter-spacing:calc(.12em * var(--key-track));text-transform:var(--key-case)}
 .key:not(:disabled):hover > .face{border-color:var(--dim)}
 .key.on > .face{background:var(--acc);color:var(--acc-fg)}
 .key.alert > .face{background:var(--red);color:var(--on-fg)}
@@ -699,7 +699,7 @@ const SHEET_CSS = `
     background:var(--slab);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
-  .t h2{font-size:clamp(1.7rem,6vw,2.2rem);overflow-wrap:anywhere}
+  .t h2{font-size:calc(clamp(1.7rem,6vw,2.2rem) * var(--disp-scale));overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
   .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:11px;align-content:start;padding:2px 2px 4px 0;
     --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
@@ -721,10 +721,10 @@ const SHEET_CSS = `
   .pop.full .sheet > .face{--p-t:24px;--p-r:28px;--p-b:24px;--p-l:28px;height:100%;max-height:none;gap:16px;
     padding-bottom:calc(var(--p-b) + env(safe-area-inset-bottom,0px))}
   .pop.full .head{align-items:center}
-  .pop.full .t .kick{font-size:18px;letter-spacing:.16em}
-  .pop.full .t h2{font-size:clamp(2.4rem,5vw,3.6rem);color:var(--fg)}
+  .pop.full .t .kick{font-size:18px;letter-spacing:calc(.16em * var(--lbl-track))}
+  .pop.full .t h2{font-size:calc(clamp(2.4rem,5vw,3.6rem) * var(--disp-scale));color:var(--fg)}
   .pop.full .acts > .key{min-height:64px}
-  .pop.full .close > .face{display:flex;align-items:center;font-size:20px;letter-spacing:.14em;--p-t:18px;--p-r:26px;--p-b:18px;--p-l:26px}
+  .pop.full .close > .face{display:flex;align-items:center;font-size:20px;letter-spacing:calc(.14em * var(--key-track));--p-t:18px;--p-r:26px;--p-b:18px;--p-l:26px}
   .pop.full .body{gap:16px}
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
 const SHEET_STACK = [];

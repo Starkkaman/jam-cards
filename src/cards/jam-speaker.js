@@ -55,13 +55,13 @@ const JAM_SPK_CSS = `
     .band{position:relative;z-index:2;background:var(--band);color:var(--band-fg);padding:10px 12px 12px 14px;display:grid;
       grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:10px;pointer-events:none}
     .bt{display:grid;gap:3px;min-width:0}
-    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:600 11px/1.15 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--band-dim)}
+    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 11px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--band-dim)}
     .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--band-dim))}
     .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal}
-    .band .title{font-family:var(--display);font-weight:900;font-size:30px;line-height:.95;text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:anywhere}
+    .band .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(30px * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);overflow-wrap:anywhere}
     .band .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .band .ss{font:500 14px/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .poster.small .band{padding:6px 10px 8px 12px} .poster.small .band .title{font-size:24px} .poster.small .band .title > .tl{-webkit-line-clamp:1}
+    .poster.small .band{padding:6px 10px 8px 12px} .poster.small .band .title{font-size:calc(24px * var(--disp-scale))} .poster.small .band .title > .tl{-webkit-line-clamp:1}
     .bk{display:flex;gap:6px;pointer-events:auto}
     .bk .ikey{min-width:0;width:32px;height:32px}
     .bk .ikey > .face{height:32px;--ic:16px;background:var(--band-key);color:var(--band-fg)}
@@ -77,9 +77,9 @@ const JAM_SPK_CSS = `
     .ikey.main:disabled > .face{background:var(--slab2);color:var(--dim)}
     .vol{display:grid;grid-template-columns:48px minmax(0,1fr) 48px 48px;gap:6px;align-items:center}
     .vol .key{min-width:0}
-    .vol .key > .face{height:44px;display:grid;place-items:center;padding:0;font:900 22px/1 var(--display)}
+    .vol .key > .face{height:44px;display:grid;place-items:center;padding:0;font:var(--disp-w) calc(22px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display)}
     .vol .vt{height:44px} .vol .vt .strip{inset:0}
-    .vol .v{font:900 24px/1 var(--display);text-align:center}
+    .vol .v{font:var(--disp-w) calc(24px * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);text-align:center}
     .spk .tog > .face{min-height:32px}`;
 /* size: "kiosk" = K1. The face is a size container (the grid inside sizes the shelf by its height); the right panel is one
    too (title size / lines). */
@@ -97,7 +97,7 @@ const JAM_SPK_KIOSK_CSS = `
     .side{grid-area:1/2/2/3;min-width:0;min-height:0;container-type:size;background:var(--kbg);color:var(--kfg);padding:clamp(12px,3.5cqh,22px) 24px clamp(12px,3cqh,16px);
       display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px}
     .khead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
-    .khead .kk{font-size:18px;letter-spacing:.12em;color:var(--kfg);padding-top:12px;gap:10px}
+    .khead .kk{font-size:18px;letter-spacing:calc(.12em * var(--lbl-track));color:var(--kfg);padding-top:12px;gap:10px}
     .khead .kk i{width:14px;height:14px;outline:2px solid var(--kfg)}
     .kbk{display:flex;gap:8px;flex:none}
     .kbk .ikey{min-width:0}
@@ -106,8 +106,8 @@ const JAM_SPK_KIOSK_CSS = `
     .kbk .fav.on > .face{background:var(--pink);color:var(--on-fg);border-color:var(--pink)}
     .kbk .ikey:disabled > .face{border-style:dashed}
     .ktx{min-height:0;overflow:hidden;display:grid;align-content:start;gap:8px}
-    .ktx .title{--tl:3;font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.005em;line-height:.92;overflow-wrap:anywhere;
-      font-size:clamp(36px,14cqh,76px)}
+    .ktx .title{--tl:3;font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);line-height:calc(.92 * var(--disp-lead));overflow-wrap:anywhere;
+      font-size:calc(clamp(36px,14cqh,76px) * var(--disp-scale))}
     .ktx .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
     .ktx .artist{font:500 clamp(18px,5.5cqh,24px)/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .kb{display:grid;gap:10px}
@@ -122,38 +122,38 @@ const JAM_SPK_KIOSK_CSS = `
     .kv{display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:6px;align-items:center}
     .kv.sp{grid-template-columns:56px minmax(0,1fr) 56px 56px}
     .kv .key{min-width:0}
-    .kv .key > .face{height:clamp(48px,15cqh,56px);display:grid;place-items:center;padding:0;font:900 26px/1 var(--display);background:var(--kfg);color:var(--kbg)}
+    .kv .key > .face{height:clamp(48px,15cqh,56px);display:grid;place-items:center;padding:0;font:var(--disp-w) calc(26px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);background:var(--kfg);color:var(--kbg)}
     .kv .key:disabled > .face{background:var(--ktr)}
     .kv .ikey > .face{--ic:24px}
     .kv .vt{height:clamp(48px,15cqh,56px)} .kv .vt .strip{inset:0;background:var(--ktr)} .kv .vt .fill{background:var(--kfg)}
-    .kv .vn{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:900 22px/1 var(--display);color:var(--kfg);pointer-events:none}
+    .kv .vn{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:var(--disp-w) calc(22px * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);color:var(--kfg);pointer-events:none}
     .kv .vn.hi{color:var(--kbg)}
     .shelf{grid-area:2/1/3/3;display:grid;grid-template-columns:auto repeat(6,minmax(0,1fr));background:var(--band);min-height:0;color:var(--band-fg)}
-    .shelf .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:600 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--band-dim);
+    .shelf .lb{writing-mode:vertical-rl;transform:rotate(180deg);font:var(--lbl-w) 18px/1 var(--body);letter-spacing:calc(.1em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--band-dim);
       display:grid;place-items:center;padding:0 10px;white-space:nowrap;overflow:hidden}
     .shelf .none{grid-column:2/7;align-self:center;padding:0 16px;font:500 18px/1.3 var(--body);color:var(--band-dim)}
     .tile{position:relative;overflow:hidden;min-width:0;border-left:4px solid var(--band);background:var(--band-tile);color:var(--band-fg);cursor:pointer}
     .tile > .thumb{position:absolute;inset:0;width:auto;height:auto}
-    .tile .nm{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:var(--band);color:var(--band-fg);font:900 18px/1 var(--display);
-      text-transform:uppercase;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tile .nm{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 12px);background:var(--band);color:var(--band-fg);font:var(--disp-w) max(18px, calc(18px * var(--disp-scale)))/calc(1 * var(--disp-lead)) var(--display);
+      text-transform:var(--disp-case);padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .tile.browse{background:var(--band-key)}
     .tile.browse > .ico{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);--ic:40px}
     .tile:focus-visible{outline-offset:-4px}
     .kart .open:focus-visible{outline-offset:-4px}
     .kspk{grid-area:1/1/2/3;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;padding:16px 24px 12px;background:var(--slab);overflow:hidden}
     .kspk .kh{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .kspk .kh b{font:900 36px/1 var(--display);text-transform:uppercase}
-    .kspk .kh .key > .face{display:flex;align-items:center;height:56px;--p-t:0;--p-b:0;--p-l:20px;--p-r:22px;font-size:18px;letter-spacing:.12em}
+    .kspk .kh b{font:var(--disp-w) calc(36px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case)}
+    .kspk .kh .key > .face{display:flex;align-items:center;height:56px;--p-t:0;--p-b:0;--p-l:20px;--p-r:22px;font-size:18px;letter-spacing:calc(.12em * var(--key-track))}
     .klist{display:grid;gap:0;align-content:start;overflow:auto;min-height:0}
     .klist .spk{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(120px,auto);gap:16px;min-height:72px;padding:8px 0}
     .klist .spk:first-child{border-top:0}
-    .klist .spk .n{font-size:30px;line-height:.95;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .klist .spk .n{font-size:calc(30px * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
     .klist .spk .vt.thin{height:44px} .klist .spk .vt.thin .strip{inset:8px 0}
     .klist .spk .n{grid-row:1;grid-column:1} .klist .spk .vt{grid-column:2;grid-row:1} .klist .spk > :nth-child(2){grid-column:3;grid-row:1}
     .klist .spk .tog > .face{--p-t:0;--p-b:0;--p-l:14px;--p-r:16px;min-height:56px;display:flex;align-items:center;justify-content:center;font-size:18px}
     .klist .spk .here{font-size:18px;text-align:center}
     @container (max-height:420px){ .ktx .title{--tl:2} .side{gap:8px} .kb{gap:8px} }
-    @container (max-height:360px){ .ktx .title{font-size:36px} .ktx{gap:4px} .khead .kk{padding-top:4px} .kbk .ikey > .face{width:44px;height:44px} }
+    @container (max-height:360px){ .ktx .title{font-size:calc(36px * var(--disp-scale))} .ktx{gap:4px} .khead .kk{padding-top:4px} .kbk .ikey > .face{width:44px;height:44px} }
     /* (.side's own query container is the card face: an Echo Show sheet is about 446px tall) */
     @container (max-height:480px){ .side{padding:12px 20px 10px} }
     /* Not a kiosk sheet (narrower than 600px): the art steps aside, the panel takes the width. */

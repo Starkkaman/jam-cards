@@ -27,14 +27,14 @@ const JAM_MEDIA_KIOSK_CSS = `
     .kart{--aw:min(100cqw,100cqh);width:var(--aw);height:var(--aw);aspect-ratio:auto}
     .kart .arm{height:62%;gap:10px} .kart .arm span{min-width:18px}
     .ktxt{display:grid;gap:8px;min-width:0;align-content:start;flex:none}
-    .ktxt .kick{font:600 18px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-    .ktxt .title{font-size:clamp(40px,13cqw,60px)}
+    .ktxt .kick{font:var(--lbl-w) 18px/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .ktxt .title{font-size:calc(clamp(40px,13cqw,60px) * var(--disp-scale))}
     .ktxt .sub{font:500 20px/1.25 var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .kkeys{flex:none;flex-wrap:nowrap;gap:8px}
     .kkeys .key{min-width:0;flex:1 1 0}
-    .kkeys .key > .face{--p-t:0;--p-b:0;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:.1em}
+    .kkeys .key > .face{--p-t:0;--p-b:0;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:calc(.1em * var(--key-track))}
     .kkeys .more > .face{font-size:34px;letter-spacing:0}
-    @container (max-width:300px){ .kkeys .key > .face{font-size:14px;letter-spacing:.06em} }`;
+    @container (max-width:300px){ .kkeys .key > .face{font-size:14px;letter-spacing:calc(.06em * var(--key-track))} }`;
 const jamCanGroup = st => !!st && ((Number(st.attributes.supported_features) || 0) & JAM_MEDIA_GROUPING) !== 0;
 /* Local helpers (also used by jam-tv): child cards in a core openSheet() sheet.
    jamCardSheet(host, {title?, kicker?, accent?, cards: [card configs], css?, headerActions?, rule?, fullscreen? (openSheet)}) opens a sheet (theme tokens copied from host, back /
@@ -116,7 +116,7 @@ class JamMedia extends JamSheetHost(JamBase) {
     .art img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.15);mix-blend-mode:multiply}
     .art .arm{height:62%;padding-bottom:10%} .art .arm span{background:var(--acc-fg)}
     .txt{display:grid;gap:6px;min-width:0;align-content:start}
-    .title{font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,1rem + 4cqi,2.2rem);line-height:.92;text-transform:uppercase;
+    .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(clamp(1.4rem,1rem + 4cqi,2.2rem) * var(--disp-scale));line-height:calc(.92 * var(--disp-lead));text-transform:var(--disp-case);
       overflow-wrap:anywhere;cursor:pointer}
     .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .sub{font:500 .9rem/1.3 var(--body);color:var(--dim);overflow-wrap:anywhere}
@@ -126,18 +126,18 @@ class JamMedia extends JamSheetHost(JamBase) {
     .ctl .key > .face{--p-t:12px;--p-b:12px;--p-l:10px;--p-r:10px}
     .vol{display:grid;grid-template-columns:auto minmax(0,1fr) 3.4em;gap:10px;align-items:center}
     .vol .key{min-width:64px}
-    .vol .v{font-family:var(--display);font-weight:900;font-size:1.4rem;line-height:1;text-align:right}
+    .vol .v{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(1.4rem * var(--num-scale));line-height:calc(1 * var(--disp-lead));text-align:right}
     .track[role=slider]{cursor:pointer}
     .muted .fill{background:var(--dim)}
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0;max-width:100%;height:auto}
-    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:.66rem;letter-spacing:.12em;overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}
+    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:.66rem;letter-spacing:calc(.12em * var(--key-track));overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}
     .ctl .more > .face{font-size:1rem;letter-spacing:0}
     .mini{--p-t:10px;--p-r:14px;--p-b:14px;--p-l:10px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center}
     .mini .art{width:52px}
     .mini .art .arm{gap:3px} .mini .art .arm span{max-width:7px}
-    .mini .title{font-size:1.05rem;line-height:.95}
+    .mini .title{font-size:calc(1.05rem * var(--disp-scale));line-height:calc(.95 * var(--disp-lead))}
     .mini .sub{font-size:.74rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .mini .one{width:48px;min-width:48px;height:48px}
     .mini .one > .face{padding:0;display:grid;place-items:center;font:900 1.05rem/1 var(--body);letter-spacing:0}` +

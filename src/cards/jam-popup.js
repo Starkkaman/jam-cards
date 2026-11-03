@@ -23,7 +23,7 @@ const POPUP_CSS = `
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
   .t .label{color:var(--acc)}
-  .t h2{font-size:clamp(1.7rem,6vw,2.4rem);overflow-wrap:anywhere}
+  .t h2{font-size:calc(clamp(1.7rem,6vw,2.4rem) * var(--disp-scale));overflow-wrap:anywhere}
   .rule{flex:none;height:5px;background:var(--acc)}
   /* Child cards one surface step up (DESIGN "Tokens"): their face = slab2, their inner controls = slab3. */
   .body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;gap:10px;align-content:start;padding:2px 2px 4px 0;

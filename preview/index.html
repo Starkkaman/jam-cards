@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jam Cards preview</title>
-<!-- Mimics a sections dashboard with the JamBoard theme (looks.css). ?mode=light switches to the paper palette. -->
+<!-- Mimics a sections dashboard with the JamBoard theme (looks.css). ?mode=light switches to the paper palette, ?look=<id> to another look. -->
 <link rel="stylesheet" href="looks.css"> <!-- GENERATED from tokens/ by tools/bundle.mjs: the JamBoard theme tokens per mode -->
 <style>
   html,body{margin:0;background:var(--primary-background-color)}
@@ -20,6 +20,9 @@
 <div class="view" id="view"></div>
 <script>
 if (new URLSearchParams(location.search).get("mode") === "light") document.documentElement.classList.add("light");
+// ?look=<id>: another look's tokens from looks.css (:root[data-look=id]); the cards read --jam-look from them.
+const lookParam = new URLSearchParams(location.search).get("look");
+if (lookParam && /^[a-z][a-z0-9-]*$/.test(lookParam)) document.documentElement.dataset.look = lookParam;
 const now = new Date().toISOString();
 const states = {}, layout = [];
 // Fixture API (preview/fixtures/*.js, loaded in name order by fixtures/index.js):

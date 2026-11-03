@@ -13,8 +13,8 @@ rules are split: **universal rules** hold for every look, **Poster rules** are t
 own section and may replace them).
 
 ## Universal rules (every look)
-- Tokens, not literals: colours and shapes come from the `--jam-*` tokens (see "Token reference"); card CSS writes no hex
-  colour and no clip-path polygon except as a token's Poster fallback (`var(--jam-shape-card, polygon(...))`) and the listed
+- Tokens, not literals: colours, shapes and type come from the `--jam-*` tokens (see "Token reference"); card CSS writes no hex
+  colour, no clip-path polygon except as a token's Poster fallback (`var(--jam-shape-card, polygon(...))`) and the listed
   geometry exceptions (jam-remote d-pad arrows / arrow marks / OK disc, circles). Cards never fork per look; a look needs
   only its theme (and later its pack CSS over the stable class hooks).
 - Look hooks: every card host, openSheet's `.pop` and the jam-screensaver overlay carry `data-look=<id>` (`lookOf()`:
@@ -99,7 +99,30 @@ Colour (theme sets both modes; the cards fall back to the dark column):
 | focus ring (optional) | `--jam-focus` | the ochre token | same |
 
 Type and identity (theme top level, both modes): `--jam-display` (Londrina Solid stack), `--jam-body` (Jost stack),
-`--jam-look` (`poster`; R1). Type tokens for weight / case / tracking follow in R3.
+`--jam-look` (`poster`; R1), and the R3 role tokens below. Roles: **display** = titles, values and big numerals (`.disp` and
+every display-font site), **label** = small tracked labels (`.label`, kickers, tile names, legends, kiosk dock states),
+**key** = text on keys, chips and tabs. Poster sizes and tracking differ per site, so sizes and tracking are factors on
+each site's own Poster value ("-scale" tokens: 1 = Poster), and `--jam-display-track` replaces the per-site value only
+when a look sets it. Inside a card use the short names (`font-weight: var(--disp-w)`, `font-size: calc(1.7rem *
+var(--disp-scale))`, `letter-spacing: calc(.14em * var(--lbl-track))`, `text-transform: var(--key-case)`).
+| var (short name) | sets | Poster |
+|---|---|---|
+| `--jam-display-weight` (`--disp-w`), `--jam-display-case` (`--disp-case`) | weight / text-transform of display type | 900, uppercase |
+| `--jam-display-scale` (`--disp-scale`) | factor on every display font-size (width correction against Londrina: Archivo about .85) | 1 |
+| `--jam-display-lead` (`--disp-lead`) | factor on every display line-height (raise it for descenders in mixed case) | 1 |
+| `--jam-display-track` (optional, no short name) | one letter-spacing for every display site | unset: each site's own (-.01em to .02em) |
+| `--jam-num-font` (`--num-font`), `--jam-num-scale` (`--num-scale`) (optional) | font and size factor of big numerals: clocks, temperatures, gauge / graph / slider / volume values, percentages | the display font, `--jam-display-scale` |
+| `--jam-label-weight` (`--lbl-w`), `--jam-label-case` (`--lbl-case`), `--jam-label-track-scale` (`--lbl-track`) | labels | 600, uppercase, 1 (sites .04em-.2em) |
+| `--jam-key-weight` (`--key-w`), `--jam-key-case` (`--key-case`), `--jam-key-track-scale` (`--key-track`) | keys, chips, tabs | 600, uppercase, 1 (sites .04em-.16em) |
+Left as literals on purpose: body text (500 / 400), units (`.unit`, unit `small`s keep their case and tracking), sentence
+lines (jam-kiosk facts line, jam-tv poster sub), digit counters (jam-speaker progress), the two `+` glyph keys in
+`900 var(--body)`, and `letter-spacing: 0` resets. Kiosk display sizes at the 18px floor keep it under a smaller scale
+(`max(18px, calc(18px * var(--disp-scale)))`: jam-speaker shelf names, jam-tv narrow source tiles); jam-kiosk's date line
+is one line and cuts with an ellipsis when a wider face does not fit. The harness-only **stress look**
+(`tokens/looks/stress.mjs`: mixed case, Archivo stack falling back to a system sans, weight 700, display scale .85, leading
+1.12, tracking .4; preview `?look=stress`) proves this: preview/fit.js runs the preview page, jam-kiosk home, the kiosk
+Music / TV sheets and the 6 screensaver layouts under Poster and under the look, and the look may add no overflow, spill,
+sub-18px kiosk text or scroll.
 
 Shape (R2; theme top level, all optional: unset = the Poster geometry written at each use, so the JamBoard theme sets none):
 | var | shapes | Poster fallback |

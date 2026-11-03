@@ -51,6 +51,22 @@ export const TOKENS = [
   // ---- type ----
   {name: "jam-display", css: "display", scope: "theme", note: "display font stack"},
   {name: "jam-body", css: "body", scope: "theme", note: "body / label font stack"},
+  // R3: role tokens. Display = titles, values, numerals (.disp and every display-font site); label = small tracked labels
+  // (.label, kickers, tile names, legends); key = text on keys, chips and tabs. A "-scale" token is a factor on each
+  // site's own Poster value (sizes and tracking differ per site), so 1 keeps Poster and one value re-tunes every site.
+  {name: "jam-display-weight", css: "disp-w", scope: "theme", note: "display font-weight"},
+  {name: "jam-display-case", css: "disp-case", scope: "theme", note: "display text-transform (uppercase / none / lowercase)"},
+  {name: "jam-display-track", css: "", scope: "theme", optional: true, note: "display letter-spacing, one value for every display site (unset = each site's Poster tracking, -.01em to .02em)"},
+  {name: "jam-display-lead", css: "disp-lead", scope: "theme", note: "factor on every display line-height (Poster .8-1.1; raise it for a face with descenders in mixed case)"},
+  {name: "jam-display-scale", css: "disp-scale", scope: "theme", note: "factor on every display font-size (width correction against Londrina: Archivo about .85)"},
+  {name: "jam-num-font", css: "num-font", scope: "theme", optional: true, fallback: "var(--display)", note: "font of big numerals (clocks, temperatures, values, percentages; default: the display font)"},
+  {name: "jam-num-scale", css: "num-scale", scope: "theme", optional: true, fallback: "var(--disp-scale)", note: "factor on big numeral font-sizes (default: jam-display-scale)"},
+  {name: "jam-label-weight", css: "lbl-w", scope: "theme", note: "label font-weight"},
+  {name: "jam-label-case", css: "lbl-case", scope: "theme", note: "label text-transform"},
+  {name: "jam-label-track-scale", css: "lbl-track", scope: "theme", note: "factor on every label's letter-spacing (Poster .04em-.2em)"},
+  {name: "jam-key-weight", css: "key-w", scope: "theme", note: "key / chip / tab font-weight"},
+  {name: "jam-key-case", css: "key-case", scope: "theme", note: "key / chip / tab text-transform"},
+  {name: "jam-key-track-scale", css: "key-track", scope: "theme", note: "factor on every key / chip / tab letter-spacing (Poster .04em-.16em)"},
   // ---- shape (R2; optional: unset = the Poster geometry written at each use, so the Poster theme sets none of them) ----
   {name: "jam-shape-card", css: "", scope: "theme", optional: true, note: "clip-path of card faces, panels (+ jam-light pop-up bars / hue strip / white editor, screensaver bars + photos now label)"},
   {name: "jam-shape-key", css: "", scope: "theme", optional: true, note: "clip-path of jam-button, jam-remote row keys"},

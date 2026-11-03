@@ -12,7 +12,7 @@ class JamChoice extends JamBase {
     .opts{display:grid;grid-template-columns:repeat(var(--cols,auto-fill),minmax(min(var(--min,92px),100%),1fr));gap:8px;min-width:0}
     .opt{text-align:left}
     .opt > .face{--p-t:12px;--p-b:12px;--p-l:10px;--p-r:10px;min-height:46px;display:flex;align-items:center;
-      font-size:.76rem;letter-spacing:.08em;overflow-wrap:break-word;min-width:0}
+      font-size:.76rem;letter-spacing:calc(.08em * var(--key-track));overflow-wrap:break-word;min-width:0}
     .opt.busy > .face{border-color:var(--acc)}`; }
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);

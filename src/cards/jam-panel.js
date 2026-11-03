@@ -39,12 +39,12 @@ class JamPanel extends JamBase {
   watched() { return this._rows().map(r => r.entity); }
   css() { return `
     .pn{display:flex;flex-direction:column}
-    .ttl{font-size:1.1rem;margin:0 0 7px;overflow-wrap:normal;word-break:normal;hyphens:none}
+    .ttl{font-size:calc(1.1rem * var(--disp-scale));margin:0 0 7px;overflow-wrap:normal;word-break:normal;hyphens:none}
     .acc{height:4px;background:var(--acc);margin:-2px 0 8px}
     .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px solid var(--line);padding:6px 0;cursor:pointer}
     .row.static{cursor:default}
     .nm{flex:0 1 auto;min-width:min-content;font:500 .8rem/1.3 var(--body);overflow-wrap:normal;word-break:normal;hyphens:none}
-    .v{flex:1 1 auto;min-width:0;text-align:right;font:900 1rem/1.1 var(--display);text-transform:uppercase;color:var(--fg);overflow-wrap:anywhere}
+    .v{flex:1 1 auto;min-width:0;text-align:right;font:var(--disp-w) calc(1rem * var(--disp-scale))/calc(1.1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);overflow-wrap:anywhere}
     .row.bad .v{color:var(--alert-text)}`; }
   /* -> {text, raw (number|null), unavail} for one row. */
   value(r) {

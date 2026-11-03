@@ -105,18 +105,18 @@ const LIGHT_SHEET_CSS = `
   .bwrap{position:relative;cursor:ew-resize;touch-action:none}
   .bigbar{position:relative;height:72px;background:var(--slab2);clip-path:var(--jam-shape-card,${cutPath("br", 14)})}
   .bigbar i{position:absolute;inset:0 auto 0 0;background:var(--lc);clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%))}
-  .bigbar b{position:absolute;right:18px;top:50%;transform:translateY(-50%);font:900 2.2rem/1 var(--display);color:var(--fg)}
+  .bigbar b{position:absolute;right:18px;top:50%;transform:translateY(-50%);font:var(--disp-w) calc(2.2rem * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);color:var(--fg)}
   .bigbar.hi b{color:var(--lc-fg)}
   .bwrap[aria-disabled=true]{cursor:default}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .wt > .face{--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px;text-align:left;display:grid;gap:4px}
-  .wt b{display:block;font:900 1.2rem/.95 var(--display);text-transform:uppercase}
-  .wt small,.wp small{font:600 .6rem/1 var(--body);letter-spacing:.12em}
+  .wt b{display:block;font:var(--disp-w) calc(1.2rem * var(--disp-scale))/calc(.95 * var(--disp-lead)) var(--display);text-transform:var(--disp-case)}
+  .wt small,.wp small{font:var(--lbl-w) .6rem/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track))}
   .wt.on > .face{outline:3px solid var(--fg);outline-offset:-3px}
   .wp.on > .face::after{content:"";position:absolute;inset:0;border:3px solid var(--fg)}
   .wp > .face{padding:0;height:74px;background:var(--slab2);position:relative;overflow:hidden}
   .wp svg{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .wp b{position:absolute;left:8px;right:16px;bottom:8px;font:900 1.05rem/.9 var(--display);text-transform:uppercase;color:var(--plate-fg);text-align:left;overflow-wrap:anywhere}
+  .wp b{position:absolute;left:8px;right:16px;bottom:8px;font:var(--disp-w) calc(1.05rem * var(--disp-scale))/calc(.9 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--plate-fg);text-align:left;overflow-wrap:anywhere}
   .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px}
   .chips .key{min-width:0}
   .hwrap{position:relative;cursor:crosshair;touch-action:none}
@@ -129,7 +129,7 @@ const LIGHT_SHEET_CSS = `
   .sw.add:disabled{cursor:default}
   .mem{display:grid;gap:6px;border-top:2px solid var(--line);padding-top:8px}
   .mrow{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;min-height:32px}
-  .mrow .n{font:900 1.05rem/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;min-width:0}
+  .mrow .n{font:var(--disp-w) calc(1.05rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);overflow-wrap:anywhere;min-width:0}
   .mrow .chip{padding:8px 10px}
   .mtrack{position:relative;height:22px;touch-action:none;cursor:ew-resize}
   .mtrack .mb{position:absolute;left:0;right:0;top:6px;height:10px;background:var(--slab2)}
@@ -141,13 +141,13 @@ const LIGHT_SHEET_CSS = `
   .sw.rm > .face{display:grid;place-items:center}
   .sw .gl{width:16px;height:16px}
   .wedit{display:grid;gap:6px;background:var(--slab2);padding:12px 14px 16px 12px;clip-path:var(--jam-shape-card,${cutPath("br", 14)})}
-  .nin{font:900 1.3rem/1 var(--display);text-transform:uppercase;color:var(--fg);background:var(--slab);border:0;border-bottom:3px solid var(--fg);
+  .nin{font:var(--disp-w) calc(1.3rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);background:var(--slab);border:0;border-bottom:3px solid var(--fg);
     padding:10px 10px 8px;min-height:44px;width:100%;border-radius:0;outline:none}
   .nin:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
   .kwrap{position:relative;cursor:ew-resize;touch-action:none}
   .kbar{position:relative;height:48px;background:var(--slab)}
   .kbar i{position:absolute;inset:0 auto 0 0;clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%))}
-  .kbar b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:900 1.4rem/1 var(--display);color:var(--fg);padding:3px 6px;background:var(--slab)}
+  .kbar b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:var(--disp-w) calc(1.4rem * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);color:var(--fg);padding:3px 6px;background:var(--slab)}
   .bwrap:focus-visible,.hwrap:focus-visible,.mtrack:focus-visible,.kwrap:focus-visible{outline:3px solid var(--focus);outline-offset:2px}`;
 
 class JamLight extends JamBase {
@@ -226,12 +226,12 @@ class JamLight extends JamBase {
       justify-content:space-between;gap:4px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent}
     .lc.dead .tap{cursor:default}
     .top{display:grid;gap:5px;justify-items:start;min-width:0}
-    .nm{display:flex;align-items:center;gap:6px;font:900 24px/1 var(--display);text-transform:uppercase;overflow-wrap:anywhere;margin:0;max-width:100%}
+    .nm{display:flex;align-items:center;gap:6px;font:var(--disp-w) calc(24px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);overflow-wrap:anywhere;margin:0;max-width:100%}
     .nm ha-icon{--mdc-icon-size:20px;flex:none}
-    .sub{font:600 10px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+    .sub{font:var(--lbl-w) 10px/1 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
     .lc.on .sub{color:inherit}
-    .pct{font:900 26px/1 var(--display);align-self:flex-start}
-    .pct small{font-size:15px;text-transform:uppercase}
+    .pct{font:var(--disp-w) calc(26px * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);align-self:flex-start}
+    .pct small{font-size:calc(15px * var(--num-scale));text-transform:var(--disp-case)}
     .lc.dead .pct small{color:var(--alert-text)}
     /* Contrast fallback (ROUND3): neither ink nor paper reaches 4.5:1 on the face -> ink label plates. */
     .lc.on.plate .top{margin:-12px 0 0 -14px;padding:10px 18px 10px 14px;background:${LIGHT_PLATE};color:${LIGHT_PLATE_FG};

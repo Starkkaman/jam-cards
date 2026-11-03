@@ -37,10 +37,10 @@ class JamButton extends JamBase {
     .ic{--mdc-icon-size:28px;display:block;width:28px;height:28px}
     .sq .ic{--mdc-icon-size:18px;width:18px;height:18px}
     .big .sq .ic{--mdc-icon-size:24px;width:24px;height:24px}
-    .lbl{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.92;letter-spacing:-.005em;
-      font-size:min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
+    .lbl{font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);line-height:calc(.92 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.005em);
+      font-size:calc(min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5))) * var(--disp-scale));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
-    .st{font:600 .66rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;overflow-wrap:anywhere}
+    .st{font:var(--lbl-w) .66rem/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);overflow-wrap:anywhere}
     .st{color:var(--dim)} .on .st{color:var(--acc-fg)}`; }
   /* Configured accent name (accent wins over color), or null = the card default. */
   _accent() {

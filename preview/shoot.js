@@ -243,6 +243,32 @@ const server = http.createServer((req, res) => {
       }
     }
     if (process.env.JAM_SHOTS) await fixedScreensaver(browser, base, process.env.JAM_SHOTS);
+    // Looks other than Poster (theming plan R3): the harness-only stress look (tokens/looks/stress.mjs: mixed case, a wide
+    // fallback grotesque, display scale .85) must re-type the cards through the tokens and still fit everywhere
+    // (preview/fit.js). JAM_FIT_LOOKS=<id,...> picks the looks ("" skips the fit runs).
+    const fitIds = (process.env.JAM_FIT_LOOKS ?? "stress").split(",").map(x => x.trim()).filter(Boolean);
+    if (fitIds.includes("stress")) {
+      const p = await browser.newPage({viewport: {width: 1280, height: 900}});
+      try {
+        await p.goto(`${base}?look=stress`);
+        await p.waitForFunction(() => window.__ready);
+        await p.evaluate(() => document.fonts.ready);
+        const t = await p.evaluate(() => {
+          const r = document.querySelector("#view jam-tile").shadowRoot, cs = s => getComputedStyle(r.querySelector(s));
+          const kr = document.querySelector("#view jam-button").shadowRoot, key = getComputedStyle(kr.querySelector(".lbl"));
+          const ch = [...document.querySelectorAll("#view jam-choice")].map(c => c.shadowRoot.querySelector(".key > .face")).find(Boolean);
+          return {look: document.querySelector("#view jam-tile").dataset.look, val: {tt: cs(".val").textTransform, fw: cs(".val").fontWeight,
+            fs: cs(".val").fontSize, ff: cs(".val").fontFamily, lh: cs(".val").lineHeight}, name: {tt: cs(".name").textTransform, ls: cs(".name").letterSpacing, fs: cs(".name").fontSize},
+            lbl: {tt: key.textTransform, fw: key.fontWeight}, key: ch ? {tt: getComputedStyle(ch).textTransform, ls: getComputedStyle(ch).letterSpacing} : null};
+        });
+        // tile value: 1.7rem x .85 = 23.12px, line-height .95 x 1.12; tile name .74rem = 11.84px, .14em x .4 tracking = .6630px
+        check(t.look === "stress" && t.val.tt === "none" && t.val.fw === "700" && t.val.fs === "23.12px" && /^Archivo/.test(t.val.ff) &&
+          Math.abs(parseFloat(t.val.lh) - 23.12 * .95 * 1.12) < .05 && t.name.tt === "none" && Math.abs(parseFloat(t.name.ls) - 11.84 * .14 * .4) < .01 &&
+          t.lbl.tt === "none" && t.lbl.fw === "700" && t.key && t.key.tt === "none",
+          `stress look re-types the cards through the type tokens (${JSON.stringify(t)})`);
+      } finally { await p.close(); }
+    }
+    if (fitIds.length) await require("./fit.js")(browser, base, check, {looks: fitIds, dir: process.env.JAM_SHOTS});
     if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE);
     check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));

@@ -140,28 +140,28 @@ class JamWeather extends JamBase {
   css() { return `
     .w{display:grid;gap:14px;align-content:start}
     .clock{display:grid;gap:6px}
-    .time{font-size:4.4rem;line-height:.82;letter-spacing:-.005em}
-    .w.cs-big .time{font-size:6.6rem}
+    .time{font-family:var(--num-font);font-size:calc(4.4rem * var(--num-scale));line-height:calc(.82 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.005em)}
+    .w.cs-big .time{font-size:calc(6.6rem * var(--num-scale))}
     .w.cs-huge{container-type:inline-size}
-    .w.cs-huge .time{font-size:clamp(4.4rem,24cqi,12rem)}
+    .w.cs-huge .time{font-size:calc(clamp(4.4rem,24cqi,12rem) * var(--num-scale))}
     .w.cs-big .date,.w.cs-huge .date{font-size:1.05rem}
-    .time .per{font:600 1rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-left:6px;vertical-align:top}
-    .date{font:600 .82rem/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--fg)}
+    .time .per{font:var(--lbl-w) 1rem/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);margin-left:6px;vertical-align:top}
+    .date{font:var(--lbl-w) .82rem/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--fg)}
     .now{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
     .gl{display:block;flex:none;--g-bg:var(--slab)}
     .now .gl{width:68px;height:68px}
     .g-s{fill:var(--g-sun,var(--ochre))} .g-p{fill:var(--g-paper,var(--paper))} .g-r{fill:var(--g-rain,var(--teal))}
     .g-b{fill:var(--g-bolt,var(--red))} .g-g{fill:var(--g-bg)} .g-u{fill:var(--line)}
-    .temp{font-size:4rem;line-height:.82;white-space:nowrap}
+    .temp{font-family:var(--num-font);font-size:calc(4rem * var(--num-scale));line-height:calc(.82 * var(--disp-lead));white-space:nowrap}
     .temp small{font:600 1rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:3px;vertical-align:top;text-transform:none}
     .cond{display:grid;gap:5px;min-width:0;flex:1 1 110px}
-    .word{font-size:1.45rem;line-height:.9;overflow-wrap:anywhere}
+    .word{font-size:calc(1.45rem * var(--disp-scale));line-height:calc(.9 * var(--disp-lead));overflow-wrap:anywhere}
     .meta{display:flex;flex-wrap:wrap;gap:2px 12px}
     .fc{display:grid;gap:6px}
     .col > .face{--p-t:8px;--p-r:3px;--p-b:8px;--p-l:3px;background:var(--slab2);display:grid;justify-items:center;gap:5px;text-align:center}
     .col .gl{width:30px;height:30px;--g-bg:var(--slab2)}
-    .col .label{font-size:.64rem;letter-spacing:.1em;overflow-wrap:anywhere}
-    .hi,.lo{font-family:var(--display);font-weight:900;font-size:1.25rem;line-height:1}
+    .col .label{font-size:.64rem;letter-spacing:calc(.1em * var(--lbl-track));overflow-wrap:anywhere}
+    .hi,.lo{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(1.25rem * var(--num-scale));line-height:calc(1 * var(--disp-lead))}
     .lo{color:var(--dim)}
     .span{position:relative;width:8px;height:56px}
     .span::before{content:"";position:absolute;left:3px;width:2px;top:0;bottom:0;background:var(--line)}

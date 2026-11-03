@@ -16,13 +16,13 @@ class JamList extends JamBase {
   watched() { return this._rows().map(r => r.entity); }
   css() { return `
     .sheet{display:grid;align-content:start}
-    .ttl{font-size:1.6rem;margin:0 0 6px}
+    .ttl{font-size:calc(1.6rem * var(--disp-scale));margin:0 0 6px}
     .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;min-height:48px;cursor:pointer}
     .row + .row{border-top:2px solid var(--line)}
     .nm{flex:1 1 auto;min-width:0;font:500 .95rem/1.25 var(--body);overflow-wrap:anywhere}
     .sub{display:block;font-size:.75rem;color:var(--dim)}
-    .v{flex:0 1 auto;min-width:0;text-align:right;font-family:var(--display);font-weight:900;font-size:1.35rem;line-height:1;
-      text-transform:uppercase;overflow-wrap:break-word}
+    .v{flex:0 1 auto;min-width:0;text-align:right;font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1.35rem * var(--disp-scale));line-height:calc(1 * var(--disp-lead));
+      text-transform:var(--disp-case);overflow-wrap:break-word}
     .sw{flex:none;min-width:58px}`; }
   _val(s) {
     const st = s.state, d = s.entity_id.split(".")[0];

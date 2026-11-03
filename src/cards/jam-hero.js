@@ -11,7 +11,7 @@ class JamHero extends JamBase {
   css() { return `
     .hero{--p-t:18px;--p-r:20px;--p-b:22px;--p-l:20px;background:var(--paper);color:var(--paper-fg);display:grid;gap:12px;align-content:start}
     .hero .label{color:var(--paper-dim)}
-    h1{font-size:clamp(2.7rem,11vw,4.8rem);line-height:.9;letter-spacing:-.005em}
+    h1{font-size:calc(clamp(2.7rem,11vw,4.8rem) * var(--disp-scale));line-height:calc(.9 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.005em)}
     .meta{display:flex;gap:6px 16px;flex-wrap:wrap;font-weight:500}
     .meta span{min-width:0;overflow-wrap:anywhere}
     .meta span + span::before{content:"";display:inline-block;width:7px;height:7px;background:var(--acc);margin:0 12px 1px 0;vertical-align:middle}
