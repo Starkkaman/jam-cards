@@ -98,14 +98,14 @@ const SS_CSS = `
   .l5 .b1{left:0;bottom:13vh;width:30vw;height:5vh} .l5 .b2{left:0;bottom:23vh;width:18vw;height:5vh} .l5 .b3{right:0;top:0;width:28vw;height:6vh}
   .l5 .dk{left:8vw;top:8vh;width:34vh;height:34vh}
   /* One-shot stepped cut when the layout changes (transform/opacity only). */
-  .shift .sh{animation:jam-ss-cut 240ms steps(3,end) 1 both}
-  .shift .txt{animation:jam-ss-pop 160ms steps(2,end) 1 both}
+  .shift .sh{animation:var(--jam-kf-ss-cut,jam-ss-cut) calc(240ms * var(--dur)) var(--jam-ease-3,steps(3,end)) 1 both}
+  .shift .txt{animation:var(--jam-kf-ss-pop,jam-ss-pop) calc(160ms * var(--dur)) var(--jam-ease-2,steps(2,end)) 1 both}
   @keyframes jam-ss-cut{from{transform:scaleX(0);transform-origin:0 0}to{transform:none;transform-origin:0 0}}
   @keyframes jam-ss-pop{from{opacity:0}to{opacity:1}}
   /* Images: at most two <img> (current + preloading next), contained on ink. */
   .img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--ink);visibility:hidden}
   .img.cur,.img.in{visibility:visible}
-  .img.cut{animation:jam-ss-pop 120ms steps(2,end) 1 both}
+  .img.cut{animation:var(--jam-kf-ss-pop,jam-ss-pop) calc(120ms * var(--dur)) var(--jam-ease-2,steps(2,end)) 1 both}
   .sdock{position:absolute;left:3vw;bottom:4vh;display:grid;gap:1.4vh;justify-items:start}
   .tchip{display:grid;gap:.6vh;padding:1.4vh 2.4vh 1.6vh 2vh;background:var(--acc);color:var(--acc-fg);
     clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}

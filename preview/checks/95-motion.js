@@ -187,4 +187,26 @@ module.exports = async (page, check) => {
   await page.emulateMedia({reducedMotion: "no-preference"});
   check(!rm.on && !rm.entered && rm.anim === "none" && rm.st === "none" && rm.before === "none",
     `prefers-reduced-motion: reduce disables everything (motionOn ${rm.on}, entrance ${rm.entered}, CSS ${rm.anim}/${rm.st}/${rm.before})`);
+
+  // ---- R5 motion tokens: durations, easing, keyframe names and the press transforms follow the look; reduced motion still wins ----
+  const probe = () => page.evaluate(() => {
+    const J = window.JamCards, t = document.createElement("jam-tile");
+    t.setConfig({type: "custom:jam-tile", entity: "light.garage", name: "R"}); t.hass = window.__hass; document.body.append(t);
+    const k = J.cutKey("x", "k", "on jam-stamp pressing", "chip"); t.shadowRoot.querySelector(".host").append(k);
+    const w = document.createElement("div"); w.className = "jam-wash out"; t.shadowRoot.querySelector(".host").append(w);
+    const cs = getComputedStyle(k), f = getComputedStyle(k.firstChild), ws = getComputedStyle(w);
+    const out = {stamp: [cs.animationName, cs.animationDuration, cs.animationTimingFunction].join(" "),
+      press: [f.animationName, f.animationDuration, f.animationTimingFunction, f.transform].join(" "), wash: [ws.animationName, ws.animationDuration, ws.animationTimingFunction].join(" ")};
+    t.remove(); return out;
+  });
+  const de = (set) => page.evaluate(set => { const d = document.documentElement.style;
+    for (const [k, v] of Object.entries({"--jam-dur": "1.5", "--jam-ease-2": "linear", "--jam-ease-3": "cubic-bezier(0.2, 0.8, 0.2, 1)", "--jam-kf-stamp": "jam-enter", "--jam-press-from": "scale(0.5)"}))
+      if (set) d.setProperty(k, v); else d.removeProperty(k); }, set);
+  const m0 = await probe(); await de(true); const m1 = await probe(); await de(false); const m2 = await probe();
+  await page.emulateMedia({reducedMotion: "reduce"}); await de(true); const m3 = await probe(); await de(false);
+  await page.emulateMedia({reducedMotion: "no-preference"});
+  check(m0.stamp === "jam-stamp 0.21s steps(3)" && m0.press === "jam-print 0.06s steps(2) matrix(1, 0, 0, 1, 2, 2)" && m0.wash === "jam-retreat 0.12s steps(2)" &&
+    m1.stamp === "jam-enter 0.315s cubic-bezier(0.2, 0.8, 0.2, 1)" && m1.press === "jam-print 0.09s linear matrix(0.5, 0, 0, 0.5, 0, 0)" && m1.wash === "jam-retreat 0.18s linear" &&
+    JSON.stringify(m2) === JSON.stringify(m0) && m3.stamp.startsWith("none") && m3.press.startsWith("none") && m3.wash.startsWith("none"),
+    `motion tokens: jam-dur / jam-ease-<n> / jam-kf-<name> / jam-press-from re-time the motion (${JSON.stringify(m1)}), Poster back (${JSON.stringify(m0)}), reduced motion still none`);
 };

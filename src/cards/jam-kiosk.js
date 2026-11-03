@@ -122,7 +122,7 @@ class JamKioskHome extends JamBase {
     .lk.off .disc{background:none;border:4px solid var(--dim)}
     .lk.off{--lk-gl:var(--dim);--lk-tx:var(--dim)}
     .lk .disc:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
-    .lk .disc.stamp{animation:jam-stamp 210ms steps(3,end)}
+    .lk .disc.stamp{animation:var(--jam-kf-stamp,jam-stamp) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
     .lk .lbl{font:var(--lbl-w) 18px/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--lk-tx);white-space:nowrap;
       max-width:36cqw;overflow:hidden;text-align:right}
     .left{min-width:0}
@@ -153,7 +153,7 @@ class JamKioskHome extends JamBase {
     .st{font:var(--lbl-w) 18px/1.1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .blk.none .st{color:var(--dim)}
     .st:empty{display:none}
-    .blk.stamp{z-index:1;animation:jam-stamp 210ms steps(3,end)}
+    .blk.stamp{z-index:1;animation:var(--jam-kf-stamp,jam-stamp) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
     @container (max-width:640px){
       .poster{grid-template-columns:minmax(0,1fr);align-content:end}
       .now{justify-items:start;text-align:left}

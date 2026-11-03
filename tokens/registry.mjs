@@ -106,6 +106,23 @@ export const TOKENS = [
   {name: "jam-pad-hero", css: "", scope: "theme", optional: true, note: "least inner padding of the hero face"},
   {name: "jam-pad-sheet", css: "", scope: "theme", optional: true, note: "least inner padding of sheet faces"},
   {name: "jam-pad-poster", css: "", scope: "theme", optional: true, note: "least inner padding of poster faces (most set padding:0 for their art and stay so)"},
+  // ---- motion (R5): durations, easing, press, keyframe names. reduced-motion and JamCards.motion = false still stop all ----
+  {name: "jam-dur", css: "dur", scope: "theme", note: "factor on every animation duration (60-240 ms in Poster; the 40 ms stagger steps stay)"},
+  {name: "jam-press", css: "press", scope: "theme", note: "pressed transform at the end of a press (jam-print keyframe)"},
+  {name: "jam-press-from", css: "press-from", scope: "theme", note: "transform the moment a key is pressed (also jam-tabs / jam-scenes)"},
+  {name: "jam-ease-2", css: "", scope: "theme", optional: true, note: "timing function of the 2-step motions (press, wash out, screensaver text); unset = steps(2,end)"},
+  {name: "jam-ease-3", css: "", scope: "theme", optional: true, note: "timing function of the 3-step motions (wash in, stamps, screensaver shapes); unset = steps(3,end)"},
+  {name: "jam-ease-4", css: "", scope: "theme", optional: true, note: "timing function of the 4-step motions (view entrance, sheet stagger, sheet opening); unset = steps(4,end) (jam-popup steps(4,start))"},
+  {name: "jam-kf-enter", css: "", scope: "theme", optional: true, note: "animation-name for jam-enter: view entrance, sheet children stagger (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-print", css: "", scope: "theme", optional: true, note: "animation-name for jam-print: key press (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-uncover", css: "", scope: "theme", optional: true, note: "animation-name for jam-uncover: light wash in, stamp underlay (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-retreat", css: "", scope: "theme", optional: true, note: "animation-name for jam-retreat: light wash out (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-stamp", css: "", scope: "theme", optional: true, note: "animation-name for jam-stamp: one-shot stamp (scenes, kiosk dock / lock, On now) (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-shake", css: "", scope: "theme", optional: true, note: "animation-name for jam-shake: failed action (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-sheet", css: "", scope: "theme", optional: true, note: "animation-name for jam-sheet-up (openSheet) / jam-wipe (jam-popup): sheet opening (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-flash", css: "", scope: "theme", optional: true, note: "animation-name for jam-sheet-flash / jam-flash: Vertigo spiral flash (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-ss-cut", css: "", scope: "theme", optional: true, note: "animation-name for jam-ss-cut: screensaver shapes on a layout change (a look pack's own @keyframes; unset = the Poster one)"},
+  {name: "jam-kf-ss-pop", css: "", scope: "theme", optional: true, note: "animation-name for jam-ss-pop: screensaver text / photo cut (a look pack's own @keyframes; unset = the Poster one)"},
   // ---- identity (R1) ----
   {name: "jam-look", css: "", scope: "theme", note: "look id (poster, braun, ...): cards set data-look=<id> on their host, sheets and the screensaver layer"},
 ];

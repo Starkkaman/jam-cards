@@ -51,6 +51,9 @@
   --jam-key-track-scale:1;
   --jam-rule-h:5px;
   --jam-stripe-w:6px;
+  --jam-dur:1;
+  --jam-press:translate(3px,3px) scale(.96);
+  --jam-press-from:translate(2px,2px);
   --jam-look:poster;
   --primary-background-color:#141210;
 }
@@ -105,6 +108,9 @@
   --jam-key-track-scale:1;
   --jam-rule-h:5px;
   --jam-stripe-w:6px;
+  --jam-dur:1;
+  --jam-press:translate(3px,3px) scale(.96);
+  --jam-press-from:translate(2px,2px);
   --jam-look:poster;
   --primary-background-color:#ece2c9;
 }
@@ -159,6 +165,9 @@
   --jam-key-track-scale:.4;
   --jam-rule-h:5px;
   --jam-stripe-w:6px;
+  --jam-dur:1;
+  --jam-press:translate(3px,3px) scale(.96);
+  --jam-press-from:translate(2px,2px);
   --jam-look:stress;
   --primary-background-color:#141210;
 }
@@ -213,6 +222,9 @@
   --jam-key-track-scale:.4;
   --jam-rule-h:5px;
   --jam-stripe-w:6px;
+  --jam-dur:1;
+  --jam-press:translate(3px,3px) scale(.96);
+  --jam-press-from:translate(2px,2px);
   --jam-look:stress;
   --primary-background-color:#ece2c9;
 }

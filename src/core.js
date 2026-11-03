@@ -73,8 +73,9 @@ ${SHAPE_CSS}
 :where(.face){border:var(--bord,0px none)}
 .press{cursor:pointer}
 /* Press = print (0.3.5): the face presses down in 2 steps (scale .96 + 3px offset) and snaps back on release. With motion
-   off (JamCards.motion = false) --jam-motion is 0, so the print is a hard cut to the pressed state. */
-.press:active > .face,.pressing > .face{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}
+   off (JamCards.motion = false) --jam-motion is 0, so the print is a hard cut to the pressed state. R5: the transforms are
+   --press-from / --press, durations x --dur, timing --jam-ease-<n> and keyframe names --jam-kf-<name> (Poster fallbacks). */
+.press:active > .face,.pressing > .face{transform:var(--press-from);animation:var(--jam-kf-print,jam-print) calc(60ms * var(--jam-motion,1) * var(--dur)) var(--jam-ease-2,steps(2,end)) forwards}
 .press:has(.press:active) > .face{transform:none;animation:none}
 /* Keys (buttons, chips): slab2 off, accent fill + ink text on, red for alert/power. */
 .key{min-width:56px;text-align:center}
@@ -95,16 +96,16 @@ ${SHAPE_CSS}
 .arm span{background:var(--acc)}
 /* Motion (DESIGN "Motion", 0.3.5): one-shot only, transform / clip-path, steps() = cut paper, <= 300 ms. Classes are set by
    JS once (view entrance, sheet stagger, light wash, stamp) and never on a plain hass update. */
-.host.jam-enter{animation:jam-enter 200ms steps(4,end) backwards}
-.jam-in{animation:jam-enter 160ms steps(4,end) backwards}
+.host.jam-enter{animation:var(--jam-kf-enter,jam-enter) calc(200ms * var(--dur)) var(--jam-ease-4,steps(4,end)) backwards}
+.jam-in{animation:var(--jam-kf-enter,jam-enter) calc(160ms * var(--dur)) var(--jam-ease-4,steps(4,end)) backwards}
 .jam-wash{position:absolute;inset:0;pointer-events:none;clip-path:inset(0 0 0 100%)}
-.jam-wash.in{animation:jam-uncover 210ms steps(3,end)}
-.jam-wash.out{animation:jam-retreat 120ms steps(2,end)}
-.jam-stamp{animation:jam-stamp 210ms steps(3,end)}
+.jam-wash.in{animation:var(--jam-kf-uncover,jam-uncover) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
+.jam-wash.out{animation:var(--jam-kf-retreat,jam-retreat) calc(120ms * var(--dur)) var(--jam-ease-2,steps(2,end))}
+.jam-stamp{animation:var(--jam-kf-stamp,jam-stamp) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
 .jam-stamp > .face::before,.jam-stamp:not(.paper)::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:var(--jam-stamp-from,var(--slab2));clip-path:inset(0 0 0 100%);animation:jam-uncover 210ms steps(3,end)}
+  background:var(--jam-stamp-from,var(--slab2));clip-path:inset(0 0 0 100%);animation:var(--jam-kf-uncover,jam-uncover) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
 @keyframes jam-enter{from{transform:translateX(-24px);clip-path:inset(0 100% 0 0)}to{transform:none;clip-path:inset(0)}}
-@keyframes jam-print{to{transform:translate(3px,3px) scale(.96)}}
+@keyframes jam-print{to{transform:var(--press)}}
 @keyframes jam-uncover{from{clip-path:inset(0)}to{clip-path:inset(0 0 0 100%)}}
 @keyframes jam-retreat{from{clip-path:inset(0)}to{clip-path:inset(0 100% 0 0)}}
 /* Failed action (0.7.2): flat strip over the bottom of the card / sheet (out of flow), and a one-shot shake on the tile. */
@@ -112,7 +113,7 @@ ${SHAPE_CSS}
   border-left:var(--stripe-w) solid var(--red);font:500 .8rem/1.3 var(--body);text-align:left;text-transform:none;letter-spacing:0;cursor:pointer;pointer-events:auto}
 .jam-err > span{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jam-err > .eh{font-weight:600}
-.jam-shake{animation:jam-shake 180ms steps(1,end)}
+.jam-shake{animation:var(--jam-kf-shake,jam-shake) calc(180ms * var(--dur)) steps(1,end)}
 @keyframes jam-shake{0%{transform:translateX(-6px)}33%{transform:translateX(6px)}66%{transform:translateX(-3px)}to{transform:none}}
 @keyframes jam-stamp{from{transform:scale(1.08)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
@@ -744,8 +745,8 @@ const SHEET_CSS = `
   .close{flex:none}
   .acts{flex:none;display:flex;align-items:stretch;gap:6px}
   .acts > .key{min-width:0;height:auto}
-  .pop.opening .wipe{animation:jam-sheet-up 200ms steps(4,end) backwards}
-  .pop.opening .spiral{animation:jam-sheet-flash 220ms steps(1,end) both}
+  .pop.opening .wipe{animation:var(--jam-kf-sheet,jam-sheet-up) calc(200ms * var(--dur)) var(--jam-ease-4,steps(4,end)) backwards}
+  .pop.opening .spiral{animation:var(--jam-kf-flash,jam-sheet-flash) calc(220ms * var(--dur)) steps(1,end) both}
   @keyframes jam-sheet-up{from{transform:translateY(30%)}to{transform:none}}
   @keyframes jam-sheet-flash{from{visibility:visible}to{visibility:hidden}}
   @media (max-width:600px){

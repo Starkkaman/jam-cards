@@ -148,6 +148,15 @@ Colour maths and lines (R4; theme top level unless noted):
 | `--jam-stripe-w` (`--stripe-w`) | left tone stripe (`.stripe`, jam-remote groups, the error strip) | 6px |
 Look-neutral, left as they are: `shade()` (HSL lightness of the face itself), jam-tv's unused `_artTone` luminance test.
 
+Motion (R5; theme top level):
+| var (short name) | sets | Poster |
+|---|---|---|
+| `--jam-dur` (`--dur`) | factor on every animation duration (the 40 ms stagger steps and the photo crossfade stay) | 1 |
+| `--jam-press-from` (`--press-from`), `--jam-press` (`--press`) | transform when a key goes down / at the end of the press (`jam-print`; jam-tabs and jam-scenes use `--press-from`) | `translate(2px,2px)`, `translate(3px,3px) scale(.96)` |
+| `--jam-ease-2`, `-3`, `-4` (optional) | timing function of the 2- / 3- / 4-step motions (press, wash out, screensaver text / wash in, stamps, screensaver shapes / entrance, stagger, sheet opening); e.g. `cubic-bezier(.2,.8,.2,1)` or a spring `linear(...)` | `steps(n,end)` (jam-popup sheet `steps(4,start)`) |
+| `--jam-kf-<name>` (optional): `enter print uncover retreat stamp shake sheet flash ss-cut ss-pop` | animation-name per motion, for a look pack's own `@keyframes` | the Poster keyframes (`jam-enter` ...; `sheet` = `jam-sheet-up` / jam-popup `jam-wipe`, `flash` = the spiral flash) |
+Left literal: `steps(1,end)` hard cuts (spiral flash = visibility, shake) and the stagger delays (set in ms by JS).
+
 Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
 `--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and
 `--jam-stamp-from` are local.
@@ -238,6 +247,12 @@ Off switches: `prefers-reduced-motion: reduce` (CSS `animation:none` on everythi
 is false); `JamCards.motion = false` (an accessor on the frozen API; sets `--jam-motion: 0` on `<html>` so the print is a hard
 cut, and the JS skips entrance / wash / stamp / stagger / sheet opening motion). jam-screensaver `motion: false` sets it while the
 card is on screen (for a kiosk that cannot cope; default on everywhere).
+Motion tokens (R5, see "Token reference"): the table above is Poster's timing. Every `animation` reads its name from
+`--jam-kf-<name>`, its duration as `calc(<Poster ms> * var(--dur))` and its timing from `--jam-ease-<steps>`, each with
+the Poster value as the fallback; the press transforms are `--press-from` / `--press`. Both off switches above stay
+absolute for every look (the reduced-motion rule is `!important`, and the JS gates do not read tokens). The rules
+"stepped" and "<= 300 ms" are Poster rules (95-motion checks them on the Poster styles); one-shot, no loops and the off
+switches are universal.
 
 ## Motifs (use sparingly; one per card max)
 - **Cut-paper idle art** (round 3, jam-speaker idle poster / thumbs without a cover): a flat Jam-palette ground (ink, cream,

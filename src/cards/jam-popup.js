@@ -30,8 +30,8 @@ const POPUP_CSS = `
     --jam-slab:var(--slab2);--jam-slab2:var(--slab3)}
   .body > *{display:block;min-width:0}
   .close{flex:none}
-  .pop.opening .wipe{animation:jam-wipe 160ms steps(4,start) backwards}
-  .pop.opening .spiral{animation:jam-flash 120ms steps(1,end) both}
+  .pop.opening .wipe{animation:var(--jam-kf-sheet,jam-wipe) calc(160ms * var(--dur)) var(--jam-ease-4,steps(4,start)) backwards}
+  .pop.opening .spiral{animation:var(--jam-kf-flash,jam-flash) calc(120ms * var(--dur)) steps(1,end) both}
   @keyframes jam-wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
   @keyframes jam-flash{from{visibility:visible}to{visibility:hidden}}
   @keyframes jam-wipe-up{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}

@@ -33,10 +33,10 @@ class JamScenes extends JamBase {
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
     .scene.on > .sf{background:var(--acc);color:var(--acc-fg)}
     .scene:focus-visible{outline-offset:-2px} .scene.on:focus-visible{outline-color:var(--fg)}
-    .scene:active > .sf{transform:translate(2px,2px);animation:jam-print calc(60ms * var(--jam-motion,1)) steps(2,end) forwards}
+    .scene:active > .sf{transform:var(--press-from);animation:var(--jam-kf-print,jam-print) calc(60ms * var(--jam-motion,1) * var(--dur)) var(--jam-ease-2,steps(2,end)) forwards}
     .scene.jam-stamp::before{content:none}
     .scene.jam-stamp > .sf::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:var(--jam-stamp-from,var(--slab2));
-      clip-path:inset(0 0 0 100%);animation:jam-uncover 210ms steps(3,end)}`; }
+      clip-path:inset(0 0 0 100%);animation:var(--jam-kf-uncover,jam-uncover) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}`; }
   render(b) {
     const c = this._config, h = this._hass;
     const cur = c.current_entity ? stateObj(h, c.current_entity) : null;

@@ -1,6 +1,6 @@
 # Theming plan: global "looks" for Jam Cards + the JamBoard theme
 
-Status: architecture brief (2026-11-03); R0-R3 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
+Status: architecture brief (2026-11-03); R0-R5 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards
 `15d5e65` (0.7.2) and jam-theme `themes/jamboard.yaml` as of 2026-10-27.
 
 **Goal.** Whole-look overhauls (after the JamDash looks: Depth, Braun, NERV, LCARS and the v8 designer looks Transit, Olympia,
@@ -459,8 +459,28 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   stripe-w apply and come back. Pixel diff vs R3: identical (one full run caught tv-source-sheet-390 mid "On now" stamp,
   a 150 ms wait after the tap in 70-tv; three reruns of 00/70-tv on the same code match the baseline: timing, not R4).
   Contrast QA (jam-home preview/qa) not rerun: Poster is pixel-identical, so its findings cannot change.
-- Open for R5+: motion literals (R5); data-look is set but no look pack reads it yet (R6). The `preview/checks`
-  "now: a new cover is not shown before it has loaded" (93-now-playing) fails in about half the runs on 0.7.2 already
-  (the local server serves the cover before the check looks); it is not caused by R0-R2.
+- **R5 (done).** Motion tokens: `jam-dur` (factor, every animation duration), `jam-press-from` / `jam-press` (press
+  transforms; the `jam-print` keyframe reads `var(--press)`), optional `jam-ease-2/3/4` (timing of the 2/3/4-step motions,
+  unset = each site's `steps(n,end)`, jam-popup's `steps(4,start)`) and optional `jam-kf-<name>` animation names (enter,
+  print, uncover, retreat, stamp, shake, sheet, flash, ss-cut, ss-pop; unset = the Poster keyframes). All 20 `steps()`
+  sites (core, jam-popup, jam-kiosk, jam-scenes, jam-screensaver) and the jam-tabs press read them; `steps(1,end)` hard
+  cuts (visibility flash, shake) stay literal, as do the JS stagger delays (95-motion reads them as plain ms) and the photo
+  crossfade (`images.fade`). Off switches unchanged: `prefers-reduced-motion` (`animation:none!important`) and
+  `JamCards.motion = false` (JS gates, `--jam-motion: 0` on the print). New 95-motion check: dur 1.5 / ease / kf / press
+  tokens re-time a stamp, a press and a wash live (computed name, duration, timing, transform), Poster comes back, and with
+  reduced motion emulated the same tokens still give `animation: none`. Pixel diff vs R4: identical.
+- Open for R6+: data-look is set but no look pack reads it yet (R6). Braun / Olympia fonts (Archivo, Albert Sans) are
+  not in fonts/ yet; the stress look only proves fit with a wider fallback face (R6 loader + files, then re-run fit.js
+  with the real faces and a font-load re-measure in jam-kiosk). jam-button's label fit assumes Londrina's .5em average
+  glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
+  width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in
+  labels: a look decision. Poster-only assertions that R9 must make look-aware: shoot.js fonts / CUTS / heading rule 5px,
+  95-motion "stepped and <= 300 ms", 85/87 kiosk sizes and Londrina / uppercase checks; preview/fit.js already covers
+  fit for any look in `JAM_FIT_LOOKS`. Harness noise seen in R3-R5 runs: speaker-kitchen-390 (JAM_SHOTS, progress fill
+  follows the wall clock), tv-source-sheet-390 (shot 150 ms after a tap, sometimes mid stamp), the kiosk CLOSE-key
+  anti-aliasing (INFO); 95-motion's sheet-stagger check fails when 95 runs alone (needs the earlier checks' page state),
+  passes in the full run. The `preview/checks` "now: a new cover is not shown before it has loaded" (93-now-playing)
+  fails in about half the runs on 0.7.2 already (the local server serves the cover before the check looks); it passed in
+  every R3-R5 run.
 - Not part of the token source yet: `../jam-home/preview/index.html` keeps its own copy of the token values (a 6th
   place); it can link `../../jam-cards/preview/looks.css` instead.
