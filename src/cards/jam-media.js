@@ -184,9 +184,9 @@ class JamMedia extends JamSheetHost(JamBase) {
     const src = this._url(np.pic);
     if (src && !np.off) {
       const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
-      img.onerror = () => { img.remove(); face.append(armBars("jam-media|" + id)); };
+      img.onerror = () => { img.remove(); face.append(motif("empty", this, "jam-media|" + id)); };
       face.append(img);
-    } else face.append(armBars("jam-media|" + id));
+    } else face.append(motif("empty", this, "jam-media|" + id));
     return art;
   }
   /* Sub line: media_player = artist / album lines; title_entity players = name · "name value" per sub entity. */

@@ -327,7 +327,7 @@ class JamLight extends JamBase {
     }
     let [pbg, pfg] = cornerColors(on ? corner : null, null, tc);
     if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
-    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power()}));
+    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();
   }

@@ -78,6 +78,11 @@ class JamPopup extends JamBase {
     for (const k of this._kids) { try { k.hass = h; } catch (e) { /* child without hass setter */ } }
   }
   get hass() { return this._hass; }
+  /* Look switch: the open flash is a motif (R7); a pack that draws its own gets it without a rebuild. */
+  _lookChanged(look) {
+    if (this._spiral && this._flashLook !== look && motifsDiffer(this._flashLook, look)) this._spiral.replaceChildren(motif("flash", look));
+    this._flashLook = look;
+  }
   connectedCallback() {
     queueLook(this);
     window.addEventListener("location-changed", this._onLoc);
@@ -102,7 +107,7 @@ class JamPopup extends JamBase {
     const pop = el("div", "pop"); setAccent(pop, c.accent);
     const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
     veil.onclick = () => this.close();
-    const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+    const spiral = el("div", "spiral"); spiral.append(motif("flash", this)); this._spiral = spiral; this._flashLook = lookAt(this);
     if (c.spiral === false) spiral.hidden = true;
     const stage = el("div", "stage");
     const key = "jam-popup|" + c.hash;

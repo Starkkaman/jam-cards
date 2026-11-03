@@ -76,12 +76,14 @@ const JAM_GLYPHS = {
   music: JAM_GLYPH_S('<path d="M9 18V6l11-2v12"/><path d="M6 15.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5zM17 13.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5z"/>'),
   film: JAM_GLYPH_S('<path d="M4 3h16v18H4z"/><path d="M8 3v18M16 3v18M4 8h4M4 13h4M4 18h4M16 8h4M16 13h4M16 18h4"/>', 2),
 };
-/* <span class="gl"> with a glyph (static markup, no data); null for an unknown name. */
-function jamGlyph(name, cls) {
-  const svg = JAM_GLYPHS[name];
+/* Poster remote / transport glyphs (motif remoteGlyph: name -> static SVG markup, null when unknown). */
+defineMotif("remoteGlyph", name => JAM_GLYPHS[name] || null);
+/* <span class="gl"> with a glyph (static markup, no data) in ctx's look (motif remoteGlyph); null for an unknown name. */
+function jamGlyph(name, cls, ctx) {
+  const svg = motif("remoteGlyph", ctx, name);
   if (!svg) return null;
   const s = el("span", "gl" + (cls ? " " + cls : "")); s.setAttribute("aria-hidden", "true");
-  s.innerHTML = svg; // static markup from JAM_GLYPHS, never entity data
+  s.innerHTML = svg; // static markup from the glyph motif (JAM_GLYPHS or a pack), never entity data
   return s;
 }
 /* Outlined key (round 3: jam-tv tabs, stereo inputs): the face is filled with --ol and a --slab inner plate 3px in,
@@ -111,7 +113,7 @@ function jamRocker(items, owner, key) {
   for (const x of items) {
     const b = el("button", "key press " + (x.id === "mute" ? "mute" : "vol")), f = el("span", "face");
     b.type = "button"; b.dataset.key = x.id; b.disabled = !!x.disabled; b.setAttribute("aria-label", x.label);
-    if (x.id === "mute") f.append(jamGlyph("mute"), el("span", "lb", x.text || "Mute"));
+    if (x.id === "mute") f.append(jamGlyph("mute", "", owner), el("span", "lb", x.text || "Mute"));
     else f.textContent = x.id === "vol_up" ? "+" : "−";
     b.append(f);
     if (x.repeat) jamHoldRepeat(b, x.run, owner); else b.onclick = x.run;
@@ -316,7 +318,7 @@ class JamRemote extends JamBase {
       const r = el("div", "row" + (row.length >= 4 ? " dense" : "") + (tr ? " tr" : "") + (pick ? " pick" : ""));
       for (const k of row) {
         const gname = k === "play_pause" ? (mp && mp.state === "playing" ? "pause" : "play") : k;
-        const g = sec && !pick ? jamGlyph(gname) : null;
+        const g = sec && !pick ? jamGlyph(gname, "", this) : null;
         const on = active && active(k), cls = k === "power" ? "alert" : on || (sec && k === "play_pause") ? "on" : "";
         const btn = cutKey(this._label(k, ctx), `jam-remote|${ctx.entity}|${k}`, cls + (g ? " ico" : "") + (pick && k !== "power" ? " ol" : ""));
         if (g) { const f = btn.firstChild, lb = el("span", "lb", f.textContent); f.textContent = ""; f.append(g, lb); }
@@ -349,7 +351,7 @@ class JamRemote extends JamBase {
       if (power) {
         const pw = cutKey("", `jam-remote|${ctx.entity}|power`, "pw " + (sec.power_accent ? "on" : "alert"), "chip");
         pw.dataset.key = "power"; pw.setAttribute("aria-label", (sec.title ? sec.title + " " : "") + this._label("power", ctx).toLowerCase());
-        pw.firstChild.textContent = ""; pw.firstChild.append(jamGlyph("power"));
+        pw.firstChild.textContent = ""; pw.firstChild.append(jamGlyph("power", "", this));
         pw.disabled = off || !this._known("power", ctx);
         this._bind(pw, "power", ctx);
         gh.append(pw);

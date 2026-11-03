@@ -458,6 +458,27 @@ function cutKey(label, key, cls, kind = "key") {
   root.type = "button"; face.textContent = String(label);
   return root;
 }
+/* ---------- motifs (theming plan 2.3, R7) ---------- */
+/* A motif is a look's decorative drawing: the cards ask motif(name, ctx, ...args) and get the active look pack's version, or
+   the Poster one (defineMotif, below and in the card files). ctx = the card (or any node in it, or a sheet's .pop) whose
+   data-look picks the look, or a look id. A pack's motif runs with this = {look, poster} (poster = the Poster function,
+   to extend instead of replace). Motifs return fresh nodes (or static SVG markup for glyphs), aria-hidden, never entity
+   text. Poster motifs: empty (Golden Arm bars), idleArt (cut-paper idle art), flash (Vertigo spiral), wxGlyph (weather
+   glyph SVG), remoteGlyph (remote / transport glyph markup), powerGlyph (power corner SVG), screensaver (the poster
+   composition's shapes). A card re-renders when a look switch changes one of its motifs (JamBase._relook). */
+const JAM_MOTIFS = Object.create(null);
+function defineMotif(name, fn) { JAM_MOTIFS[name] = fn; }
+function lookAt(ctx) {
+  if (typeof ctx === "string") return ctx || "poster";
+  for (let x = ctx; x; x = x.parentNode || x.host) if (x.dataset && x.dataset.look) return x.dataset.look;
+  return "poster";
+}
+function motif(name, ctx, ...args) {
+  const look = lookAt(ctx), pack = lookPack(look), poster = JAM_MOTIFS[name], own = pack && pack.motifs[name];
+  if (typeof poster !== "function") throw new Error("JamCards.motif: unknown motif " + name);
+  return (typeof own === "function" ? own : poster).apply({look, poster}, args);
+}
+
 /* Golden Arm motif: 3-5 straight vertical bars of varied height/width in var(--acc), aria-hidden. Same key = same bars. */
 function armBars(key) {
   const s = typeof key === "number" ? key >>> 0 : seed(key), r = rng(s ^ 0x9e3779b9);
@@ -470,6 +491,7 @@ function armBars(key) {
   }
   return box;
 }
+defineMotif("empty", armBars);
 
 /* ---------- light colour helpers ---------- */
 /* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
@@ -587,16 +609,13 @@ const POWER_CSS = `
    opts: {name (aria-label "<name> power"), on (aria-pressed), disabled, bg (CSS colour of the triangle: a shade of the
    card face, see shade(); default slab2), fg (glyph colour; default --fg), cls, onClick}. Put it as the last child of a
    positioned face; add POWER_CSS to the card css. */
-function powerCorner({name = "", on = false, disabled = false, bg = null, fg = null, cls = "", onClick = null} = {}) {
+function powerCorner({name = "", on = false, disabled = false, bg = null, fg = null, cls = "", onClick = null, ctx = null} = {}) {
   const b = el("button", "pw" + (cls ? " " + cls : "")); b.type = "button";
   b.dataset.key = "power"; b.disabled = !!disabled;
   b.setAttribute("aria-label", (name ? name + " " : "") + "power"); b.setAttribute("aria-pressed", on ? "true" : "false");
   if (bg) b.style.setProperty("--pw-bg", bg);
   if (fg) b.style.setProperty("--pw-fg", fg);
-  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), tri = el("span", "tri");
-  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "3");
-  for (const d of ["M12 3v9", "M6.3 7.5a8 8 0 1 0 11.4 0"]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); svg.append(p); }
+  const svg = motif("powerGlyph", ctx), tri = el("span", "tri");
   tri.setAttribute("aria-hidden", "true");
   b.append(tri, svg);
   if (onClick) b.addEventListener("click", e => { e.stopPropagation(); onClick(e); });
@@ -604,6 +623,14 @@ function powerCorner({name = "", on = false, disabled = false, bg = null, fg = n
   b.addEventListener("pointerdown", e => e.stopPropagation());
   return b;
 }
+/* Poster power glyph (motif powerGlyph): a 3px stroked power sign. */
+defineMotif("powerGlyph", () => {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "3");
+  for (const d of ["M12 3v9", "M6.3 7.5a8 8 0 1 0 11.4 0"]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); svg.append(p); }
+  return svg;
+});
 /* Corner colours for a face: [bg, glyph]. bg = shade(face, 1); glyph = the face's text colour (dark or light, as textOn)
    while it keeps >= 3:1 on the corner (an icon), else the other one. null face (a slab face, or a token that did not
    resolve) = slab2 with the given glyph colour. tc = textColors(node) (default Poster). */
@@ -837,6 +864,7 @@ function vertigoSpiral() {
   svg.append(path);
   return svg;
 }
+defineMotif("flash", vertigoSpiral);
 /* The deepest focused element across shadow roots (to restore focus on close). */
 function deepActive() {
   let a = document.activeElement;
@@ -902,7 +930,7 @@ function openSheet(opts = {}) {
   const pop = el("div", "pop" + (o.fullscreen ? " full" : "") + (o.cls ? " " + o.cls : ""));
   if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
   const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
-  const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+  const spiral = el("div", "spiral"); spiral.append(motif("flash", o.from));
   if (o.flash === false) spiral.hidden = true; else if (o.flash) spiral.style.color = o.flash;
   const stage = el("div", "stage");
   const {root: sheet, face} = paper("div", "jam-sheet", {kind: "sheet", cls: "sheet wipe"});
@@ -950,8 +978,11 @@ function openSheet(opts = {}) {
     _refresh() {
       if (!open) return;
       if (o.from && o.from.isConnected) copyTokens(o.from, holder);
-      const look = lookOf(holder);
-      if (pop.dataset.look !== look) { pop.dataset.look = look; jamRestyle(sr, look); }
+      const look = lookOf(holder), was = pop.dataset.look;
+      if (was !== look) {
+        pop.dataset.look = look; jamRestyle(sr, look);
+        if (motifsDiffer(was, look)) spiral.replaceChildren(motif("flash", look));
+      }
       setFx(pop, fxOf(holder));
     },
     /* close({silent}): hide; step back out of our history entry unless silent (e.g. the card was removed). */
@@ -1079,7 +1110,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
-  registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
+  motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

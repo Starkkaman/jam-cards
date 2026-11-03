@@ -50,7 +50,9 @@ const JAM_WX_GLYPHS = {
 };
 /* Night variants (state clear-night is its own glyph): sun -> moon. */
 const JAM_WX_NIGHT = {sunny: JAM_WX_MOON, partlycloudy: [jamWxSmall(JAM_WX_MOON), JAM_WX_CLOUD]};
-function jamWxGlyph(cond, night) {
+/* Weather glyph in ctx's look (motif wxGlyph; Poster = jamWxGlyphPoster). */
+function jamWxGlyph(cond, night, ctx) { return motif("wxGlyph", ctx, cond, night); }
+function jamWxGlyphPoster(cond, night) {
   const shapes = (night && JAM_WX_NIGHT[cond]) || JAM_WX_GLYPHS[cond] || [["rect", {x: 12, y: 12, width: 24, height: 24}, "u"]];
   const svg = document.createElementNS(JAM_WX_NS, "svg");
   svg.setAttribute("viewBox", "0 0 48 48"); svg.setAttribute("class", "gl"); svg.setAttribute("aria-hidden", "true");
@@ -64,6 +66,7 @@ function jamWxGlyph(cond, night) {
   for (const s of shapes) add(svg, s);
   return svg;
 }
+defineMotif("wxGlyph", jamWxGlyphPoster);
 class JamWeather extends JamBase {
   constructor() { super(); this._fc = null; this._subKey = null; this._unsubP = null; }
   validate(c) {
@@ -199,7 +202,7 @@ class JamWeather extends JamBase {
     const sun = stateObj(h, "sun.sun"), night = s && s.state !== "clear-night" && sun && sun.state === "below_horizon";
     if (c.show_current !== false) {
       const now = el("div", "now");
-      now.append(jamWxGlyph(off ? null : s.state, night));
+      now.append(jamWxGlyph(off ? null : s.state, night, this));
       const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
       if (isFinite(temp) && unit) t.append(el("small", "", unit));
       const cond = el("div", "cond");
@@ -234,7 +237,7 @@ class JamWeather extends JamBase {
       if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})
         : type === "twice_daily" && f.is_daytime === false ? "Night" : d.toLocaleDateString(this._lang(), {weekday: "short"});
       face.append(el("div", "label", name));
-      face.append(jamWxGlyph(f.condition, f.is_daytime === false));
+      face.append(jamWxGlyph(f.condition, f.is_daytime === false, this));
       const high = num(f.temperature) ? +f.temperature : null, low = num(f.templow) ? +f.templow : null;
       face.append(el("div", "hi num", high === null ? "—" : Math.round(high) + "°"));
       const span = el("div", "span"), bar = el("div", "bar");

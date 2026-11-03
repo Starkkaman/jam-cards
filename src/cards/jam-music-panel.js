@@ -100,9 +100,11 @@ function jamMuIdleArt(sd) {
   }
   return box;
 }
-/* Cover thumb: the item's image, or its own cut-paper art (seeded by the uri); a broken image falls back to the art. */
-function jamMuThumb(h, src, key, cls) {
-  const t = el("div", "thumb" + (cls ? " " + cls : "")), art = () => jamMuIdleArt(seed(String(key || "")));
+defineMotif("idleArt", jamMuIdleArt);
+/* Cover thumb: the item's image, or its own cut-paper art (seeded by the uri; motif idleArt of ctx's look); a broken image
+   falls back to the art. */
+function jamMuThumb(h, src, key, cls, ctx) {
+  const t = el("div", "thumb" + (cls ? " " + cls : "")), art = () => motif("idleArt", ctx, seed(String(key || "")));
   t.setAttribute("aria-hidden", "true");
   const u = src && jamMuUrl(h, src);
   if (u) { const img = el("img"); img.alt = ""; img.decoding = "async"; img.loading = "lazy"; img.onerror = () => { img.replaceWith(art()); }; img.src = u; t.append(img); }
@@ -387,7 +389,7 @@ function jamMusicPanel(card) {
   face.append(dock);
   const hdr = () => {
     const s = stateObj(H(), c.entity), src = card._artSrc(s), k = src || "abs:" + c.entity;
-    if (k !== thumbKey) { thumbKey = k; const old = head.querySelector(":scope > .thumb"), n = jamMuThumb(H(), src, c.entity); if (old) old.replaceWith(n); else head.prepend(n); }
+    if (k !== thumbKey) { thumbKey = k; const old = head.querySelector(":scope > .thumb"), n = jamMuThumb(H(), src, c.entity, "", card); if (old) old.replaceWith(n); else head.prepend(n); }
     sub.textContent = card._badge(s)[0];
     if (spkKey) { spkKey.classList.toggle("sel", P.view === "spk"); spkKey.setAttribute("aria-pressed", String(P.view === "spk")); }
   };
@@ -398,7 +400,7 @@ function jamMusicPanel(card) {
     const fav = card._favKey(s, off, "fav");
     dock.textContent = "";
     dock.classList.toggle("nofav", !fav);
-    dock.append(jamMuThumb(H(), card._artSrc(s), c.entity), tx, ...card._transportKeys(s, off));
+    dock.append(jamMuThumb(H(), card._artSrc(s), c.entity, "", card), tx, ...card._transportKeys(s, off));
     if (fav) dock.append(fav);
   };
   const tabs = () => {
@@ -425,7 +427,7 @@ function jamMusicPanel(card) {
     pin.setAttribute("aria-pressed", String(on)); pin.setAttribute("aria-label", (on ? "Unpin " : "Pin ") + it.name);
     pin.append(jamMuIcon("pin"));
     pin.onclick = () => { jamMuPinsLoad(H()).then(() => { jamMuTogglePin(H(), c, it); if (sheet.isOpen()) fill(false); }); };
-    r.append(jamMuThumb(H(), it.image, it.uri), tx, play, pin);
+    r.append(jamMuThumb(H(), it.image, it.uri, "", card), tx, play, pin);
     return r;
   };
   const list = (items, empty) => {

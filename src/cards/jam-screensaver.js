@@ -273,6 +273,9 @@ const JamKiosk = {
   moved(e) { if (this.lpAt && Math.hypot(e.clientX - this.lpAt[0], e.clientY - this.lpAt[1]) > 12) this.release(); },
 };
 
+/* Poster composition (motif screensaver): three flat bars + a disc, placed per layout (.poster.l0-l5 in SS_CSS). A pack
+   returns its own shape nodes (class "sh" keeps the layout-change cut motion). */
+defineMotif("screensaver", () => ["b1 bar", "b2 bar", "b3 bar", "dk disc"].map(k => { const s = el("div", "sh " + k); s.setAttribute("aria-hidden", "true"); return s; }));
 class JamScreensaver extends JamBase {
   constructor() {
     super();
@@ -369,7 +372,7 @@ class JamScreensaver extends JamBase {
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Screensaver, tap to close");
     setAccent(ov, c.accent);
     const poster = el("div", "poster"); poster.setAttribute("aria-hidden", "false");
-    const shapes = ["b1 bar", "b2 bar", "b3 bar", "dk disc"].map(k => { const s = el("div", "sh " + k); s.setAttribute("aria-hidden", "true"); return s; });
+    const shapes = motif("screensaver", this); this._shapes = shapes; this._ssLook = lookAt(this);
     const txt = el("div", "txt");
     this._kick = c.kicker ? el("div", "kick", c.kicker) : null;
     this._time = el("div", "time num"); this._date = el("div", "date");
@@ -473,6 +476,12 @@ class JamScreensaver extends JamBase {
   /* queueLook (connect, theme switch): data-look + the look pack's sheet on the overlay's layer. */
   _lookChanged(look) {
     if (this._ov && this._ov.dataset.look !== look) this._ov.dataset.look = look;
+    if (this._poster && this._ssLook !== look && motifsDiffer(this._ssLook, look)) { // the composition is a motif (R7)
+      const next = motif("screensaver", look);
+      for (const s of this._shapes) s.remove();
+      this._poster.prepend(...next); this._shapes = next;
+    }
+    this._ssLook = look;
     if (this._layer && this._layer.shadowRoot) jamRestyle(this._layer.shadowRoot, look);
   }
   /* Every queueLook batch (also a dark / light switch, same look): a body layer re-copies the tokens; data-fx follows the card. */
@@ -646,7 +655,7 @@ class JamScreensaver extends JamBase {
       b.box.classList.toggle("off", !n);
       if (!n) continue;
       b.kick.textContent = n.kick; b.big.textContent = n.title; b.sub.textContent = n.sub;
-      if (!b.arm || b.arm._id !== n.id) { if (b.arm) b.arm.remove(); b.arm = armBars("jam-screensaver|" + n.id); b.arm._id = n.id; b.th.append(b.arm); }
+      if (!b.arm || b.arm._id !== n.id) { if (b.arm) b.arm.remove(); b.arm = motif("empty", this, "jam-screensaver|" + n.id); b.arm._id = n.id; b.th.append(b.arm); }
     }
     this._ov.dataset.now = n ? "on" : "off";
     if (!n) return;

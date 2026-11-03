@@ -77,7 +77,7 @@ class JamFan extends JamBase {
     head.append(nm); wrap.append(head);
     // Tap on the card face (not on a key or the name) = more-info.
     wrap.addEventListener("click", e => { if (!e.target.closest("button,[role=button]")) moreInfo(this, c.entity); });
-    wrap.append(powerCorner({name, on, disabled: bad, bg: "var(--slab2)", fg: on ? "var(--acc)" : null, onClick: power}));
+    wrap.append(powerCorner({name, on, disabled: bad, bg: "var(--slab2)", fg: on ? "var(--acc)" : null, onClick: power, ctx: this}));
 
     const speeds = this._speeds(a);
     if (speeds.length) {

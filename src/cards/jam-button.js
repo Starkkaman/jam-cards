@@ -96,7 +96,7 @@ class JamButton extends JamBase {
       const rgb = on ? resolveRgb(root, "var(--acc)") : null; // the face colour, to shade the corner
       this._accWait = on && !rgb;
       const [bg, fg] = cornerColors(rgb, on ? "var(--acc-fg)" : null, textColors(root));
-      face.append(powerCorner({name, on, disabled: un, bg, fg, onClick: () => this._power()}));
+      face.append(powerCorner({name, on, disabled: un, bg, fg, onClick: () => this._power(), ctx: this}));
     }
     this._k = k;
     this._fit(k);

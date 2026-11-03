@@ -241,7 +241,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (kbOk) {
       const kb = cutKey("", `jam-tv|${c.media_player}|kb`, "kbd", "chip");
       kb.dataset.key = "keyboard"; kb.setAttribute("aria-label", "Keyboard");
-      kb.firstChild.append(jamGlyph("keyboard"));
+      kb.firstChild.append(jamGlyph("keyboard", "", this));
       kb.onclick = () => {
         if (this._kb && this._kb.isOpen()) return;
         this._kb = jamRemoteKeyboard(this._body || this, {entity: rc.entity, name, title: (rc.labels && rc.labels.keyboard) || "Keyboard",
@@ -270,7 +270,7 @@ class JamTv extends JamSheetHost(JamBase) {
     const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]) || "var(--acc)";
     b.style.setProperty("--app", col);
     const nm = String(l.icon || ""), ha = /^mdi:|:/.test(nm) ? icon(nm) : null;
-    const g = ha || jamGlyph(JAM_GLYPHS[nm] && nm !== "power" ? nm : this._isInput(l) ? "input" : "app");
+    const g = ha || jamGlyph(JAM_GLYPHS[nm] && nm !== "power" ? nm : this._isInput(l) ? "input" : "app", "", this);
     if (ha) { const s = el("span", "gl"); s.setAttribute("aria-hidden", "true"); s.append(ha); face.append(s); } else face.append(g);
     if (cur) face.append(el("span", "now", "On now"));
     face.append(el("span", "nm", l.name || ""));
@@ -302,7 +302,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (home) {
       const h = cutKey("", `jam-tv|${c.media_player}|src|home`, "tile home", "chip");
       h.firstChild.textContent = ""; h.dataset.key = "home"; h.setAttribute("aria-label", "Home screen");
-      h.firstChild.append(jamGlyph("home"), el("span", "nm", "Home screen"));
+      h.firstChild.append(jamGlyph("home", "", this), el("span", "nm", "Home screen"));
       h.onclick = home;
       g.append(h);
     }
@@ -318,7 +318,7 @@ class JamTv extends JamSheetHost(JamBase) {
   /* Glyph-only key (aria-label = label). */
   _gkey(glyph, label, id, cls, run) {
     const k = this._key("", id, cls, run);
-    k.setAttribute("aria-label", label); k.firstChild.append(jamGlyph(glyph));
+    k.setAttribute("aria-label", label); k.firstChild.append(jamGlyph(glyph, "", this));
     return k;
   }
   _power() {
@@ -354,7 +354,7 @@ class JamTv extends JamSheetHost(JamBase) {
     const {root, face} = paper("div", "jam-tv|poster|" + c.media_player, {kind: "poster", cls: "poster" + (off ? " off" : "")});
     const sky = el("div", "sky");
     const src = !off && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
-    const bars = () => { root.classList.add("bars"); sky.append(armBars("jam-tv|" + c.media_player)); };
+    const bars = () => { root.classList.add("bars"); sky.append(motif("empty", this, "jam-tv|" + c.media_player)); };
     if (src) {
       root.classList.add("art");
       const img = el("img"); img.alt = ""; img.decoding = "async";
@@ -382,7 +382,7 @@ class JamTv extends JamSheetHost(JamBase) {
     }
     const pw = el("button", "pw" + (off ? " off" : "")); pw.type = "button"; pw.dataset.key = "power";
     pw.setAttribute("aria-label", off ? "Power on" : "Power off");
-    pw.innerHTML = JAM_GLYPHS.power; // static markup, no data
+    pw.innerHTML = motif("remoteGlyph", this, "power"); // static markup, no data
     pw.onclick = () => this._power();
     face.append(pw);
     return root;
@@ -412,7 +412,7 @@ class JamTv extends JamSheetHost(JamBase) {
       const seg = el("div", "seg");
       for (const [id, g, label, run] of tabs) {
         const k = this._key(label, id, "ol tab", run);
-        k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g));
+        k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g, "", this));
         seg.append(k);
       }
       pane.append(seg);
@@ -423,7 +423,7 @@ class JamTv extends JamSheetHost(JamBase) {
   _offPane() {
     const pane = el("div", "pane");
     const on = this._key("Turn on", "turn_on", "alert turnon", () => this._power());
-    on.firstChild.prepend(jamGlyph("power"));
+    on.firstChild.prepend(jamGlyph("power", "", this));
     pane.append(on);
     if (this._sources.length) {
       const g = el("div", "src");

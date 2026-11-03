@@ -254,7 +254,7 @@ class JamGraph extends JamBase {
     face.append(plot);
     b.append(root);
     const d = this._data;
-    if (!d) { plot.classList.add("empty"); plot.append(armBars("jam-graph|" + this._q)); plot.setAttribute("aria-busy", "true"); return; }
+    if (!d) { plot.classList.add("empty"); plot.append(motif("empty", this, "jam-graph|" + this._q)); plot.setAttribute("aria-busy", "true"); return; }
     if (!d.series.some(s => s.some(p => p[1] !== null))) { plot.classList.add("empty"); plot.append(el("div", "label", "No data")); return; }
     this._plot = plot; this._H = H;
     plot.tabIndex = 0;

@@ -237,9 +237,9 @@ class JamSpeaker extends JamBase {
      (seeded by entity + last_changed); offline = bars on slab2 (the parent's .off class). */
   _art(s, off, idle, host, onImg) {
     const c = this._config, src = !idle && this._artSrc(s);
-    const bars = () => { host.classList.add("bars"); return armBars("jam-speaker|" + c.entity); };
+    const bars = () => { host.classList.add("bars"); return motif("empty", this, "jam-speaker|" + c.entity); };
     if (off) return bars();
-    if (idle) return jamMuIdleArt(seed(c.entity + "|" + ((s && s.last_changed) || "")));
+    if (idle) return motif("idleArt", this, seed(c.entity + "|" + ((s && s.last_changed) || "")));
     if (!src) return bars();
     const img = el("img"); img.alt = ""; img.decoding = "async";
     img.onerror = () => { img.replaceWith(bars()); };
@@ -526,7 +526,7 @@ class JamSpeaker extends JamBase {
     for (const it of items) {
       const t = el("button", "tile"); t.type = "button"; t.dataset.key = "tile"; t.dataset.uri = it.uri;
       t.setAttribute("aria-label", "Play " + it.name);
-      t.append(jamMuThumb(h, it.image, it.uri), el("span", "nm", it.name));
+      t.append(jamMuThumb(h, it.image, it.uri, "", this), el("span", "nm", it.name));
       t.onclick = () => { this._play(it); if (motionOn()) oneShot(t, "jam-stamp"); };
       sh.append(t);
     }

@@ -15,7 +15,7 @@ module.exports = async (page, check) => {
     const theme = extra => { const nh = {...h, themes: {...h.themes, ...extra}}; for (const c of deep()) c.hass = nh; return tick(); };
     const out = {};
     // ---- registry + fonts ----
-    out.looks = J.looks();
+    out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
     const braun = J.lookPack("braun"), oly = J.lookPack("olympia");
     out.packs = !!braun && !!oly && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && J.lookPack("poster") === null;
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");

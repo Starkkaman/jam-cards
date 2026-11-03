@@ -483,6 +483,27 @@ function cutKey(label, key, cls, kind = "key") {
   root.type = "button"; face.textContent = String(label);
   return root;
 }
+/* ---------- motifs (theming plan 2.3, R7) ---------- */
+/* A motif is a look's decorative drawing: the cards ask motif(name, ctx, ...args) and get the active look pack's version, or
+   the Poster one (defineMotif, below and in the card files). ctx = the card (or any node in it, or a sheet's .pop) whose
+   data-look picks the look, or a look id. A pack's motif runs with this = {look, poster} (poster = the Poster function,
+   to extend instead of replace). Motifs return fresh nodes (or static SVG markup for glyphs), aria-hidden, never entity
+   text. Poster motifs: empty (Golden Arm bars), idleArt (cut-paper idle art), flash (Vertigo spiral), wxGlyph (weather
+   glyph SVG), remoteGlyph (remote / transport glyph markup), powerGlyph (power corner SVG), screensaver (the poster
+   composition's shapes). A card re-renders when a look switch changes one of its motifs (JamBase._relook). */
+const JAM_MOTIFS = Object.create(null);
+function defineMotif(name, fn) { JAM_MOTIFS[name] = fn; }
+function lookAt(ctx) {
+  if (typeof ctx === "string") return ctx || "poster";
+  for (let x = ctx; x; x = x.parentNode || x.host) if (x.dataset && x.dataset.look) return x.dataset.look;
+  return "poster";
+}
+function motif(name, ctx, ...args) {
+  const look = lookAt(ctx), pack = lookPack(look), poster = JAM_MOTIFS[name], own = pack && pack.motifs[name];
+  if (typeof poster !== "function") throw new Error("JamCards.motif: unknown motif " + name);
+  return (typeof own === "function" ? own : poster).apply({look, poster}, args);
+}
+
 /* Golden Arm motif: 3-5 straight vertical bars of varied height/width in var(--acc), aria-hidden. Same key = same bars. */
 function armBars(key) {
   const s = typeof key === "number" ? key >>> 0 : seed(key), r = rng(s ^ 0x9e3779b9);
@@ -495,6 +516,7 @@ function armBars(key) {
   }
   return box;
 }
+defineMotif("empty", armBars);
 
 /* ---------- light colour helpers ---------- */
 /* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
@@ -612,16 +634,13 @@ const POWER_CSS = `
    opts: {name (aria-label "<name> power"), on (aria-pressed), disabled, bg (CSS colour of the triangle: a shade of the
    card face, see shade(); default slab2), fg (glyph colour; default --fg), cls, onClick}. Put it as the last child of a
    positioned face; add POWER_CSS to the card css. */
-function powerCorner({name = "", on = false, disabled = false, bg = null, fg = null, cls = "", onClick = null} = {}) {
+function powerCorner({name = "", on = false, disabled = false, bg = null, fg = null, cls = "", onClick = null, ctx = null} = {}) {
   const b = el("button", "pw" + (cls ? " " + cls : "")); b.type = "button";
   b.dataset.key = "power"; b.disabled = !!disabled;
   b.setAttribute("aria-label", (name ? name + " " : "") + "power"); b.setAttribute("aria-pressed", on ? "true" : "false");
   if (bg) b.style.setProperty("--pw-bg", bg);
   if (fg) b.style.setProperty("--pw-fg", fg);
-  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), tri = el("span", "tri");
-  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "3");
-  for (const d of ["M12 3v9", "M6.3 7.5a8 8 0 1 0 11.4 0"]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); svg.append(p); }
+  const svg = motif("powerGlyph", ctx), tri = el("span", "tri");
   tri.setAttribute("aria-hidden", "true");
   b.append(tri, svg);
   if (onClick) b.addEventListener("click", e => { e.stopPropagation(); onClick(e); });
@@ -629,6 +648,14 @@ function powerCorner({name = "", on = false, disabled = false, bg = null, fg = n
   b.addEventListener("pointerdown", e => e.stopPropagation());
   return b;
 }
+/* Poster power glyph (motif powerGlyph): a 3px stroked power sign. */
+defineMotif("powerGlyph", () => {
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "3");
+  for (const d of ["M12 3v9", "M6.3 7.5a8 8 0 1 0 11.4 0"]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); svg.append(p); }
+  return svg;
+});
 /* Corner colours for a face: [bg, glyph]. bg = shade(face, 1); glyph = the face's text colour (dark or light, as textOn)
    while it keeps >= 3:1 on the corner (an icon), else the other one. null face (a slab face, or a token that did not
    resolve) = slab2 with the given glyph colour. tc = textColors(node) (default Poster). */
@@ -862,6 +889,7 @@ function vertigoSpiral() {
   svg.append(path);
   return svg;
 }
+defineMotif("flash", vertigoSpiral);
 /* The deepest focused element across shadow roots (to restore focus on close). */
 function deepActive() {
   let a = document.activeElement;
@@ -927,7 +955,7 @@ function openSheet(opts = {}) {
   const pop = el("div", "pop" + (o.fullscreen ? " full" : "") + (o.cls ? " " + o.cls : ""));
   if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
   const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
-  const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+  const spiral = el("div", "spiral"); spiral.append(motif("flash", o.from));
   if (o.flash === false) spiral.hidden = true; else if (o.flash) spiral.style.color = o.flash;
   const stage = el("div", "stage");
   const {root: sheet, face} = paper("div", "jam-sheet", {kind: "sheet", cls: "sheet wipe"});
@@ -975,8 +1003,11 @@ function openSheet(opts = {}) {
     _refresh() {
       if (!open) return;
       if (o.from && o.from.isConnected) copyTokens(o.from, holder);
-      const look = lookOf(holder);
-      if (pop.dataset.look !== look) { pop.dataset.look = look; jamRestyle(sr, look); }
+      const look = lookOf(holder), was = pop.dataset.look;
+      if (was !== look) {
+        pop.dataset.look = look; jamRestyle(sr, look);
+        if (motifsDiffer(was, look)) spiral.replaceChildren(motif("flash", look));
+      }
       setFx(pop, fxOf(holder));
     },
     /* close({silent}): hide; step back out of our history entry unless silent (e.g. the card was removed). */
@@ -1104,7 +1135,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
-  registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
+  motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];
@@ -1377,7 +1408,7 @@ class JamButton extends JamBase {
       const rgb = on ? resolveRgb(root, "var(--acc)") : null; // the face colour, to shade the corner
       this._accWait = on && !rgb;
       const [bg, fg] = cornerColors(rgb, on ? "var(--acc-fg)" : null, textColors(root));
-      face.append(powerCorner({name, on, disabled: un, bg, fg, onClick: () => this._power()}));
+      face.append(powerCorner({name, on, disabled: un, bg, fg, onClick: () => this._power(), ctx: this}));
     }
     this._k = k;
     this._fit(k);
@@ -1531,7 +1562,7 @@ class JamFan extends JamBase {
     head.append(nm); wrap.append(head);
     // Tap on the card face (not on a key or the name) = more-info.
     wrap.addEventListener("click", e => { if (!e.target.closest("button,[role=button]")) moreInfo(this, c.entity); });
-    wrap.append(powerCorner({name, on, disabled: bad, bg: "var(--slab2)", fg: on ? "var(--acc)" : null, onClick: power}));
+    wrap.append(powerCorner({name, on, disabled: bad, bg: "var(--slab2)", fg: on ? "var(--acc)" : null, onClick: power, ctx: this}));
 
     const speeds = this._speeds(a);
     if (speeds.length) {
@@ -1944,7 +1975,7 @@ class JamGraph extends JamBase {
     face.append(plot);
     b.append(root);
     const d = this._data;
-    if (!d) { plot.classList.add("empty"); plot.append(armBars("jam-graph|" + this._q)); plot.setAttribute("aria-busy", "true"); return; }
+    if (!d) { plot.classList.add("empty"); plot.append(motif("empty", this, "jam-graph|" + this._q)); plot.setAttribute("aria-busy", "true"); return; }
     if (!d.series.some(s => s.some(p => p[1] !== null))) { plot.classList.add("empty"); plot.append(el("div", "label", "No data")); return; }
     this._plot = plot; this._H = H;
     plot.tabIndex = 0;
@@ -3112,7 +3143,7 @@ class JamLight extends JamBase {
     }
     let [pbg, pfg] = cornerColors(on ? corner : null, null, tc);
     if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
-    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power()}));
+    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();
   }
@@ -3760,9 +3791,9 @@ class JamMedia extends JamSheetHost(JamBase) {
     const src = this._url(np.pic);
     if (src && !np.off) {
       const img = el("img"); img.alt = ""; img.decoding = "async"; img.src = src;
-      img.onerror = () => { img.remove(); face.append(armBars("jam-media|" + id)); };
+      img.onerror = () => { img.remove(); face.append(motif("empty", this, "jam-media|" + id)); };
       face.append(img);
-    } else face.append(armBars("jam-media|" + id));
+    } else face.append(motif("empty", this, "jam-media|" + id));
     return art;
   }
   /* Sub line: media_player = artist / album lines; title_entity players = name · "name value" per sub entity. */
@@ -4029,9 +4060,11 @@ function jamMuIdleArt(sd) {
   }
   return box;
 }
-/* Cover thumb: the item's image, or its own cut-paper art (seeded by the uri); a broken image falls back to the art. */
-function jamMuThumb(h, src, key, cls) {
-  const t = el("div", "thumb" + (cls ? " " + cls : "")), art = () => jamMuIdleArt(seed(String(key || "")));
+defineMotif("idleArt", jamMuIdleArt);
+/* Cover thumb: the item's image, or its own cut-paper art (seeded by the uri; motif idleArt of ctx's look); a broken image
+   falls back to the art. */
+function jamMuThumb(h, src, key, cls, ctx) {
+  const t = el("div", "thumb" + (cls ? " " + cls : "")), art = () => motif("idleArt", ctx, seed(String(key || "")));
   t.setAttribute("aria-hidden", "true");
   const u = src && jamMuUrl(h, src);
   if (u) { const img = el("img"); img.alt = ""; img.decoding = "async"; img.loading = "lazy"; img.onerror = () => { img.replaceWith(art()); }; img.src = u; t.append(img); }
@@ -4316,7 +4349,7 @@ function jamMusicPanel(card) {
   face.append(dock);
   const hdr = () => {
     const s = stateObj(H(), c.entity), src = card._artSrc(s), k = src || "abs:" + c.entity;
-    if (k !== thumbKey) { thumbKey = k; const old = head.querySelector(":scope > .thumb"), n = jamMuThumb(H(), src, c.entity); if (old) old.replaceWith(n); else head.prepend(n); }
+    if (k !== thumbKey) { thumbKey = k; const old = head.querySelector(":scope > .thumb"), n = jamMuThumb(H(), src, c.entity, "", card); if (old) old.replaceWith(n); else head.prepend(n); }
     sub.textContent = card._badge(s)[0];
     if (spkKey) { spkKey.classList.toggle("sel", P.view === "spk"); spkKey.setAttribute("aria-pressed", String(P.view === "spk")); }
   };
@@ -4327,7 +4360,7 @@ function jamMusicPanel(card) {
     const fav = card._favKey(s, off, "fav");
     dock.textContent = "";
     dock.classList.toggle("nofav", !fav);
-    dock.append(jamMuThumb(H(), card._artSrc(s), c.entity), tx, ...card._transportKeys(s, off));
+    dock.append(jamMuThumb(H(), card._artSrc(s), c.entity, "", card), tx, ...card._transportKeys(s, off));
     if (fav) dock.append(fav);
   };
   const tabs = () => {
@@ -4354,7 +4387,7 @@ function jamMusicPanel(card) {
     pin.setAttribute("aria-pressed", String(on)); pin.setAttribute("aria-label", (on ? "Unpin " : "Pin ") + it.name);
     pin.append(jamMuIcon("pin"));
     pin.onclick = () => { jamMuPinsLoad(H()).then(() => { jamMuTogglePin(H(), c, it); if (sheet.isOpen()) fill(false); }); };
-    r.append(jamMuThumb(H(), it.image, it.uri), tx, play, pin);
+    r.append(jamMuThumb(H(), it.image, it.uri, "", card), tx, play, pin);
     return r;
   };
   const list = (items, empty) => {
@@ -4633,6 +4666,11 @@ class JamPopup extends JamBase {
     for (const k of this._kids) { try { k.hass = h; } catch (e) { /* child without hass setter */ } }
   }
   get hass() { return this._hass; }
+  /* Look switch: the open flash is a motif (R7); a pack that draws its own gets it without a rebuild. */
+  _lookChanged(look) {
+    if (this._spiral && this._flashLook !== look && motifsDiffer(this._flashLook, look)) this._spiral.replaceChildren(motif("flash", look));
+    this._flashLook = look;
+  }
   connectedCallback() {
     queueLook(this);
     window.addEventListener("location-changed", this._onLoc);
@@ -4657,7 +4695,7 @@ class JamPopup extends JamBase {
     const pop = el("div", "pop"); setAccent(pop, c.accent);
     const veil = el("div", "veil"); veil.setAttribute("aria-hidden", "true");
     veil.onclick = () => this.close();
-    const spiral = el("div", "spiral"); spiral.append(vertigoSpiral());
+    const spiral = el("div", "spiral"); spiral.append(motif("flash", this)); this._spiral = spiral; this._flashLook = lookAt(this);
     if (c.spiral === false) spiral.hidden = true;
     const stage = el("div", "stage");
     const key = "jam-popup|" + c.hash;
@@ -4855,12 +4893,14 @@ const JAM_GLYPHS = {
   music: JAM_GLYPH_S('<path d="M9 18V6l11-2v12"/><path d="M6 15.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5zM17 13.5a3 2.5 0 1 1 0 5a3 2.5 0 1 1 0-5z"/>'),
   film: JAM_GLYPH_S('<path d="M4 3h16v18H4z"/><path d="M8 3v18M16 3v18M4 8h4M4 13h4M4 18h4M16 8h4M16 13h4M16 18h4"/>', 2),
 };
-/* <span class="gl"> with a glyph (static markup, no data); null for an unknown name. */
-function jamGlyph(name, cls) {
-  const svg = JAM_GLYPHS[name];
+/* Poster remote / transport glyphs (motif remoteGlyph: name -> static SVG markup, null when unknown). */
+defineMotif("remoteGlyph", name => JAM_GLYPHS[name] || null);
+/* <span class="gl"> with a glyph (static markup, no data) in ctx's look (motif remoteGlyph); null for an unknown name. */
+function jamGlyph(name, cls, ctx) {
+  const svg = motif("remoteGlyph", ctx, name);
   if (!svg) return null;
   const s = el("span", "gl" + (cls ? " " + cls : "")); s.setAttribute("aria-hidden", "true");
-  s.innerHTML = svg; // static markup from JAM_GLYPHS, never entity data
+  s.innerHTML = svg; // static markup from the glyph motif (JAM_GLYPHS or a pack), never entity data
   return s;
 }
 /* Outlined key (round 3: jam-tv tabs, stereo inputs): the face is filled with --ol and a --slab inner plate 3px in,
@@ -4890,7 +4930,7 @@ function jamRocker(items, owner, key) {
   for (const x of items) {
     const b = el("button", "key press " + (x.id === "mute" ? "mute" : "vol")), f = el("span", "face");
     b.type = "button"; b.dataset.key = x.id; b.disabled = !!x.disabled; b.setAttribute("aria-label", x.label);
-    if (x.id === "mute") f.append(jamGlyph("mute"), el("span", "lb", x.text || "Mute"));
+    if (x.id === "mute") f.append(jamGlyph("mute", "", owner), el("span", "lb", x.text || "Mute"));
     else f.textContent = x.id === "vol_up" ? "+" : "−";
     b.append(f);
     if (x.repeat) jamHoldRepeat(b, x.run, owner); else b.onclick = x.run;
@@ -5095,7 +5135,7 @@ class JamRemote extends JamBase {
       const r = el("div", "row" + (row.length >= 4 ? " dense" : "") + (tr ? " tr" : "") + (pick ? " pick" : ""));
       for (const k of row) {
         const gname = k === "play_pause" ? (mp && mp.state === "playing" ? "pause" : "play") : k;
-        const g = sec && !pick ? jamGlyph(gname) : null;
+        const g = sec && !pick ? jamGlyph(gname, "", this) : null;
         const on = active && active(k), cls = k === "power" ? "alert" : on || (sec && k === "play_pause") ? "on" : "";
         const btn = cutKey(this._label(k, ctx), `jam-remote|${ctx.entity}|${k}`, cls + (g ? " ico" : "") + (pick && k !== "power" ? " ol" : ""));
         if (g) { const f = btn.firstChild, lb = el("span", "lb", f.textContent); f.textContent = ""; f.append(g, lb); }
@@ -5128,7 +5168,7 @@ class JamRemote extends JamBase {
       if (power) {
         const pw = cutKey("", `jam-remote|${ctx.entity}|power`, "pw " + (sec.power_accent ? "on" : "alert"), "chip");
         pw.dataset.key = "power"; pw.setAttribute("aria-label", (sec.title ? sec.title + " " : "") + this._label("power", ctx).toLowerCase());
-        pw.firstChild.textContent = ""; pw.firstChild.append(jamGlyph("power"));
+        pw.firstChild.textContent = ""; pw.firstChild.append(jamGlyph("power", "", this));
         pw.disabled = off || !this._known("power", ctx);
         this._bind(pw, "power", ctx);
         gh.append(pw);
@@ -5514,6 +5554,9 @@ const JamKiosk = {
   moved(e) { if (this.lpAt && Math.hypot(e.clientX - this.lpAt[0], e.clientY - this.lpAt[1]) > 12) this.release(); },
 };
 
+/* Poster composition (motif screensaver): three flat bars + a disc, placed per layout (.poster.l0-l5 in SS_CSS). A pack
+   returns its own shape nodes (class "sh" keeps the layout-change cut motion). */
+defineMotif("screensaver", () => ["b1 bar", "b2 bar", "b3 bar", "dk disc"].map(k => { const s = el("div", "sh " + k); s.setAttribute("aria-hidden", "true"); return s; }));
 class JamScreensaver extends JamBase {
   constructor() {
     super();
@@ -5610,7 +5653,7 @@ class JamScreensaver extends JamBase {
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Screensaver, tap to close");
     setAccent(ov, c.accent);
     const poster = el("div", "poster"); poster.setAttribute("aria-hidden", "false");
-    const shapes = ["b1 bar", "b2 bar", "b3 bar", "dk disc"].map(k => { const s = el("div", "sh " + k); s.setAttribute("aria-hidden", "true"); return s; });
+    const shapes = motif("screensaver", this); this._shapes = shapes; this._ssLook = lookAt(this);
     const txt = el("div", "txt");
     this._kick = c.kicker ? el("div", "kick", c.kicker) : null;
     this._time = el("div", "time num"); this._date = el("div", "date");
@@ -5714,6 +5757,12 @@ class JamScreensaver extends JamBase {
   /* queueLook (connect, theme switch): data-look + the look pack's sheet on the overlay's layer. */
   _lookChanged(look) {
     if (this._ov && this._ov.dataset.look !== look) this._ov.dataset.look = look;
+    if (this._poster && this._ssLook !== look && motifsDiffer(this._ssLook, look)) { // the composition is a motif (R7)
+      const next = motif("screensaver", look);
+      for (const s of this._shapes) s.remove();
+      this._poster.prepend(...next); this._shapes = next;
+    }
+    this._ssLook = look;
     if (this._layer && this._layer.shadowRoot) jamRestyle(this._layer.shadowRoot, look);
   }
   /* Every queueLook batch (also a dark / light switch, same look): a body layer re-copies the tokens; data-fx follows the card. */
@@ -5887,7 +5936,7 @@ class JamScreensaver extends JamBase {
       b.box.classList.toggle("off", !n);
       if (!n) continue;
       b.kick.textContent = n.kick; b.big.textContent = n.title; b.sub.textContent = n.sub;
-      if (!b.arm || b.arm._id !== n.id) { if (b.arm) b.arm.remove(); b.arm = armBars("jam-screensaver|" + n.id); b.arm._id = n.id; b.th.append(b.arm); }
+      if (!b.arm || b.arm._id !== n.id) { if (b.arm) b.arm.remove(); b.arm = motif("empty", this, "jam-screensaver|" + n.id); b.arm._id = n.id; b.th.append(b.arm); }
     }
     this._ov.dataset.now = n ? "on" : "off";
     if (!n) return;
@@ -6359,9 +6408,9 @@ class JamSpeaker extends JamBase {
      (seeded by entity + last_changed); offline = bars on slab2 (the parent's .off class). */
   _art(s, off, idle, host, onImg) {
     const c = this._config, src = !idle && this._artSrc(s);
-    const bars = () => { host.classList.add("bars"); return armBars("jam-speaker|" + c.entity); };
+    const bars = () => { host.classList.add("bars"); return motif("empty", this, "jam-speaker|" + c.entity); };
     if (off) return bars();
-    if (idle) return jamMuIdleArt(seed(c.entity + "|" + ((s && s.last_changed) || "")));
+    if (idle) return motif("idleArt", this, seed(c.entity + "|" + ((s && s.last_changed) || "")));
     if (!src) return bars();
     const img = el("img"); img.alt = ""; img.decoding = "async";
     img.onerror = () => { img.replaceWith(bars()); };
@@ -6648,7 +6697,7 @@ class JamSpeaker extends JamBase {
     for (const it of items) {
       const t = el("button", "tile"); t.type = "button"; t.dataset.key = "tile"; t.dataset.uri = it.uri;
       t.setAttribute("aria-label", "Play " + it.name);
-      t.append(jamMuThumb(h, it.image, it.uri), el("span", "nm", it.name));
+      t.append(jamMuThumb(h, it.image, it.uri, "", this), el("span", "nm", it.name));
       t.onclick = () => { this._play(it); if (motionOn()) oneShot(t, "jam-stamp"); };
       sh.append(t);
     }
@@ -7067,7 +7116,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (kbOk) {
       const kb = cutKey("", `jam-tv|${c.media_player}|kb`, "kbd", "chip");
       kb.dataset.key = "keyboard"; kb.setAttribute("aria-label", "Keyboard");
-      kb.firstChild.append(jamGlyph("keyboard"));
+      kb.firstChild.append(jamGlyph("keyboard", "", this));
       kb.onclick = () => {
         if (this._kb && this._kb.isOpen()) return;
         this._kb = jamRemoteKeyboard(this._body || this, {entity: rc.entity, name, title: (rc.labels && rc.labels.keyboard) || "Keyboard",
@@ -7096,7 +7145,7 @@ class JamTv extends JamSheetHost(JamBase) {
     const col = accentVar(l.accent || l.color) || accentVar(JB_COLOR[String(l.color || "").toLowerCase()]) || "var(--acc)";
     b.style.setProperty("--app", col);
     const nm = String(l.icon || ""), ha = /^mdi:|:/.test(nm) ? icon(nm) : null;
-    const g = ha || jamGlyph(JAM_GLYPHS[nm] && nm !== "power" ? nm : this._isInput(l) ? "input" : "app");
+    const g = ha || jamGlyph(JAM_GLYPHS[nm] && nm !== "power" ? nm : this._isInput(l) ? "input" : "app", "", this);
     if (ha) { const s = el("span", "gl"); s.setAttribute("aria-hidden", "true"); s.append(ha); face.append(s); } else face.append(g);
     if (cur) face.append(el("span", "now", "On now"));
     face.append(el("span", "nm", l.name || ""));
@@ -7128,7 +7177,7 @@ class JamTv extends JamSheetHost(JamBase) {
     if (home) {
       const h = cutKey("", `jam-tv|${c.media_player}|src|home`, "tile home", "chip");
       h.firstChild.textContent = ""; h.dataset.key = "home"; h.setAttribute("aria-label", "Home screen");
-      h.firstChild.append(jamGlyph("home"), el("span", "nm", "Home screen"));
+      h.firstChild.append(jamGlyph("home", "", this), el("span", "nm", "Home screen"));
       h.onclick = home;
       g.append(h);
     }
@@ -7144,7 +7193,7 @@ class JamTv extends JamSheetHost(JamBase) {
   /* Glyph-only key (aria-label = label). */
   _gkey(glyph, label, id, cls, run) {
     const k = this._key("", id, cls, run);
-    k.setAttribute("aria-label", label); k.firstChild.append(jamGlyph(glyph));
+    k.setAttribute("aria-label", label); k.firstChild.append(jamGlyph(glyph, "", this));
     return k;
   }
   _power() {
@@ -7180,7 +7229,7 @@ class JamTv extends JamSheetHost(JamBase) {
     const {root, face} = paper("div", "jam-tv|poster|" + c.media_player, {kind: "poster", cls: "poster" + (off ? " off" : "")});
     const sky = el("div", "sky");
     const src = !off && jamTvUrl(h, a.entity_picture_local || a.entity_picture);
-    const bars = () => { root.classList.add("bars"); sky.append(armBars("jam-tv|" + c.media_player)); };
+    const bars = () => { root.classList.add("bars"); sky.append(motif("empty", this, "jam-tv|" + c.media_player)); };
     if (src) {
       root.classList.add("art");
       const img = el("img"); img.alt = ""; img.decoding = "async";
@@ -7208,7 +7257,7 @@ class JamTv extends JamSheetHost(JamBase) {
     }
     const pw = el("button", "pw" + (off ? " off" : "")); pw.type = "button"; pw.dataset.key = "power";
     pw.setAttribute("aria-label", off ? "Power on" : "Power off");
-    pw.innerHTML = JAM_GLYPHS.power; // static markup, no data
+    pw.innerHTML = motif("remoteGlyph", this, "power"); // static markup, no data
     pw.onclick = () => this._power();
     face.append(pw);
     return root;
@@ -7238,7 +7287,7 @@ class JamTv extends JamSheetHost(JamBase) {
       const seg = el("div", "seg");
       for (const [id, g, label, run] of tabs) {
         const k = this._key(label, id, "ol tab", run);
-        k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g));
+        k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g, "", this));
         seg.append(k);
       }
       pane.append(seg);
@@ -7249,7 +7298,7 @@ class JamTv extends JamSheetHost(JamBase) {
   _offPane() {
     const pane = el("div", "pane");
     const on = this._key("Turn on", "turn_on", "alert turnon", () => this._power());
-    on.firstChild.prepend(jamGlyph("power"));
+    on.firstChild.prepend(jamGlyph("power", "", this));
     pane.append(on);
     if (this._sources.length) {
       const g = el("div", "src");
@@ -7337,7 +7386,9 @@ const JAM_WX_GLYPHS = {
 };
 /* Night variants (state clear-night is its own glyph): sun -> moon. */
 const JAM_WX_NIGHT = {sunny: JAM_WX_MOON, partlycloudy: [jamWxSmall(JAM_WX_MOON), JAM_WX_CLOUD]};
-function jamWxGlyph(cond, night) {
+/* Weather glyph in ctx's look (motif wxGlyph; Poster = jamWxGlyphPoster). */
+function jamWxGlyph(cond, night, ctx) { return motif("wxGlyph", ctx, cond, night); }
+function jamWxGlyphPoster(cond, night) {
   const shapes = (night && JAM_WX_NIGHT[cond]) || JAM_WX_GLYPHS[cond] || [["rect", {x: 12, y: 12, width: 24, height: 24}, "u"]];
   const svg = document.createElementNS(JAM_WX_NS, "svg");
   svg.setAttribute("viewBox", "0 0 48 48"); svg.setAttribute("class", "gl"); svg.setAttribute("aria-hidden", "true");
@@ -7351,6 +7402,7 @@ function jamWxGlyph(cond, night) {
   for (const s of shapes) add(svg, s);
   return svg;
 }
+defineMotif("wxGlyph", jamWxGlyphPoster);
 class JamWeather extends JamBase {
   constructor() { super(); this._fc = null; this._subKey = null; this._unsubP = null; }
   validate(c) {
@@ -7486,7 +7538,7 @@ class JamWeather extends JamBase {
     const sun = stateObj(h, "sun.sun"), night = s && s.state !== "clear-night" && sun && sun.state === "below_horizon";
     if (c.show_current !== false) {
       const now = el("div", "now");
-      now.append(jamWxGlyph(off ? null : s.state, night));
+      now.append(jamWxGlyph(off ? null : s.state, night, this));
       const t = el("div", "temp disp num", off && !ts ? "—" : isFinite(temp) ? this._temp(temp).toLocaleString(this._lang()) : "—");
       if (isFinite(temp) && unit) t.append(el("small", "", unit));
       const cond = el("div", "cond");
@@ -7521,7 +7573,7 @@ class JamWeather extends JamBase {
       if (valid) name = type === "hourly" ? d.toLocaleTimeString(tf.loc, tf.h12 ? {hour: "numeric", hour12: true} : {hour: "2-digit", minute: "2-digit", hour12: false})
         : type === "twice_daily" && f.is_daytime === false ? "Night" : d.toLocaleDateString(this._lang(), {weekday: "short"});
       face.append(el("div", "label", name));
-      face.append(jamWxGlyph(f.condition, f.is_daytime === false));
+      face.append(jamWxGlyph(f.condition, f.is_daytime === false, this));
       const high = num(f.temperature) ? +f.temperature : null, low = num(f.templow) ? +f.templow : null;
       face.append(el("div", "hi num", high === null ? "—" : Math.round(high) + "°"));
       const span = el("div", "span"), bar = el("div", "bar");

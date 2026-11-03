@@ -533,7 +533,20 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   `?look=braun|olympia`, no theme file until designed). The stress look's stack now starts with an undeclared family
   ("Stress Wide") so it keeps testing the wider DejaVu fallback instead of the real Archivo. New check 96-packs.js;
   95-motion also reads adopted sheets.
-- Open for R7+: jam-button's label fit assumes Londrina's .5em average
+- **R7 (done).** Motif registry in core: `motif(name, ctx, ...args)` / `defineMotif(name, fn)`; the look comes from the
+  nearest `data-look` above ctx (card, sheet `.pop`, screensaver `.ov`) or a look id; a pack's motif runs with
+  `this = {look, poster}`. Routed: `empty` = armBars (jam-graph, jam-media x2, jam-tv, jam-speaker, jam-screensaver now
+  block), `idleArt` = jamMuIdleArt (jam-speaker idle poster, jamMuThumb in jam-speaker shelf + panel B rows / head /
+  dock: jamMuThumb takes the card as a 5th argument), `flash` = vertigoSpiral (openSheet, jam-popup), `wxGlyph`
+  (jam-weather, Poster = jamWxGlyphPoster), `remoteGlyph` (name -> static SVG markup; jamGlyph(name, cls, ctx) in jam-remote
+  and jam-tv, and jam-tv's own power corner), `powerGlyph` (powerCorner, new `ctx` option: jam-light, jam-button, jam-fan),
+  `screensaver` (the 3 bars + disc). Not routed: the gauge's spiral hub and wedges (gauge geometry, not in the R7 list) and
+  `echo` (no consumer until a look needs it). Live switch: JamBase `_relook` re-renders a card when `motifsDiffer(old,
+  new)`; openSheet `_refresh`, jam-popup and jam-screensaver `_lookChanged` replace the spiral / the shapes. Braun and
+  Olympia define no motifs, so a switch between Poster and them re-renders nothing. New check 96-motifs.js (Poster motifs
+  = the old helpers; a test pack extending every Poster motif reaches all 7 on the preview page and an open sheet, and
+  nothing is left after switching back).
+- Open for R8+: jam-button's label fit assumes Londrina's .5em average
   glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
   width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in
   labels: a look decision. Poster-only assertions that R9 must make look-aware: shoot.js fonts / CUTS / heading rule 5px,

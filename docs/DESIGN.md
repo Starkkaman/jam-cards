@@ -272,6 +272,13 @@ absolute for every look (the reduced-motion rule is `!important`, and the JS gat
 switches are universal.
 
 ## Motifs (use sparingly; one per card max)
+Every motif is drawn through the motif registry (R7): `JamCards.motif(name, ctx, ...args)` returns the active look pack's
+version (`ctx` = the card, a node in it, a sheet's `.pop` or a look id; the look is the nearest `data-look`), else Poster's
+(`defineMotif`). Names: `empty` (Golden Arm bars), `idleArt`, `flash` (Vertigo spiral), `wxGlyph` (jam-weather glyph SVG),
+`remoteGlyph` (jam-remote / jam-tv glyph markup, static), `powerGlyph` (power corner), `screensaver` (the poster
+composition's shapes). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
+aria-hidden nodes and never entity text. A look switch re-renders the cards whose motifs change, the open sheet's spiral,
+jam-popup's spiral and the screensaver shapes. Poster's motifs:
 - **Cut-paper idle art** (round 3, jam-speaker idle poster / thumbs without a cover): a flat Jam-palette ground (ink, cream,
   ochre, teal, blue, pink, violet, green; never red) with 2-3 shapes — disc, ring, bar, skewed strip, tilted square — sized in
   cqmin so it reads the same at any size. Seeded (jamMuIdleArt): a player's art is seeded by entity + last_changed, so it is
@@ -329,6 +336,7 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 - Look packs (R6): `registerLook({id, name, css, fonts, motifs})`, `lookPack(id)` (null for Poster), `looks()` (registered ids,
   Poster first), `ASSET_BASE` (folder of jam-cards.js: `window.JamCardsConfig.assetBase`, else the script's src, else
   `/hacsfiles/jam-cards/`), `jamStyle(root, css, look)` (adopt the shared sheets on a shadow root), `fxOf(node)`.
+- Motifs (R7): `motif(name, ctx, ...args)`, `defineMotif(name, fn)` (see "Motifs").
 - Edges: `CUTS`, `cutPath`, `paper`, `cutKey`, `armBars`; actions `bindActions`, `runAction`, `navigate`, `moreInfo`, `asButton` (0.3.8).
 - Motion: `motion` (accessor), `motionOn`, `oneShot`, `staggerIn`, `treeOrder` (see "Motion").
 - Air quality: `AQI_WORDS`, `aqWord(state)` (0.5.0; US AQI number → category word, word states capitalised; jam-house, jam-kiosk).
