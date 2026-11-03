@@ -23,7 +23,7 @@ module.exports = async (page, check) => {
     out.base = J.ASSET_BASE;
     const css = fs[0] ? fs[0].textContent : "";
     out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2"].every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
-      /font-family:"Archivo";font-style:normal;font-weight:400 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css);
+      /font-family:"Archivo";font-style:normal;font-weight:300 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css);
     const fetched = () => performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2/.test(n)).map(n => n.replace(location.origin, ""));
     out.posterFetch = fetched();
     out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
@@ -66,7 +66,9 @@ module.exports = async (page, check) => {
     await theme({darkMode: true});
     const val = tile.shadowRoot.querySelector(".val");
     out.braun = {hosts: [...new Set(top.map(c => c.dataset.look))].join(","), pop: sheet.pop.dataset.look, ff: getComputedStyle(val).fontFamily,
-      noPacktest: mark(firstFace(tile)) === "" && tile.shadowRoot.adoptedStyleSheets.length === 2};
+      // [BASE, own css] + the braun pack sheet once the pack has CSS (the test pack's sheet is gone either way)
+      noPacktest: mark(firstFace(tile)) === "" && (() => { const ad = tile.shadowRoot.adoptedStyleSheets, bp = J.lookPack("braun");
+        return bp.css ? ad.length === 3 && ad[2].jamText === bp.css : ad.length === 2; })()};
     await document.fonts.ready; await tick(200);
     out.braun.loaded = document.fonts.check('700 1em "Archivo"') && [...document.fonts].some(f => f.family.replace(/"/g, "") === "Archivo" && f.status === "loaded");
     out.braun.fetched = fetched();

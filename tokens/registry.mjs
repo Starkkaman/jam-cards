@@ -125,6 +125,7 @@ export const TOKENS = [
   {name: "jam-kf-ss-pop", css: "", scope: "theme", optional: true, note: "animation-name for jam-ss-pop: screensaver text / photo cut (a look pack's own @keyframes; unset = the Poster one)"},
   // ---- effects (R6) ----
   {name: "jam-fx", css: "", scope: "theme", optional: true, note: "effects switch, 0 or 1: 1 sets data-fx on cards, sheets and the screensaver layer, so a look pack's gradients / translucency / scanlines apply (unset = 0; a card's `fx: false` forces 0)"},
+  {name: "jam-elev-1", css: "", scope: "mode", optional: true, note: "box-shadow of card, sheet and hero faces (a look pack applies it; only with a shape of none, because clip-path clips shadows; unset = none)"},
   // ---- identity (R1) ----
   {name: "jam-look", css: "", scope: "theme", note: "look id (poster, braun, ...): cards set data-look=<id> on their host, sheets and the screensaver layer"},
 ];

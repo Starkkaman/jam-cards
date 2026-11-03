@@ -595,6 +595,23 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   (179 > 175) and, Braun only, the jam-choice key "JellyWatch Player" (101 > 98). So both designs must set
   `jam-display-scale` (Archivo about .78-.8 when uppercase, Albert Sans about .87) or mixed case (the stress look, mixed
   case at .85, fits everywhere).
+- **R10 Braun (done 2026-11-03, branch look-braun).** Brief docs/looks/BRAUN.md. `tokens/looks/braun.mjs` (no longer
+  draft): theme "Jam Braun" (`../jam-theme/themes/jamboard-braun.yaml`, light = warm white, dark = anthracite), Archivo
+  mixed case (display 500 x .72, numerals x .85, labels 500 uppercase .06em, keys 500 mixed case), every shape token
+  `none` + radii (14px cards / sheets / hero, 10px posters, 999px keys / chips), `--jam-border` hairline, rule / stripe 2px,
+  smooth easing + the pack's keyframes, signal = `jam-ochre`. Contrast moved three brief values (dim #605c54 / #aca89f,
+  ink text on the signal, alert text #b32205 / #ff8668). `jam-ink` stays the dark ground (#262626 / #1c1c1a) so on-fg /
+  ink-fg stay a dark / light pair for the R4 colour maths; the page colour is the HA ground alias. Pack
+  `src/looks/braun.js`: panels + elevation, toggles for power corners (POWER_CSS cards and jam-tv), LED dots for lights
+  (face stays the panel, member dots, 4px strip, no plates / wash), signal keys / tabs / scenes / tiles, 4px strips with a
+  slider knob, panel K1 side, panel dock blocks with room dots, AB-1 screensaver (panel page, dial ring, clock 300, colon in
+  the signal mixed 75 % with the text colour for 3:1), motifs (grille, speaker grill, no flash, thin power glyph, dial).
+  Shared hooks (additive, Poster pixel-identical): registry token `jam-elev-1` (optional, per mode); HA alias
+  `header-rule` (default = the old `4px solid {primary}`); core `jamClockText()` (the clock colon in `span.colon`, used by
+  jam-kiosk and jam-screensaver). Harness: `preview/views.js` (review views + controls check per non-Poster look),
+  pixelDiff compares only the looks of the run, 96-packs knows Archivo 300-700 and the braun pack sheet. Remote d-pad arrows
+  keep their geometry (functional, R2). Left as is: the kiosk card squeezed into the 1280 preview page lets the weather
+  kicker overlap the lock label under Poster too.
 - Open for R10: jam-button's label fit assumes Londrina's .5em average
   glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
   width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in

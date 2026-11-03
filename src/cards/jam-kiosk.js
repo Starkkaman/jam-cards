@@ -262,7 +262,7 @@ class JamKioskHome extends JamBase {
     const key = txt + "|" + per;
     if (key === this._clockKey) return;
     this._clockKey = key;
-    this._time.textContent = txt;
+    jamClockText(this._time, txt.slice(0, txt.indexOf(":")), mm);
     if (per) this._time.append(el("small", "", per));
   }
   /* One timeout per minute boundary (no loops); stopped while hidden or detached. Also re-measures the height and, at

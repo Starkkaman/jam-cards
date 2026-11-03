@@ -72,6 +72,33 @@ own section and may replace them).
 - Motion = cut paper: `steps()`, ≤ 300 ms, transform / clip-path / opacity only (see "Motion").
 - Focus ring and default accent: ochre.
 
+## Braun rules (the Braun look, theme "Jam Braun")
+Brief: docs/looks/BRAUN.md (decided 2026-11-03). Tokens: tokens/looks/braun.mjs; pack: src/looks/braun.js (CSS over the stable
+hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
+- Warm-white panels (`--slab` #f2efe8 light / #2a2a27 dark) on the page (HA ground #e7e3da / #1c1c1a) with a 1px hairline
+  (`--jam-border`, `--line`) and the soft elevation `--jam-elev-1` (card, hero, sheet faces, jam-button tiles, kiosk dock
+  blocks, screensaver panels): the only look with a shadow. No cut corners: every shape token is `none`; radius 14px cards /
+  sheets / hero, 10px inner panels (posters, art, source tiles, light pop-up bars), 999px keys, chips and toggles.
+- One orange signal (`--ochre` = #f07d1e / #f28a2e) for "active / act": active keys, chips and tabs, play / primary keys,
+  strip fills, progress bars, the focus ring (2px, offset 2px), the OK disc, the weather "today" ring, the
+  kiosk clock colon. Text on the signal is ink (`--on-fg`; white is 2.7:1). Room hues appear only as 8-12px dots (tone
+  marks, kiosk dock blocks, chips, TV source tiles, speaker kickers) or 2px rules (heading rule, tone stripe, tabs).
+  A light's own colour shows only as its LED dot (8px, 6px glow) and its brightness strip. Alert keys / chips / counts are
+  a panel-2 face with red text (`--alert-text`) and a red ring, never a red fill with text.
+- `--jam-ink` stays the dark ground (veils, kiosk ink blocks, plates): #262626 in light, #1c1c1a in dark, so `--on-fg` /
+  `--ink-fg` remain a dark / light text pair for textOn / inkOn. The page colour is HA's ground (theme alias `ground`).
+- Power corners are toggles (34x18 pill top-right, same 46px button; off = `--slab3` track + light knob left, on = `--fg`
+  track + `--slab` knob right, 180 ms slide). jam-light: the face stays the panel; an LED dot before the name; group member
+  bands become 10px dots left of the toggle (off member = hollow ring); a 4px brightness strip in the light's colour; no
+  label plates, no colour wash. The name flows around the toggle (only its first line is shortened).
+- Type: Archivo (dist/fonts, wght 300-700 declared), mixed case; small labels uppercase 500 .06em; names 500 at .72x Poster
+  size (`--jam-display-scale`); numerals 400 tabular at .85x (`--jam-num-scale`); kiosk + screensaver clock 300.
+- Strips 4px with rounded ends on a panel-2 track; sliders (`[role=slider]`) get an 18px panel knob with a hairline.
+- Motifs: empty = 5x4 dot grille (dim), idleArt = concentric speaker-grille dots with one orange dot, flash = none,
+  powerGlyph = 1.75px stroke, screensaver = the AB-1 dial ring (a hairline circle with an orange dot) on a panel page.
+- Motion: smooth `cubic-bezier(.2,.7,.3,1)` at the Poster durations; press = scale .98; entrance / sheets fade and rise;
+  stamps settle, washes and wipes are gone. Reduced motion = none (BASE_CSS).
+
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
 scope: per mode or theme-wide, optional or not); `tokens/looks/poster.mjs` holds the Poster values; `tokens/ha.mjs`
@@ -175,6 +202,11 @@ Effects (R6; theme top level, optional):
 | var | sets | Poster |
 |---|---|---|
 | `--jam-fx` | 0 / 1: with 1, cards, openSheet's `.pop` and the jam-screensaver overlay carry `data-fx`, so a look pack's effects (gradients, translucency, scanlines) apply; a card's `fx: false` sets `--jam-fx: 0` on its own host (its sheets and screensaver layer copy it) | unset (0) |
+
+Elevation (Braun; per mode, optional):
+| var | sets | Poster |
+|---|---|---|
+| `--jam-elev-1` | box-shadow of card, hero and sheet faces, applied by a look pack (only with a shape of `none`: clip-path clips shadows) | unset (none) |
 
 Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
 `--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and

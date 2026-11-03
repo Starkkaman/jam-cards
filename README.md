@@ -601,8 +601,10 @@ plates, `--jam-focus`), the font stacks, `--jam-look` and, optionally, shapes (`
 value per surface kind, `--jam-radius-<kind>`). Without a theme they fall back to the Poster dark palette and cuts. The
 list with every default is in [docs/DESIGN.md](docs/DESIGN.md) "Token reference". Each card host carries
 `data-look=<id>` from `--jam-look` (`poster` by default), and a theme or dark-mode switch re-renders the cards at once.
-Further looks (Braun, Olympia) are planned as extra themes next to JamBoard ([docs/THEMING-PLAN.md](docs/THEMING-PLAN.md)):
-a look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
+Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun** (after Dieter Rams: warm-white or
+anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
+[docs/DESIGN.md](docs/DESIGN.md) "Braun rules"); Olympia is planned ([docs/THEMING-PLAN.md](docs/THEMING-PLAN.md)).
+A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while
 the look is active; if they cannot load, the look's fallback fonts are used. `--jam-fx: 1` in a look's theme turns on its
 effects; `fx: false` on a card (e.g. jam-kiosk or jam-screensaver on a slow wall tablet) keeps them off for that card.
