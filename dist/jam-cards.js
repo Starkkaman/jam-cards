@@ -1581,6 +1581,9 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 .ov .oband{bottom:0;height:2.6vh}
 .ov .time,.ov .tchip .tt{font-weight:300}
 .ov .np{padding:2vh 3vh 2vh 2vh;background:var(--slab);color:var(--fg);border-top:var(--rule-h) solid var(--blue)}
+/* Kickers in a room accent fail 4.5:1 on the navy ground / white sheet: ink text, the accent stays on rules. */
+.ov .kick{color:var(--ink-fg)}
+:host(jam-popup) .t .label{color:var(--fg)}
 .ov .np .nb{color:var(--fg)} .ov .np .ns,.ov .np .kick{color:var(--dim)}
 .ov .sdock .np{background:var(--slab);border-top:var(--rule-h) solid var(--blue)}
 `;
