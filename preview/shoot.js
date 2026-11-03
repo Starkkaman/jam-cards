@@ -8,7 +8,7 @@ const {chromium} = require("playwright");
 const {execFileSync} = require("child_process");
 
 const ROOT = path.join(__dirname, "..");
-execFileSync(process.execPath, [path.join(ROOT, "tools", "bundle.mjs")], {stdio: "inherit"}); // jam-cards.js + fixtures/index.js are generated
+execFileSync(process.execPath, [path.join(ROOT, "tools", "bundle.mjs")], {stdio: "inherit"}); // dist/jam-cards.js + fixtures/index.js are generated
 const TYPES = {".html": "text/html", ".js": "text/javascript", ".png": "image/png", ".css": "text/css"};
 let failures = 0;
 const check = (cond, what) => { console.log((cond ? "PASS " : "FAIL ") + what); if (!cond) failures++; };

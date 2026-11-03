@@ -79,6 +79,13 @@ module.exports = async (page, check) => {
       ov: ss ? ss.overlay.dataset.look : "none", fx: top.some(c => c.hasAttribute("data-fx")), ff: getComputedStyle(tile.shadowRoot.querySelector(".val")).fontFamily};
     sheet.close({silent: true}); off.remove();
     h.themes = {...h.themes};
+    // A missing font file (e.g. HACS without dist/fonts/): the face fails quietly and the fallback stack draws the text.
+    J.registerLook({id: "fonttest", fonts: [{family: "Jam Missing", weight: "400", file: "missing-latin.woff2"}]});
+    out.late = document.head.querySelector("style[data-jam-fonts]").textContent.includes("missing-latin.woff2");
+    let err = null;
+    try { await document.fonts.load('400 16px "Jam Missing"'); } catch (e) { err = String(e); }
+    const face = [...document.fonts].find(f => f.family.replace(/"/g, "") === "Jam Missing");
+    out.missing = {late: out.late, status: face ? face.status : "none", err};
     return out;
   });
   check(r.looks.join() === "poster,braun,olympia" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), Poster has no pack`);
@@ -94,6 +101,8 @@ module.exports = async (page, check) => {
   check(r.braun.hosts === "braun" && r.braun.pop === "braun" && /^Archivo/.test(r.braun.ff) && r.braun.noPacktest && r.braun.loaded &&
     r.braun.fetched.some(f => f.endsWith("/fonts/archivo-var-latin.woff2")) && !r.braun.fetched.some(f => /albert/.test(f)),
     `braun: Archivo loads from the asset base on demand (only that look's file: ${JSON.stringify(r.braun.fetched)}), the previous pack's sheet is dropped`);
+  check(r.missing.late && r.missing.status === "error", // document.fonts.load() rejects for it; no page error, the text keeps its fallback face
+    `a pack registered later adds its faces to the font style; a missing font file fails quietly (face ${r.missing.status}), the fallback stack draws`);
   check(r.fits > 0, `jam-kiosk re-measures after the look's fonts load (${r.fits} fit passes)`);
   check(r.back.hosts === "poster" && r.back.sheets && r.back.pop === "poster" && r.back.ov === "poster" && !r.back.fx && /Londrina/.test(r.back.ff),
     `back to Poster: hosts, sheet and screensaver poster, two sheets per card, no data-fx (${JSON.stringify(r.back)})`);

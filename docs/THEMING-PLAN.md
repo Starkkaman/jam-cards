@@ -546,7 +546,29 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   Olympia define no motifs, so a switch between Poster and them re-renders nothing. New check 96-motifs.js (Poster motifs
   = the old helpers; a test pack extending every Poster motif reaches all 7 on the preview page and an open sheet, and
   nothing is left after switching back).
-- Open for R8+: jam-button's label fit assumes Londrina's .5em average
+- **R8 (done).** Packaging: `tools/bundle.mjs` writes `dist/jam-cards.js` (the root `jam-cards.js` is gone: HACS would
+  otherwise keep installing the root file, see below); the look fonts and their licences moved to `dist/fonts/` (source
+  files, committed); the embedded Poster fonts' OFL texts are copied there from `fonts/` (generated, `--check`ed); the build
+  fails when a pack in `src/looks/` names a woff2 that is not in `dist/fonts/`. `hacs.json` keeps `"filename":
+  "jam-cards.js"` (HACS looks for `dist/<filename>`). preview/index.html loads `../dist/jam-cards.js` (asset base `/dist/`,
+  fonts from `/dist/fonts/`). README: install / upgrade note (same `/hacsfiles/jam-cards/jam-cards.js` resource; manual
+  installs copy the whole `dist/`). 96-packs also proves that a missing font file fails quietly (face status "error",
+  fallback stack, no page error).
+  **HACS finding (2026-11-03, from the HACS source, hacs/integration main: `repositories/plugin.py` update_filenames,
+  `repositories/base.py` gather_files_to_download / dowload_repository_content; and hacs.xyz/docs/publish/plugin):**
+  (1) the file is looked up as, in order, a release asset of the latest release, then `<filename>` in the repo **root**, then
+  `dist/<filename>`; so the root file must go, or HACS keeps the root and downloads only root `.js` files. (2) With
+  `dist/`, the plugin branch of gather_files_to_download yields nothing (its filter only keeps files whose name starts with
+  "dist") and the generic branch takes **every non-directory tree entry whose path starts with `dist`**, subfolders
+  included. (3) The local path is the tree path with "dist" removed, so `dist/fonts/x.woff2` lands in
+  `www/community/jam-cards/fonts/x.woff2` = `/hacsfiles/jam-cards/fonts/x.woff2` (that replace() removes every "dist" in the
+  path: no file name may contain "dist"). (4) Releases: when the installed version is a release tag (not the default
+  branch) and that release has **assets**, HACS downloads only the assets: do not attach `jam-cards.js` alone to a GitHub
+  release (attach nothing, or every dist file). This repo has no tags / releases, so HACS installs the default branch.
+  Not verified on a live HA (no test instance; HA access is read-only): the fonts' fallback stacks keep every look usable
+  if `/hacsfiles/jam-cards/fonts/` 404s. jam-home's preview / QA and home-assistant/dashboards/preview still load
+  `../jam-cards/jam-cards.js` and need `dist/` in that path (other repos, not changed here).
+- Open for R9+: jam-button's label fit assumes Londrina's .5em average
   glyph width (`calc(100cqi / (var(--fit) * .5))`); a wider face leans on `jam-display-scale` and the JS shrink net (a
   width token is possible if Braun needs it). Lowercase (Olympia) also lowercases fixed words such as TV / HDMI in
   labels: a look decision. Poster-only assertions that R9 must make look-aware: shoot.js fonts / CUTS / heading rule 5px,

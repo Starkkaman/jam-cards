@@ -58,7 +58,8 @@ own section and may replace them).
   reference, HA replaces changed states); timers, observers, window/document listeners, subscriptions and sheets are
   released in `disconnectedCallback` and re-armed in `connectedCallback` (HA detaches cards on view switches).
   preview/checks/97-robust.js enforces both.
-- No dependencies, no build step, everything in `jam-cards.js`. Keep each card lean: no feature nobody configured.
+- No dependencies, no build step, everything in `jam-cards.js` (shipped as `dist/jam-cards.js`; only a look's font files sit
+  next to it in `dist/fonts/`). Keep each card lean: no feature nobody configured.
 
 ## Poster rules (the Poster look)
 - Flat colour only. No gradients, blur, glows, shadows of any kind, rounded corners, opacity fades as decoration.
