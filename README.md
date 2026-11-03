@@ -11,7 +11,11 @@ with one cut corner, one accent colour per card (per room), heavy uppercase disp
 2. For the palette, also install the [JamBoard theme](https://github.com/Starkkaman/jam-theme) (HACS category **Theme**)
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
-All options are YAML. Unknown or unavailable entities render as unavailable instead of throwing.
+Thirteen cards have a visual editor (jam-heading, jam-hero, jam-tile, jam-choice, jam-slider, jam-button, jam-gauge, jam-fan,
+jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker) and a live preview in the card picker; their list options
+(hero chips, tile tones, light whites / presets, fan speeds / presets, speaker pins, graph series names) stay YAML and are
+kept when you edit the form. Every other card, and every option, is YAML (the tables below). Unknown or unavailable
+entities render as unavailable instead of throwing.
 Fonts bundled (OFL): Londrina Solid and Jost are embedded in `jam-cards.js` (latin subset, licences in `fonts/`), so
 nothing is fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
 
@@ -569,7 +573,7 @@ watch: [lock.front_door]
 ```
 | Option | Description |
 |---|---|
-| `automations` | automation ids, or `auto: true` for all of them |
+| `automations`, `auto` | automation ids, or `auto: true` for all of them |
 | `limit` | Rows for `auto` (default 6) |
 | `watch` | Entity ids shown red when unavailable |
 | `show_unavailable_count` | Default true |
