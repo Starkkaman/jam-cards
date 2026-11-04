@@ -116,7 +116,9 @@ module.exports = async (page, check) => {
       const ad = pick.shadowRoot.adoptedStyleSheets, pack = J.lookPack(look);
       out.picker.push({look, host: pick.dataset.look, tiles: tiles.map(t => t.dataset.theme || "default").join("|"),
         on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(),
-        fonts: tiles.slice(0, 7).map(ff).join("|"), loaded: tiles.slice(0, 7).every(t => document.fonts.check(`400 24px ${getComputedStyle(t.querySelector(".sw-face")).fontFamily}`)),
+        fonts: tiles.slice(0, 7).map(ff).join("|"), // Loaded = a face of that family is loaded (Braun, Pulsar and New Wave each declare Archivo's file: the browser loads one
+        // of the equal faces and leaves the others unloaded, so document.fonts.check() would say false).
+        loaded: tiles.slice(0, 7).every(t => [...document.fonts].some(f => f.family.replace(/"/g, "") === ff(t) && f.status === "loaded")),
         sheet: pack && pack.css ? ad.length === 3 && ad[2].jamText === pack.css : ad.length === 2,
         label: getComputedStyle(tiles[0].querySelector(".nm")).fontFamily.split(",")[0].replace(/"/g, "")});
     }
@@ -144,7 +146,7 @@ module.exports = async (page, check) => {
   check(r.fits > 0, `jam-kiosk re-measures after the look's fonts load (${r.fits} fit passes)`);
   for (const p of r.picker)
     check(p.host === p.look && p.tiles === PICK_TILES && p.on === THEME_OF(p.look) && p.fonts === PICK_FONTS && p.loaded && p.sheet,
-      `jam-looks under ${p.look}: data-look + pack sheet, tiles = the seven looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded), label in ${p.label}, ${p.on} marked`);
+      `jam-looks under ${p.look}: data-look (${p.host}) + pack sheet (${p.sheet}), tiles = the seven looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded ${p.loaded}), label in ${p.label}, ${p.on} marked`);
   check(r.back.hosts === "poster" && r.back.sheets && r.back.pop === "poster" && r.back.ov === "poster" && !r.back.fx && /Londrina/.test(r.back.ff),
     `back to Poster: hosts, sheet and screensaver poster, two sheets per card, no data-fx (${JSON.stringify(r.back)})`);
 };

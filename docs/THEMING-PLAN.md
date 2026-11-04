@@ -749,6 +749,7 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   second silently replaced the first) are one: rebuild the shell when the look's `code` changes, else `decorate`.
   96-motifs also checks that Poster's `decorate` / `decorateRoot` do nothing. jam-looks lists all seven looks by default
   (JamBoard + every "Jam ..." theme by name); 96-packs runs the picker under each of the seven looks (each swatch in its
-  look's display font), views.js expects 8 tiles. 93-now-playing: the "new cover is not shown before it has loaded"
+  look's display font; "loaded" = a loaded face of that family, since Braun, Pulsar and New Wave each declare Archivo and
+  the browser loads only one of the equal faces), views.js expects 8 tiles. 93-now-playing: the "new cover is not shown before it has loaded"
   check holds the cover response (page.route on a query of its own, so the memory-cached slide-1.png cannot answer first)
   until it has looked, instead of racing the preload.
