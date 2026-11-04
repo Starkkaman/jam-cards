@@ -1914,6 +1914,15 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 .np .th{background:var(--slab2)}
 .np .th .arm span{background:var(--fg)}
 .sdock .np{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+/* ---------- look cards (2026-11-03): jam-matrix cells = outlined squares (on = the signal), the info sticker = an
+   outlined white / black note (warn and alert keep the signal) ---------- */
+:host(jam-matrix) .cell{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:var(--acc)}
+:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell:hover{box-shadow:inset 0 0 0 3px var(--fg)}
+:host(jam-matrix) .slot{box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.info{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-linemap) .trk path{stroke-linecap:square}
 `;
 
   registerLook({
@@ -2158,6 +2167,15 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .tchip{background:var(--fg);color:var(--slab);clip-path:none;box-shadow:4px 4px 0 var(--acc)}
 .tchip small{color:var(--slab)}
 @media (prefers-reduced-motion:reduce){.ov[data-fx]::before{transition:none}}
+/* ---------- look cards (2026-11-03): jam-sticker = a real sticker: sticker yellow (warn), mint (info), red (alert), ink
+   text, a hard ink offset; under fx it turns 1.5 degrees (seeded left / right) instead of the planes' 0.6 ---------- */
+:host(jam-sticker) .host > .paper[data-cut=card] > .face.sk{background:var(--sk);color:var(--sk-fg,var(--on-fg));box-shadow:4px 4px 0 var(--fg)}
+:host(jam-sticker) .sk.warn{--sk:var(--jam-art-6,var(--ochre))}
+:host(jam-sticker) .sk.info{--sk:var(--jam-art-8,var(--teal))}
+:host(jam-sticker) .host.host{--nw-rot:-1.5deg}
+:host(jam-sticker[data-jam-seed="1"]) .host.host,:host(jam-sticker[data-jam-seed="3"]) .host.host,:host(jam-sticker[data-jam-seed="5"]) .host.host,:host(jam-sticker[data-jam-seed="7"]) .host.host,:host(jam-sticker[data-jam-seed="9"]) .host.host,:host(jam-sticker[data-jam-seed="11"]) .host.host{--nw-rot:1.2deg}
+:host(jam-sticker) .act > .face{background:var(--slab);color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on{box-shadow:3px 3px 0 var(--fg)}
 `;
 
   /* Screensaver motif: four confetti shapes (triangle, ring, dot grid, squiggle) in the layout's b1 / b2 / b3 / dk boxes
@@ -2762,6 +2780,17 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 
 /* ---------- failed action strip ---------- */
 .jam-err{border:1px solid var(--line);border-left:var(--stripe-w) solid var(--red)}
+/* ---------- look cards (2026-11-03): thin tracks, 1px ridges, outlined matrix cells (on = a warm ring around a warm
+   core), stickers as outlined notes (alert: a warm outline and warm title) ---------- */
+:host(jam-linemap){--lm-w:3px}
+:host(jam-ridge){--rg-w:1px}
+:host(jam-matrix) .cell,:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:none;box-shadow:inset 0 0 0 1px var(--acc),inset 0 0 0 6px var(--slab),inset 0 0 0 999px var(--acc)}
+:host(jam-matrix) .cell.alert{--acc:var(--red)}
+:host(jam-matrix) .cell:hover{box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-sticker) .sk.sk{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.alert{box-shadow:inset 0 0 0 1px var(--red)}
+:host(jam-sticker) .sk.alert .ttl{color:var(--alert-text)}
 `;
 
   registerLook({
@@ -3146,6 +3175,196 @@ class JamAlerts extends JamBase {
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 3}; }
 }
 register("jam-alerts", JamAlerts, "Jam Alerts", "Automations & alerts panel: recent runs, watched entities, unavailable count (control room).");
+
+/* ---------- jam-arrivals: an arrivals board (designed for the Transit look, drawn in every look) ----------
+   {type: custom:jam-arrivals, title? ("Arrivals"), accent? (default route colour),
+    alerts?: [{entity, state? (string | list), above?, below?, message?}] (a "Service change" row while the condition holds;
+      no state / above / below = while the entity is on or in a problem state),
+    media?: [media_player ids] (a "Now playing" row while one plays or is paused),
+    calendars?: [calendar ids | {entity, name?, accent?}] (the next `events` events within `hours`, merged and in time order),
+    events? (4), hours? (48), refresh_minutes? (15),
+    entities?: [ids | {entity, name?, accent?}] (one row each: the state is the status)}
+   Rows, top to bottom: service changes, now playing, upcoming events, entities. Each row: a route bullet (its accent with
+   the first letter of the row's line: the calendar's / entity's name, "M" for music), the destination (name) with a dim
+   detail line, the status at the right in tabular numerals (an event's time: "Now", "7:30 PM" today, "Tue 9:00", an
+   all-day event "Today" / "Tue"). Service change rows carry the alert tone mark (Transit: the yellow diamond). Row tap =
+   more-info. Events: GET calendars/<id>?start&end (hass.callApi), refetched every refresh_minutes and when a calendar's
+   state changes (at most once a minute); without callApi the calendar's own next event (state attributes) is used. */
+const AR_GAP = 60e3;
+/* HA time format -> {loc, h12} (same rules as jam-alerts' jaTime). */
+function arTime(h) { return jaTime(h); }
+function arClock(h, d) {
+  const f = arTime(h);
+  try { return d.toLocaleTimeString(f.loc, {hour: "numeric", minute: "2-digit", hour12: f.h12}); } catch (e) { return d.toTimeString().slice(0, 5); }
+}
+/* Status text of an event: "Now" while it runs, the start time today, "Tue 9:00" later; all-day: "Today" / "Tue" / "Jun 19". */
+function arWhen(h, ev, now = new Date()) {
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), f = arTime(h);
+  if (ev.start <= now.getTime() && ev.end > now.getTime()) return "Now";
+  const d = new Date(ev.start), days = Math.round((day(d) - day(now)) / 86400e3);
+  let wd;
+  try { wd = days < 7 ? d.toLocaleDateString(f.loc, {weekday: "short"}) : d.toLocaleDateString(f.loc, {month: "short", day: "numeric"}); } catch (e) { wd = d.toISOString().slice(5, 10); }
+  if (ev.allDay) return days <= 0 ? "Today" : days === 1 ? "Tomorrow" : wd;
+  return days <= 0 ? arClock(h, d) : `${wd} ${arClock(h, d)}`;
+}
+/* One calendar event {summary, start: {dateTime | date} | string, end} -> {title, start, end, allDay}. */
+function arEvent(e) {
+  if (!e) return null;
+  const pick = v => (v && typeof v === "object" ? v.dateTime || v.date : v);
+  const s = pick(e.start), en = pick(e.end), allDay = !!(e.start && typeof e.start === "object" && e.start.date && !e.start.dateTime) || /^\d{4}-\d\d-\d\d$/.test(String(s));
+  const t0 = allDay ? new Date(String(s) + "T00:00:00").getTime() : Date.parse(s), t1 = en ? (allDay ? new Date(String(en) + "T00:00:00").getTime() : Date.parse(en)) : t0;
+  return isNaN(t0) ? null : {title: String(e.summary || e.message || "Event"), start: t0, end: isNaN(t1) ? t0 : t1, allDay};
+}
+class JamArrivals extends JamBase {
+  constructor() { super(); this._ev = null; this._last = 0; this._tok = 0; }
+  validate(c) {
+    for (const k of ["alerts", "media", "calendars", "entities"]) if (c[k] !== undefined && !Array.isArray(c[k])) throw new Error(`jam-arrivals: ${k} must be a list`);
+    for (const a of c.alerts || []) if (!a || typeof a.entity !== "string") throw new Error("jam-arrivals: every alert needs an entity");
+  }
+  _items(k) { return (this._config[k] || []).map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && typeof x.entity === "string"); }
+  watched() {
+    const c = this._config;
+    return [...new Set([...(c.alerts || []).map(a => a.entity), ...(c.media || []), ...this._items("calendars").map(x => x.entity), ...this._items("entities").map(x => x.entity)])];
+  }
+  setConfig(c) {
+    const q = JSON.stringify([c.calendars, c.events, c.hours]);
+    if (q !== this._q) { this._q = q; this._ev = null; this._tok++; this._last = 0; }
+    super.setConfig(c);
+    if (this.isConnected) { this._arm(); this._kick(); }
+  }
+  set hass(h) {
+    const first = !this._hass, before = this._sig;
+    super.hass = h;
+    if (first || this._sig !== before) this._kick(); // a calendar may have changed: refetch (throttled)
+  }
+  get hass() { return super.hass; }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._wait && this._body) this._wait = !jamPaintBullets(this.shadowRoot, this._body); // the render ran detached
+    this._arm();
+    if (!this._ev || Date.now() - this._last > this._every()) this._kick();
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._iv); this._iv = null;
+    clearTimeout(this._pending); this._pending = null;
+  }
+  _themeRefresh() { if (this._body) this._wait = !jamPaintBullets(this.shadowRoot, this._body); }
+  _every() { return Math.max(1, +this._config.refresh_minutes || 15) * 60e3; }
+  _arm() {
+    clearInterval(this._iv); this._iv = null;
+    if (this._config && this._items("calendars").length) this._iv = setInterval(() => this._kick(), this._every());
+  }
+  _kick() {
+    if (!this._hass || !this._config || !this.isConnected || !this._items("calendars").length) return;
+    if (typeof this._hass.callApi !== "function") return; // the calendars' own next event is used
+    const wait = this._last + AR_GAP - Date.now();
+    if (wait <= 0) { clearTimeout(this._pending); this._pending = null; this._fetch(); return; }
+    if (!this._pending) this._pending = setTimeout(() => { this._pending = null; this._kick(); }, wait);
+  }
+  _hours() { return +this._config.hours > 0 ? +this._config.hours : 48; }
+  async _fetch() {
+    const tok = ++this._tok, t0 = new Date(), t1 = new Date(t0.getTime() + this._hours() * 3600e3), out = [];
+    this._last = t0.getTime();
+    await Promise.all(this._items("calendars").map(async (cal, i) => {
+      try {
+        const res = await this._hass.callApi("GET", `calendars/${cal.entity}?start=${encodeURIComponent(t0.toISOString())}&end=${encodeURIComponent(t1.toISOString())}`);
+        for (const e of Array.isArray(res) ? res : []) { const ev = arEvent(e); if (ev) out.push({...ev, cal: i}); }
+      } catch (e) { /* that calendar stays empty */ }
+    }));
+    if (tok !== this._tok) return;
+    this._ev = out;
+    this._sig = null; this._render(false);
+  }
+  /* The calendars' events: fetched ones, else each calendar's own current / next event from its state. */
+  _events() {
+    const h = this._hass, cals = this._items("calendars"), now = Date.now();
+    let evs = this._ev;
+    if (!evs) evs = cals.map((cal, i) => {
+      const s = stateObj(h, cal.entity), a = s && s.attributes;
+      const ev = a && a.start_time ? arEvent({summary: a.message, start: a.all_day ? String(a.start_time).slice(0, 10) : a.start_time.replace(" ", "T"),
+        end: a.end_time && (a.all_day ? String(a.end_time).slice(0, 10) : a.end_time.replace(" ", "T"))}) : null;
+      return ev && {...ev, cal: i};
+    }).filter(Boolean);
+    const n = +this._config.events > 0 ? +this._config.events : 4;
+    return evs.filter(e => e.end > now || e.start >= now).sort((a, b) => a.start - b.start || a.cal - b.cal).slice(0, n);
+  }
+  _alertOn(a) {
+    const s = stateObj(this._hass, a.entity);
+    if (!s) return false;
+    const v = Number(s.state), num = s.state !== "" && isFinite(v);
+    if (a.above !== undefined || a.below !== undefined)
+      return num && (a.above === undefined || v > +a.above) && (a.below === undefined || v < +a.below);
+    if (a.state !== undefined) return (Array.isArray(a.state) ? a.state : [a.state]).map(String).includes(s.state);
+    return s.state === "on" || tone(s) === "alert";
+  }
+  css() { return `
+    .ab{display:grid;align-content:start}
+    .ttl{font-size:calc(1.6rem * var(--disp-scale));margin:0 0 8px}
+    .row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:12px;min-height:56px;padding:8px 0;text-align:left;width:100%;color:var(--fg)}
+    .row + .row{border-top:1px solid var(--line)}
+    .ds{min-width:0;display:grid;gap:2px}
+    .dn{font:600 1rem/1.25 var(--body);overflow-wrap:anywhere}
+    .dd{font:500 .78rem/1.25 var(--body);color:var(--dim);overflow-wrap:anywhere}
+    .stt{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);text-transform:var(--disp-case);font-size:calc(1.3rem * var(--num-scale,var(--disp-scale)));
+      line-height:calc(1 * var(--disp-lead));text-align:right;max-width:12ch;overflow-wrap:break-word}
+    .svc{grid-template-columns:28px minmax(0,1fr)}
+    .svc .tmk{width:20px;height:20px;margin:0 4px}
+    .svc .dn{font-weight:700}
+    .none{color:var(--dim);font:500 .95rem/1.4 var(--body);padding:10px 0}
+    ${JAM_BULLET_CSS}`; }
+  _row(cls, letter, hue, name, detail, status, entity, label) {
+    const r = el("button", "row " + cls);
+    if (letter !== null) r.append(jamBullet(letter, hue)); else { const m = el("span", "tmk t-alert"); m.setAttribute("aria-hidden", "true"); r.append(m); }
+    const ds = el("span", "ds");
+    ds.append(el("span", "dn", name));
+    if (detail) ds.append(el("span", "dd", detail));
+    r.append(ds);
+    if (status !== null) r.append(status);
+    r.setAttribute("aria-label", label);
+    r.dataset.jamName = name;
+    r.onclick = () => moreInfo(this, entity);
+    return r;
+  }
+  render(b) {
+    const c = this._config, h = this._hass, acc = accentVar(c.accent) || "var(--acc)";
+    const {root, face} = this.paper("board", {face: "ab"});
+    face.append(el("h2", "disp ttl", c.title || "Arrivals"));
+    const list = el("div", "list");
+    const add = r => list.append(r);
+    for (const a of c.alerts || []) if (this._alertOn(a)) {
+      const s = stateObj(h, a.entity), nm = friendly(h, a.entity);
+      const msg = a.message || `${nm}: ${fmtState(h, s)}`;
+      add(this._row("svc", null, null, msg, "Service change", null, a.entity, `Service change: ${msg}`));
+    }
+    for (const id of c.media || []) {
+      const s = stateObj(h, id);
+      if (!s || (s.state !== "playing" && s.state !== "paused")) continue;
+      const a = s.attributes || {}, title = a.media_title || a.app_name || friendly(h, id), who = [a.media_artist, friendly(h, id)].filter(Boolean).join(" · ");
+      const st = el("span", "stt", s.state === "playing" ? "Now" : "Paused");
+      add(this._row("np", "M", "var(--violet)", title, who, st, id, `Now playing: ${title}${who ? ", " + who : ""}, ${st.textContent}`));
+    }
+    const cals = this._items("calendars");
+    for (const ev of this._events()) {
+      const cal = cals[ev.cal], cn = cal.name || friendly(h, cal.entity);
+      const st = el("span", "stt num", arWhen(h, ev));
+      add(this._row("ev", jamInitial(cn), accentVar(cal.accent) || "var(--blue)", ev.title, cn, st, cal.entity, `${ev.title}, ${cn}, ${st.textContent}`));
+    }
+    for (const x of this._items("entities")) {
+      const s = stateObj(h, x.entity), nm = x.name || friendly(h, x.entity), t = tone(s);
+      const st = el("span", `stt num c-${t === "off" ? "dim" : t}`, s ? fmtState(h, s) : "—");
+      if (s) keepUnit(st, s);
+      add(this._row("en", jamInitial(nm), accentVar(x.accent) || acc, nm, null, st, x.entity, `${nm}, ${st.textContent}`));
+    }
+    if (!list.children.length) list.append(el("div", "none", "Nothing due."));
+    face.append(list);
+    b.append(root);
+    this._wait = !jamPaintBullets(this.shadowRoot, b);
+  }
+  getCardSize() { return 4; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-arrivals", JamArrivals, "Jam Arrivals", "An arrivals board: service changes, now playing, the next calendar events and entity states.");
 
 /* ---------- jam-button: chunky key for launchers, scenes, scripts, stereo keys and openers ----------
    {type: custom:jam-button, entity?, name?, icon?, accent?: colour or room alias | paper | ink (DESIGN "Colour system"),
@@ -5404,6 +5623,211 @@ class JamLight extends JamBase {
 }
 register("jam-light", JamLight, "Jam Light", "Light card in the light's own colour: tap toggles, drag dims, hold or ⋯ opens the light pop-up.");
 
+/* ---------- jam-linemap: the house as a subway map (designed for the Transit look, drawn in every look) ----------
+   {type: custom:jam-linemap, title?, accent? (title rule), lines: [{name, color? (hue or room alias; default: ochre, teal,
+    blue, pink, violet, green by position), path? (navigation path: tap the line name), stations: [entity ids]}]}
+   Every room is a line in its colour (8px track, 45-degree chamfers, a 90-degree terminal tick); every entity is a station
+   along it, in the order given: filled disc = on, hollow = off, dashed ring = unavailable. A line longer than a row turns
+   back on the next row (boustrophedon, a 45 / 90 / 45 U-turn in the side gutter). An entity on two or more lines is an
+   interchange: a bigger ring on each line, its name followed by small bullets of the other lines. The line name starts
+   the track with a route bullet (the line colour with its first letter; the letter in the look's dark or light text,
+   whichever reads 4.5:1 on that colour, else a ring bullet with the letter in --fg). Tap a station = toggle (on / off
+   entities) or more-info (anything else, unavailable ones too); tap the line name = navigate to its path (no path: plain
+   text). Layout in px from the card width (ResizeObserver; columns of 76-150px, no more than the longest line needs, so every
+   station is >= 44px wide). */
+const LM_G = 16, LM_CW = 76, LM_HEAD = 44, LM_ROW = 96, LM_DOT = 18, LM_CH = 14, LM_NS = "http://www.w3.org/2000/svg";
+const LM_HUES = ["ochre", "teal", "blue", "pink", "violet", "green"];
+/* First letter or digit of a name, uppercase ("" when none). */
+function jamInitial(t) { const m = /[\p{L}\p{N}]/u.exec(String(t || "")); return m ? m[0].toLocaleUpperCase() : ""; }
+/* A route bullet: span.lb with the letter, --lc = its hue (a CSS colour, e.g. var(--teal)). jamPaintBullets colours the
+   letters once the card is in the page. */
+function jamBullet(letter, hue, cls) {
+  const b = el("span", "lb ring" + (cls ? " " + cls : ""), letter);
+  b.style.setProperty("--lc", hue);
+  b.setAttribute("aria-hidden", "true");
+  return b;
+}
+/* Letter colour per bullet: the look's dark / light text on the resolved hue (textOn); a hue where neither reaches 4.5:1,
+   or a detached card, keeps the ring bullet (letter in --fg on the face). Returns false while detached. */
+function jamPaintBullets(root, body) {
+  if (!body || !body.isConnected) return false;
+  const tc = textColors(body), seen = new Map();
+  for (const b of root.querySelectorAll(".lb")) {
+    const hue = b.style.getPropertyValue("--lc");
+    if (!seen.has(hue)) { const rgb = resolveRgb(b, "var(--lc)"); seen.set(hue, rgb ? textOn(rgb, tc) : null); }
+    const t = seen.get(hue), ring = !t || t.plate;
+    b.classList.toggle("ring", ring);
+    if (ring) b.style.removeProperty("--lb-fg"); else b.style.setProperty("--lb-fg", t.fg);
+  }
+  return true;
+}
+const JAM_BULLET_CSS = `
+    .lb{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--lc);color:var(--lb-fg,var(--on-fg));
+      font:700 15px/1 var(--body);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+    .lb.ring{background:var(--slab);color:var(--fg);box-shadow:inset 0 0 0 4px var(--lc)}
+    .lb.sm{width:16px;height:16px;font-size:10px}
+    .lb.sm.ring{box-shadow:inset 0 0 0 2px var(--lc)}`;
+/* Focus kept over a re-render: the focused control's data-entity (and its line, for a station on two lines). */
+function jamFocusRef(card) {
+  const a = card.shadowRoot && card.shadowRoot.activeElement;
+  return a && a.dataset && a.dataset.entity ? {e: a.dataset.entity, l: a.closest(".ln") ? [...card.shadowRoot.querySelectorAll(".ln")].indexOf(a.closest(".ln")) : -1} : null;
+}
+function jamFocusBack(card, ref) {
+  if (!ref) return;
+  const all = [...card.shadowRoot.querySelectorAll("[data-entity]")].filter(n => n.dataset.entity === ref.e);
+  const n = all.find(x => ref.l < 0 || [...card.shadowRoot.querySelectorAll(".ln")].indexOf(x.closest(".ln")) === ref.l) || all[0];
+  if (n) { n.tabIndex = 0; n.focus({preventScroll: true}); }
+}
+function lmSvg(tag, attrs) { const e = document.createElementNS(LM_NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+class JamLinemap extends JamBase {
+  validate(c) {
+    if (!Array.isArray(c.lines) || !c.lines.length) throw new Error("jam-linemap: lines is required (a list of {name, stations})");
+    c.lines.forEach((l, i) => {
+      if (!l || typeof l !== "object") throw new Error(`jam-linemap: line ${i + 1} is not an object`);
+      if (!Array.isArray(l.stations) || !l.stations.length || !l.stations.every(s => typeof s === "string" && s.includes(".")))
+        throw new Error(`jam-linemap: line ${i + 1} needs stations (a list of entity ids)`);
+    });
+  }
+  watched() { return [...new Set(this._config.lines.flatMap(l => l.stations))]; }
+  css() { return `
+    .lm{display:grid;gap:10px;align-content:start}
+    .ttl{font-size:calc(1.6rem * var(--disp-scale));margin:0}
+    .rule{height:var(--rule-h);background:var(--acc);margin-top:-2px}
+    .map{display:grid;gap:14px}
+    .ln{position:relative}
+    .trk{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+    .trk path{fill:none;stroke:var(--lc);stroke-width:var(--lm-w,8px);stroke-linejoin:miter;stroke-linecap:butt}
+    .lh{position:relative;display:flex;align-items:center;gap:10px;height:${LM_HEAD - 8}px;min-width:0;text-align:left;color:var(--fg)}
+    button.lh{max-width:100%}
+    .lh .nm{min-width:0;font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);font-size:calc(1.25rem * var(--disp-scale));
+      line-height:calc(1 * var(--disp-lead));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lh .ct{flex:none;font:500 .78rem/1.2 var(--body);color:var(--dim);font-variant-numeric:tabular-nums}
+    .st{position:absolute;display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:${LM_DOT + 16}px 4px 0;text-align:center;color:var(--fg)}
+    .dot{position:absolute;left:50%;top:${LM_DOT - 9}px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--slab);box-shadow:inset 0 0 0 3px var(--fg)}
+    .st.on .dot{background:var(--fg)}
+    .st.na .dot{background:var(--slab);box-shadow:none;border:3px dashed var(--dim)}
+    .st.ix .dot{top:${LM_DOT - 13}px;width:26px;height:26px;margin-left:-13px;box-shadow:inset 0 0 0 4px var(--fg)}
+    .st.ix.on .dot{box-shadow:inset 0 0 0 4px var(--fg),inset 0 0 0 7px var(--slab)}
+    .sn{font:600 .78rem/1.25 var(--body);overflow-wrap:anywhere;
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+    .sn .lb{vertical-align:-3px;margin-left:3px}
+    .sv{font:500 .72rem/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
+      text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .st.na .sn,.st.na .sv{color:var(--dim)}
+    .st:not(:disabled):hover .dot{box-shadow:inset 0 0 0 3px var(--fg),0 0 0 3px var(--line)}
+    ${JAM_BULLET_CSS}`; }
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this._ro && window.ResizeObserver) this._ro = new ResizeObserver(() => this._layout());
+    if (this._ro) this._ro.observe(this);
+    if (this._body && this._wait) this._wait = !jamPaintBullets(this.shadowRoot, this._body);
+  }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._ro) this._ro.disconnect(); }
+  /* A look / mode switch (queueLook) changes the hues: colour the letters again. */
+  _themeRefresh() { if (this._body) this._wait = !jamPaintBullets(this.shadowRoot, this._body); }
+  _render(force) { const ref = jamFocusRef(this); super._render(force); jamFocusBack(this, ref); }
+  _lines() {
+    return this._config.lines.map((l, i) => ({name: l.name || `Line ${i + 1}`, hue: accentVar(l.color) || `var(--${LM_HUES[i % LM_HUES.length]})`,
+      path: typeof l.path === "string" && l.path ? l.path : null, stations: l.stations}));
+  }
+  render(b) {
+    const c = this._config, h = this._hass, lines = this._lines();
+    const {root, face} = this.paper("map", {face: "lm"});
+    if (c.title) { face.append(el("h2", "disp ttl", c.title), el("div", "rule")); }
+    const map = el("div", "map");
+    map.setAttribute("role", "group"); map.setAttribute("aria-label", c.title || "Line map");
+    const linesOf = new Map(); // entity -> line indexes
+    lines.forEach((l, i) => l.stations.forEach(id => { if (!linesOf.has(id)) linesOf.set(id, []); if (!linesOf.get(id).includes(i)) linesOf.get(id).push(i); }));
+    this._ln = lines.map((l, i) => {
+      const ln = el("div", "ln");
+      ln.style.setProperty("--lc", l.hue);
+      ln.setAttribute("role", "group"); ln.setAttribute("aria-label", l.name);
+      const trk = lmSvg("svg", {class: "trk", "aria-hidden": "true"});
+      ln.append(trk);
+      const tog = l.stations.filter(id => { const s = stateObj(h, id); return s && toggleable(id) && (s.state === "on" || s.state === "off"); });
+      const on = tog.filter(id => h.states[id].state === "on").length;
+      const head = el(l.path ? "button" : "div", l.path ? "lh hit" : "lh"); // .hit: a 44px touch target over the 36px row
+      head.append(jamBullet(jamInitial(l.name), l.hue), el("span", "nm", l.name));
+      if (tog.length) head.append(el("span", "ct", `${on} of ${tog.length} on`));
+      if (l.path) {
+        head.setAttribute("aria-label", `${l.name}${tog.length ? `, ${on} of ${tog.length} on` : ""}, open`);
+        head.onclick = () => navigate(l.path);
+      }
+      ln.append(head);
+      const sts = l.stations.map(id => {
+        const s = stateObj(h, id), name = friendly(h, id), na = !s || UNAVAILABLE.has(s.state);
+        const flip = !na && toggleable(id) && (s.state === "on" || s.state === "off");
+        const isOn = !na && tone(s) === "on", others = linesOf.get(id).filter(j => j !== i);
+        const st = el("button", "st" + (isOn ? " on" : "") + (na ? " na" : "") + (others.length ? " ix" : ""));
+        st.dataset.entity = id; st.dataset.jamName = name;
+        const dot = el("span", "dot"), sn = el("span", "sn", name);
+        for (const j of others) sn.append(jamBullet(jamInitial(lines[j].name), lines[j].hue, "sm"));
+        st.append(dot, sn);
+        const val = na ? (s ? fmtState(h, s) : "Missing") : flip ? "" : fmtState(h, s);
+        if (val) st.append(el("span", "sv", val));
+        const via = others.length ? `, change for ${others.map(j => lines[j].name).join(", ")}` : "";
+        if (flip) {
+          st.setAttribute("aria-pressed", isOn ? "true" : "false");
+          st.setAttribute("aria-label", `${name}${via}`);
+          st.onclick = () => jamCall(st, this._hass, "homeassistant", "toggle", {entity_id: id}, "toggle", `Couldn't toggle ${name}`);
+        } else {
+          st.setAttribute("aria-label", `${name}, ${val || "unknown"}${via}`);
+          st.onclick = () => moreInfo(this, id);
+        }
+        ln.append(st);
+        return st;
+      });
+      map.append(ln);
+      return {ln, trk, sts};
+    });
+    face.append(map);
+    b.append(root);
+    this._map = map; this._w = -1;
+    this._wait = !jamPaintBullets(this.shadowRoot, b);
+    this._layout();
+  }
+  /* Positions every station from the map width (only when it changed since the last layout) and draws the tracks. */
+  _layout() {
+    const map = this._map;
+    if (!map || !map.isConnected) return;
+    const W = Math.round(map.clientWidth);
+    if (!W || W === this._w) return;
+    this._w = W;
+    // Columns of at least 76px; no more than the longest line needs (so short maps spread out), each at most 150px.
+    const most = Math.max(...this._ln.map(l => l.sts.length));
+    const cols = Math.max(2, Math.min(12, most, Math.floor((W - 2 * LM_G) / LM_CW))), cw = Math.min(150, (W - 2 * LM_G) / cols);
+    for (const {ln, trk, sts} of this._ln) {
+      const n = sts.length, rows = Math.ceil(n / cols), H = LM_HEAD + rows * LM_ROW;
+      ln.style.height = H + "px";
+      trk.setAttribute("width", W); trk.setAttribute("height", H); trk.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const pos = sts.map((st, i) => {
+        const r = Math.floor(i / cols), k = i - r * cols, x = r % 2 ? W - LM_G - (k + .5) * cw : LM_G + (k + .5) * cw, y = LM_HEAD + r * LM_ROW;
+        st.style.left = (x - cw / 2).toFixed(1) + "px"; st.style.top = y + "px"; st.style.width = cw.toFixed(1) + "px"; st.style.height = (LM_ROW - 6) + "px";
+        return [x, y + LM_DOT, r];
+      });
+      // Track: from the bullet down a 45-degree chamfer, through the stations, U-turns in the gutter, a terminal tick.
+      const f = v => +v.toFixed(1), bx = 14, by = 18, y0 = pos[0][1];
+      let d = `M${bx} ${by}V${y0 - LM_CH}L${bx + LM_CH} ${y0}`;
+      for (let i = 0; i < n; i++) {
+        const [x, y, r] = pos[i];
+        d += `H${f(x)}`;
+        if (i + 1 < n && pos[i + 1][2] !== r) {
+          const xe = r % 2 ? 8 : W - 8, s = r % 2 ? 1 : -1, y1 = pos[i + 1][1];
+          d += `H${f(xe + s * LM_CH)}L${xe} ${y + LM_CH}V${y1 - LM_CH}L${f(xe + s * LM_CH)} ${y1}`;
+        }
+      }
+      const [xl, yl, rl] = pos[n - 1], dir = rl % 2 ? -1 : 1, xt = f(xl + dir * Math.min(24, cw / 2 - 4));
+      d += `H${xt}`;
+      trk.textContent = "";
+      trk.append(lmSvg("path", {d}), lmSvg("path", {d: `M${xt} ${yl - 11}V${yl + 11}`}));
+    }
+  }
+  getCardSize() { return 2 + this._config.lines.length * 2; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-linemap", JamLinemap, "Jam Line Map", "Rooms as subway lines, entities as stations: tap a station to toggle it, a line name to open its room.");
+
 /* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
    {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true,
     accent? (ON keys and "on" values; DESIGN "Colour system")}
@@ -5592,6 +6016,109 @@ class JamLooks extends JamBase {
   getCardSize() { return 3; }
 }
 register("jam-looks", JamLooks, "Jam Looks", "Pick the dashboard look (theme) for yourself: one live swatch per Jam look, like Profile → Theme.");
+
+/* ---------- jam-matrix: a toggle matrix, one square cell per entity (designed for the Grid look, drawn in every look) ----------
+   {type: custom:jam-matrix, title?, entities: [ids | {entity, name?}], columns? (default: the count, 3..6), accent?}
+   Cells are squares (>= 44px) in rows of `columns`, the last row completed with empty outlined slots. A cell is filled with
+   the accent while its entity is on, slab2 while off, an outline while unavailable, red for a problem state. Tap a cell =
+   toggle (on / off entities) or more-info (anything else). Names show in the caption row under the matrix while a cell is
+   hovered, focused or touched ("Floor lamp · On"); at rest the caption lists what is on. The count of entities that are on
+   is a big numeral in the header (class .big.num: the Grid look draws it in cell numerals). Keyboard: one tab stop (roving
+   tabindex), arrow keys / Home / End move between cells, Enter / Space press. */
+class JamMatrix extends JamBase {
+  validate(c) {
+    if (!Array.isArray(c.entities) || !c.entities.length) throw new Error("jam-matrix: entities is required");
+    if (c.columns !== undefined && !(Number.isInteger(+c.columns) && +c.columns >= 1 && +c.columns <= 12)) throw new Error("jam-matrix: columns is a whole number 1-12");
+  }
+  _items() { return this._config.entities.map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && typeof x.entity === "string"); }
+  watched() { return this._items().map(x => x.entity); }
+  _cols(n) { return +this._config.columns || Math.max(3, Math.min(6, n)); }
+  css() { return `
+    .mx{display:grid;gap:12px;align-content:start}
+    .hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 12px;min-width:0}
+    .ttl{font-size:calc(1.6rem * var(--disp-scale));margin:0;min-width:0;overflow-wrap:break-word}
+    .ct{flex:none;display:flex;align-items:baseline;gap:8px}
+    .big{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);font-size:calc(2.6rem * var(--num-scale,var(--disp-scale)));line-height:.9;font-variant-numeric:tabular-nums}
+    .grid{display:grid;grid-template-columns:repeat(var(--cols),minmax(44px,1fr));gap:var(--mx-gap,6px);max-width:calc(var(--cols) * 96px)}
+    .cell,.slot{aspect-ratio:1;min-height:44px;position:relative;display:block}
+    .cell{background:var(--slab2);clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%));border-radius:var(--jam-radius-chip,0px)}
+    .cell:focus-visible{outline-offset:-3px;outline-color:var(--focus)}
+    .cell:hover{box-shadow:inset 0 0 0 3px var(--dim)}
+    .cell.on{background:var(--acc)}
+    .cell.alert{background:var(--red)}
+    .cell.na{background:none;box-shadow:inset 0 0 0 2px var(--line)}
+    .cell.na::before{content:"";position:absolute;left:50%;top:22%;bottom:22%;width:2px;margin-left:-1px;background:var(--line);transform:rotate(45deg)}
+    .slot{box-shadow:inset 0 0 0 1px var(--line)}
+    .mxcap{min-height:1.3em;font:500 .9rem/1.3 var(--body);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mxcap.rest{color:var(--dim)}`; }
+  /* A state change re-renders the cells: the focused one keeps the focus (keyboard toggling). */
+  _render(force) { const ref = jamFocusRef(this); super._render(force); jamFocusBack(this, ref); }
+  _label(x, s) {
+    const nm = x.name || friendly(this._hass, x.entity);
+    return [nm, !s ? "Missing" : UNAVAILABLE.has(s.state) ? "Unavailable" : fmtState(this._hass, s)];
+  }
+  render(b) {
+    const c = this._config, h = this._hass, items = this._items(), n = items.length, cols = this._cols(n);
+    const {root, face} = this.paper(c.title || items[0].entity, {face: "mx"});
+    const hd = el("div", "hd");
+    hd.append(el("h2", "disp ttl", c.title || "Matrix"));
+    const ons = [], tog = [];
+    const grid = el("div", "grid");
+    grid.style.setProperty("--cols", cols);
+    grid.setAttribute("role", "group"); grid.setAttribute("aria-label", c.title || "Matrix");
+    const cap = el("div", "mxcap rest");
+    cap.setAttribute("aria-live", "polite");
+    const cells = items.map((x, i) => {
+      const s = stateObj(h, x.entity), na = !s || UNAVAILABLE.has(s.state), t = na ? "na" : tone(s);
+      const flip = !na && toggleable(x.entity) && (s.state === "on" || s.state === "off");
+      const [nm, st] = this._label(x, s);
+      if (t === "on") ons.push(nm);
+      if (flip) tog.push(x.entity);
+      const cell = el("button", "cell" + (t === "on" ? " on" : t === "alert" ? " alert" : na ? " na" : ""));
+      cell.dataset.entity = x.entity; cell.dataset.jamName = nm;
+      cell.tabIndex = i === (this._focus || 0) ? 0 : -1;
+      if (flip) { cell.setAttribute("aria-pressed", s.state === "on" ? "true" : "false"); cell.setAttribute("aria-label", nm); }
+      else cell.setAttribute("aria-label", `${nm}, ${st}`);
+      cell.dataset.st = st;
+      const show = () => { cap.textContent = `${nm} · ${st}`; cap.classList.remove("rest"); };
+      cell.addEventListener("pointerenter", show);
+      cell.addEventListener("pointerdown", show);
+      cell.addEventListener("focus", () => { show(); this._focus = i; });
+      cell.addEventListener("pointerleave", () => this._rest(cap));
+      cell.addEventListener("blur", () => this._rest(cap));
+      cell.onclick = () => flip ? jamCall(cell, this._hass, "homeassistant", "toggle", {entity_id: x.entity}, "toggle", `Couldn't toggle ${nm}`) : moreInfo(this, x.entity);
+      grid.append(cell);
+      return cell;
+    });
+    if (cells.length && !cells.some(x => x.tabIndex === 0)) cells[0].tabIndex = 0;
+    for (let k = n % cols ? cols - (n % cols) : 0; k > 0; k--) { const sl = el("span", "slot"); sl.setAttribute("aria-hidden", "true"); grid.append(sl); }
+    grid.addEventListener("keydown", e => {
+      const i = cells.indexOf(e.target);
+      if (i < 0) return;
+      const j = {ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + cols, ArrowUp: i - cols, Home: 0, End: n - 1}[e.key];
+      if (j === undefined || j < 0 || j >= n) return;
+      e.preventDefault();
+      cells[i].tabIndex = -1; cells[j].tabIndex = 0; cells[j].focus();
+    });
+    const count = tog.length ? tog.filter(id => h.states[id].state === "on").length : ons.length;
+    const ct = el("div", "ct");
+    ct.append(el("span", "big num", String(count)), el("span", "label", `of ${tog.length || n} on`));
+    ct.setAttribute("role", "img"); ct.setAttribute("aria-label", `${count} of ${tog.length || n} on`);
+    hd.append(ct);
+    this._restText = ons.length ? `On: ${ons.join(", ")}` : "All off";
+    cap.textContent = this._restText;
+    face.append(hd, grid, cap);
+    b.append(root);
+  }
+  _rest(cap) {
+    const a = this.shadowRoot.activeElement;
+    if (a && a.classList && a.classList.contains("cell")) { cap.textContent = `${a.dataset.jamName} · ${a.dataset.st}`; return; }
+    cap.textContent = this._restText; cap.classList.add("rest");
+  }
+  getCardSize() { return 3; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 4}; }
+}
+register("jam-matrix", JamMatrix, "Jam Matrix", "A toggle matrix: one square cell per entity, filled while on, with the count of what is on as a big numeral.");
 
 /* ---------- jam-media (v2): now playing as a duotone print + transport, volume, sources, players, group ----------
    {type: custom:jam-media, entity (media_player), name?, controls?: [prev, play_pause, next, stop],
@@ -7192,6 +7719,177 @@ class JamRemote extends JamBase {
 }
 register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");
 
+/* ---------- jam-ridge: stacked ridgelines of recorder history (designed for the Pulsar look, drawn in every look) ----------
+   {type: custom:jam-ridge, title?, entities: [ids | {entity, name?}] (1-8), hours_to_show? (24), refresh_minutes? (5),
+    accent? (title rule)}
+   One row per entity: its name at the left (the look's `code` mark before it: Pulsar's colour code), its history as one
+   ridge line over the window (each on its own scale, min..max of the window, so the shape reads, not the level; peaks rise
+   a quarter row into the row above, Unknown Pleasures), the current value at the right. Lines in the text colour, no fill: a ridge in
+   front hides the parts of the ridges behind it through SVG masks, so the card face shows through on any look. Static:
+   drawn when history arrives or the width changes, never animated. One history/history_during_period WS call for all
+   entities (jam-graph's query and point preparation), refetched every refresh_minutes and when a watched state changes,
+   at most once a minute. Row tap = more-info; each row says its range in words for screen readers. */
+const RG_ROW = 48, RG_AMP = 1.25, RG_NS = "http://www.w3.org/2000/svg";
+let RG_UID = 0;
+function rgSvg(tag, attrs) { const e = document.createElementNS(RG_NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+class JamRidge extends JamBase {
+  constructor() { super(); this._data = null; this._last = 0; this._tok = 0; this._uid = "rg" + (++RG_UID); }
+  validate(c) {
+    const l = c.entities;
+    if (!Array.isArray(l) || !l.length) throw new Error("jam-ridge: entities is required (1-8 sensors)");
+    if (l.length > 8) throw new Error(`jam-ridge: ${l.length} entities, max 8`);
+    if (!l.every(x => typeof (typeof x === "string" ? x : x && x.entity) === "string")) throw new Error("jam-ridge: each entity is an id or {entity, name}");
+    if (c.hours_to_show !== undefined && !(+c.hours_to_show > 0)) throw new Error("jam-ridge: hours_to_show is a positive number");
+  }
+  _items() { return this._config.entities.map(x => (typeof x === "string" ? {entity: x} : x)); }
+  watched() { return this._items().map(x => x.entity); }
+  _hours() { return +this._config.hours_to_show > 0 ? +this._config.hours_to_show : 24; }
+  _every() { return Math.max(1, +this._config.refresh_minutes || 5) * 60e3; }
+  setConfig(c) {
+    const q = JSON.stringify([(c.entities || []).map(x => (typeof x === "string" ? x : x && x.entity)), c.hours_to_show]);
+    if (q !== this._q) { this._q = q; this._data = null; this._tok++; this._last = 0; }
+    super.setConfig(c);
+    if (this.isConnected) { this._arm(); this._kick(); }
+  }
+  set hass(h) {
+    const first = !this._hass, before = this._sig;
+    super.hass = h;
+    if (first || this._sig !== before) this._kick();
+  }
+  get hass() { return super.hass; }
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this._ro && window.ResizeObserver) this._ro = new ResizeObserver(() => this._draw());
+    if (this._ro) this._ro.observe(this);
+    this._arm();
+    if (!this._data || Date.now() - this._last > this._every()) this._kick();
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._iv); this._iv = null;
+    clearTimeout(this._pending); this._pending = null;
+    if (this._ro) this._ro.disconnect();
+  }
+  _arm() { clearInterval(this._iv); this._iv = null; if (this._config) this._iv = setInterval(() => this._kick(), this._every()); }
+  _kick() {
+    if (!this._hass || !this._config || !this.isConnected) return;
+    const wait = this._last + JAM_GRAPH_GAP - Date.now();
+    if (wait <= 0) { clearTimeout(this._pending); this._pending = null; this._fetch(); return; }
+    if (!this._pending) this._pending = setTimeout(() => { this._pending = null; this._kick(); }, wait);
+  }
+  async _fetch() {
+    const ids = this.watched(), tok = ++this._tok, t1 = Date.now(), t0 = t1 - this._hours() * 3600e3;
+    this._last = t1;
+    let res = null;
+    try {
+      if (typeof this._hass.callWS !== "function") throw new Error("no callWS");
+      res = await this._hass.callWS({type: "history/history_during_period", start_time: new Date(t0).toISOString(), end_time: new Date(t1).toISOString(),
+        entity_ids: ids, minimal_response: true, no_attributes: true, significant_changes_only: false});
+    } catch (e) { res = null; }
+    if (tok !== this._tok) return;
+    this._data = {t0, t1, series: ids.map(id => JamGraph.prep(res && res[id], t0, t1, "line", this._hours()))};
+    this._sig = null; this._render(false);
+  }
+  css() { return `
+    .rg{display:grid;gap:8px;align-content:start}
+    .hd{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+    .ttl{font-size:calc(1.6rem * var(--disp-scale));margin:0;min-width:0;overflow-wrap:anywhere}
+    .rule{height:var(--rule-h);background:var(--acc)}
+    .rows{position:relative;display:grid;padding-top:${Math.round(RG_ROW * (RG_AMP - 1)) + 6}px}
+    .row,.ax{display:grid;grid-template-columns:minmax(64px,28%) minmax(0,1fr) 5.4rem;gap:12px}
+    .row{position:relative;align-items:end;
+      height:${RG_ROW}px;padding:0 0 4px;text-align:left;color:var(--fg)}
+    .nm{display:flex;align-items:center;gap:6px;min-width:0;font:var(--lbl-w) .74rem/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));
+      text-transform:var(--lbl-case);color:var(--fg)}
+    .nm > span:last-child{min-width:0;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+    .v{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);font-size:calc(1.15rem * var(--num-scale,var(--disp-scale)));line-height:1;
+      text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .v .unit{font:500 .7rem var(--body);margin-left:2px}
+    .v.na{color:var(--dim)}
+    .plot{position:absolute;top:0;bottom:0;pointer-events:none;overflow:visible}
+    .plot path{fill:none;stroke:var(--fg);stroke-width:var(--rg-w,1.5px);stroke-linejoin:round;vector-effect:non-scaling-stroke}
+    .plot path.base{stroke:var(--line)}
+    .plot path.flat{stroke:var(--dim)}
+    .ax > span{grid-column:2;display:flex;justify-content:space-between}
+    .ax .label{font-size:.66rem}
+    .row:hover .nm > span:last-child{text-decoration:underline;text-underline-offset:3px}`; }
+  render(b) {
+    const c = this._config, h = this._hass, items = this._items();
+    const {root, face} = this.paper(items[0].entity, {face: "rg"});
+    const hd = el("div", "hd");
+    hd.append(el("h2", "disp ttl", c.title || "History"), el("span", "label", `${this._hours()} h`));
+    face.append(hd, el("div", "rule"));
+    const rows = el("div", "rows");
+    const plot = rgSvg("svg", {class: "plot", "aria-hidden": "true"});
+    rows.append(plot);
+    const data = this._data;
+    this._rows = items.map((x, i) => {
+      const s = stateObj(h, x.entity), nm = x.name || friendly(h, x.entity), na = !s || UNAVAILABLE.has(s.state) || !isFinite(Number(s.state));
+      const row = el("button", "row");
+      row.dataset.entity = x.entity; row.dataset.jamName = nm;
+      const lab = el("span", "nm"), code = motif("code", this, nm);
+      if (code) lab.append(code);
+      lab.append(el("span", "", nm));
+      const v = el("span", "v num" + (na ? " na" : ""), na ? "—" : fmtState(h, s));
+      if (!na) keepUnit(v, s);
+      row.append(lab, el("span", "sp"), v);
+      const pts = data ? data.series[i] : null, vals = pts ? pts.map(p => p[1]).filter(y => y !== null) : [];
+      const u = s && s.attributes && s.attributes.unit_of_measurement ? " " + s.attributes.unit_of_measurement : "";
+      const rng = vals.length ? `, ${this._hours()} h range ${+Math.min(...vals).toFixed(2)} to ${+Math.max(...vals).toFixed(2)}${u}` : "";
+      row.setAttribute("aria-label", `${nm}, ${v.textContent}${rng}`);
+      row.onclick = () => moreInfo(this, x.entity);
+      rows.append(row);
+      return row;
+    });
+    face.append(rows);
+    const ax = el("div", "ax");
+    ax.setAttribute("aria-hidden", "true");
+    const ends = el("span");
+    ends.append(el("span", "label", `${this._hours()} h ago`), el("span", "label", "now"));
+    ax.append(ends);
+    face.append(ax);
+    b.append(root);
+    this._plot = plot; this._rowsBox = rows; this._w = -1;
+    this._draw();
+  }
+  /* Ridges in the middle column, back (top row) to front (bottom row); each line is masked by the areas under the ridges in
+     front of it, so nothing is filled and the face shows through. Redrawn only when the column width changes. */
+  _draw() {
+    const plot = this._plot, rows = this._rowsBox, data = this._data;
+    if (!plot || !plot.isConnected || !this._rows.length) return;
+    const sp = this._rows[0].querySelector(".sp"), rb = rows.getBoundingClientRect(), sb = sp.getBoundingClientRect();
+    const W = Math.round(sb.width), H = Math.round(rb.height);
+    if (!W || (W === this._w && H === this._h)) return;
+    this._w = W; this._h = H;
+    plot.style.left = (sb.left - rb.left) + "px"; plot.style.width = W + "px";
+    plot.setAttribute("width", W); plot.setAttribute("height", H); plot.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    plot.textContent = "";
+    if (!data) return;
+    const amp = RG_ROW * RG_AMP - 8, x = t => (t - data.t0) / (data.t1 - data.t0) * W, f = v => v.toFixed(1);
+    const shapes = this._rows.map((row, i) => {
+      const base = row.offsetTop + RG_ROW - 8, pts = (data.series[i] || []).filter(p => p[1] !== null);
+      if (pts.length < 2) return {base, line: `M0 ${base}H${W}`, area: `M0 ${base}H${W}V${base + 2}H0Z`, flat: true};
+      const ys = pts.map(p => p[1]), lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo;
+      const y = v => base - (span > 0 ? (v - lo) / span : .5) * amp;
+      const line = "M" + pts.map(p => `${f(x(p[0]))} ${f(y(p[1]))}`).join("L");
+      return {base, line, area: `${line}V${base + 2}H${f(x(pts[0][0]))}Z`, flat: span <= 0};
+    });
+    const defs = rgSvg("defs", {});
+    plot.append(defs);
+    shapes.forEach((s, i) => {
+      const id = `${this._uid}m${i}`, m = rgSvg("mask", {id, maskUnits: "userSpaceOnUse", x: -4, y: -4, width: W + 8, height: H + 8});
+      m.append(rgSvg("rect", {x: -4, y: -4, width: W + 8, height: H + 8, fill: "white"}));
+      for (let j = i + 1; j < shapes.length; j++) m.append(rgSvg("path", {d: shapes[j].area, fill: "black", stroke: "black", "stroke-width": 3}));
+      defs.append(m);
+      plot.append(rgSvg("path", {d: `M0 ${s.base}H${W}`, class: "base", mask: `url(#${id})`}));
+      plot.append(rgSvg("path", {d: s.line, class: s.flat ? "flat" : "", mask: `url(#${id})`}));
+    });
+  }
+  getCardSize() { return 2 + this._items().length; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-ridge", JamRidge, "Jam Ridge", "Stacked ridgelines of recorder history for 1-8 sensors, with the current values.");
+
 /* ---------- jam-scenes: horizontally scrolling row of scene keys (Londrina, 10px bottom-right cut) ----------
    {type: custom:jam-scenes, scenes: [{entity (scene.* | script.*), name? (default friendly name), data? (extra
     service data, e.g. {transition: 2})}], current_entity? (input_select whose state names the active scene; matched
@@ -8752,6 +9450,97 @@ class JamSpeaker extends JamBase {
 }
 register("jam-speaker", JamSpeaker, "Jam Speaker", "Music Assistant speaker: artwork / cut-paper poster with an ink title band (shuffle, favourite), power corner, transport, volume; library panel (pinned, recent, playlists, albums, search); kiosk K1.");
 
+/* ---------- jam-sticker: a note that shows only while its condition holds (designed for the New Wave look) ----------
+   {type: custom:jam-sticker, conditions: [{condition?: state | numeric_state, entity, state? (string | list), state_not?
+    (string | list), above?, below?}] (all must hold; like HA's visibility conditions; without `condition` an item with
+    above / below is numeric_state, else state), title, text?, severity?: info | warn (default) | alert,
+    action_name? ("Open"), tap_action? (a key on the sticker runs it), entity? (the key's more-info default)}
+   While a condition fails the card hides itself (host `hidden`, nothing rendered; shown anyway with card.preview, which HA
+   sets in the card picker and the dashboard editor). Shown: a flat note in the severity
+   colour (--sk: info teal, warn ochre, alert red; a look pack may set its own, New Wave: mint / sticker yellow / red),
+   the cut corner as the peeled corner, the title in the display type, the text, and an optional key (a --slab plate with
+   --fg text). The text colour is the look's dark or light text, whichever reads 4.5:1 on the resolved --sk; when neither
+   does the note becomes a --slab face with a severity stripe. Screen readers hear the severity word first (role status).
+   Tilt and shadow are look effects (New Wave under data-fx), never motion. */
+const SK_SEV = ["info", "warn", "alert"], SK_WORD = {info: "Note", warn: "Heads up", alert: "Alert"};
+const skList = v => (v === undefined || v === null ? null : (Array.isArray(v) ? v : [v]).map(String));
+class JamSticker extends JamBase {
+  validate(c) {
+    if (!Array.isArray(c.conditions) || !c.conditions.length) throw new Error("jam-sticker: conditions is required (a list of {entity, state} / {entity, above, below})");
+    for (const k of c.conditions) if (!k || typeof k.entity !== "string") throw new Error("jam-sticker: every condition needs an entity");
+    if (!c.title && !c.text) throw new Error("jam-sticker: give a title or a text");
+    if (c.severity !== undefined && !SK_SEV.includes(c.severity)) throw new Error("jam-sticker: severity is info, warn or alert");
+  }
+  watched() { return [...new Set([...this._config.conditions.map(k => k.entity), this._config.entity].filter(Boolean))]; }
+  /* One condition: state (equals one of `state`, none of `state_not`) or numeric_state (above < value < below). */
+  _holds(k) {
+    const s = stateObj(this._hass, k.entity);
+    if (!s) return false;
+    const num = k.condition === "numeric_state" || (k.condition !== "state" && (k.above !== undefined || k.below !== undefined));
+    if (num) {
+      const v = Number(s.state);
+      if (s.state === "" || !isFinite(v)) return false;
+      return (k.above === undefined || v > +k.above) && (k.below === undefined || v < +k.below);
+    }
+    const yes = skList(k.state), no = skList(k.state_not);
+    if (yes && !yes.includes(s.state)) return false;
+    if (no && no.includes(s.state)) return false;
+    return !!(yes || no) || s.state === "on";
+  }
+  /* Shown while every condition holds; always in the card picker / dashboard editor (card.preview, set by HA). */
+  shown() { return !!this._hass && (!!this._preview || this._config.conditions.every(k => this._holds(k))); }
+  /* No view entrance for a hidden sticker (the one-shot class would never play out on a display:none host). */
+  _enter(ms) { if (!this.hidden) super._enter(ms); }
+  get preview() { return !!this._preview; }
+  set preview(v) { v = !!v; if (v === !!this._preview) return; this._preview = v; if (this._config && this._hass) { this._sig = null; this._render(false); } }
+  css() { return `
+    :host([hidden]){display:none}
+    /* raised specificity: a look pack's card-face rules (.host > .paper[data-cut=card] > .face) must not repaint the note */
+    .host > .paper[data-cut] > .face.sk{--p-t:16px;--p-r:22px;--p-b:20px;--p-l:18px;background:var(--sk);color:var(--sk-fg,var(--on-fg));display:grid;gap:8px;align-content:start}
+    .host > .paper[data-cut] > .face.sk.plate{background:var(--slab);color:var(--fg);border-left:var(--stripe-w) solid var(--sk)}
+    .info{--sk:var(--teal)} .warn{--sk:var(--ochre)} .alert{--sk:var(--red)}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+    .ttl{font-size:calc(1.5rem * var(--disp-scale));margin:0;overflow-wrap:anywhere}
+    .tx{margin:0;font:500 .95rem/1.4 var(--body);max-width:60ch;overflow-wrap:anywhere}
+    .act{justify-self:start;margin-top:4px;min-height:44px}
+    .act > .face{background:var(--slab);color:var(--fg)}`; }
+  render(b) {
+    const c = this._config;
+    const on = this.shown();
+    if (this.hidden === on) this.hidden = !on;
+    if (!on) return;
+    const sev = c.severity || "warn";
+    const {root, face} = this.paper("note", {face: "sk " + sev});
+    face.setAttribute("role", "status");
+    face.append(el("span", "sr", SK_WORD[sev] + ": "));
+    if (c.title) face.append(el("h2", "disp ttl", c.title));
+    if (c.text) face.append(el("p", "tx", c.text));
+    if (c.tap_action) {
+      const k = cutKey(c.action_name || "Open", "jam-sticker|act", "act");
+      bindActions(k, () => this._hass, {tap_action: c.tap_action}, c.entity);
+      face.append(k);
+    }
+    b.append(root);
+    this._face = face;
+    this._wait = !this._paint();
+  }
+  /* Text colour on the resolved sticker colour (once in the page). */
+  _paint() {
+    const f = this._face;
+    if (!f || !f.isConnected) return false;
+    const rgb = resolveRgb(f, "var(--sk)"), t = rgb ? textOn(rgb, textColors(f)) : null;
+    f.classList.toggle("plate", !t || t.plate);
+    if (t && !t.plate) f.style.setProperty("--sk-fg", t.fg); else f.style.removeProperty("--sk-fg");
+    return true;
+  }
+  connectedCallback() { super.connectedCallback(); if (this._wait) this._wait = !this._paint(); }
+  /* A look / mode switch (queueLook, also right after the first attach, once the look pack is adopted): paint again. */
+  _themeRefresh() { if (this._face && this._face.isConnected) this._paint(); }
+  getCardSize() { return this.hidden ? 0 : 2; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 4}; }
+}
+register("jam-sticker", JamSticker, "Jam Sticker", "A sticker note that shows only while its conditions hold: alerts, reminders, a key to act on them.");
+
 /* ---------- jam-tabs: room tabs (equal-width keys, 8px top-right cut, 4px accent bar) ----------
    {type: custom:jam-tabs, tabs: [{name, path (navigation path, e.g. /jam-overview/kitchen), accent? (colour or room
     alias; default the card accent)}], sticky?: true (the host itself is position:sticky, top var(--header-height, 0))}
@@ -9684,7 +10473,12 @@ const JE_LABELS = {
   input_app: "Apps that mean \"showing an input\"", input_signal_entity: "Input signal", volume_up_action: "Volume up",
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
+  lines: "Lines (rooms)", stations: "Stations (entities, in order)", calendars: "Calendars",
+  events: "Events to show", hours: "Look ahead (hours)", message: "Message", text: "Text", severity: "Severity",
+  conditions: "Show while (all hold)", condition: "Condition", state_not: "State is not", action_name: "Key name",
 };
+/* Per card labels where a shared key means something else (jam-house `alerts` = alert chips). */
+const JE_TAG_LABELS = {"jam-arrivals": {alerts: "Service changes"}};
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
   show_color_temp: "Default: when the light supports colour temperature.",
@@ -9696,6 +10490,8 @@ const JE_HELP = {
   disable_on: "No screensaver while one of these entities is in the state (default on / playing).",
   sources: "A source whose match has inputs is listed under Inputs, the rest under Apps.",
   looks: "Default: JamBoard and every installed theme named \"Jam ...\". Any installed theme name works.",
+  stations: "An entity on two lines is an interchange.",
+  conditions: "Like HA's visibility conditions: state (state / state is not) or numeric_state (above / below).",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -9746,7 +10542,7 @@ function jeForm(tag, schema, check) {
   const base = jeAssert(tag, schema);
   return {
     schema,
-    computeLabel: f => JE_LABELS[f.name] || (f.name ? f.name.replace(/_/g, " ") : undefined),
+    computeLabel: f => (JE_TAG_LABELS[tag] || {})[f.name] || JE_LABELS[f.name] || (f.name ? f.name.replace(/_/g, " ") : undefined),
     computeHelper: f => JE_HELP[f.name] || undefined,
     assertConfig: check ? config => { base(config); check(config); } : base,
   };
@@ -9950,6 +10746,42 @@ const JAM_EDITORS = {
   "jam-looks": {
     schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
     stub: () => ({title: "Look"}),
+  },
+  /* ---- look cards (2026-11-03, night plan §3): jam-linemap (Transit), jam-arrivals (Transit), jam-matrix (Grid), jam-ridge
+     (Pulsar), jam-sticker (New Wave). Bare ids in an object list (arrivals calendars / entities as {entity, name}) go to YAML. ---- */
+  "jam-linemap": {
+    schema: [jeText("title"), JE_ACCENT,
+      jeList("lines", [jeText("name", {required: true}), {name: "color", selector: JE_ACCENT.selector}, jeText("path"),
+        jeEnts("stations", null, {required: true})], {label: "name", desc: "path"}, {required: true})],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light", "switch"), 4);
+      return {title: "House lines", lines: [{name: "Living", color: "living", stations: ids.length ? ids : ["light.jam"]}]}; },
+  },
+  "jam-arrivals": {
+    schema: [jeText("title"), JE_ACCENT,
+      jeList("alerts", [jeEnt("entity", null, {required: true}), jeText("state"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"}),
+        jeText("message")], {label: "entity", desc: "message"}),
+      jeEnts("media", "media_player"), jeEnts("calendars", "calendar"),
+      jeGrid(jeNum("events", {min: 1, max: 20}, {default: 4}), jeNum("hours", {min: 1}, {default: 48}), jeNum("refresh_minutes", {min: 1}, {default: 15})),
+      jeEnts("entities")],
+    stub: (h, e) => { const cal = jePickN(h, e, jeDom("calendar"), 1), ents = jePickN(h, e, jeDom("sensor", "lock", "binary_sensor"), 2);
+      return {title: "Arrivals", ...(cal.length ? {calendars: cal} : {}), entities: ents.length ? ents : ["sun.sun"]}; },
+  },
+  "jam-matrix": {
+    schema: [jeText("title"), jeEnts("entities", null, {required: true}), jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light"), 8); return {title: "Lights", entities: ids.length ? ids : ["light.jam"]}; },
+  },
+  "jam-ridge": {
+    schema: [jeText("title"), jeEnts("entities", JE_NUMERIC, {required: true}),
+      jeGrid(jeNum("hours_to_show", {min: 1}, {default: 24}), jeNum("refresh_minutes", {min: 1}, {default: 5})), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeTemp, 4); return {title: "Temperatures", entities: ids.length ? ids : ["sensor.jam"]}; },
+  },
+  "jam-sticker": {
+    schema: [jeText("title"), {name: "text", selector: {text: {multiline: true}}}, jeSel("severity", ["info", "warn", "alert"], {default: "warn"}),
+      jeList("conditions", [jeSel("condition", ["state", "numeric_state"]), jeEnt("entity", null, {required: true}), jeText("state"),
+        jeText("state_not"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"})], {label: "entity", desc: "state"}, {required: true}),
+      jeMore("Key", [jeEnt("entity"), jeText("action_name"), JE_ACTION("tap_action")])],
+    stub: (h, e) => { const id = jePick(h, e, jeDom("binary_sensor", "input_boolean", "switch"), "input_boolean.jam");
+      return {title: "Heads up", text: "Shows while the condition holds.", conditions: [{condition: "state", entity: id, state: "on"}]}; },
   },
 };
 

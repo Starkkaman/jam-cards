@@ -397,6 +397,17 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 
 /* ---------- failed action strip ---------- */
 .jam-err{border:1px solid var(--line);border-left:var(--stripe-w) solid var(--red)}
+/* ---------- look cards (2026-11-03): thin tracks, 1px ridges, outlined matrix cells (on = a warm ring around a warm
+   core), stickers as outlined notes (alert: a warm outline and warm title) ---------- */
+:host(jam-linemap){--lm-w:3px}
+:host(jam-ridge){--rg-w:1px}
+:host(jam-matrix) .cell,:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:none;box-shadow:inset 0 0 0 1px var(--acc),inset 0 0 0 6px var(--slab),inset 0 0 0 999px var(--acc)}
+:host(jam-matrix) .cell.alert{--acc:var(--red)}
+:host(jam-matrix) .cell:hover{box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-sticker) .sk.sk{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.alert{box-shadow:inset 0 0 0 1px var(--red)}
+:host(jam-sticker) .sk.alert .ttl{color:var(--alert-text)}
 `;
 
   registerLook({

@@ -220,6 +220,15 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .tchip{background:var(--fg);color:var(--slab);clip-path:none;box-shadow:4px 4px 0 var(--acc)}
 .tchip small{color:var(--slab)}
 @media (prefers-reduced-motion:reduce){.ov[data-fx]::before{transition:none}}
+/* ---------- look cards (2026-11-03): jam-sticker = a real sticker: sticker yellow (warn), mint (info), red (alert), ink
+   text, a hard ink offset; under fx it turns 1.5 degrees (seeded left / right) instead of the planes' 0.6 ---------- */
+:host(jam-sticker) .host > .paper[data-cut=card] > .face.sk{background:var(--sk);color:var(--sk-fg,var(--on-fg));box-shadow:4px 4px 0 var(--fg)}
+:host(jam-sticker) .sk.warn{--sk:var(--jam-art-6,var(--ochre))}
+:host(jam-sticker) .sk.info{--sk:var(--jam-art-8,var(--teal))}
+:host(jam-sticker) .host.host{--nw-rot:-1.5deg}
+:host(jam-sticker[data-jam-seed="1"]) .host.host,:host(jam-sticker[data-jam-seed="3"]) .host.host,:host(jam-sticker[data-jam-seed="5"]) .host.host,:host(jam-sticker[data-jam-seed="7"]) .host.host,:host(jam-sticker[data-jam-seed="9"]) .host.host,:host(jam-sticker[data-jam-seed="11"]) .host.host{--nw-rot:1.2deg}
+:host(jam-sticker) .act > .face{background:var(--slab);color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on{box-shadow:3px 3px 0 var(--fg)}
 `;
 
   /* Screensaver motif: four confetti shapes (triangle, ring, dot grid, squiggle) in the layout's b1 / b2 / b3 / dk boxes

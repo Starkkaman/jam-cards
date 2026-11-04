@@ -366,6 +366,15 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 .np .th{background:var(--slab2)}
 .np .th .arm span{background:var(--fg)}
 .sdock .np{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+/* ---------- look cards (2026-11-03): jam-matrix cells = outlined squares (on = the signal), the info sticker = an
+   outlined white / black note (warn and alert keep the signal) ---------- */
+:host(jam-matrix) .cell{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:var(--acc)}
+:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell:hover{box-shadow:inset 0 0 0 3px var(--fg)}
+:host(jam-matrix) .slot{box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.info{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-linemap) .trk path{stroke-linecap:square}
 `;
 
   registerLook({
