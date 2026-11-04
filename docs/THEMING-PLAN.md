@@ -780,3 +780,20 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   tone dots, 40-48px numerals, the jammed-key / swatch / weather-glyph bugs, kiosk dock `data-state` styling (its preview stub
   `preview/fixtures/86-kiosk-dock-state.js` was removed in the 0.10.0 release merge: jam-kiosk writes the attribute), the per-block room
   discs on the kiosk, a lead tile in odd-count kiosk sheets, a bar-less screensaver with a flat orb. Still no shared hook.
+- **R10 Girard (done, 2026-11-04, branch look-girard).** Brief docs/looks/GIRARD.md (decisions and deviations under
+  "Built"), rules in DESIGN.md "Girard rules". `tokens/looks/girard.mjs`: theme "Jam Girard"
+  (`../jam-theme/themes/jamboard-girard.yaml`, jam-theme branch look-girard), light primary (cream-white page, white faces)
+  + dark (ink page, brown faces), saturated textile fills per room, Fraunces 600 (SOFT / WONK instance) + Work Sans,
+  square cards with pill chips, `jam-pad-card` / `-hero` / `-sheet` so text clears the frame, gentle 200 ms motion with
+  pack keyframes. Pack `src/looks/girard.js`: woven 6px pattern frames per room (inset band + a masked `::after`),
+  sun / heart / eye / bird / diamond motifs as CSS masks (room headings, jam-button discs, jam-light levels, idle art,
+  screensaver), tinted pill keys, `--acc-fg` computed from the fill (relative colour syntax), the sun power key (15° turn per
+  change), jam-light tint-on, kiosk woven band + framed dock blocks. Fonts in dist/fonts (OFL). **No shared-code hooks**:
+  CSS over the stable hooks and the existing motifs only; Poster pixel-identical (JAM_BASELINE vs main). Checks:
+  96-packs and views.js know the eighth look (picker tiles, Fraunces swatch, girard pack fonts).
+  **Design review rework (2026-11-04)**: kiosk = the room's own field in light mode, a runner of the six rooms, a sky motif
+  before the clock, dock blocks by `data-state` (on / off / action, from audit-fixes), lock ink disc / rayed sun; screensaver
+  = one textile panel of room tiles + a door tile; frames only on heroes / sheets / jam-button tiles (other cards: a 12px
+  woven top edge); bug fixes (tile key height, alert values, idle colours). Uses the existing `decorate` hook (jam-kiosk: runner
+  segments + `data-gi-sky`). preview/views.js (every non-Poster look): new views kiosk-dock-states (data-state as jam-kiosk
+  writes it; the stubbing was dropped in the 0.10.0 release merge) and kiosk-unlocked.
