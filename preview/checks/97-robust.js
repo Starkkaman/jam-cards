@@ -21,7 +21,7 @@ module.exports = async (page, check) => {
     return out;
   });
   const tags = [...new Set(cfgs.map(c => c.type.slice(7)))].sort();
-  check(tags.length === 25, `lifecycle: preview has all 25 card types (${tags.length}: ${tags.join(" ")})`);
+  check(tags.length === 28, `lifecycle: preview has all 28 card types (${tags.length}: ${tags.join(" ")})`);
 
   // ---------- lifecycle on a clean page ----------
   const clean = await page.context().browser().newPage();

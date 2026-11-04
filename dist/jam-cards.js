@@ -1233,7 +1233,8 @@ function jamNowMedia(hass, src) {
    and switch keys, room colour as a 4px rule on top of jam-heading and a 15% dock-block tint (pressed = solid), 12% accent /
    tint on the speaker / TV text bands (the K1 side panel stays the plain panel). The pack sheet is adopted only while the look is active, so nothing here
    needs a look selector. Font: Archivo (SIL OFL 1.1, latin subset from Google Fonts, variable wght axis; declared 300-700:
-   300 = the kiosk clock). */
+   300 = the kiosk clock). Look cards (2026-11-03): jam-dial / jam-keypad / jam-radio get the mockup's polish here (raised dial
+   cap, the brown ET66 body with its green LCD and coloured keys, the T3 grille / LCD / ribbed wheel). */
 (() => {
   const NS = "http://www.w3.org/2000/svg";
   const svgEl = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
@@ -1532,6 +1533,31 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .tchip small{color:var(--dim)}
 .np .th{background:var(--slab2);border-radius:10px}
 .sdock .np{background:var(--slab);border:1px solid var(--line);border-radius:14px;box-shadow:var(--jam-elev-1,none)}
+
+/* ---------- look cards (jam-dial, jam-keypad, jam-radio): the mockup's objects ---------- */
+/* AB-1 / T3 dial: rounded arc ends, ink ticks, a raised panel cap with a hairline, a rounded signal mark */
+.dl-arc,.dl-tr{stroke-linecap:round}
+.dl-tk{stroke:var(--fg)}
+.dl-cap{background:var(--slab);box-shadow:0 2px 6px rgba(0,0,0,.18),0 0 0 1px var(--line)}
+.dl-mk{border-radius:2px}
+.dl.on .dl-mk{background:var(--ochre)}
+.dl-s i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+/* ET66: the brown body in both modes, raised keys, a green LCD; ET66 yellow ring; olive / signal / yellow keys */
+.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;color:#f2efe8}
+.kp-disp{border-radius:6px}
+.kp-cap{box-shadow:0 2px 0 #241f19}
+.kp-key:disabled > .kp-cap{box-shadow:none;border-color:#a8a398;color:#f2efe8}
+.kp-key[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
+.kp-key[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-key.on::after{inset:-4px;border-width:3px}
+/* T3: the grille on panel 2, the dark LCD, round keys with the signal on play, a hairline-ringed ribbed wheel */
+.rd-gr{border-radius:12px}
+.rd-lcd{border-color:transparent;border-radius:6px}
+.rd-k.main{background:var(--ochre);color:var(--on-fg)}
+.rd-k.main:disabled{background:var(--slab2);color:var(--dim)}
+.rd-wh{box-shadow:inset 0 0 0 1px var(--line);color:var(--line)}
+.rd-wh line{stroke-width:2.4}
+.rd-wh .rd-vn{box-shadow:0 0 0 1px var(--line)}
 
 /* ---------- failed action strip ---------- */
 .jam-err{border-radius:10px;box-shadow:var(--jam-elev-1,none);border-left-width:var(--stripe-w)}
@@ -4214,6 +4240,140 @@ class JamHouse extends JamBase {
 }
 register("jam-house", JamHouse, "Jam House", "House strip: inside and outside temperature, door lock chip, who's home, alerts.");
 
+/* ---------- jam-keypad: scenes / scripts / buttons as round calculator keys (Braun look card, 2026-11-03) ----------
+   {type: custom:jam-keypad, title? (room, left in the display; default "Scenes"), keys: [{entity? (scene.* | script.* |
+    button.* | input_button.*), name? (default the friendly name), accent? (key colour: a hue or room alias), data? (extra
+    service data), tap_action? (instead of the entity's own call; a key without entity needs name + tap_action)}],
+    current_entity? (input_select / select naming the active scene), all_on? / all_off? (Lovelace actions: adds an
+    "All on" key in green and an "All off" key in ochre after the keys), accent? (the active ring; default ochre)}
+   After the Braun look-cards mockup (ET66 scene pad): a dark body (the look's ink, a step lighter so it stands off a dark
+   page) with a small display on top (the room left, the active scene right, in the label style) and the keys as round
+   calculator keys in a 3-column grid. A key without accent = a body key (ink mixed with 28 % of the ink text, ink text);
+   with accent = that hue, nudged lighter / darker until the look's dark or light text reads 4.5:1 on it (resolved once the
+   card is in the page, again on every render and look switch). Active key (as jam-scenes: the listed scene / script
+   activated last, or the current_entity option when that changed later): a 3px ring around it in the card accent, aria-pressed,
+   and a one-shot stamp when it changes. A key whose entity is missing or unavailable = an outlined, disabled key.
+   Tap: tap_action, else scene / script .turn_on {entity_id, ...data}, button / input_button .press. Real <button>s,
+   >= 56px keys, focus ring outside the active ring; on the dark body a --focus that does not read 3:1 there becomes the ink
+   text colour. No continuous animation. */
+const KP_DOMAINS = ["scene", "script", "button", "input_button"];
+/* [r,g,b] of a computed colour: rgb() / hex (parseRgb), or the color(srgb r g b) form a color-mix() computes to; else null. */
+function jamCssRgb(v) {
+  const m = /^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)/.exec(String(v || "").trim());
+  return m ? [m[1], m[2], m[3]].map(x => Math.round(Math.max(0, Math.min(1, +x)) * 255)) : parseRgb(v);
+}
+class JamKeypad extends JamBase {
+  validate(c) {
+    if (!Array.isArray(c.keys) || !c.keys.length) throw new Error("jam-keypad: keys is required (list of {entity} or {name, tap_action})");
+    for (const k of c.keys) {
+      if (!k || typeof k !== "object") throw new Error("jam-keypad: every key is an object ({entity} or {name, tap_action})");
+      const d = k.entity ? String(k.entity).split(".")[0] : "";
+      if (k.entity && !KP_DOMAINS.includes(d) && !k.tap_action) throw new Error("jam-keypad: a key's entity is a scene, script, button or input_button (or give it a tap_action)");
+      if (!k.entity && !(k.name && k.tap_action)) throw new Error("jam-keypad: a key without entity needs name and tap_action");
+    }
+  }
+  watched() { const c = this._config; return [...c.keys.map(k => k.entity), c.current_entity].filter(Boolean); }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._accWait) this._render(false); // accent keys resolve to rgb only in the page
+  }
+  getCardSize() { return 5; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 4}; }
+  css() { return `
+    .paper.kp > .face{padding:0;overflow:hidden}
+    .kp-body{height:100%;display:grid;gap:12px;align-content:start;padding:14px;color:var(--ink-fg);
+      background:var(--kp-body,color-mix(in srgb,var(--ink) 88%,var(--ink-fg)));--kp-key:color-mix(in srgb,var(--ink) 72%,var(--ink-fg))}
+    .kp-disp{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:8px 12px;
+      background:var(--kp-disp,var(--ink));color:var(--kp-disp-fg,var(--ink-fg))}
+    .kp-room{font:500 15px/1.2 var(--body);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .kp-cur{font:var(--lbl-w) 13px/1.2 var(--body);letter-spacing:calc(.08em * var(--lbl-track));text-transform:uppercase;text-align:right;
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:60%}
+    .kp-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;justify-items:center}
+    .kp-key{position:relative;width:100%;max-width:96px;min-width:56px;aspect-ratio:1;border-radius:50%;color:var(--kf,var(--ink-fg))}
+    .kp-cap{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;padding:8px;background:var(--kc,var(--kp-key));
+      font:var(--key-w) 13px/1.15 var(--body);letter-spacing:calc(.04em * var(--key-track));text-transform:var(--key-case);text-align:center;overflow-wrap:anywhere}
+    .kp-cap > span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .kp-key:disabled{cursor:default}
+    .kp-key:disabled > .kp-cap{background:transparent;border:2px dashed var(--ink-dim);color:var(--ink-fg)}
+    .kp-key.on::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--kp-ring,var(--acc));pointer-events:none}
+    .kp-key:focus-visible{outline:3px solid var(--focus);outline-offset:6px}
+    .kp-key:not(:disabled):active > .kp-cap{transform:var(--press-from);animation:var(--jam-kf-print,jam-print) calc(60ms * var(--jam-motion,1) * var(--dur)) var(--jam-ease-2,steps(2,end)) forwards}
+    .kp-key.jam-stamp::before{content:none}`; }
+  /* The active key's index: the listed scene / script activated last; the current_entity option wins when it changed later. */
+  _active() {
+    const c = this._config, h = this._hass, cur = c.current_entity ? stateObj(h, c.current_entity) : null;
+    const want = cur && !UNAVAILABLE.has(cur.state) ? String(cur.state).trim().toLowerCase() : null;
+    let newest = -1, newT = -Infinity;
+    c.keys.forEach((k, i) => {
+      const d = k.entity ? String(k.entity).split(".")[0] : "";
+      if (d !== "scene" && d !== "script") return;
+      const t = jamSceneTime(stateObj(h, k.entity));
+      if (t > newT) { newT = t; newest = i; }
+    });
+    const curT = cur && cur.last_changed ? Date.parse(cur.last_changed) : NaN;
+    if (newest >= 0 && !(want && curT > newT)) return {i: newest, text: null};
+    if (!want) return {i: -1, text: null};
+    const i = c.keys.findIndex(k => {
+      const nm = String(this._keyName(k)).trim().toLowerCase(), obj = k.entity ? String(k.entity).split(".")[1].replace(/_/g, " ") : "";
+      return nm === want || obj === want;
+    });
+    return {i, text: i < 0 ? String(cur.state) : null};
+  }
+  _keyName(k) { return k.name || friendly(this._hass, k.entity) || "Key"; }
+  _press(btn, k) {
+    const h = this._hass;
+    if (k.tap_action) { runAction(btn, h, k.tap_action, k.entity); return; }
+    const d = String(k.entity).split(".")[0];
+    if (d === "scene" || d === "script") jamCall(btn, h, d, "turn_on", {...(k.data || {}), entity_id: k.entity}, "start");
+    else jamCall(btn, h, d, "press", {...(k.data || {}), entity_id: k.entity}, "run");
+  }
+  render(b) {
+    const c = this._config, h = this._hass;
+    const {root, face} = this.paper("keypad", {cls: "kp"});
+    b.append(root); // in the page first: accent keys resolve to rgb
+    const body = el("div", "kp-body"), disp = el("div", "kp-disp"), keys = el("div", "kp-keys");
+    const act = this._active(), title = c.title || "Scenes";
+    const items = c.keys.map((k, i) => ({k, i, name: this._keyName(k)}));
+    if (c.all_on) items.push({k: {name: "All on", accent: "green", tap_action: c.all_on}, name: "All on"});
+    if (c.all_off) items.push({k: {name: "All off", accent: "ochre", tap_action: c.all_off}, name: "All off"});
+    const curName = act.i >= 0 ? items[act.i].name : act.text || "";
+    disp.append(el("span", "kp-room", title));
+    if (curName) disp.append(el("span", "kp-cur", curName));
+    disp.setAttribute("aria-label", curName ? `${title}: ${curName}` : title);
+    keys.setAttribute("role", "group"); keys.setAttribute("aria-label", title);
+    body.append(disp, keys);
+    face.append(body);
+    const tc = textColors(b);
+    this._accWait = false;
+    let activeBtn = null;
+    for (const it of items) {
+      const k = it.k, s = k.entity ? stateObj(h, k.entity) : null, on = it.i != null && it.i === act.i;
+      const btn = el("button", "kp-key" + (on ? " on" : "")), cap = el("span", "kp-cap");
+      btn.type = "button"; cap.append(el("span", null, it.name)); btn.append(cap);
+      if (k.entity && !k.tap_action && (!s || s.state === "unavailable")) { btn.disabled = true; btn.setAttribute("aria-label", `${it.name} (unavailable)`); }
+      if (it.i != null && k.entity && /^(scene|script)\./.test(k.entity)) btn.setAttribute("aria-pressed", String(on));
+      const av = accentVar(k.accent);
+      if (av) btn.dataset.accent = accentName(k.accent); // a look pack may recolour a hue's keys
+      if (av && !btn.disabled) {
+        const rgb = resolveRgb(b, av);
+        if (rgb) { const r = jamMuReadable(rgb, tc); btn.style.setProperty("--kc", r.bg); btn.style.setProperty("--kf", r.fg); }
+        else this._accWait = true;
+      }
+      btn.onclick = () => this._press(btn, k);
+      if (on) activeBtn = btn;
+      keys.append(btn);
+    }
+    // Focus ring on the dark body: the look's --focus when it reads 3:1 there, else the ink text colour.
+    const bodyRgb = jamCssRgb(getComputedStyle(body).backgroundColor), foc = resolveRgb(b, "var(--focus)");
+    if (bodyRgb && foc && contrastRatio(bodyRgb, foc) < 3) body.style.setProperty("--focus", "var(--ink-fg)");
+    // Stamp (as jam-scenes): the newly active key, once, when it changes after the first render.
+    const id = act.i >= 0 ? act.i : null;
+    if (this._actSeen && activeBtn && id !== this._act && motionOn()) activeBtn.classList.add("jam-stamp");
+    this._act = id; this._actSeen = true;
+  }
+}
+register("jam-keypad", JamKeypad, "Jam Keypad", "Scene pad: scenes, scripts and buttons as round calculator keys on a dark body, a small display with the room and the active scene.");
+
 /* ---------- jam-kiosk: the kiosk home screen ("B · Poster + dock", 0.5.0) ----------
    {type: custom:jam-kiosk, accent? (room colour of the 10px top bar, default ochre), now?: [sources, first active one wins],
     dock: [2-5 blocks], two lines under the clock (0.6.1):
@@ -5403,6 +5563,289 @@ class JamLight extends JamBase {
   getGridOptions() { return {columns: 6, rows: "auto", min_columns: 4}; }
 }
 register("jam-light", JamLight, "Jam Light", "Light card in the light's own colour: tap toggles, drag dims, hold or ⋯ opens the light pop-up.");
+
+/* ---------- jam-dial: a light as a rotary dial (Braun look card, 2026-11-03; renders in every look) ----------
+   {type: custom:jam-dial, entity (light.*, groups too), name?, kicker? (sub line; default: a group's "K of N on", else the
+    entity's area), accent? (the dial mark; default ochre), show_swatches? (true), whites?: [{name, kelvin}] (as jam-light),
+    colors?: [{name?, rgb_color}] (colour swatches; default: this user's saved colours (the jam-light pop-up's), else
+    Amber / Rose / Blue), hold_action? (default: the jam-light pop-up), plus jam-light's pop-up options (preset_entity,
+    timer_script, presets, show_brightness, show_color_temp, show_color, show_members)}
+   After the Braun look-cards mockup (dial light): name + sub line, the power toggle top-right (core powerCorner: Poster's
+   triangle, Braun's toggle), a dial: 7 tick marks, a 270 degree track with the brightness arc in the light's own colour
+   (its colour at full value, the group's average of the lit members; nudged lighter / darker only where it would vanish
+   into the card face, under 1.6:1), a centre cap with the % (tap = toggle) and a mark on its rim at the value; under it a row of round swatches:
+   the two whites (color_temp lights) and the colours (colour lights), the current one ringed.
+   The dial is a real slider (role=slider, 0-100, "Off" while off): drag in a circle (the bottom gap clamps to the nearer
+   end), a tap on the ring jumps there, the mouse wheel steps it (sent after 300 ms), arrows +/-5, PageUp / PageDown +/-10,
+   Home / End = 1 / 100; light.turn_on brightness_pct on release (from off too). A hold (500 ms without moving) on the dial,
+   the cap or the name = hold_action, by default the jam-light pop-up (the class extends JamLight, so the pop-up, its user
+   data, whites and drag-safe rendering are jam-light's own). The name is a button that opens the pop-up (keyboard path).
+   Non-dimming lights show a full / empty arc without the slider; unavailable lights show N/A with every control disabled.
+   No continuous animation: the arc, number and mark are set once per value. Look polish (rounded arc ends, raised cap)
+   lives in the look packs; the card itself only uses tokens. */
+const DIAL_SWEEP = 270, DIAL_R = 84;
+const DIAL_COLORS = [{name: "Amber", rgb_color: [255, 160, 64]}, {name: "Rose", rgb_color: [226, 101, 143]}, {name: "Blue", rgb_color: [74, 123, 224]}];
+/* This user's saved colours / whites for the swatches (frontend/get_user_data jam_colors + jam_whites), loaded once per page
+   by the first dial, apart from jam-light's own load (which a pop-up does; once it has run, its fresher copy wins). */
+let DIAL_SAVED = null, DIAL_LOAD = null;
+function dialLoad(h) {
+  if (DIAL_SAVED || DIAL_LOAD) return DIAL_LOAD;
+  if (!h || typeof h.callWS !== "function") { DIAL_SAVED = {colors: [], whites: {}}; return null; }
+  const get = key => Promise.resolve().then(() => h.callWS({type: "frontend/get_user_data", key})).then(r => r && r.value, () => null);
+  DIAL_LOAD = Promise.all([get("jam_colors"), get("jam_whites")]).then(([v, w]) => {
+    DIAL_SAVED = {colors: Array.isArray(v) ? v.filter(x => Array.isArray(x) && x.length >= 3) : [], whites: w && typeof w === "object" && !Array.isArray(w) ? w : {}};
+  }, () => { DIAL_SAVED = {colors: [], whites: {}}; }).then(() => { DIAL_LOAD = null; });
+  return DIAL_LOAD;
+}
+/* Point on the dial circle (centre 100,100) at angle a degrees (0 = top, clockwise). */
+const dialPt = (a, r) => { const t = (a - 90) * Math.PI / 180; return [(100 + r * Math.cos(t)).toFixed(2), (100 + r * Math.sin(t)).toFixed(2)]; };
+/* rgb nudged toward black or white (whichever gains contrast) until it reads min:1 on face: the arc stays the light's own
+   colour unless it would vanish into the face (a warm white on a cream panel). The % is the readable value. */
+function dialReadable(rgb, face, min = 1.6) {
+  if (!face) return rgb;
+  let c = rgb.slice(0, 3);
+  const to = luminance(face) > .18 ? [0, 0, 0] : [255, 255, 255];
+  for (let i = 0; i < 20 && contrastRatio(c, face) < min; i++) c = c.map((v, j) => v + (to[j] - v) * .1);
+  return c.map(Math.round);
+}
+class JamDial extends JamLight {
+  css() { return POWER_CSS + `
+    .dl > .face{display:grid;gap:6px;align-content:start;--p-t:12px;--p-r:14px;--p-b:14px;--p-l:16px}
+    .dl.dead > .face{color:var(--dim)}
+    .dl-top{display:grid;gap:4px;justify-items:start;min-width:0;padding-right:44px;min-height:34px}
+    .dl-name{font:var(--disp-w) calc(24px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);
+      letter-spacing:var(--jam-display-track,.01em);text-align:left;overflow-wrap:anywhere;max-width:100%;margin:0}
+    button.dl-name{cursor:pointer}
+    .dl-sub{font:var(--lbl-w) 10px/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .dl-dial{position:relative;width:min(100%,210px);aspect-ratio:1;margin:2px auto 0;-webkit-user-select:none;user-select:none}
+    .dl-ring{position:absolute;inset:0;border-radius:50%;touch-action:none}
+    .dl-ring[role=slider]{cursor:grab}
+    .dl-ring[role=slider]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    .dl-ring svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+    .dl-tk{stroke:var(--dim);stroke-width:2}
+    .dl-tr,.dl-arc{fill:none;stroke-width:12}
+    .dl-tr{stroke:var(--slab2)}
+    .dl-arc{stroke:var(--dl-c,var(--acc))}
+    .dl-cap{position:absolute;inset:23%;border-radius:50%;background:var(--slab2);color:var(--fg);display:grid;place-items:center;z-index:1}
+    .dl-cap:disabled{cursor:default;color:var(--dim)}
+    .dl-v{font:var(--disp-w) calc(40px * var(--num-scale))/1 var(--num-font);text-transform:var(--disp-case)}
+    .dl-v small{font-size:.42em;margin-left:1px;text-transform:none}
+    .dl-v .label{font-size:12px;color:inherit}
+    .dl-mk{position:absolute;left:50%;top:5%;width:4px;height:16%;margin-left:-2px;background:var(--acc);transform-origin:50% 281%;pointer-events:none}
+    .dl:not(.on) .dl-mk{background:var(--dim)}
+    .dl-sw{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
+    .dl-s{width:44px;height:44px;display:grid;place-items:center;border-radius:50%}
+    .dl-s i{display:block;width:24px;height:24px;border-radius:50%;background:var(--sc);box-shadow:inset 0 0 0 1px var(--line)}
+    .dl-s[aria-pressed=true] i{outline:2px solid var(--fg);outline-offset:3px}
+    .pw{z-index:2}`; }
+  getCardSize() { return 5; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 4}; }
+  disconnectedCallback() {
+    if (this._wheelT) { clearTimeout(this._wheelT); this._wheelT = null; if (this._wheelSend) this._wheelSend(); }
+    super.disconnectedCallback();
+  }
+  /* Sub line: a group's "K of N on", else kicker, else the entity's area. */
+  _dialSub(s) {
+    const ids = this._memberIds(s);
+    if (ids.length) return `${ids.filter(id => { const m = stateObj(this._hass, id); return m && m.state === "on"; }).length} of ${ids.length} on`;
+    return this._config.kicker || this._area();
+  }
+  /* Hold (500 ms, < 7px movement) on node -> hold_action / the pop-up. Returns {down(e), moved(e), up() -> held}. */
+  _holder() {
+    let t = null, x = 0, y = 0, held = false;
+    const stop = () => { clearTimeout(t); if (this._holdT === t) this._holdT = null; t = null; };
+    return {
+      down: e => { stop(); held = false; x = e.clientX; y = e.clientY; t = this._holdT = setTimeout(() => { t = null; this._holdT = null; if (this.isConnected) { held = true; this._hold(); } }, 500); },
+      moved: e => { if (t && Math.hypot(e.clientX - x, e.clientY - y) > 7) stop(); return Math.hypot(e.clientX - x, e.clientY - y) > 7; },
+      up: () => { stop(); const h = held; held = false; return h; },
+      held: () => held,
+    };
+  }
+  /* A button whose tap runs fn and whose hold opens the pop-up: a click after a hold or a > 7px move does nothing
+     (keyboard / assistive clicks always run fn). */
+  _tapHold(node, fn) {
+    const hd = this._holder();
+    let skip = false;
+    node.addEventListener("contextmenu", e => e.preventDefault());
+    node.addEventListener("pointerdown", e => { skip = false; if (!e.button) hd.down(e); });
+    node.addEventListener("pointermove", e => { if (hd.moved(e)) skip = true; });
+    node.addEventListener("pointerup", () => { if (hd.up()) skip = true; });
+    node.addEventListener("pointercancel", () => { hd.up(); skip = true; });
+    node.addEventListener("click", e => { if (skip && e.detail) { skip = false; return; } skip = false; fn(); });
+  }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), name = this._name();
+    const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", dims = !dead && lightDims(s);
+    const {root, face} = this.paper(c.entity, {cls: "dl " + (dead ? "dead" : on ? "on" : "off")});
+    b.append(root); // in the page first: the accent and the face colour resolve to rgb
+    // Arc colour: the light's colour (group: lit members' average) at full value, nudged only under 1.6:1 on the card face.
+    const rgb = dead ? null : this._faceRgb(s);
+    this._accWait = !dead && !rgb;
+    let slab = null; try { slab = jamCssRgb(getComputedStyle(face).backgroundColor) || parseRgb(getComputedStyle(b).getPropertyValue("--slab").trim()); } catch (e) { /* detached */ }
+    if (rgb) root.style.setProperty("--dl-c", rgbCss(dialReadable(rgb, slab)));
+    // Header: name (button = pop-up) + sub line; power toggle top-right.
+    const top = el("div", "dl-top");
+    const nm = el(dead ? "h3" : "button", "dl-name", name);
+    if (!dead) {
+      nm.type = "button"; nm.dataset.key = "more"; nm.setAttribute("aria-haspopup", "dialog");
+      nm.setAttribute("aria-label", `${name}: light settings`);
+      this._tapHold(nm, () => this._openSheet());
+    }
+    top.append(nm);
+    const sub = dead ? (s ? "Unavailable" : "Missing") : this._dialSub(s);
+    if (sub) top.append(el("div", "dl-sub", sub));
+    face.append(top);
+    // Dial: ticks, track, arc (pathLength 100 + dasharray = the level), cap with the %, rim mark.
+    const pct = lightPct(s), dial = el("div", "dl-dial"), ring = el("div", "dl-ring");
+    const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), mk = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+    svg.setAttribute("viewBox", "0 0 200 200"); svg.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 7; i++) { const a = -135 + i * 45, [x1, y1] = dialPt(a, 93), [x2, y2] = dialPt(a, 100); svg.append(mk("line", {class: "dl-tk", x1, y1, x2, y2})); }
+    const [sx, sy] = dialPt(-135, DIAL_R), [ex, ey] = dialPt(135, DIAL_R);
+    const d = `M${sx} ${sy} A${DIAL_R} ${DIAL_R} 0 1 1 ${ex} ${ey}`;
+    const arc = mk("path", {class: "dl-arc", d, pathLength: "100"});
+    svg.append(mk("path", {class: "dl-tr", d}), arc);
+    ring.append(svg);
+    const cap = el("button", "dl-cap"); cap.type = "button"; cap.dataset.key = "toggle";
+    const val = el("span", "dl-v num"), mark = el("span", "dl-mk");
+    mark.setAttribute("aria-hidden", "true");
+    cap.append(val, mark);
+    dial.append(ring, cap);
+    const show = (v, isOn) => {
+      val.textContent = "";
+      if (dead) val.append(el("span", "label", "N/A"));
+      else if (isOn && !dims) val.append(el("span", "label", "On"));
+      else if (isOn) val.append(document.createTextNode(String(v)), el("small", null, "%"));
+      else val.append(el("span", "label", "Off"));
+      const lv = dead || !isOn ? 0 : dims ? v : 100;
+      arc.setAttribute("stroke-dasharray", lv ? `${lv} 100` : "0 100");
+      arc.style.display = lv ? "" : "none";
+      arc.style.setProperty("--lv", lv / 100); // level 0..1 (R10 look hook)
+      mark.style.transform = `rotate(${-135 + DIAL_SWEEP * lv / 100}deg)`;
+      if (ring.getAttribute("role") === "slider") {
+        ring.setAttribute("aria-valuenow", isOn ? v : 0);
+        ring.setAttribute("aria-valuetext", isOn ? v + "%" : "Off");
+      }
+      cap.setAttribute("aria-pressed", String(!!isOn));
+    };
+    cap.setAttribute("aria-label", `${name} light`);
+    if (dead) cap.disabled = true;
+    if (dims) {
+      ring.tabIndex = 0; ring.setAttribute("role", "slider"); ring.setAttribute("aria-label", `${name} brightness`);
+      ring.setAttribute("aria-valuemin", "0"); ring.setAttribute("aria-valuemax", "100");
+    }
+    show(pct, on);
+    face.append(dial);
+    if (!dead) this._dialGestures(ring, cap, {on, pct, dims, show});
+    // Swatches: the whites, then the colours (config, else this user's saved colours, else the defaults).
+    if (!dead && c.show_swatches !== false) {
+      const row = this._swatches(s, on);
+      if (row) face.append(row);
+    }
+    face.append(powerCorner({name, on, disabled: dead, onClick: () => this._power(), ctx: this}));
+    if (this._sheet && this._sheet.isOpen()) this._fillSheet();
+  }
+  /* The two whites: jam-light's (config, defaults, this user's edited pair once its pop-up loaded them), else the pair from
+     the dial's own load. */
+  _whiteList() {
+    const own = !LIGHT_WHITES_SAVED && DIAL_SAVED && DIAL_SAVED.whites[this._config.entity], base = super._whiteList();
+    return Array.isArray(own) ? base.map((w, i) => own[i] ? {name: String(own[i].name || "White"), kelvin: Number(own[i].kelvin) || 2700} : w) : base;
+  }
+  _swatches(s, on) {
+    const c = this._config, a = s.attributes, list = [];
+    if (!DIAL_SAVED && LIGHT_COLORS === null && !this._colWait) {
+      const p = dialLoad(this._hass);
+      if (p) { this._colWait = true; p.then(() => { this._colWait = false; if (this.isConnected && this._config === c) this._render(false); }); }
+    }
+    if (this._hasWhites(s)) {
+      const lo = Math.round(a.min_color_temp_kelvin || 2000), hi = Math.round(a.max_color_temp_kelvin || 6500);
+      for (const w of this._whiteList()) {
+        const k = Math.round(clampN(w.kelvin, lo, hi));
+        list.push({label: `${w.name}, ${k} K`, rgb: kelvinToRgb(k), data: {color_temp_kelvin: k},
+          cur: on && a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60});
+      }
+    }
+    if (this._hasColors(s)) {
+      const mine = LIGHT_COLORS || (DIAL_SAVED && DIAL_SAVED.colors) || [];
+      const saved = mine.slice(-4).map((rgb, i) => ({name: `Your colour ${i + 1}`, rgb_color: rgb}));
+      const cols = Array.isArray(c.colors) ? c.colors : saved.length ? saved : DIAL_COLORS;
+      const now = on && a.color_mode !== "color_temp" ? fullRgb(lightRgb(s)) : null;
+      cols.forEach((x, i) => {
+        const rgb = x && Array.isArray(x.rgb_color) ? x.rgb_color.slice(0, 3).map(Number) : null;
+        if (!rgb || rgb.some(v => !(v >= 0 && v <= 255))) return;
+        list.push({label: x.name ? String(x.name) : `Colour ${i + 1}`, rgb, data: {rgb_color: rgb}, cur: !!now && rgbDist(now, fullRgb(rgb)) < 30});
+      });
+    }
+    if (!list.length) return null;
+    const row = el("div", "dl-sw");
+    row.setAttribute("role", "group"); row.setAttribute("aria-label", "Whites and colours");
+    for (const x of list.slice(0, 8)) {
+      const b = el("button", "dl-s"), dot = el("i");
+      b.type = "button"; b.setAttribute("aria-label", x.label); b.setAttribute("aria-pressed", String(x.cur));
+      dot.style.setProperty("--sc", rgbCss(x.rgb)); dot.setAttribute("aria-hidden", "true");
+      b.append(dot);
+      b.onclick = () => this._call("light", "turn_on", {entity_id: c.entity, ...x.data});
+      row.append(b);
+    }
+    return row;
+  }
+  /* Cap: tap = toggle, hold = pop-up. Ring: drag in a circle / tap = set, hold = pop-up, wheel, keys. */
+  _dialGestures(ring, cap, st) {
+    const id = this._config.entity;
+    this._tapHold(cap, () => this._power());
+    if (!st.dims) return;
+    let cur = st.on ? st.pct : 0;
+    const preview = v => { cur = clampN(Math.round(v), 1, 100); st.show(cur, true); };
+    const send = v => { st.pct = v; st.on = true; this._setPct(id, v); };
+    // Angle from the dial centre: 0 = top, clockwise; the bottom gap (|a| > 135) clamps to the end nearer the last value.
+    const at = e => {
+      const r = ring.getBoundingClientRect(), a = Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180 / Math.PI;
+      if (a > 135 || a < -135) return cur > 50 ? 100 : 1;
+      return (a + 135) / DIAL_SWEEP * 100;
+    };
+    const hd = this._holder();
+    let p = null; // {mode: press | drag}
+    ring.addEventListener("contextmenu", e => e.preventDefault());
+    ring.addEventListener("pointerdown", e => {
+      if (e.button || p) return;
+      p = {mode: "press"};
+      try { ring.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+      hd.down(e);
+    });
+    ring.addEventListener("pointermove", e => {
+      if (!p || hd.held()) return;
+      if (p.mode === "press" && hd.moved(e)) { p.mode = "drag"; this._drag = true; }
+      if (p.mode === "drag") preview(at(e));
+    });
+    const end = (e, cancel) => {
+      if (!p) return;
+      const q = p; p = null;
+      if (hd.up() || cancel) { if (q.mode === "drag") { st.show(st.pct, st.on); cur = st.on ? st.pct : 0; this._endDrag(); } return; }
+      if (q.mode === "press") preview(at(e));
+      send(cur);
+      this._endDrag();
+    };
+    ring.addEventListener("pointerup", e => end(e, false));
+    ring.addEventListener("pointercancel", e => end(e, true));
+    ring.addEventListener("wheel", e => {
+      if (!e.deltaY) return;
+      e.preventDefault();
+      preview(cur + (-e.deltaY / 20 || 0) * (e.deltaMode === 1 ? 20 : 1));
+      this._drag = true;
+      clearTimeout(this._wheelT);
+      this._wheelSend = () => { this._wheelSend = null; send(cur); this._endDrag(); };
+      this._wheelT = setTimeout(() => { this._wheelT = null; if (this._wheelSend) this._wheelSend(); }, 300);
+    }, {passive: false});
+    ring.addEventListener("keydown", e => {
+      const step = {ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 10, PageDown: -10}[e.key];
+      let v = null;
+      if (step) v = cur + step; else if (e.key === "Home") v = 1; else if (e.key === "End") v = 100;
+      if (v == null) return;
+      e.preventDefault();
+      preview(v); send(cur);
+    });
+  }
+}
+register("jam-dial", JamDial, "Jam Dial", "A light as a rotary dial: drag, wheel or arrow keys dim, the centre toggles, swatches pick whites and colours, hold opens the light pop-up.");
 
 /* ---------- jam-list: one paper sheet of entity rows (replaces entities) ----------
    {type: custom:jam-list, title?, entities: [entity_id | {entity, name?, secondary_info?: last-changed|none}], state_color?: true,
@@ -8752,6 +9195,204 @@ class JamSpeaker extends JamBase {
 }
 register("jam-speaker", JamSpeaker, "Jam Speaker", "Music Assistant speaker: artwork / cut-paper poster with an ink title band (shuffle, favourite), power corner, transport, volume; library panel (pinned, recent, playlists, albums, search); kiosk K1.");
 
+/* ---------- jam-radio: a media_player as the T3 pocket radio (Braun look card, 2026-11-03; a jam-speaker variant) ----------
+   {type: custom:jam-radio, entity (media_player, a Music Assistant player), name? (room; default the friendly name),
+    accent? (default violet = music), speakers?, pinned?, show_shuffle? (true), show_favorite? (true), favorite_entity?,
+    config_entry_id? (all as jam-speaker: the panel B and its Speakers view, the Favourite button)}
+   After the Braun look-cards mockup (T3 speaker): a dot grille on the left (aria-hidden; 72px wide on cards up to 400px, hidden under
+   300px), and on the right: the kicker ("Room · source" with the source dot, as jam-speaker) with Shuffle / Favourite (as
+   jam-speaker: shuffle_set, the MA favourite button), a small dark display (the look's ink) with the title and the artist
+   (idle: the room and "Last played: ..."; offline: Offline) that is a button: tap = jam-speaker's panel B (library,
+   speakers), then the round keys Prev / Play-Pause (accent) / Next and the ribbed volume wheel with the volume number on it.
+   The wheel is a real slider (role=slider 0-100): roll it with a finger or the mouse (vertical drag, up = louder; or
+   sideways), the mouse wheel (sent after 300 ms), arrows +/-5, PageUp / PageDown +/-10, Home / End; media_player.volume_set
+   on release. The ribs turn with the volume (set once per value, no animation). The class extends JamSpeaker: favourite
+   memory, kicker, transport calls and panel B are jam-speaker's own. */
+class JamRadio extends JamSpeaker {
+  validate(c) {
+    super.validate(c);
+    if (c.size !== undefined) throw new Error("jam-radio: no size option (jam-speaker has the kiosk size)");
+  }
+  get _kiosk() { return false; }
+  getCardSize() { return 3; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+  css() { return JAM_MU_BASE_CSS + `
+    .host{container-type:inline-size}
+    .rd > .face{display:grid;grid-template-columns:minmax(72px,110px) minmax(0,1fr);gap:14px;--p-t:14px;--p-r:14px;--p-b:14px;--p-l:14px}
+    .rd-gr{position:relative;align-self:start;aspect-ratio:11/12;background:var(--slab2);color:var(--fg);overflow:hidden;border-radius:var(--jam-radius-poster,0px);
+      clip-path:var(--jam-shape-poster,polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%))}
+    .rd-gr svg{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);display:block}
+    .rd.off .rd-gr{color:var(--dim)}
+    .rd-r{display:grid;gap:8px;align-content:start;min-width:0}
+    .rd-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
+    .rd .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 11px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .rd .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--dim))}
+    .rd .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .rd .bk{display:flex;gap:6px;flex:none}
+    .rd .bk .ikey{min-width:0;width:32px;height:32px}
+    .rd .bk .ikey > .face{height:32px;--ic:16px}
+    .rd .bk .shuf.on > .face{background:var(--acc);color:var(--acc-fg)}
+    .rd .bk .fav > .face{color:var(--pink)} .rd .bk .fav.on > .face{background:var(--pink);color:var(--on-fg)}
+    .rd .bk .ikey:disabled > .face{color:var(--dim)}
+    .rd-lcd{display:grid;gap:2px;min-height:52px;padding:8px 12px;background:var(--rd-lcd,var(--ink));color:var(--rd-lcd-fg,var(--ink-fg));border:1px solid var(--line);
+      text-align:left;border-radius:calc(var(--jam-radius-poster,0px) * .6)}
+    .rd-lcd b{font:var(--disp-w) calc(22px * var(--disp-scale))/calc(1.05 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);
+      letter-spacing:var(--jam-display-track,.005em);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+    .rd-lcd small{font:500 13px/1.25 var(--body);color:var(--rd-lcd-dim,var(--ink-dim));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rd-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .rd-k{display:grid;place-items:center;width:48px;height:44px;border-radius:999px;background:var(--slab2);color:var(--fg);--ic:20px}
+    .rd-k.main{width:56px;background:var(--acc);color:var(--acc-fg)}
+    .rd-k:disabled{cursor:default;color:var(--dim)} .rd-k.main:disabled{background:var(--slab2)}
+    .rd-k:not(:disabled):active .ico{transform:var(--press-from)}
+    .rd-wh{position:relative;width:52px;height:52px;border-radius:50%;margin-left:auto;background:var(--slab2);color:var(--dim);touch-action:none;flex:none}
+    .rd-wh[role=slider]{cursor:ns-resize}
+    .rd-wh[role=slider]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    .rd-wh svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .rd-wh line{stroke:currentColor;stroke-width:1.6}
+    .rd-wh .rd-vn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 3px;border-radius:13px;
+      display:grid;place-items:center;background:var(--slab);color:var(--fg);font:500 12px/1 var(--body);font-variant-numeric:tabular-nums}
+    .rd-wh[aria-disabled=true]{color:var(--line)}
+    @container (max-width:400px){.rd > .face{grid-template-columns:72px minmax(0,1fr)}}
+    @container (max-width:300px){.rd > .face{grid-template-columns:minmax(0,1fr)} .rd-gr{display:none}}`; }
+  /* A hass update mid-roll would rebuild the wheel under the finger: render once the roll ends. */
+  _render(force) {
+    if (this._wdrag && !force) { this._wpend = true; return; }
+    super._render(force);
+  }
+  _wEnd() { this._wdrag = false; if (this._wpend) { this._wpend = false; this._render(false); } }
+  disconnectedCallback() {
+    if (this._wheelT) { clearTimeout(this._wheelT); this._wheelT = null; if (this._wheelSend) this._wheelSend(); }
+    if (this._wdrag) { this._wdrag = false; this._wpend = true; }
+    super.disconnectedCallback();
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._wpend && this._config && this._hass) { this._wpend = false; this._render(false); }
+  }
+  render(b) {
+    const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
+    const off = !s || UNAVAILABLE.has(s.state), idle = off || !JAM_SPK_ACTIVE.has(s.state), room = this._room();
+    this._favFetch(s);
+    if (this._panel) this._panel.update();
+    const {root, face} = this.paper(c.entity, {cls: "rd" + (off ? " off" : "")});
+    root.dataset.mode = off ? "off" : idle ? "idle" : s.state;
+    face.append(this._grille(), this._right(s, a, off, idle, room));
+    b.append(root);
+  }
+  /* T3 dot grille: an 8 x 9 field of dots (static SVG), aria-hidden. */
+  _grille() {
+    const g = el("div", "rd-gr"), NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+    g.setAttribute("aria-hidden", "true");
+    svg.setAttribute("viewBox", "0 0 80 90"); svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    for (let y = 0; y < 9; y++) for (let x = 0; x < 8; x++) {
+      const d = document.createElementNS(NS, "circle");
+      d.setAttribute("cx", 5 + x * 10); d.setAttribute("cy", 5 + y * 10); d.setAttribute("r", "2.3"); d.setAttribute("fill", "currentColor");
+      svg.append(d);
+    }
+    g.append(svg);
+    return g;
+  }
+  _right(s, a, off, idle, room) {
+    const r = el("div", "rd-r"), hd = el("div", "rd-hd"), bk = el("div", "bk");
+    const sh = this._shuffleKey(s, off), fv = this._favKey(s, off);
+    if (sh) bk.append(sh);
+    if (fv) bk.append(fv);
+    hd.append(this._kicker(s, true));
+    if (bk.children.length) hd.append(bk);
+    // Display: title + artist; tap = panel B.
+    const lcd = el("button", "rd-lcd"); lcd.type = "button"; lcd.dataset.key = "more";
+    lcd.setAttribute("aria-haspopup", "dialog");
+    const title = off ? room : !idle && a.media_title ? a.media_title : room;
+    const sub = off ? (s ? "Offline" : "Missing") : !idle ? (a.media_title ? a.media_artist || "" : this._badge(s)[0])
+      : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : this._badge(s)[0];
+    lcd.append(el("b", null, title));
+    if (sub) lcd.append(el("small", null, sub));
+    lcd.setAttribute("aria-label", `${title}${sub ? ", " + sub : ""}. ${room} music: library and speakers`);
+    lcd.onclick = () => this._openPanel();
+    // Round keys + the volume wheel.
+    const ctl = el("div", "rd-ctl"), id = this._config.entity, playing = !!s && s.state === "playing";
+    const key = (glyph, label, k, cls, svc) => {
+      const b = el("button", "rd-k" + (cls ? " " + cls : "")); b.type = "button"; b.dataset.key = k;
+      b.setAttribute("aria-label", label); b.append(jamMuIcon(glyph)); b.disabled = off;
+      b.onclick = () => jamCall(b, this._hass, "media_player", svc, {entity_id: id});
+      return b;
+    };
+    ctl.append(key("prev", "Previous track", "prev", "", "media_previous_track"),
+      key(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", "main", "media_play_pause"),
+      key("next", "Next track", "next", "", "media_next_track"), this._wheel(s, off, room));
+    r.append(hd, lcd, ctl);
+    return r;
+  }
+  /* Ribbed volume wheel (role=slider). */
+  _wheel(s, off, room) {
+    const w = el("div", "rd-wh"), NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), g = document.createElementNS(NS, "g");
+    svg.setAttribute("viewBox", "-50 -50 100 100"); svg.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 36; i++) {
+      const t = i * Math.PI / 18, ln = document.createElementNS(NS, "line");
+      ln.setAttribute("x1", (34 * Math.sin(t)).toFixed(2)); ln.setAttribute("y1", (-34 * Math.cos(t)).toFixed(2));
+      ln.setAttribute("x2", (48 * Math.sin(t)).toFixed(2)); ln.setAttribute("y2", (-48 * Math.cos(t)).toFixed(2));
+      g.append(ln);
+    }
+    svg.append(g);
+    const vn = el("span", "rd-vn");
+    w.append(svg, vn);
+    let cur = Math.round((Number(s && s.attributes.volume_level) || 0) * 100);
+    const show = v => {
+      cur = Math.max(0, Math.min(100, Math.round(v)));
+      vn.textContent = off ? "—" : String(cur);
+      g.setAttribute("transform", `rotate(${(off ? 0 : cur) * 2.7})`);
+      w.style.setProperty("--lv", (off ? 0 : cur) / 100); // level 0..1 (R10 look hook)
+      if (!off) { w.setAttribute("aria-valuenow", cur); w.setAttribute("aria-valuetext", cur + "%"); }
+    };
+    if (off) { w.setAttribute("aria-disabled", "true"); w.setAttribute("aria-hidden", "true"); show(0); return w; }
+    w.tabIndex = 0; w.setAttribute("role", "slider"); w.setAttribute("aria-label", `${room} volume`);
+    w.setAttribute("aria-valuemin", "0"); w.setAttribute("aria-valuemax", "100");
+    show(cur);
+    const id = this._config.entity;
+    const send = () => jamCall(w, this._hass, "media_player", "volume_set", {entity_id: id, volume_level: cur / 100}, "set");
+    let p = null; // {x, y, v0, moved}
+    w.addEventListener("pointerdown", e => {
+      if (e.button || p) return;
+      p = {x: e.clientX, y: e.clientY, v0: cur, moved: false};
+      try { w.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+    });
+    w.addEventListener("pointermove", e => {
+      if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      if (!p.moved && Math.hypot(dx, dy) < 4) return;
+      p.moved = true; this._wdrag = true;
+      show(p.v0 + (Math.abs(dy) >= Math.abs(dx) ? -dy : dx) / 2); // 2px per percent; up / right = louder
+    });
+    const end = cancel => {
+      if (!p) return;
+      const q = p; p = null;
+      if (q.moved && !cancel && cur !== q.v0) send();
+      else if (cancel) show(q.v0);
+      this._wEnd();
+    };
+    w.addEventListener("pointerup", () => end(false));
+    w.addEventListener("pointercancel", () => end(true));
+    w.addEventListener("wheel", e => {
+      if (!e.deltaY) return;
+      e.preventDefault();
+      show(cur - e.deltaY / 20 * (e.deltaMode === 1 ? 20 : 1));
+      this._wdrag = true;
+      clearTimeout(this._wheelT);
+      this._wheelSend = () => { this._wheelSend = null; send(); this._wEnd(); };
+      this._wheelT = setTimeout(() => { this._wheelT = null; if (this._wheelSend) this._wheelSend(); }, 300);
+    }, {passive: false});
+    w.addEventListener("keydown", e => {
+      const step = {ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 10, PageDown: -10}[e.key];
+      let v = null;
+      if (step) v = cur + step; else if (e.key === "Home") v = 0; else if (e.key === "End") v = 100;
+      if (v == null) return;
+      e.preventDefault(); show(v); send();
+    });
+    return w;
+  }
+}
+register("jam-radio", JamRadio, "Jam Radio", "Music Assistant speaker as a T3 pocket radio: dot grille, dark display (tap = library), round keys, a ribbed volume wheel; shuffle and favourite.");
+
 /* ---------- jam-tabs: room tabs (equal-width keys, 8px top-right cut, 4px accent bar) ----------
    {type: custom:jam-tabs, tabs: [{name, path (navigation path, e.g. /jam-overview/kitchen), accent? (colour or room
     alias; default the card accent)}], sticky?: true (the host itself is position:sticky, top var(--header-height, 0))}
@@ -9684,6 +10325,7 @@ const JE_LABELS = {
   input_app: "Apps that mean \"showing an input\"", input_signal_entity: "Input signal", volume_up_action: "Volume up",
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
+  show_swatches: "Swatches (whites and colours)", colors: "Colour swatches", keys: "Keys", all_on: "All on key", all_off: "All off key",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -9951,13 +10593,39 @@ const JAM_EDITORS = {
     schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
     stub: () => ({title: "Look"}),
   },
+  /* ---- look cards (designed for Braun, render in every look) ---- */
+  "jam-dial": {
+    schema: [jeEnt("entity", "light", {required: true}), jeGrid(jeText("name"), jeText("kicker")), JE_ACCENT, jeBool("show_swatches", true),
+      jeMore("Swatches", [jeList("whites", [jeText("name"), jeNum("kelvin", {min: 1000, max: 10000, step: 50})], {label: "name", desc: "kelvin"}),
+        jeList("colors", [jeText("name"), {name: "rgb_color", selector: {color_rgb: {}}, required: true}], {label: "name"})]),
+      jeMore("Pop-up", [jeGrid(jeBool("show_brightness", true), jeBool("show_members", true), jeBool("show_color_temp"), jeBool("show_color")),
+        jeEnt("preset_entity", ["select", "input_select"]), jeEnt("timer_script", "script")]),
+      jeActions(["hold_action"])],
+    stub: (h, e) => ({entity: jePick(h, e, (id, s) => jeDom("light")(id) && (s.attributes.supported_color_modes || []).some(m => m !== "onoff"), null) ||
+      jePick(h, e, jeDom("light"), "light.jam")}),
+  },
+  "jam-keypad": {
+    schema: [jeText("title"),
+      jeList("keys", [jeEnt("entity", KP_DOMAINS), jeText("name"), {name: "accent", selector: JE_ACCENT.selector}, jeYaml("data"), JE_ACTION("tap_action")],
+        {label: "name", desc: "entity"}, {required: true}),
+      jeEnt("current_entity", ["input_select", "select"]), jeMore("All on / all off", [JE_ACTION("all_on"), JE_ACTION("all_off")]), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("scene"), 6);
+      return {title: "Scenes", keys: (ids.length ? ids : jePickN(h, e, jeDom("script"), 3).concat(["scene.jam"]).slice(0, 3)).map(entity => ({entity}))}; },
+  },
+  "jam-radio": {
+    schema: [jeEnt("entity", "media_player", {required: true}), jeText("name"), JE_ACCENT,
+      jeGrid(jeBool("show_shuffle", true), jeBool("show_favorite", true)), jeEnts("speakers", "media_player"),
+      jeList("pinned", [jeText("uri", {required: true}), jeText("name"), jeText("image"), jeText("media_type")], {label: "name", desc: "uri"}),
+      jeMore("Advanced", [jeEnt("favorite_entity", "button"), {name: "config_entry_id", selector: {config_entry: {integration: "music_assistant"}}}])],
+    stub: (h, e) => JAM_EDITORS["jam-speaker"].stub(h, e),
+  },
 };
 
 /* Attach the statics to the registered classes and complete the card picker entries (register() added them with
    preview: false): documentationURL for every jam card, preview: true for the ones with a starter config. */
 for (const [tag, ed] of Object.entries(JAM_EDITORS)) {
   const cls = customElements.get(tag);
-  if (!cls || cls.getConfigForm) continue;
+  if (!cls || Object.prototype.hasOwnProperty.call(cls, "getConfigForm")) continue; // own statics: jam-dial / jam-radio extend jam-light / jam-speaker
   cls.getConfigForm = () => jeForm(tag, ed.schema, ed.check);
   cls.getStubConfig = (hass, entities, fallback) => ed.stub(...jeArgs(hass, entities, fallback));
 }

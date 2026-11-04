@@ -61,7 +61,7 @@ Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` acce
 (`perform_action`, `data`, `target`) and `none`. Add `confirmation: true` or `confirmation: {text: ...}` to ask first.
 
 ## Cards
-22 cards. Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
+28 cards (jam-dial, jam-keypad and jam-radio are look cards: drawn after Braun objects, at home in every look). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
 
 ### jam-heading
 Section label with a big title over a 5px accent rule.
@@ -626,6 +626,79 @@ title: Look
 | `title` | Label above the tiles (default "Look") |
 | `looks` | Theme names to show, in this order (default: JamBoard, then every "Jam ..." theme by name); any installed theme works |
 | `accent` | Fill of the current tile |
+
+### jam-dial
+A light as a rotary dial (designed for the Braun look, at home in every look): the brightness is an arc in the light's own
+colour around a centre cap with the %. Drag around the dial (or tap a point on it), roll the mouse wheel or use the arrow
+keys to dim; tap the centre to switch the light on or off; the power toggle sits top-right. Under the dial: round swatches
+for your two whites and your colours, the current one ringed. Hold the dial, the centre or the name (or tap the name) for
+the full jam-light pop-up. Works with any light, groups included (the arc shows the lit members' colour, "2 of 3 on").
+```yaml
+type: custom:jam-dial
+entity: light.living_room
+colors:
+  - {name: Amber, rgb_color: [255, 160, 64]}
+  - {name: Blue, rgb_color: [74, 123, 224]}
+```
+| Option | Description |
+|---|---|
+| `entity` | light (required; groups too) |
+| `name` | Name (default the friendly name) |
+| `kicker` | Line under the name (default: a group's "K of N on", else the light's area); also the pop-up kicker |
+| `show_swatches` | Row of white / colour swatches (default true) |
+| `whites` | Two `{name, kelvin}` whites, as jam-light (default Cozy 2200 K / Clean 4000 K; your edited whites from the pop-up win) |
+| `colors` | Colour swatches `{name, rgb_color}` (default: your saved colours from the pop-up, else Amber / Rose / Blue) |
+| `hold_action` | Action on hold (default: the jam-light pop-up) |
+| `show_brightness`, `show_color_temp`, `show_color`, `show_members`, `preset_entity`, `timer_script`, `presets` | The pop-up's options, as jam-light |
+| `accent` | Mark on the dial (default ochre) |
+
+### jam-keypad
+Scenes, scripts and buttons as round calculator keys on a dark body (the ET66 calculator in the Braun look), three to a
+row, with a small display on top: the room and the active scene. The active key gets a ring (the scene activated last, or
+the `current_entity` option when that changed later, as jam-scenes). Each key can have its own colour; add **All on** /
+**All off** keys with your own actions.
+```yaml
+type: custom:jam-keypad
+title: Living room
+current_entity: input_select.light_scenes
+keys:
+  - {entity: scene.normal}
+  - {entity: scene.movie_time}
+  - {entity: scene.night, accent: ochre}
+  - {name: Tea, accent: pink, tap_action: {action: perform-action, perform_action: script.turn_on, target: {entity_id: script.kettle}}}
+all_on: {action: perform-action, perform_action: light.turn_on, target: {area_id: living_room}}
+all_off: {action: perform-action, perform_action: light.turn_off, target: {area_id: living_room}}
+```
+| Option | Description |
+|---|---|
+| `title` | Room in the display (default "Scenes") |
+| `keys` | `{entity, name, accent, data, tap_action}`: a scene / script / button / input_button (scene and script = turn_on with `data`, buttons = press), or any key with a name and a `tap_action` (required) |
+| `current_entity` | input_select / select naming the active scene |
+| `all_on` | Action of an "All on" key (green), added after the keys |
+| `all_off` | Action of an "All off" key (ochre), added after the keys |
+| `accent` | Ring around the active key (default ochre) |
+
+### jam-radio
+A Music Assistant speaker as a pocket radio (the T3 in the Braun look): a dot grille, a small dark display with the title
+and artist (tap it for the **library panel**, as jam-speaker), round Prev / Play / Next keys and a ribbed volume wheel you
+roll with a finger (or the mouse wheel / arrow keys). Shuffle and Favourite sit by the "Room · source" line, as on
+jam-speaker.
+```yaml
+type: custom:jam-radio
+entity: media_player.kitchen
+name: Kitchen
+```
+| Option | Description |
+|---|---|
+| `entity` | media_player (required; a Music Assistant player) |
+| `name` | Room name (default the player's name) |
+| `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
+| `show_favorite` | Favourite key (default true), as jam-speaker |
+| `favorite_entity` | The Music Assistant "Favorite current song" button (default: found on the player's device); `false` = no key |
+| `speakers` | media_player ids for the panel's Speakers view, as jam-speaker |
+| `pinned` | Pinned items `{uri, name, image, media_type}` for the panel, as jam-speaker |
+| `config_entry_id` | Music Assistant config entry for the library calls (default: found automatically) |
+| `accent` | Play key (default violet) |
 
 ## Design rules
 The default look, Poster: flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight
