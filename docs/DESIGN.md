@@ -94,6 +94,10 @@ One grammar for on / off / attention / offline, drawn by each look in its own wa
   `now_band` / `sheet_heading: false`, jam-screensaver `lock_entity` + `alerts`, jam-house `attention`, `size: kiosk` on
   jam-light / jam-scenes / jam-fan, jam-speaker `compact_idle` (README options). An attention surface is invisible while
   all is well and the loudest thing on screen while not (alert fill, ink text, display type).
+  Release 0.10 review: `dock_state: fill` must read on vs off at a glance in every look (99-audit checks the on block's
+  face against the off block's): Grid fills on with `--fg` (inverted text), Pulsar keeps outlines (off 1px line, on 2px
+  `--fg` + `--fg` state), Transit light keeps the sign grey state on off blocks, Olympia's outlined "none" blocks use
+  `--dim`. jam-house `attention`: while the strip carries the lock, the chip row leaves out its door chip.
 - **Pack contract (state hooks, always set, no visual change in Poster by themselves)**: every jam-kiosk dock block
   carries `data-state="on|off|action"` (on = one of its entities on / playing: count_on > 0 or the state entity's tone
   "on"; action = a `tap: action` block; off otherwise) plus `data-alert="true"` on a lock block that is unlocked / open /
