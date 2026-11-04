@@ -13,6 +13,7 @@ export const HA_ALIASES = {
   "chrome-dim": "{jam-dim}",
   "chrome-accent": "{jam-ochre}", // selected sidebar item
   "header-rule": "4px solid {primary}", // app header bottom border
+  "lovelace-bg": "{ground}",    // lovelace-background: a CSS background value (Grid: the 1px page grid over the ground)
   yellow: "{jam-ochre}",        // HA yellow-color / amber-color (a look without a yellow hue token)
   cyan: "{jam-teal}",           // HA cyan-color
 };
@@ -30,7 +31,7 @@ export const HA_KEYS = [
   ["text-accent-color", "{jam-fg}"],
   ["primary-background-color", "{ground}"],
   ["secondary-background-color", "{ground2}"],
-  ["lovelace-background", "{ground}"],
+  ["lovelace-background", "{lovelace-bg}"],
   ["card-background-color", "{jam-slab}"],
   ["ha-card-background", "{jam-slab}"],
   ["ha-dialog-surface-background", "{jam-slab}"],

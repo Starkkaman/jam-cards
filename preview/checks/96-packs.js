@@ -17,7 +17,9 @@ module.exports = async (page, check) => {
     // ---- registry + fonts ----
     out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
     const braun = J.lookPack("braun"), oly = J.lookPack("olympia");
-    out.packs = !!braun && !!oly && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && J.lookPack("poster") === null;
+    const grid = J.lookPack("grid");
+    out.packs = !!braun && !!oly && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && J.lookPack("poster") === null &&
+      !!grid && grid.fonts[0].family === "Hanken Grotesk";
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");
     out.fontStyles = fs.length;
     out.base = J.ASSET_BASE;
@@ -90,7 +92,9 @@ module.exports = async (page, check) => {
     out.missing = {late: out.late, status: face ? face.status : "none", err};
     return out;
   });
-  check(r.looks.join() === "poster,braun,olympia" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), Poster has no pack`);
+  // Poster first, then every pack in the bundle (src/looks/ by name); other looks may be added next to these.
+  check(r.looks[0] === "poster" && ["braun", "olympia", "grid"].every(l => r.looks.includes(l)) && r.packs,
+    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), grid (Hanken Grotesk), Poster has no pack`);
   check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.declared.length === 2 && r.declared.every(d => d.endsWith(":unloaded")),
     `fonts: one font style in head with the packs' URL @font-face on ${r.base}fonts/; under Poster declared but not fetched (${r.declared.join(", ")}; fetched ${JSON.stringify(r.posterFetch)})`);
   check(r.adopt && r.styleEls.length === 0, `shared stylesheets: every card adopts [BASE, own css], one BASE sheet for all, ${r.distinct} distinct sheets, no per-card <style>` +

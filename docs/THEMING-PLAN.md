@@ -642,3 +642,20 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   look's kiosk home, kiosk sheets and screensaver layouts. Not automated yet (reviewed by hand with contrast.js, 0
   findings in both modes): the jam-light pop-up (group, WLED), jam-tv Source / Remote sheets, jam-speaker panel B, the
   screensaver photos view; behaviour checks still run on Poster only (R9 note).
+- **R10 Grid (done, 2026-11-03, branch look-grid).** Brief docs/looks/GRID.md (decisions and deviations there under
+  "Built"). `tokens/looks/grid.mjs`: theme "Jam Grid" (`../jam-theme/themes/jamboard-grid.yaml`, jam-theme branch
+  look-grid): white / black ground with the 24px page grid as HA `lovelace-background`, one signal colour (every hue token;
+  black text on it), the secondary blue as `jam-focus`, Hanken Grotesk 500 mixed case (display x .74, numerals x .82),
+  square shapes + a 1px ink `jam-border`, every keyframe token `none`. `src/looks/grid.js`: cell numerals, outlined square
+  keys / chips / dock / lock / power, jam-light brightness cells + member squares, K1 side panel on the face, grid motifs,
+  screensaver = the page grid behind the cell clock. Shared-code hooks (additive, Poster pixel-identical):
+  core `jamDecorate` + the Poster no-op motif `numerals` (a pack's root decorator: jamStyle calls `numerals(root)` with
+  every root it styles, after adopting the sheets, and runs the returned cleanup on the next style / look switch; the
+  Grid pack observes the root and redraws big numbers from the text the cards write, so no card code changed);
+  tokens/ha.mjs alias `lovelace-bg` (default `{ground}`: the other theme files are unchanged); tokens/index.mjs writes
+  `--lovelace-background` into preview/looks.css when a look's value differs from the ground; preview/index.html paints it
+  on `body::before` (body is a z-index 0 stacking context, the layer z -1). Checks: 96-packs is look-aware (Poster first,
+  braun / olympia / grid present, more allowed); new 96-numerals (on its own `?look=grid` page, so this page's fonts and
+  state stay as they were). Not automated (reviewed by hand in preview/shots/grid/views/): HA's sections layout cannot be
+  put onto the 24px grid from a theme, and the kiosk clock snaps onto the grid only with 24px cells (kiosk >= 1080 x 640,
+  screensaver >= 900 x 560), which assumes the HA view background is anchored at the viewport's top-left.

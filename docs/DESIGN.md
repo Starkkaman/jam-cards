@@ -8,7 +8,7 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
 the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03; both built in R10, see "Braun
-rules" and "Olympia rules"); the global switch will be a Look
+rules" and "Olympia rules"), then Grid ("Grid rules"); the global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
 own section and may replace them).
@@ -116,6 +116,23 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
   band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
   stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
+
+## Grid rules (the Grid look, theme "Jam Grid"; brief docs/looks/GRID.md, decisions in its "Built" section)
+- Tokens (`tokens/looks/grid.mjs`): white ground (#ffffff, HA ground alias) with a 1px #d2d2d2 grid every 24px (HA
+  `lovelace-background` via the `lovelace-bg` alias; dark: #000 / #343434), white / black card faces with a 1px ink
+  hairline (`jam-border` = the text colour), keys and tracks #f2f2f2 / #ececec (#141414 / #1c1c1c); every shape token
+  `none`; Hanken Grotesk 500 mixed case at .74 (labels 500, keys 500, small tracking), numerals x .82; `jam-rule-h` /
+  `jam-stripe-w` 4px; no motion (every keyframe token `none`, press `none`). One signal colour: every hue token is the
+  signal (#e8401c / #ff4b26), text on it is black (`jam-on-fg`); the secondary blue (#1d3c9a / #6d8cf0) is `jam-focus`
+  (focus ring, calm / info tone, selection); red text #c4300f in light mode; the hero is the ink inverted.
+- Pack (`src/looks/grid.js`): big numbers as cell numerals (5x7 cells, 45-degree cut cells on round strokes; digits, %, :,
+  ., -, degree) through the root decorator motif `numerals` (core `jamDecorate`): the text stays in the DOM, visually
+  hidden, the cells are an aria-hidden SVG; a value with other characters stays text, non-numeral units stay small text;
+  a change rebuilds cell by cell (30 ms per cell, <= 300 ms, none without motion). Keys, chips, dock blocks, lock and the
+  32px power square are outlined squares, on / active = signal fill. jam-light on = white face, 4px signal top edge,
+  brightness as 10 cells (ceil(%/10) filled), members as 8px squares. Motifs: empty = a block of cells, idleArt = a New
+  Alphabet digit on a cell grid, no flash, square-capped power glyph, screensaver = the page grid behind the cell clock
+  (24px cells snapped onto the grid when the screen is at least 900 x 560).
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
