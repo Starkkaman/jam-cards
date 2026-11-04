@@ -11,9 +11,9 @@ with one cut corner, one accent colour per card (per room), heavy uppercase disp
 2. For the palette, also install the [JamBoard theme](https://github.com/Starkkaman/jam-theme) (HACS category **Theme**)
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
-Twenty-one cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
+Twenty-two cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
 jam-slider, jam-button, jam-gauge, jam-fan, jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker, jam-media,
-jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes and jam-tv (main options and sources). List options
+jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes, jam-tv (main options and sources) and jam-looks. List options
 such as hero chips, list rows, panel rows, tabs, scenes, house alerts, light whites / presets, speaker pins, screensaver
 `now` and TV sources are edited as a list of items (Home Assistant 2026.10 or newer). Options the form does not show
 (tile tones, fan speeds / presets, jam-media `sources` / `more`, TV `stereo` / `remote_card`, screensaver `kiosk` ...)
@@ -599,6 +599,24 @@ watch: [lock.front_door]
 | `show_unavailable_count` | Default true |
 | `title`, `accent` | Title (default "Automations & alerts") and accent |
 
+### jam-looks
+A look picker for **yourself**: one tile per installed look (JamBoard and every theme named "Jam ...", e.g. Jam Braun,
+Jam Olympia), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
+current light / dark mode), plus **Use system default**. The current one is filled with the accent. A tap does exactly what
+Profile → Theme does: it sets the theme for the logged-in user (this browser, and Home Assistant 2026.10 also saves it to
+that user's profile, so their other browsers follow) and keeps their auto / light / dark choice. Other users, wall
+tablets on another account and the backend default theme are not touched; no helper or automation is needed. The swatches
+load each look's font files once (from `fonts/` next to `jam-cards.js`).
+```yaml
+type: custom:jam-looks
+title: Look
+```
+| Option | Description |
+|---|---|
+| `title` | Label above the tiles (default "Look") |
+| `looks` | Theme names to show, in this order (default: JamBoard, then every "Jam ..." theme by name); any installed theme works |
+| `accent` | Fill of the current tile |
+
 ## Design rules
 The default look, Poster: flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight
 edges with one cut corner. Motion is one-shot and stepped like cut paper (view entrance, press print, light colour wipe,
@@ -615,7 +633,8 @@ Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun**
 anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
 [docs/DESIGN.md](docs/DESIGN.md) "Braun rules") and **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
 ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
-rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"). Pick a look in the theme picker; JamBoard is Poster.
+rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"). Pick a look in the theme picker; JamBoard is Poster. The
+[jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while
 the look is active; if they cannot load, the look's fallback fonts are used. `--jam-fx: 1` in a look's theme turns on its

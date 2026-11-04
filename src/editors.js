@@ -81,6 +81,7 @@ const JE_LABELS = {
   input: "Inputs", exact: "Exact app name", current_app_entity: "Current app", input_entity: "Input entity",
   input_app: "Apps that mean \"showing an input\"", input_signal_entity: "Input signal", volume_up_action: "Volume up",
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
+  looks: "Looks to show (theme names, subset and order)",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -92,6 +93,7 @@ const JE_HELP = {
   now: "The first active source shows a Now playing block (weather sources are ignored here).",
   disable_on: "No screensaver while one of these entities is in the state (default on / playing).",
   sources: "A source whose match has inputs is listed under Inputs, the rest under Apps.",
+  looks: "Default: JamBoard and every installed theme named \"Jam ...\". Any installed theme name works.",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -342,6 +344,10 @@ const JAM_EDITORS = {
     stub: (h, e) => { const r = jePick(h, e, jeDom("remote"), null);
       return {media_player: jePick(h, e, (id, s) => jeDom("media_player")(id) && s.attributes.device_class === "tv", null) ||
         jePick(h, e, jeDom("media_player"), "media_player.jam"), ...(r ? {remote: r} : {})}; },
+  },
+  "jam-looks": {
+    schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
+    stub: () => ({title: "Look"}),
   },
 };
 

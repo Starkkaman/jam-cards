@@ -193,6 +193,13 @@ automation:
   - jam-screensaver and jam-kiosk get a per-card `fx: false` override, and `motion: false` already exists.
 - Later, an optional `jam-looks` card can show a swatch per look and set the `input_select`. It reads the palettes from
   `hass.themes.themes[name]`.
+- **Done 2026-11-03 (branch `look-picker`), per user instead of global (user decision):** `custom:jam-looks` fires the
+  frontend's own `settheme` event, exactly like Profile → Theme (HA 2026.10 = frontend 20260930.2:
+  `src/components/ha-theme-settings.ts` `_handleThemeSelection` fires `{theme, primaryColor: undefined, accentColor: undefined}`,
+  `theme: ""` for "use default"; `src/state/themes-mixin.ts` merges it as `{...selectedTheme, ...detail}`, so `dark` (auto /
+  light / dark) is kept, then `storeState` (this browser's localStorage) and `saveThemePreferences` (frontend user data
+  `theme`, synced to the same user's other browsers)). No helper, automation or admin action; the input_select recipe
+  above stays the way to change the look for everyone.
 
 ### 2.5 Fonts per look
 | Option | Cost | Verdict |
