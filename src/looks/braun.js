@@ -10,7 +10,8 @@
    and switch keys, room colour as a 4px rule on top of jam-heading and a 15% dock-block tint (pressed = solid), 12% accent /
    tint on the speaker / TV text bands (the K1 side panel stays the plain panel). The pack sheet is adopted only while the look is active, so nothing here
    needs a look selector. Font: Archivo (SIL OFL 1.1, latin subset from Google Fonts, variable wght axis; declared 300-700:
-   300 = the kiosk clock). */
+   300 = the kiosk clock). Look cards (2026-11-03): jam-dial / jam-keypad / jam-radio get the mockup's polish here (raised dial
+   cap, the brown ET66 body with its green LCD and coloured keys, the T3 grille / LCD / ribbed wheel). */
 (() => {
   const NS = "http://www.w3.org/2000/svg";
   const svgEl = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
@@ -311,6 +312,32 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .tchip small{color:var(--dim)}
 .np .th{background:var(--slab2);border-radius:10px}
 .sdock .np{background:var(--slab);border:1px solid var(--line);border-radius:14px;box-shadow:var(--jam-elev-1,none)}
+
+/* ---------- look cards (jam-dial, jam-keypad, jam-radio): the mockup's objects ---------- */
+/* AB-1 / T3 dial: rounded arc ends, ink ticks, a raised panel cap with a hairline, a rounded signal mark */
+.dl-arc,.dl-tr{stroke-linecap:round}
+.dl-tk{stroke:var(--fg)}
+.dl-cap{background:var(--slab);box-shadow:0 2px 6px rgba(0,0,0,.18),0 0 0 1px var(--line)}
+.dl-mk{border-radius:2px}
+.dl.on .dl-mk{background:var(--ochre)}
+.dl-s i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+/* ET66: the brown body in both modes, raised keys, a green LCD; ET66 yellow ring; olive / signal / yellow keys */
+.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;--kp-on:#e8b12a;color:#f2efe8}
+.kp-disp{border-radius:6px}
+.kp-cap{box-shadow:0 2px 0 #241f19}
+.kp-key:disabled > .kp-cap{box-shadow:none;border-color:#a8a398;color:#f2efe8}
+.kp-key[data-accent=green]:not(.on),.kp-act[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
+.kp-key[data-accent=ochre]:not(.on),.kp-act[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-act > .kp-cap{box-shadow:0 2px 0 #241f19}
+.kp-key.on::after{inset:-4px;border-width:3px}
+/* T3: the grille on panel 2, the dark LCD, round keys with the signal on play, a hairline-ringed ribbed wheel */
+.rd-gr{border-radius:12px}
+.rd-lcd{border-color:transparent;border-radius:6px}
+.rd-k.main{background:var(--ochre);color:var(--on-fg)}
+.rd .bk .shuf.on > .face,.rd .bk .fav.on > .face{background:#e8b12a;color:var(--on-fg)} /* ET66 yellow, as jam-speaker */
+.rd-wh{box-shadow:inset 0 0 0 1px var(--line);color:var(--line)}
+.rd-wh line{stroke-width:2.4}
+.rd-wh .rd-vn{box-shadow:0 0 0 1px var(--line)}
 
 /* ---------- failed action strip ---------- */
 .jam-err{border-radius:10px;box-shadow:var(--jam-elev-1,none);border-left-width:var(--stripe-w)}

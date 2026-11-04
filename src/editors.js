@@ -82,6 +82,7 @@ const JE_LABELS = {
   input_app: "Apps that mean \"showing an input\"", input_signal_entity: "Input signal", volume_up_action: "Volume up",
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
+  show_swatches: "Swatches (whites and colours)", colors: "Colour swatches", keys: "Keys", all_on: "All on key", all_off: "All off key",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -349,13 +350,39 @@ const JAM_EDITORS = {
     schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
     stub: () => ({title: "Look"}),
   },
+  /* ---- look cards (designed for Braun, render in every look) ---- */
+  "jam-dial": {
+    schema: [jeEnt("entity", "light", {required: true}), jeGrid(jeText("name"), jeText("kicker")), JE_ACCENT, jeBool("show_swatches", true),
+      jeMore("Swatches", [jeList("whites", [jeText("name"), jeNum("kelvin", {min: 1000, max: 10000, step: 50})], {label: "name", desc: "kelvin"}),
+        jeList("colors", [jeText("name"), {name: "rgb_color", selector: {color_rgb: {}}, required: true}], {label: "name"})]),
+      jeMore("Pop-up", [jeGrid(jeBool("show_brightness", true), jeBool("show_members", true), jeBool("show_color_temp"), jeBool("show_color")),
+        jeEnt("preset_entity", ["select", "input_select"]), jeEnt("timer_script", "script")]),
+      jeActions(["hold_action"])],
+    stub: (h, e) => ({entity: jePick(h, e, (id, s) => jeDom("light")(id) && (s.attributes.supported_color_modes || []).some(m => m !== "onoff"), null) ||
+      jePick(h, e, jeDom("light"), "light.jam")}),
+  },
+  "jam-keypad": {
+    schema: [jeText("title"),
+      jeList("keys", [jeEnt("entity", KP_DOMAINS), jeText("name"), {name: "accent", selector: JE_ACCENT.selector}, jeYaml("data"), JE_ACTION("tap_action")],
+        {label: "name", desc: "entity"}, {required: true}),
+      jeEnt("current_entity", ["input_select", "select"]), jeMore("All on / all off", [JE_ACTION("all_on"), JE_ACTION("all_off")]), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("scene"), 6);
+      return {title: "Scenes", keys: (ids.length ? ids : jePickN(h, e, jeDom("script"), 3).concat(["scene.jam"]).slice(0, 3)).map(entity => ({entity}))}; },
+  },
+  "jam-radio": {
+    schema: [jeEnt("entity", "media_player", {required: true}), jeText("name"), JE_ACCENT,
+      jeGrid(jeBool("show_shuffle", true), jeBool("show_favorite", true)), jeEnts("speakers", "media_player"),
+      jeList("pinned", [jeText("uri", {required: true}), jeText("name"), jeText("image"), jeText("media_type")], {label: "name", desc: "uri"}),
+      jeMore("Advanced", [jeEnt("favorite_entity", "button"), {name: "config_entry_id", selector: {config_entry: {integration: "music_assistant"}}}])],
+    stub: (h, e) => JAM_EDITORS["jam-speaker"].stub(h, e),
+  },
 };
 
 /* Attach the statics to the registered classes and complete the card picker entries (register() added them with
    preview: false): documentationURL for every jam card, preview: true for the ones with a starter config. */
 for (const [tag, ed] of Object.entries(JAM_EDITORS)) {
   const cls = customElements.get(tag);
-  if (!cls || cls.getConfigForm) continue;
+  if (!cls || Object.prototype.hasOwnProperty.call(cls, "getConfigForm")) continue; // own statics: jam-dial / jam-radio extend jam-light / jam-speaker
   cls.getConfigForm = () => jeForm(tag, ed.schema, ed.check);
   cls.getStubConfig = (hass, entities, fallback) => ed.stub(...jeArgs(hass, entities, fallback));
 }
