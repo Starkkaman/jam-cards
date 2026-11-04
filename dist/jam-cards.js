@@ -1586,8 +1586,16 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
     return best;
   }
   /* Render hook: every jam-light face with a real colour (--lc = rgb(...)) gets --bru-fill = its snapped room fill. */
+  /* Render hook: (1) every jam-light face with a real colour (--lc = rgb(...)) gets --bru-fill = its snapped room fill;
+     (2) every play / pause key gets data-bru-play = "on" while its player plays (the key offers Pause: its aria-label, its
+     text or its glyph), "off" otherwise, so the transport key is filled (and stays down) only while playing. */
   function bruDecorate(body) {
     if (!body) return;
+    for (const k of body.querySelectorAll('[data-key="play_pause"]')) {
+      const lab = (k.getAttribute("aria-label") || k.textContent || "").trim();
+      const v = /^pause/i.test(lab) || !!k.querySelector('svg[data-g="pause"]') ? "on" : "off";
+      if (k.getAttribute("data-bru-play") !== v) k.setAttribute("data-bru-play", v);
+    }
     for (const lc of body.querySelectorAll(".lc")) {
       const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(lc.style.getPropertyValue("--lc"));
       const v = m ? `var(--${snapFill([+m[1], +m[2], +m[3]])})` : "";
@@ -1627,10 +1635,15 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
     return svg;
   }
   function bruFlash() { return svgEl("svg", {viewBox: "0 0 1 1", "aria-hidden": "true"}); }
+  /* remoteGlyph: Poster's static markup with the glyph name on the svg (data-g), read by the play-state hook above. */
+  function bruGlyph(name) { const m = this.poster(name); return typeof m === "string" ? m.replace(/^\s*<svg\b/, `<svg data-g="${name}"`) : m; }
 
   const CSS = `
 /* ---------- slab variables: the line (border + shadow colour), border width, shadow sizes ---------- */
 .host,.pop,.ov{--bru-b:3px;--bru-k:var(--line);--bru-sh:6px 6px 0 var(--bru-k);--bru-sh-s:4px 4px 0 var(--bru-k);--bru-sh-down:2px 2px 0 var(--bru-k)}
+/* ---------- room for the shadow: a card keeps 6px on its right and bottom for its own hard shadow, so with HA's 8px
+   gaps neighbours never touch it (the card's box stays the same; not the kiosk / screensaver, which fill the screen) ---------- */
+:host(:not(jam-kiosk):not(jam-screensaver):not(jam-heading)) .host{padding:0 6px 6px 0}
 /* ---------- slabs: card / hero / sheet / poster faces ---------- */
 .paper[data-cut=card] > .face,.paper[data-cut=hero] > .face,.paper[data-cut=sheet] > .face,.paper[data-cut=poster] > .face{
   outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));box-shadow:var(--bru-sh)}
@@ -1649,11 +1662,24 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .key[data-cut=chip]{--press-from:translate(2px,2px);--press:translate(2px,2px)}
 /* a switch key in a wrapped tile / list row keeps its own height (no stretched pill) */
 .row .sw.paper,.row .sw.paper > .face{height:auto}
-.key:not(:disabled):hover > .face{background:var(--slab2)}
+.key:not(:disabled):not(.on):not(.alert):hover > .face{background:var(--slab2)}
 .key.on > .face,.ikey.main > .face{background:var(--acc);color:var(--on-fg)}
 .key.alert > .face{background:var(--red);color:var(--on-fg)}
-.key:disabled > .face{color:var(--dim);box-shadow:none}
+/* One tactile grammar: whatever is on / active / picked stays DOWN (pressed 4px, the 2px shadow), like a latched key;
+   chip-size keys go down 2px (their shadow is 4px). */
+.key.on > .face,.ikey.main > .face{transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
+.key.on[data-cut=chip] > .face,.ikey.main[data-cut=chip] > .face{transform:translate(2px,2px)}
+/* the play / pause key is filled (and down) only while its player plays (render hook: data-bru-play) */
+.key.key[data-bru-play=off] > .face{background:var(--slab);color:var(--fg);transform:none;box-shadow:var(--bru-sh)}
+.key.key[data-bru-play=off][data-cut=chip] > .face{box-shadow:var(--bru-sh-s)}
+/* power keys (jam-remote power, jam-tv Turn on): white slabs with a black glyph; red stays for real alerts */
+.key[data-key=power].alert > .face,.key.turnon > .face{background:var(--slab);color:var(--fg)}
+.key:disabled > .face{color:var(--dim);box-shadow:none;transform:none}
 .key.on:disabled > .face,.ikey.main:disabled > .face{background:var(--slab2);color:var(--dim)}
+/* the ⋯ key (jam-media more: NerveOS) is a white slab, labelled "More" where it has the room */
+.key.key.more > .face{background:var(--slab);color:var(--fg);transform:none;box-shadow:var(--bru-sh-s)}
+.ctl:not(.kkeys) .key.more > .face{font-size:0} /* the kiosk-size key keeps its big ⋯ (18px floor) */
+.ctl:not(.kkeys) .key.more > .face::after{content:"More";font:var(--key-w) .9rem/1 var(--body)}
 .press:active > .face,.pressing > .face{box-shadow:var(--bru-sh-down)!important}
 .press:has(.press:active) > .face{box-shadow:var(--bru-sh)!important}
 /* ---------- chips / pills: 2px bordered pills ---------- */
@@ -1679,19 +1705,22 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 .pw:not(.paper){background:none;clip-path:none;color:inherit}
 .pw:not(.paper) .tri,.pw:not(.paper) > svg{display:none}
 .pw:not(.paper)::before{content:"";position:absolute;right:8px;top:11px;width:40px;height:24px;box-sizing:border-box;border-radius:999px;
-  background:var(--slab2);border:var(--bru-b) solid var(--bru-k);box-shadow:2px 2px 0 var(--bru-k)}
+  background:var(--slab);border:var(--bru-b) solid var(--bru-k);box-shadow:2px 2px 0 var(--bru-k)}
 .pw:not(.paper)::after{content:"";position:absolute;right:27px;top:15px;width:16px;height:16px;box-sizing:border-box;border-radius:50%;
-  background:var(--bru-k);transition:transform calc(120ms * var(--jam-motion,1)) cubic-bezier(.2,.9,.3,1)}
-.pw[aria-pressed=true]:not(.paper)::before{background:var(--bru-on,var(--acc))}
-.pw[aria-pressed=true]:not(.paper)::after{transform:translateX(15px);background:var(--slab);border:var(--bru-b) solid var(--bru-k)}
+  background:transparent;border:var(--bru-b) solid var(--bru-k);transition:transform calc(120ms * var(--jam-motion,1)) cubic-bezier(.2,.9,.3,1)}
+/* on: black track, white knob at the right, latched down 2px */
+.pw[aria-pressed=true]:not(.paper)::before{background:var(--bru-k);transform:translate(2px,2px);box-shadow:none}
+.pw[aria-pressed=true]:not(.paper)::after{transform:translate(17px,2px);background:var(--slab)}
 .pw:not(.paper):disabled::before{background:var(--slab2);border-style:dashed;box-shadow:none}
 .pw:not(.paper):disabled::after{background:var(--dim)}
 .pw:not(.paper):focus-visible{outline:none}
 .pw:not(.paper):focus-visible::before{outline:3px solid var(--focus);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){.pw:not(.paper)::after{transition:none}}
 /* ---------- jam-light: on = the snapped room fill (real colour in the swatch), black text, fat brightness bar ---------- */
-.host > .paper.lc.on > .face{background:var(--bru-fill,var(--acc));color:var(--on-fg);--bru-on:var(--slab)}
+.host > .paper.lc.on > .face{background:var(--bru-fill,var(--acc));color:var(--on-fg)}
 .lc.on .sub,.lc.on .pct,.lc.on .nm{color:var(--on-fg)}
+.lc.on .pw{--bru-k:var(--on-fg)} /* on a lit (light-coloured) face the switch is drawn in black in both modes */
+.lc.on .pw[aria-pressed=true]::after{background:var(--ink-fg)}
 .lc.on.plate .top{margin:0;padding:0;background:none;color:inherit;clip-path:none}
 .lc.on.plate .pct{margin-left:0;padding:0;background:none;color:var(--on-fg)}
 .lc.on .sub::before{content:"";display:inline-block;width:12px;height:12px;margin:0 6px 0 0;vertical-align:-2px;background:var(--lc);
@@ -1703,24 +1732,27 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 .lc .bands{top:48px;bottom:34px;right:12px;width:34px;gap:3px;padding:0;background:none}
 .lc .bands i{border:2px solid var(--on-fg);border-radius:4px}
 /* ---------- jam-button: tile slab; on = the room fill ---------- */
-.host > .paper.btn > .kf.on{background:var(--acc);color:var(--on-fg)}
+.host > .paper.btn > .kf.on{background:var(--acc);color:var(--on-fg);transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
 .kf.on .st,.kf.on .lbl{color:var(--on-fg)}
 .kf .sq{background:var(--slab2);color:var(--fg);outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));border-radius:8px}
 .kf.on .sq{background:var(--slab);color:var(--fg)}
 /* ---------- jam-tabs / jam-scenes / jam-choice ---------- */
 .tab{background:var(--slab);color:var(--fg);outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));border-radius:10px;box-shadow:var(--bru-sh-s)}
-.tab.on{background:var(--acc);color:var(--on-fg)}
+.tab.on{background:var(--acc);color:var(--on-fg);transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
 .tab::after{left:3px;right:3px;bottom:3px;height:5px}
 .tab.on::after{display:none}
 .scene > .sf{background:var(--slab);color:var(--fg);outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));border-radius:10px;box-shadow:var(--bru-sh)}
-.scene.on > .sf{background:var(--acc);color:var(--on-fg)}
+.scene.on > .sf{background:var(--acc);color:var(--on-fg);transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
 .scene:active > .sf{transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
 .scene.jam-stamp > .sf::before{content:none}
 .jam-stamp > .face::before,.jam-stamp:not(.paper)::before{content:none}
 .jam-wash{display:none}
 .spiral{display:none}
-/* ---------- jam-heading: the room colour as a fat bordered bar ---------- */
-.h > .rule{outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));border-radius:999px;height:12px}
+/* ---------- jam-heading: the room colour as a bordered sticker behind the title (no long rule: it read as a slider) ---------- */
+:host(jam-heading) .h > .rule{display:none}
+:host(jam-heading) .h{padding-bottom:10px}
+:host(jam-heading) h2.disp{justify-self:start;max-width:100%;margin-top:4px;padding:4px 12px 6px;background:var(--acc);color:var(--on-fg);border-radius:8px;
+  outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));box-shadow:var(--bru-sh-s)}
 /* ---------- keys that are tiles (jam-tv sources, option tiles): 10px, not pills ---------- */
 .key.tile > .face,.key.opt > .face{border-radius:10px}
 /* ---------- jam-gauge: bordered wedges, the rest of the disc paper ---------- */
@@ -1744,10 +1776,36 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 .nin{border:var(--bru-b) solid var(--bru-k);border-radius:10px}
 .mtrack .mb{border-radius:999px;outline:2px solid var(--bru-k);outline-offset:-2px;overflow:hidden}
 /* ---------- jam-remote: d-pad, rocker, outlined keys ---------- */
-.pad .ok > .face{background:var(--acc);color:var(--on-fg)}
+/* d-pad: white arms with a black arrow, the accent OK disc; border + hard shadow by a filter on the key (drop-shadows
+   without blur follow the clip-path) */
+.pad{gap:8px}
+.pad > .paper > .face,.pad > .paper:not(:disabled):hover > .face{background:var(--slab);color:var(--fg)}
+.pad .tri{background:var(--fg)}
+.pad .ok > .face,.pad .ok:not(:disabled):hover > .face{background:var(--acc);color:var(--on-fg)}
+.pad > .paper{--bru-o:drop-shadow(3px 0 0 var(--bru-k)) drop-shadow(-3px 0 0 var(--bru-k)) drop-shadow(0 3px 0 var(--bru-k)) drop-shadow(0 -3px 0 var(--bru-k));
+  filter:var(--bru-o) drop-shadow(4px 4px 0 var(--bru-k))}
+.pad > .paper:active{filter:var(--bru-o) drop-shadow(2px 2px 0 var(--bru-k))}
+.pad > .paper:disabled{filter:var(--bru-o)}
 .rock > .face{background:none;gap:8px;outline:0;box-shadow:none}
+.rock .key > .face{background:var(--slab);color:var(--fg)} /* white slabs (not the room fill: nothing is "on") */
 .rock .key:focus-visible{outline-color:var(--focus)}
 .ol > .face{background:var(--slab)} .ol > .face::before{content:none} .ol.on > .face{background:var(--acc);color:var(--on-fg)}
+/* ---------- jam-speaker K1 (kiosk Music sheet): the look, not the sampled art colour: a white side panel, bordered keys
+   with hard shadows, the room fill for what plays, a fat bordered volume strip ---------- */
+.side{--kbg:var(--slab)!important;--kfg:var(--fg)!important;--ktr:var(--slab2)!important;background:var(--slab);color:var(--fg)}
+.kart{background:var(--slab2)}
+.kart:not(.off) .arm span{background:var(--fg)}
+.khead .kk i{outline:2px solid var(--bru-k)}
+.kbk .ikey > .face{background:var(--slab);color:var(--fg);border:0}
+.kbk .shuf.on > .face{background:var(--acc);color:var(--on-fg)}
+.kbk .fav.on > .face{background:var(--pink);color:var(--on-fg)}
+.kt .ikey > .face,.kv .key > .face{background:var(--slab);color:var(--fg)}
+.kt .ikey.main:not([data-bru-play=off]) > .face{background:var(--acc);color:var(--on-fg)}
+.kt .ikey:disabled > .face,.kv .key:disabled > .face{background:var(--slab2);color:var(--dim)}
+.kv .vt .strip{inset:4px 0;background:var(--slab2)} .kv .vt .fill{background:var(--acc)}
+.kv .vn{color:var(--fg)} .kv .vn.hi{color:var(--on-fg)}
+.kprog .bar{height:12px;border-radius:999px;background:var(--slab2);outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));overflow:hidden}
+.kprog .bar i{background:var(--acc);border-right:var(--bru-b) solid var(--bru-k)}
 /* ---------- the failed-action strip: an ink slab with a red border ---------- */
 .jam-err{border-left:0;outline:var(--bru-b) solid var(--red);outline-offset:calc(-1 * var(--bru-b));border-radius:10px;box-shadow:var(--bru-sh-s)}
 /* ---------- sheets ---------- */
@@ -1755,7 +1813,7 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 .t .label{color:var(--dim)}
 /* ---------- jam-kiosk: huge 800 clock, dock blocks = bordered fill slabs with shadows, the lock a bordered circle ---------- */
 :host(jam-kiosk) .clock{font-weight:800;letter-spacing:-.035em;font-size:calc(clamp(96px,min(19cqw,31cqh),200px) * 1.1)} /* huge */
-:host(jam-kiosk) .k .bar{height:12px;border-radius:999px;outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b))}
+:host(jam-kiosk) .k .bar{right:auto;width:clamp(64px,10cqw,112px);height:16px;border-radius:5px;outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));box-shadow:var(--bru-sh-s)} /* a room sticker, not a long rule */
 :host(jam-kiosk) .dock{gap:16px;padding:0 16px 16px}
 :host(jam-kiosk) .blk{background:var(--bc,var(--acc));color:var(--on-fg);border-radius:10px;outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));box-shadow:var(--bru-sh)}
 :host(jam-kiosk) .blk .st{color:var(--on-fg)}
@@ -1763,6 +1821,14 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 :host(jam-kiosk) .blk.none .st,:host(jam-kiosk) .host.light .blk.none .st{color:var(--dim)}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+/* Dock state (jam-kiosk writes data-state="on|off|action" on each block): on = the room fill, latched down; off = a white
+   slab; action ("All off") = an outlined slab on the page ground. Without the attribute the blocks keep the fills above. */
+:host(jam-kiosk) .dock .blk.blk[data-state]{background:var(--slab);color:var(--fg)}
+:host(jam-kiosk) .dock .blk.blk[data-state] .st{color:var(--dim)}
+:host(jam-kiosk) .dock .blk.blk[data-state=on]{background:var(--bc,var(--acc));color:var(--on-fg);transform:translate(4px,4px);box-shadow:var(--bru-sh-down)}
+:host(jam-kiosk) .dock .blk.blk.none[data-state=on]{background:var(--violet)}
+:host(jam-kiosk) .dock .blk.blk[data-state=on] .st{color:var(--on-fg)}
+:host(jam-kiosk) .dock .blk.blk[data-state=action]{background:transparent;color:var(--fg)}
 :host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
 :host(jam-kiosk) .lk .disc{border:var(--bru-b) solid var(--bru-k);box-shadow:var(--bru-sh)}
@@ -1787,7 +1853,8 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 .l0 .sh.b3,.l2 .sh.b3,.l3 .sh.b3,.l4 .sh.b3{display:none} /* b3 is placed only in l1 / l5 (else a 0x0 box would show its border) */
 .tchip{background:var(--slab);color:var(--fg);clip-path:none;border:var(--bru-b) solid var(--bru-k);border-radius:10px;box-shadow:var(--bru-sh)}
 .tchip small{color:var(--dim)}
-.ov .np{background:var(--slab);border:var(--bru-b) solid var(--bru-k);border-radius:10px;box-shadow:var(--bru-sh)}
+.ov .np{background:var(--slab);border:var(--bru-b) solid var(--bru-k);border-radius:10px;box-shadow:var(--bru-sh);padding-right:max(16px,2.4vh)}
+.ov .np .nb{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden} /* one line, ellipsis */
 .ov .sdock .np{clip-path:none}
 /* ---------- motifs ---------- */
 .bru-arm span{outline:var(--bru-b) solid var(--bru-k);outline-offset:calc(-1 * var(--bru-b));border-radius:4px}
@@ -1800,7 +1867,7 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
     name: "Brutal",
     fonts: [{family: "Bricolage Grotesque", weight: "200 800", file: "bricolage-grotesque-var-latin.woff2"}],
     css: CSS,
-    motifs: {empty: bruBars, idleArt: bruIdle, powerGlyph: bruPower, flash: bruFlash, decorate: bruDecorate},
+    motifs: {empty: bruBars, idleArt: bruIdle, powerGlyph: bruPower, flash: bruFlash, decorate: bruDecorate, remoteGlyph: bruGlyph},
   });
 })();
 

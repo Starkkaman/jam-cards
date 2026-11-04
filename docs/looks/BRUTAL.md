@@ -54,4 +54,25 @@ subset, variable weight 200-800 and optical size 12-96, 77 KB; `OFL-BricolageGro
   a 3px round stroke, flash = none.
 - **HA chrome**: paper header and sidebar with a 3px black rule, violet primary, 10px / 999px radii; with card-mod the view
   tabs are bordered pills, the current one filled with its room colour and a 3px hard shadow.
+- **Review fixes (2026-11-04, independent design review "ship with fixes")**:
+  - one tactile grammar: whatever is on / active / picked stays DOWN (pressed 4px with the 2px shadow; chip-size keys 2px):
+    on keys and options, tabs, scenes, lit jam-button tiles, the picked light preset, an on switch, an on dock block;
+  - the play / pause key is filled (and down) only while its player plays: the `decorate` hook writes `data-bru-play` from
+    the key's label or glyph (the pack's `remoteGlyph` motif adds `data-g=<name>` to Poster's glyph markup);
+  - the volume rocker and the ⋯ key (NerveOS) are white slabs (⋯ reads "More" on the card-size key; the kiosk-size key keeps its 34px ⋯ for the 18px floor); power keys (jam-remote
+    power, jam-tv Turn on) are white slabs with a black glyph, red stays for real alerts;
+  - d-pad: white arms with a black arrow and the accent OK disc, bordered and shadowed by a `drop-shadow()` filter chain
+    on the key (no blur, follows the clip-path; 2px shadow while pressed), 8px gaps;
+  - jam-heading: the room colour is a bordered sticker behind the title (no long rule, which read as a slider); the kiosk's
+    accent bar is a short 16px sticker;
+  - pill switch: on = black track (the line colour) with a white knob, off = white track with a hollow outlined knob;
+  - screensaver now playing: >= 16px right padding, the title one line with an ellipsis;
+  - room for the shadow: every card (not jam-kiosk / jam-screensaver / jam-heading) keeps 6px on its right and bottom for
+    its own shadow, so neighbours never touch at HA's 8px gaps (phone widths too);
+  - jam-speaker K1 (kiosk Music sheet): a white side panel with bordered keys, the room fill while playing, a bordered
+    volume strip and progress bar, instead of the sampled art colour;
+  - jam-kiosk dock state: styled against `data-state="on|off|action"` on `.blk` (on = room fill, latched down; off = white
+    slab; action = outlined slab on the page ground); without the attribute the blocks keep their room fills. The
+    attribute comes from another branch; check 96-r10-brutal.js writes it as a stub until then;
+  - jam-dial / jam-keypad / jam-radio are not on main (only on branch cards-braun): no Brutal styles yet.
 - Shared-code hooks: none (the pack uses the existing `decorate` render hook and motif registry).

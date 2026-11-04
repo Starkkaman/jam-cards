@@ -268,6 +268,11 @@ is a hard offset in the line colour.
   Screensaver: the page ground, the 800 clock, the bars and disc as bordered fill slabs (accent, pink, cyan, violet), the
   now-playing block and time chip as white slabs. Motifs: empty = bordered fill bars, idleArt = stacked bordered slabs,
   powerGlyph = 3px stroke, flash = none.
+- Tactile grammar: on / active / picked = DOWN (4px, 2px shadow; chip-size keys 2px), so state reads by touch-memory as
+  well as colour; the play key is filled only while playing (`data-bru-play` from the `decorate` hook); rocker, ⋯ ("More")
+  and power keys are white slabs, red only for alerts. Pill switch: on = black track + white knob, off = white track +
+  hollow knob. jam-heading: a bordered room sticker behind the title, no rule. Cards keep 6px right / bottom for their own
+  shadow. jam-kiosk dock: `data-state` on = fill + down, off = white slab, action = outlined slab. K1 side panel = white.
 - Focus ring: the universal 3px `--focus` ring in blue (#2b45ff / #8c9bff), so it never reads as one more black border.
 
 ## Token reference
