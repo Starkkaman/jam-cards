@@ -99,6 +99,10 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 :host(jam-popup) .t .label{color:var(--fg)}
 .ov .np .nb{color:var(--fg)} .ov .np .ns,.ov .np .kick{color:var(--dim)}
 .ov .sdock .np{background:var(--slab);border-top:var(--rule-h) solid var(--blue)}
+/* Look cards made for Olympia (jam-pictogram, jam-programme, jam-results): thin room / sheet titles like the mockup; a
+   results square's top stripe is its own colour (face 2 when unavailable), so the square reads as one flat field. */
+:host(jam-pictogram) .nm,:host(jam-programme) .ti{font-weight:300}
+:host(jam-results) .rsq > .face{--oly-top:var(--sc,var(--slab2))}
 `;
 /* Golden Arm placeholder, Olympia: the same seeded bars, each in a spectrum colour. */
 function olyBars(key) {

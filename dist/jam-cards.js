@@ -2317,6 +2317,10 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 :host(jam-popup) .t .label{color:var(--fg)}
 .ov .np .nb{color:var(--fg)} .ov .np .ns,.ov .np .kick{color:var(--dim)}
 .ov .sdock .np{background:var(--slab);border-top:var(--rule-h) solid var(--blue)}
+/* Look cards made for Olympia (jam-pictogram, jam-programme, jam-results): thin room / sheet titles like the mockup; a
+   results square's top stripe is its own colour (face 2 when unavailable), so the square reads as one flat field. */
+:host(jam-pictogram) .nm,:host(jam-programme) .ti{font-weight:300}
+:host(jam-results) .rsq > .face{--oly-top:var(--sc,var(--slab2))}
 `;
 /* Golden Arm placeholder, Olympia: the same seeded bars, each in a spectrum colour. */
 function olyBars(key) {
@@ -6574,6 +6578,192 @@ class JamPanel extends JamBase {
 }
 register("jam-panel", JamPanel, "Jam Panel", "Compact system panel: rows of name / value with bad thresholds in red (control room).");
 
+/* ---------- jam-pictogram: a room tile with an Aicher-style pictogram (Olympia look card, renders in every look) ----------
+   {type: custom:jam-pictogram, name?, entity?, pictogram?: home|sofa-tv|watch|cook|sleep|music|work-desk|bath|play|car|garden
+    (aliases tv, work, garage), rules?: [{entity, state?: string | [..], pictogram}], facts?: [entity | {entity?, entities?,
+    name?, attribute?, unit?}] (up to 4), tap_action?, hold_action?, double_tap_action?, accent?}
+   A colour field in the card accent with the pictogram drawn as an inline SVG from 45° / 90° strokes (square caps, round
+   heads), then the room name and 2-4 facts (value over a small label). rules: the first rule whose entity is in `state`
+   (default: an "on" state, core tone()) swaps the pictogram (a TV playing -> the watching figure). A fact counts the "on"
+   entities of `entities` (or the members of a group entity: lights on), shows a media player's app / title, or an entity's
+   value (temperatures as 66°). The whole tile is one control: tap = tap_action (navigate to the room), default more-info
+   of `entity`; without entity and actions it is not a control. Stroke / text colour on the field = the look's dark or light
+   text, whichever contrasts more (jamFieldInk; Transit's blue takes white, Poster's ochre ink). Static: no motion. */
+const JP_NS = "http://www.w3.org/2000/svg";
+/* Pictograms on a 120 grid, stroke 8 (square caps, miter joins): ["p", d] = stroked path, ["w", d] = thin stroked path (5),
+   ["f", d] = filled path, ["c", cx, cy, r] = filled circle (heads, wheels). Every straight line is horizontal, vertical or
+   45 degrees. */
+const JP_SEAT = [["c", 30, 24, 9], ["p", "M30 42V66H58V94"], ["p", "M12 50V96M12 84H46V96"]]; // seated figure + sofa back / seat
+const JP_GLYPHS = Object.freeze({
+  home: [["p", "M16 58L60 14L104 58"], ["p", "M28 50V102H92V50"], ["f", "M52 72H68V102H52Z"]],
+  "sofa-tv": [...JP_SEAT, ["p", "M30 52H50"], ["p", "M76 40H106V62H76Z"], ["p", "M91 62V78M81 78H101"]],
+  watch: [...JP_SEAT, ["p", "M30 52H50L62 40"], ["f", "M72 36H110V66H72Z"], ["p", "M91 66V78M81 78H101"]],
+  cook: [["c", 32, 22, 9], ["p", "M32 40V72"], ["p", "M32 72L26 78V104M32 72L38 78V104"], ["p", "M32 50H58"],
+    ["p", "M64 54V74H98V54"], ["p", "M56 82H106"], ["w", "M72 26V40M81 22V40M90 26V40"]],
+  sleep: [["p", "M14 42V100M14 82H106V100"], ["c", 30, 64, 9], ["p", "M46 70H102"], ["w", "M64 22H80L64 38H80"], ["w", "M88 12H98L88 22H98"]],
+  music: [["c", 32, 86, 11], ["c", 84, 86, 11], ["p", "M40 84V26M92 84V26"], ["f", "M36 18H96V32H36Z"], ["p", "M40 44H92"]],
+  "work-desk": [["c", 30, 24, 9], ["p", "M30 42V66H52V94"], ["p", "M14 46V94M14 80H40V94"], ["p", "M30 50H64"],
+    ["p", "M60 62H110M104 62V94"], ["p", "M72 22H100V44H72Z"], ["p", "M86 44V58"]],
+  bath: [["c", 40, 36, 9], ["p", "M40 52V60"], ["p", "M12 62H108"], ["p", "M18 62V82L28 92H92L102 82V62"], ["p", "M30 92L22 100M90 92L98 100"],
+    ["p", "M98 58V18H78"], ["p", "M70 26H86"], ["w", "M72 36V44M80 36V44"]],
+  play: [["c", 42, 20, 9], ["p", "M42 36V62"], ["p", "M42 44L28 58M42 44L56 30"], ["p", "M42 62L34 70V100"], ["p", "M42 62L66 86"], ["c", 88, 94, 10]],
+  car: [["p", "M24 44L60 8L96 44"], ["f", "M12 90V72H28L42 58H78L92 72H108V90Z"], ["c", 34, 92, 11], ["c", 86, 92, 11]],
+  garden: [["p", "M14 102H106"], ["p", "M60 102V44"], ["p", "M60 84L40 64M60 72L80 52"], ["c", 60, 30, 13], ["c", 96, 22, 7]],
+});
+const JP_ALIAS = {tv: "sofa-tv", work: "work-desk", garage: "car"};
+const JP_WORDS = {home: "", "sofa-tv": "lounging", watch: "watching", cook: "cooking", sleep: "sleeping", music: "music", "work-desk": "working",
+  bath: "bathing", play: "playing", car: "garage", garden: "garden"};
+const jpName = p => { const k = String(p || "").trim().toLowerCase(); return JP_ALIAS[k] || k; };
+function jamPictogram(name) {
+  const svg = document.createElementNS(JP_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 120 120"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "pic");
+  svg.dataset.pic = name;
+  for (const [k, a, b, r] of JP_GLYPHS[name] || JP_GLYPHS.home) {
+    const e = document.createElementNS(JP_NS, k === "c" ? "circle" : "path");
+    if (k === "c") { e.setAttribute("cx", a); e.setAttribute("cy", b); e.setAttribute("r", r); e.setAttribute("class", "fl"); }
+    else { e.setAttribute("d", a); e.setAttribute("class", k === "f" ? "fl" : k === "w" ? "st thin" : "st"); }
+    svg.append(e);
+  }
+  return svg;
+}
+/* Text / stroke colour on flat colour fields ([data-fld] nodes under scope: pictogram fields, result squares): the look's
+   dark or light text pair (textColors), whichever contrasts more with the field's computed background (core textOn);
+   .pl when neither reaches 4.5:1 (small text then sits on a label plate). Writes only on change; false while detached (the
+   card calls it again when attached). */
+function jamFieldInk(scope) {
+  if (!scope || !scope.isConnected) return false;
+  let ok = true;
+  for (const n of scope.querySelectorAll("[data-fld]")) {
+    const rgb = parseRgb(getComputedStyle(n).backgroundColor);
+    if (!rgb) { ok = false; continue; }
+    const t = textOn(rgb, textColors(n));
+    if (n.style.getPropertyValue("--fld-fg") !== t.fg) n.style.setProperty("--fld-fg", t.fg);
+    if (n.classList.contains("pl") !== t.plate) n.classList.toggle("pl", t.plate);
+  }
+  return ok;
+}
+/* Default colours of lanes / squares without a colour, in order: accent hues, never red (a look maps them: Olympia's
+   spectrum, Grid's signal). */
+const JAM_HUE_CYCLE = ["blue", "teal", "ochre", "pink", "violet", "green"];
+const jamHueAt = i => `var(--${JAM_HUE_CYCLE[i % JAM_HUE_CYCLE.length]})`;
+/* A number as the cards show it: >= 100 whole, else one decimal (decimals overrides). */
+function jamFmtNum(v, decimals) {
+  if (decimals !== undefined && decimals !== null && decimals !== "" && isFinite(+decimals)) return v.toFixed(Math.max(0, Math.min(6, +decimals)));
+  return String(Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
+}
+/* A value + its unit for big type: temperatures fold into the number ("66°"), other units stay apart. */
+function jamValue(hass, s, opt = {}) {
+  if (!s || UNAVAILABLE.has(s.state)) return {v: "—", u: "", un: true, text: s ? "unavailable" : "unknown"};
+  const raw = opt.attribute ? s.attributes[opt.attribute] : s.state;
+  const unit = opt.unit ?? (opt.attribute ? "" : s.attributes.unit_of_measurement) ?? "";
+  const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() !== "" ? Number(raw) : NaN;
+  if (isFinite(n)) {
+    const v = jamFmtNum(n, opt.decimals), deg = /^°/.test(unit);
+    return {v: deg ? v + "°" : v, u: deg ? "" : unit, n, text: `${v} ${unit}`.trim()};
+  }
+  const t = opt.attribute ? String(raw == null ? "—" : raw) : fmtState(hass, s);
+  return {v: t, u: "", word: true, text: t};
+}
+class JamPictogram extends JamBase {
+  validate(c) {
+    if (c.pictogram !== undefined && !JP_GLYPHS[jpName(c.pictogram)]) throw new Error(`jam-pictogram: pictogram is one of ${Object.keys(JP_GLYPHS).join(", ")}`);
+    for (const r of c.rules || []) if (!r || typeof r.entity !== "string" || !JP_GLYPHS[jpName(r.pictogram)])
+      throw new Error("jam-pictogram: each rule is {entity, state?, pictogram}");
+    if (c.rules !== undefined && !Array.isArray(c.rules)) throw new Error("jam-pictogram: rules is a list");
+    if (c.facts !== undefined && (!Array.isArray(c.facts) || c.facts.length > 4)) throw new Error("jam-pictogram: facts is a list of up to 4");
+  }
+  _facts() { return (this._config.facts || []).map(f => (typeof f === "string" ? {entity: f} : f || {})); }
+  /* The members of a group entity (attributes.entity_id), else null. */
+  _members(id) { const s = stateObj(this._hass, id), m = s && s.attributes && s.attributes.entity_id; return Array.isArray(m) ? m : null; }
+  watched() {
+    const c = this._config, ids = [];
+    if (c.entity) ids.push(c.entity);
+    for (const r of c.rules || []) ids.push(r.entity);
+    for (const f of this._facts()) {
+      if (Array.isArray(f.entities)) ids.push(...f.entities);
+      if (f.entity) { ids.push(f.entity); ids.push(...(this._members(f.entity) || [])); }
+    }
+    return [...new Set(ids.filter(x => typeof x === "string"))];
+  }
+  css() { return `
+    .pgm{--p-t:0px;--p-r:0px;--p-b:0px;--p-l:0px;display:flex;flex-direction:column;min-height:100%}
+    .fld{flex:none;height:132px;display:grid;place-items:center;background:var(--acc);color:var(--fld-fg,var(--acc-fg))}
+    .pic{height:104px;width:104px;display:block;overflow:visible}
+    .pic .st{fill:none;stroke:currentColor;stroke-width:8;stroke-linecap:square;stroke-linejoin:miter}
+    .pic .thin{stroke-width:5}
+    .pic .fl{fill:currentColor}
+    .bd{flex:1;display:grid;gap:10px;align-content:start;padding:12px 16px 16px}
+    .nm{font-size:calc(1.55rem * var(--disp-scale));overflow-wrap:break-word}
+    .facts{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:12px}
+    .f{min-width:0;display:grid;gap:3px;align-content:start}
+    .v{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(1.3rem * var(--num-scale));line-height:calc(1 * var(--disp-lead));
+      text-transform:var(--disp-case);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .f .label{overflow-wrap:anywhere}`; }
+  /* The pictogram now: the first matching rule, else the configured one (default home). */
+  _pic() {
+    const c = this._config;
+    for (const r of c.rules || []) {
+      const s = stateObj(this._hass, r.entity);
+      if (!s) continue;
+      const want = r.state === undefined || r.state === null ? null : [].concat(r.state).map(String);
+      if (want ? want.includes(String(s.state)) : tone(s) === "on") return {pic: jpName(r.pictogram), rule: true};
+    }
+    return {pic: jpName(c.pictogram || "home"), rule: false};
+  }
+  /* One fact: {v (big value), label, text (for the aria label)}. */
+  _fact(f) {
+    const h = this._hass, ids = Array.isArray(f.entities) ? f.entities : f.entity ? this._members(f.entity) : null;
+    if (ids) {
+      const n = ids.filter(id => tone(stateObj(h, id)) === "on").length;
+      const label = f.name || (Array.isArray(f.entities) ? "on" : friendly(h, f.entity));
+      return {v: String(n), label, text: `${n} ${label}`};
+    }
+    const s = stateObj(h, f.entity), label = f.name || friendly(h, f.entity);
+    if (s && f.entity.startsWith("media_player.") && !f.attribute) {
+      const a = s.attributes || {}, on = s.state === "playing" || s.state === "paused";
+      const v = on ? a.app_name || a.media_title || a.source || fmtState(h, s) : UNAVAILABLE.has(s.state) ? "—" : fmtState(h, s);
+      return {v, label, text: `${label} ${v}`, word: true};
+    }
+    const x = jamValue(h, s, f);
+    return {v: x.v + (x.u ? " " + x.u : ""), label, text: `${x.text} ${label}`, word: !!x.word, un: !!x.un};
+  }
+  render(b) {
+    const c = this._config, h = this._hass;
+    const name = c.name || (c.entity ? friendly(h, c.entity) : "Room");
+    const live = !!(c.entity || c.tap_action || c.hold_action || c.double_tap_action);
+    const {root, face} = this.paper(c.entity || name, {cls: live ? "press" : "", face: "pgm"});
+    const {pic, rule} = this._pic();
+    const fld = el("div", "fld");
+    fld.dataset.fld = ""; fld.append(jamPictogram(pic));
+    const bd = el("div", "bd"), facts = this._facts().map(f => this._fact(f));
+    bd.append(el("div", "nm disp", name));
+    if (facts.length) {
+      const row = el("div", "facts");
+      row.style.setProperty("--n", Math.max(2, facts.length));
+      for (const f of facts) {
+        const d = el("div", "f");
+        d.append(el("div", "v num" + (f.word ? " w" : "") + (f.un ? " unavail" : ""), f.v), el("div", "label", f.label));
+        d.title = f.text;
+        row.append(d);
+      }
+      bd.append(row);
+    }
+    face.append(fld, bd);
+    const word = rule && JP_WORDS[pic];
+    if (live) {
+      root.tabIndex = 0; root.setAttribute("role", "button");
+      root.setAttribute("aria-label", `${name}${word ? ", " + word : ""}${facts.length ? ": " + facts.map(f => f.text).join(", ") : ""}`);
+      bindActions(root, () => this._hass, c, c.entity);
+    }
+    b.append(root);
+    this._inkWait = !jamFieldInk(b);
+  }
+  connectedCallback() { super.connectedCallback(); if (this._inkWait && this._body) this._inkWait = !jamFieldInk(this._body); }
+  getCardSize() { return 4; }
+  getGridOptions() { return {columns: 6, rows: "auto", min_columns: 3}; }
+}
+register("jam-pictogram", JamPictogram, "Jam Pictogram", "Room tile with an Aicher-style pictogram that follows what's on, plus 2-4 room facts.");
+
 /* ---------- jam-popup: full-screen ink veil + cut sheet (top-right 18px) that opens on a URL hash ----------
    {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
@@ -6802,6 +6992,327 @@ class JamPopup extends JamBase {
   getGridOptions() { return {columns: 12, rows: "auto"}; }
 }
 register("jam-popup", JamPopup, "Jam Pop-up", "Full-screen ink veil with a cut sheet of cards, opened by a URL hash.");
+
+/* ---------- jam-programme: the day as a games programme sheet (Olympia look card, renders in every look) ----------
+   {type: custom:jam-programme, title? ("Today"), from? ("00:00"), to? ("24:00"), lanes: [{entity?, name?, color?, state?,
+    ranges?: [{from, to, label?}]}] (1-8), refresh_minutes? (10), accent?}
+   One timeline for today between from and to (HH:MM; 24:00 = midnight), one lane per item, a 2px "now" line in the text
+   colour, hour labels under it. A lane's bands come from:
+   - schedule.*: the schedule's blocks for today's weekday (WS schedule/list, matched to the entity by its registry
+     unique_id from config/entity_registry/get); a schedule not in that list (YAML) falls back to its recorder history;
+   - calendar.*: today's events (WS call_service calendar.get_events with return_response; all-day events fill the day);
+   - any other entity: its on periods today from the recorder (WS history/history_during_period, one call for every such
+     lane), "on" = `state` (a state or list) else core tone() "on"; the current period runs to now;
+   - ranges: fixed bands from the config (to < from runs past midnight); a lane may have ranges and no entity.
+   Lane colours: `color` (an accent name) else blue, teal, ochre, pink, violet, green in order (jamHueAt). Bands carry no text; each band is a
+   button (aria-label = lane, times, event) and a tap / Enter shows its details in the line under the timeline (aria-live;
+   tap again or Esc = back to the default line: what is on now). Refetch every refresh_minutes and when a lane entity
+   changes (at most once a minute), and at midnight; the now line moves once a minute (a timer, no animation). A lane
+   whose source fails shows an alert mark and "unavailable" in its label's title. */
+const JPR_GAP = 60e3, JPR_MAX_LANES = 8;
+const JPR_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+/* "HH:MM" / "HH:MM:SS" / a number of hours -> minutes after midnight (0..1440), or NaN. */
+function jprMin(v) {
+  if (typeof v === "number") return v >= 0 && v <= 24 ? Math.round(v * 60) : NaN;
+  const m = /^\s*(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*$/.exec(String(v == null ? "" : v));
+  if (!m) return NaN;
+  const t = +m[1] * 60 + +(m[2] || 0);
+  return t <= 1440 && +(m[2] || 0) < 60 ? t : NaN;
+}
+/* Schedules and registry ids are the same for every card on the page: one schedule/list per 10 minutes, one registry get
+   per entity. */
+const JPR_CACHE = {list: null, t: 0, reg: new Map()};
+function jprScheduleList(hass) {
+  if (!JPR_CACHE.list || Date.now() - JPR_CACHE.t > 600e3) {
+    JPR_CACHE.t = Date.now();
+    JPR_CACHE.list = Promise.resolve().then(() => hass.callWS({type: "schedule/list"})).catch(() => null);
+  }
+  return JPR_CACHE.list;
+}
+function jprUniqueId(hass, id) {
+  if (!JPR_CACHE.reg.has(id)) JPR_CACHE.reg.set(id, Promise.resolve().then(() => hass.callWS({type: "config/entity_registry/get", entity_id: id}))
+    .then(r => (r && r.unique_id) || null, () => null));
+  return JPR_CACHE.reg.get(id);
+}
+/* A calendar date-time: "2026-11-03" = local midnight (all-day), else Date.parse. */
+function jprTime(v) {
+  if (v && typeof v === "object") v = v.dateTime || v.date;
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ""));
+  return d ? new Date(+d[1], +d[2] - 1, +d[3]).getTime() : Date.parse(v);
+}
+class JamProgramme extends JamBase {
+  constructor() { super(); this._tok = 0; this._last = 0; this._data = null; this._band = null; }
+  validate(c) {
+    if (!Array.isArray(c.lanes) || !c.lanes.length) throw new Error("jam-programme: lanes is a list of 1-8 lanes");
+    if (c.lanes.length > JPR_MAX_LANES) throw new Error(`jam-programme: ${c.lanes.length} lanes, max ${JPR_MAX_LANES}`);
+    for (const l of c.lanes) {
+      if (!l || typeof l !== "object" || (typeof l.entity !== "string" && !Array.isArray(l.ranges)))
+        throw new Error("jam-programme: each lane is {entity, name?, color?, state?} or {name, ranges: [{from, to}]}");
+      for (const r of l.ranges || []) if (!r || isNaN(jprMin(r.from)) || isNaN(jprMin(r.to))) throw new Error("jam-programme: a range is {from: HH:MM, to: HH:MM}");
+    }
+    const a = jprMin(c.from ?? "00:00"), b = jprMin(c.to ?? "24:00");
+    if (isNaN(a) || isNaN(b) || b <= a) throw new Error("jam-programme: from / to are HH:MM with from before to");
+  }
+  setConfig(c) {
+    super.setConfig(c);
+    const q = JSON.stringify([c.lanes, c.from, c.to]);
+    if (q !== this._q) { this._q = q; this._data = null; this._band = null; this._tok++; }
+    if (this.isConnected) { this._arm(); this._kick(); }
+  }
+  set hass(h) {
+    const first = !this._hass, before = this._sig;
+    super.hass = h;
+    if (first || this._sig !== before) this._kick(); // a lane entity changed: refetch (throttled)
+  }
+  get hass() { return super.hass; }
+  watched() { return this._config.lanes.map(l => l.entity).filter(x => typeof x === "string"); }
+  connectedCallback() {
+    super.connectedCallback();
+    this._arm();
+    if (!this._data || Date.now() - this._last > this._every() || this._data.day !== this._day()) this._kick();
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearTimeout(this._tick); this._tick = null;
+    clearTimeout(this._pending); this._pending = null;
+  }
+  _every() { return Math.max(1, +this._config.refresh_minutes || 10) * 60e3; }
+  _day() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+  /* One timer: at every minute boundary move the now line; refetch when refresh_minutes passed or the day changed. */
+  _arm() {
+    clearTimeout(this._tick); this._tick = null;
+    if (!this._config || !this.isConnected) return;
+    this._tick = setTimeout(() => {
+      this._tick = null;
+      if (!this.isConnected) return;
+      if (this._data && (this._data.day !== this._day() || Date.now() - this._last >= this._every())) this._kick();
+      this._now();
+      this._arm();
+    }, 60e3 - (Date.now() % 60e3) + 50);
+  }
+  _kick() {
+    if (!this._hass || !this._config || !this.isConnected) return;
+    const wait = this._last + JPR_GAP - Date.now();
+    if (wait <= 0 || !this._data || this._data.day !== this._day()) { clearTimeout(this._pending); this._pending = null; this._fetch(); return; }
+    if (!this._pending) this._pending = setTimeout(() => { this._pending = null; this._kick(); }, wait);
+  }
+  /* Today's window [t0, t1] in ms. */
+  _window() {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    const m0 = jprMin(this._config.from ?? "00:00"), m1 = jprMin(this._config.to ?? "24:00");
+    return {t0: d.getTime() + m0 * 60e3, t1: d.getTime() + m1 * 60e3, mid: d.getTime(), day: this._day()};
+  }
+  async _fetch() {
+    const tok = ++this._tok, h = this._hass, c = this._config, w = this._window(), now = Date.now();
+    this._last = now;
+    const call = msg => Promise.resolve().then(() => { if (typeof h.callWS !== "function") throw new Error("no callWS"); return h.callWS(msg); });
+    const lanes = c.lanes.map((l, i) => ({i, cfg: l, id: typeof l.entity === "string" ? l.entity : null, kind: !l.entity ? "fixed" : l.entity.split(".")[0]}));
+    const sched = lanes.filter(l => l.kind === "schedule"), cals = lanes.filter(l => l.kind === "calendar");
+    // Schedules: weekday blocks from schedule/list, matched by registry unique_id; unmatched -> history.
+    const blocks = new Map();
+    if (sched.length) {
+      const [list, ...uids] = await Promise.all([jprScheduleList(h), ...sched.map(l => jprUniqueId(h, l.id))]);
+      sched.forEach((l, k) => {
+        const item = Array.isArray(list) && uids[k] ? list.find(x => x && x.id === uids[k]) : null;
+        if (item) blocks.set(l.id, item[JPR_DAYS[new Date(w.mid).getDay()]] || []);
+      });
+    }
+    const histIds = [...new Set(lanes.filter(l => l.id && l.kind !== "calendar" && !blocks.has(l.id)).map(l => l.id))];
+    const end = Math.min(now, w.t1);
+    const [hist, cal] = await Promise.all([
+      histIds.length && end > w.t0 ? call({type: "history/history_during_period", start_time: new Date(w.t0).toISOString(), end_time: new Date(end).toISOString(),
+        entity_ids: histIds, minimal_response: true, no_attributes: true, significant_changes_only: false}).catch(() => null) : {},
+      cals.length ? call({type: "call_service", domain: "calendar", service: "get_events",
+        service_data: {start_date_time: new Date(w.t0).toISOString(), end_date_time: new Date(w.t1).toISOString()},
+        target: {entity_id: [...new Set(cals.map(l => l.id))]}, return_response: true}).catch(() => null) : null,
+    ]);
+    if (tok !== this._tok) return; // the config changed meanwhile
+    const calResp = cal && (cal.response || cal);
+    const out = lanes.map(l => {
+      const bands = [];
+      let err = false;
+      const add = (a, b, label, detail, open) => { a = Math.max(a, w.t0); b = Math.min(b, w.t1); if (b > a || (open && b >= a)) bands.push({a, b, label, detail, open: !!open}); };
+      for (const r of l.cfg.ranges || []) {
+        const a = jprMin(r.from), b = jprMin(r.to), lab = r.label ? String(r.label) : "";
+        if (b > a) add(w.mid + a * 60e3, w.mid + b * 60e3, lab);
+        else { add(w.mid + a * 60e3, w.mid + 1440 * 60e3, lab); add(w.mid, w.mid + b * 60e3, lab); }
+      }
+      if (l.kind === "calendar") {
+        const evs = calResp && calResp[l.id] && calResp[l.id].events;
+        if (!Array.isArray(evs)) err = true;
+        else for (const e of evs) { const a = jprTime(e.start), b = jprTime(e.end); if (isFinite(a) && isFinite(b)) add(a, b, String(e.summary || ""), String(e.location || "")); }
+      } else if (blocks.has(l.id)) {
+        for (const b of blocks.get(l.id)) { const x = jprMin(b.from), y = jprMin(b.to); if (!isNaN(x) && !isNaN(y) && y > x) add(w.mid + x * 60e3, w.mid + y * 60e3, ""); }
+      } else if (l.id) {
+        const rows = hist && hist[l.id];
+        if (!hist) err = true;
+        else this._history(rows, l.cfg, w.t0, end, add);
+        // A schedule from history: the current block runs on to its next_event (the schedule knows when it ends).
+        const s = stateObj(h, l.id);
+        if (l.kind === "schedule" && s && s.state === "on" && s.attributes.next_event) add(end, Date.parse(s.attributes.next_event), "");
+      }
+      bands.sort((x, y) => x.a - y.a);
+      return {name: l.cfg.name || (l.id ? friendly(h, l.id) : "Lane " + (l.i + 1)), color: accentVar(l.cfg.color) || jamHueAt(l.i), bands, err, id: l.id};
+    });
+    this._data = {...w, lanes: out};
+    this._band = null;
+    this._render(false);
+  }
+  /* History rows -> on periods: a period starts at a row in an "on" state and ends at the next row that is not (or at end). */
+  _history(rows, cfg, t0, end, add) {
+    const want = cfg.state === undefined || cfg.state === null ? null : [].concat(cfg.state).map(String);
+    const on = st => (want ? want.includes(st) : tone({state: st, attributes: {}}) === "on");
+    let from = null;
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const st = String(r.s !== undefined ? r.s : r.state), ts = r.lu != null ? r.lu * 1000 : r.lc != null ? r.lc * 1000 : Date.parse(r.last_updated || r.last_changed);
+      if (!isFinite(ts)) continue;
+      const t = Math.max(t0, ts);
+      if (on(st)) { if (from === null) from = t; }
+      else if (from !== null) { add(from, t, ""); from = null; }
+    }
+    if (from !== null) add(from, end, "", "", true); // still on: the band grows with the now line (_now)
+  }
+  _time(t) {
+    const f = jamGraphTime(this._hass);
+    return new Date(t).toLocaleTimeString(f.loc, {hour: "numeric", minute: "2-digit", hour12: f.h12});
+  }
+  _hourLabel(t) {
+    const f = jamGraphTime(this._hass);
+    if (f.h12 === false) { const d = new Date(t), h = d.getHours(); return String(h === 0 && t > this._data.mid ? 24 : h); }
+    return new Date(t).toLocaleTimeString(f.loc, {hour: "numeric", hour12: f.h12});
+  }
+  css() { return `
+    .host{container-type:inline-size}
+    .pr{display:grid;gap:12px;align-content:start}
+    .hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px}
+    .ti{font-size:calc(1.5rem * var(--disp-scale))}
+    .lanes{position:relative;display:grid;gap:10px}
+    .lane{display:grid;grid-template-columns:var(--lw,92px) minmax(0,1fr);gap:10px;align-items:center}
+    .lnm{font:500 .8rem/1.15 var(--body);color:var(--fg);overflow-wrap:anywhere;min-width:0}
+    .lnm .tmk{margin-right:5px}
+    .trk{position:relative;height:24px;background:var(--slab2)}
+    .bd{position:absolute;top:0;bottom:0;min-width:4px;background:var(--bc);padding:0;cursor:pointer}
+    .bd::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+    .bd.sel{outline:2px solid var(--fg);outline-offset:2px;z-index:1}
+    .bd:focus-visible{outline:3px solid var(--focus);outline-offset:2px;z-index:2}
+    .now{position:absolute;top:-5px;bottom:-5px;width:2px;margin-left:-1px;background:var(--fg);pointer-events:none;z-index:3}
+    .ax{display:grid;grid-template-columns:var(--lw,92px) minmax(0,1fr);gap:10px}
+    .ax > div{position:relative;height:1.1em}
+    .ax span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+    .ax span:first-child{transform:none} .ax span.end{transform:translateX(-100%)}
+    .det{min-height:2.6em;display:grid;gap:2px;align-content:start;font:400 .86rem/1.3 var(--body);color:var(--fg)}
+    .det .dh{font-weight:600}
+    .det .dm{color:var(--dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .empty{color:var(--dim);font:400 .86rem/1.3 var(--body)}
+    @container (max-width:360px){.lanes,.ax{--lw:74px}}
+    @container (max-width:440px){.ax span.o{display:none}}`; }
+  render(b) {
+    const c = this._config, d = this._data, h = this._hass;
+    const {root, face} = this.paper("programme", {face: "pr"});
+    const hd = el("div", "hd");
+    const lng = (h.locale && h.locale.language) || h.language || undefined;
+    let date = "";
+    try { date = new Date().toLocaleDateString(lng, {weekday: "long", month: "long", day: "numeric"}); } catch (e) { date = new Date().toDateString(); }
+    const ti = el("div", "ti disp", c.title || "Today");
+    ti.id = "jpr-ti";
+    hd.append(ti, el("div", "label", date));
+    face.append(hd);
+    if (!d) { face.append(el("div", "empty", "Loading the programme…")); b.append(root); return; }
+    const span = d.t1 - d.t0, pct = t => ((t - d.t0) / span) * 100;
+    const lanes = el("div", "lanes");
+    lanes.setAttribute("role", "group"); lanes.setAttribute("aria-labelledby", "jpr-ti");
+    this._open = [];
+    const was = this._band ? `${this._band.lane.name}|${this._band.x.a}` : null;
+    this._band = null;
+    for (const l of d.lanes) {
+      const row = el("div", "lane"), gone = !!l.id && !stateObj(h, l.id), nm = el("div", "lnm" + (l.err || gone ? " unavail" : ""));
+      if (l.err || gone) { const m = el("span", "tmk t-alert"); m.setAttribute("aria-hidden", "true"); nm.append(m); nm.title = l.name + ": unavailable"; }
+      nm.append(l.name);
+      const trk = el("div", "trk");
+      trk.style.setProperty("--bc", l.color);
+      for (const x of l.bands) {
+        const btn = el("button", "bd");
+        btn.type = "button";
+        btn.style.left = pct(x.a).toFixed(3) + "%"; btn.style.width = (pct(x.b) - pct(x.a)).toFixed(3) + "%";
+        const txt = `${l.name}, ${this._time(x.a)} to ${x.open ? "now" : this._time(x.b)}${x.label ? ", " + x.label : ""}`;
+        btn.setAttribute("aria-label", txt);
+        btn.setAttribute("aria-pressed", "false");
+        const rec = {lane: l, x, btn};
+        if (x.open) this._open.push(rec);
+        btn.addEventListener("click", () => this._pick(this._band === rec ? null : rec));
+        btn.addEventListener("keydown", e => { if (e.key === "Escape" && this._band) { e.preventDefault(); this._pick(null); } });
+        if (was === `${l.name}|${x.a}`) { this._band = rec; btn.classList.add("sel"); btn.setAttribute("aria-pressed", "true"); }
+        trk.append(btn);
+      }
+      if (l.err || gone) { trk.setAttribute("role", "img"); trk.setAttribute("aria-label", l.name + ": unavailable"); }
+      row.append(nm, trk);
+      lanes.append(row);
+    }
+    const now = el("div", "now");
+    now.setAttribute("aria-hidden", "true");
+    lanes.append(now);
+    // Hour labels: a step of 1-6 hours so at most ~5 labels, plus the window's ends.
+    const hrs = span / 3600e3, step = [1, 2, 3, 4, 6, 12].find(s => hrs / s <= 4.5) || 12;
+    const ax = el("div", "ax"), axt = el("div");
+    ax.setAttribute("aria-hidden", "true");
+    const marks = new Set([d.t0, d.t1]);
+    for (let t = d.mid; t <= d.t1; t += step * 3600e3) if (t > d.t0 + step * 1800e3 && t < d.t1 - step * 1800e3) marks.add(t);
+    [...marks].sort((a, b2) => a - b2).forEach((t, i) => {
+      const s = el("span", "label" + (t === d.t1 ? " end" : i % 2 ? " o" : ""), this._hourLabel(t));
+      s.style.left = pct(t) + "%"; axt.append(s);
+    });
+    ax.append(el("div"), axt);
+    const det = el("div", "det");
+    det.setAttribute("aria-live", "polite");
+    face.append(lanes, ax, det);
+    this._els = {lanes, now, det, pct, d};
+    b.append(root);
+    this._now();
+  }
+  /* Selected band (or null = the default line). */
+  _pick(rec) {
+    if (this._band) { this._band.btn.classList.remove("sel"); this._band.btn.setAttribute("aria-pressed", "false"); }
+    this._band = rec && rec.btn.isConnected ? rec : null;
+    if (this._band) { this._band.btn.classList.add("sel"); this._band.btn.setAttribute("aria-pressed", "true"); }
+    this._detail();
+  }
+  _detail() {
+    const e = this._els;
+    if (!e || !e.det.isConnected) return;
+    const s = this._band, head = el("div", "dh"), more = el("div", "dm");
+    if (s) {
+      head.textContent = `${s.lane.name} · ${this._time(s.x.a)}–${s.x.open ? "now" : this._time(s.x.b)}`;
+      more.textContent = [s.x.label, s.x.detail].filter(Boolean).join(" · ");
+    } else {
+      const t = Date.now(), on = e.d.lanes.filter(l => l.bands.some(x => x.a <= t && (x.b > t || x.open))).map(l => l.name);
+      head.textContent = t >= e.d.t0 && t < e.d.t1 ? `Now ${this._time(t)}` : `${this._time(e.d.t0)}–${this._time(e.d.t1)}`;
+      more.textContent = t >= e.d.t0 && t < e.d.t1 ? (on.length ? on.join(", ") : "Nothing on now") : "Outside today's window";
+    }
+    if (e.det.textContent === head.textContent + more.textContent) return;
+    e.det.textContent = "";
+    e.det.append(head, more);
+  }
+  /* Moves the now line (hidden outside the window) and refreshes the default detail line. */
+  _now() {
+    const e = this._els;
+    if (!e || !e.now.isConnected) return;
+    const t = Date.now(), inside = t >= e.d.t0 && t <= e.d.t1;
+    const left = inside ? `calc(var(--lw,92px) + 10px + (100% - var(--lw,92px) - 10px) * ${(e.pct(t) / 100).toFixed(5)})` : "";
+    if (e.now.style.left !== left) e.now.style.left = left;
+    for (const r of this._open || []) { // a period that is still on runs to now
+      r.x.b = Math.max(r.x.b, Math.min(t, e.d.t1));
+      const wd = (e.pct(r.x.b) - e.pct(r.x.a)).toFixed(3) + "%";
+      if (r.btn.style.width !== wd) r.btn.style.width = wd;
+      r.btn.setAttribute("aria-label", `${r.lane.name}, ${this._time(r.x.a)} to now`);
+    }
+    const disp = inside ? "" : "none";
+    if (e.now.style.display !== disp) e.now.style.display = disp;
+    if (!this._band) this._detail();
+  }
+  getCardSize() { return 2 + Math.ceil(this._config.lanes.length * .6); }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
+}
+register("jam-programme", JamProgramme, "Jam Programme", "The day as a timeline: schedules, calendars, on/off history and fixed ranges in lanes, with a now line.");
 
 /* ---------- jam-remote: TV remote (d-pad cross of cut arrows + keys) ----------
    {type: custom:jam-remote, entity? (remote.*), media_player? (title/state), name?, hide_title? (hide the name label + title;
@@ -7191,6 +7702,101 @@ class JamRemote extends JamBase {
   getCardSize() { return 7; }
 }
 register("jam-remote", JamRemote, "Jam Remote", "TV remote: d-pad of cut arrows, OK disc and keys sending remote commands or custom actions.");
+
+/* ---------- jam-results: a results board of big numbers on flat colour squares (Olympia look card, every look) ----------
+   {type: custom:jam-results, items: [entity | {entity, name?, unit?, attribute?, decimals?, color?, thresholds?: [{above?,
+    below?, color}], tap_action?, hold_action?}] (1-12), columns? (auto: squares of at least 112px), accent?}
+   One square per item, each its own surface (card kind: Poster's cut corner, a look's shape): the label at the top, the value
+   big at the bottom (the look's numeral font; temperatures as 66°, other units small beside it; words like "good" too, shrunk
+   to fit). Colour: the first threshold the value passes (above: value > above, below: value < below, both = inside), else
+   `color` (an accent name), else blue, teal, ochre, pink, violet, green in order (jamHueAt). Text on a square = the look's dark or light text,
+   whichever contrasts more (jamFieldInk), a label plate when neither reaches 4.5:1. Unavailable = a face-2 square with "—".
+   Tap a square = its tap_action, default more-info. Static: no motion beyond the press. */
+const JRS_MAX = 12;
+class JamResults extends JamBase {
+  validate(c) {
+    if (!Array.isArray(c.items) || !c.items.length) throw new Error("jam-results: items is a list of 1-12 entities");
+    if (c.items.length > JRS_MAX) throw new Error(`jam-results: ${c.items.length} items, max ${JRS_MAX}`);
+    for (const x of c.items) {
+      const id = typeof x === "string" ? x : x && x.entity;
+      if (typeof id !== "string" || !id.includes(".")) throw new Error("jam-results: each item is an entity id or {entity, name?, color?, ...}");
+      if (x.thresholds !== undefined && !Array.isArray(x.thresholds)) throw new Error("jam-results: thresholds is a list of {above?, below?, color}");
+    }
+  }
+  _items() { return this._config.items.map(x => (typeof x === "string" ? {entity: x} : x)); }
+  watched() { return this._items().map(x => x.entity); }
+  css() { return `
+    .host{container-type:inline-size}
+    .grid{display:grid;grid-template-columns:repeat(var(--cols,auto-fill),minmax(min(112px,100%),1fr));gap:8px}
+    .rsq{aspect-ratio:1;height:auto;min-height:112px}
+    .rsq > .face{--p-t:12px;--p-r:14px;--p-b:14px;--p-l:14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+      background:var(--sc);color:var(--fld-fg,var(--on-fg));overflow:hidden}
+    .rsq.un > .face{background:var(--slab2);color:var(--fg)}
+    .lb{font:500 .8rem/1.2 var(--body);overflow-wrap:anywhere;align-self:start;max-width:100%}
+    .rsq .face.pl .lb,.rsq .face.pl .u{background:var(--plate);color:var(--plate-fg);padding:1px 5px}
+    .val{display:flex;align-items:baseline;gap:5px;min-width:0;white-space:nowrap}
+    .big{font-family:var(--num-font);font-weight:var(--disp-w);text-transform:var(--disp-case);font-size:calc(2.6rem * var(--num-scale));
+      line-height:calc(.95 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.01em)}
+    .big.w{font-size:calc(2.1rem * var(--num-scale))}
+    .u{font:500 .85rem/1 var(--body);text-transform:none}`; }
+  /* The square's colour: thresholds, else color, else the series colour of its position. */
+  _color(x, i, n) {
+    if (isFinite(n)) for (const t of x.thresholds || []) {
+      if (!t || !accentVar(t.color)) continue;
+      const a = t.above !== undefined && t.above !== null && t.above !== "" ? +t.above : null, b = t.below !== undefined && t.below !== null && t.below !== "" ? +t.below : null;
+      if ((a === null || n > a) && (b === null || n < b) && (a !== null || b !== null)) return accentVar(t.color);
+    }
+    return accentVar(x.color) || jamHueAt(i);
+  }
+  render(b) {
+    const c = this._config, h = this._hass, grid = el("div", "grid");
+    if (+c.columns > 0) grid.style.setProperty("--cols", Math.min(12, Math.round(+c.columns)));
+    this._items().forEach((x, i) => {
+      const s = stateObj(h, x.entity), v = jamValue(h, s, x), name = x.name || friendly(h, x.entity);
+      const {root, face} = paper("div", "jam-results|" + x.entity + "|" + i, {cls: "rsq press" + (v.un ? " un" : ""), face: ""});
+      if (!v.un) { face.style.setProperty("--sc", this._color(x, i, v.n)); face.dataset.fld = ""; }
+      const big = el("span", "big num" + (v.word ? " w" : "") + (v.un ? " unavail" : ""), v.v), val = el("div", "val");
+      val.append(big);
+      if (v.u) val.append(el("span", "u", v.u));
+      face.append(el("div", "lb", name), val);
+      root.tabIndex = 0; root.setAttribute("role", "button");
+      root.setAttribute("aria-label", `${name}: ${v.text}`);
+      bindActions(root, () => this._hass, x, x.entity);
+      grid.append(root);
+    });
+    b.append(grid);
+    this._inkWait = !jamFieldInk(b);
+    this._fit();
+  }
+  /* Values that are wider than their square (long words, fallback fonts) shrink to fit; watched while attached. */
+  _fit() {
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (!this.isConnected || !this._body) return;
+    const grid = this._body.querySelector(".grid");
+    if (!grid) return;
+    let w = -1;
+    const fit = () => {
+      if (!grid.isConnected || grid.clientWidth === w) return;
+      w = grid.clientWidth;
+      for (const v of grid.querySelectorAll(".val")) {
+        const big = v.firstChild;
+        big.style.fontSize = "";
+        if (v.scrollWidth > v.clientWidth + 0.5) big.style.fontSize = (parseFloat(getComputedStyle(big).fontSize) * Math.max(.3, (v.clientWidth - (v.scrollWidth - big.offsetWidth)) / big.offsetWidth) - 0.3).toFixed(2) + "px";
+      }
+    };
+    if (window.ResizeObserver) { this._ro = new ResizeObserver(fit); this._ro.observe(grid); } else fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { w = -1; fit(); });
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    if (this._inkWait && this._body) this._inkWait = !jamFieldInk(this._body);
+    if (!this._ro) this._fit();
+  }
+  disconnectedCallback() { super.disconnectedCallback(); if (this._ro) { this._ro.disconnect(); this._ro = null; } }
+  getCardSize() { return 3; }
+  getGridOptions() { return {columns: 12, rows: "auto", min_columns: 3}; }
+}
+register("jam-results", JamResults, "Jam Results", "A results board: big numbers on flat colour squares for any sensors, with thresholds.");
 
 /* ---------- jam-scenes: horizontally scrolling row of scene keys (Londrina, 10px bottom-right cut) ----------
    {type: custom:jam-scenes, scenes: [{entity (scene.* | script.*), name? (default friendly name), data? (extra
@@ -9684,6 +10290,8 @@ const JE_LABELS = {
   input_app: "Apps that mean \"showing an input\"", input_signal_entity: "Input signal", volume_up_action: "Volume up",
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
+  pictogram: "Pictogram", rules: "Pictogram rules (first match wins)", facts: "Facts (up to 4)", lanes: "Lanes",
+  ranges: "Fixed ranges", items: "Squares", thresholds: "Thresholds", decimals: "Decimals", above: "Above", below: "Below",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -9696,6 +10304,10 @@ const JE_HELP = {
   disable_on: "No screensaver while one of these entities is in the state (default on / playing).",
   sources: "A source whose match has inputs is listed under Inputs, the rest under Apps.",
   looks: "Default: JamBoard and every installed theme named \"Jam ...\". Any installed theme name works.",
+  rules: "Swap the pictogram while an entity is in a state (default: on / playing).",
+  facts: "An entity's value, a group's members that are on, or the count of on entities in a list.",
+  lanes: "schedule.*, calendar.*, any on / off entity (its history today) or fixed ranges.",
+  thresholds: "The first one the value passes sets the colour.",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -9946,6 +10558,34 @@ const JAM_EDITORS = {
     stub: (h, e) => { const r = jePick(h, e, jeDom("remote"), null);
       return {media_player: jePick(h, e, (id, s) => jeDom("media_player")(id) && s.attributes.device_class === "tv", null) ||
         jePick(h, e, jeDom("media_player"), "media_player.jam"), ...(r ? {remote: r} : {})}; },
+  },
+  /* ---- look cards (Olympia): jam-pictogram, jam-programme, jam-results. Bare ids in facts / items go to YAML. ---- */
+  "jam-pictogram": {
+    schema: [jeGrid(jeText("name"), jeSel("pictogram", Object.keys(JP_GLYPHS), {default: "home"})), jeEnt("entity"), JE_ACCENT,
+      jeList("facts", [jeEnt("entity"), jeEnts("entities"), jeText("name"), jeText("attribute"), jeText("unit")], {label: "name", desc: "entity"}),
+      jeList("rules", [jeEnt("entity", null, {required: true}), jeTexts("state"), jeSel("pictogram", Object.keys(JP_GLYPHS), {required: true})],
+        {label: "entity", desc: "pictogram"}),
+      jeActions()],
+    stub: (h, e) => { const l = jePick(h, e, (id, s) => jeDom("light")(id) && Array.isArray(s.attributes.entity_id), null) || jePick(h, e, jeDom("light"), null);
+      const t = jePick(h, e, jeTemp, null);
+      return {name: "Living room", pictogram: "sofa-tv", facts: [...(l ? [{entity: l}] : []), ...(t ? [{entity: t, name: "inside"}] : [])]}; },
+  },
+  "jam-programme": {
+    schema: [jeText("title"), jeGrid(jeText("from"), jeText("to")),
+      jeList("lanes", [jeEnt("entity"), jeText("name"), {name: "color", selector: JE_ACCENT.selector}, jeTexts("state"),
+        jeList("ranges", [jeText("from", {required: true}), jeText("to", {required: true}), jeText("label")], {label: "label", desc: "from"})],
+        {label: "name", desc: "entity"}, {required: true}),
+      jeNum("refresh_minutes", {min: 1}, {default: 10}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("schedule", "calendar", "input_boolean"), 3);
+      return {title: "Today", lanes: ids.length ? ids.map(entity => ({entity})) : [{name: "Evening", ranges: [{from: "18:00", to: "22:00"}]}]}; },
+  },
+  "jam-results": {
+    schema: [jeList("items", [jeEnt("entity", null, {required: true}), jeText("name"), {name: "color", selector: JE_ACCENT.selector},
+      jeText("unit"), jeText("attribute"), jeNum("decimals", {min: 0, max: 6}),
+      jeList("thresholds", [jeNum("above", {step: "any"}), jeNum("below", {step: "any"}), {name: "color", selector: JE_ACCENT.selector, required: true}], {label: "color"}),
+      JE_ACTION("tap_action")], {label: "entity", desc: "name"}, {required: true}),
+      jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeNumeric, 3); return {items: (ids.length ? ids : ["sensor.jam"]).map(entity => ({entity}))}; },
   },
   "jam-looks": {
     schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
