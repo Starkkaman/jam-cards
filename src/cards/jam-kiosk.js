@@ -164,7 +164,7 @@ class JamKioskHome extends JamBase {
   _render(force) {
     if (!this._config) return;
     if (force || !this._k) this._shell();
-    if (this._hass) this._update();
+    if (this._hass) { this._update(); motif("decorate", this, this._body, this); }
   }
   _shell() {
     const c = this._config, root = this.shadowRoot;
@@ -272,6 +272,8 @@ class JamKioskHome extends JamBase {
     if (!this._config || !this.isConnected || document.hidden) return;
     this._tick = setTimeout(() => { this._tick = null; if (this._hass && this._k) this._update(); this._fit(); this._arm(); }, 60e3 - (Date.now() % 60e3) + 50);
   }
+  /* Look switch (queueLook): the new look's pack may mark the rendered nodes (motif decorate). */
+  _lookChanged() { if (this._hass && this._k) motif("decorate", this, this._body, this); }
   /* A look's web fonts arrived (core _watchFonts): the clock / lock label were measured with the fallback face. */
   _fontsLoaded() { this._fit(); }
   /* Height: from the card's top to the bottom of the viewport, minus the view's bottom padding (16px); one correction

@@ -498,6 +498,10 @@ function armBars(key) {
   return box;
 }
 defineMotif("empty", armBars);
+/* decorate (R10 Transit): runs after a card rendered (JamBase._render, jam-kiosk) with (body, card); a pack may mark the
+   rendered nodes with attributes its CSS draws from (Transit: the route letter of a bullet). Attributes only, never new
+   text nodes (a look switch away leaves them inert). Poster marks nothing. */
+defineMotif("decorate", () => {});
 
 /* ---------- light colour helpers ---------- */
 /* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
@@ -1100,6 +1104,7 @@ class JamBase extends HTMLElement {
     this._renderLook = this.dataset.look || "poster";
     this._body.textContent = "";
     this.render(this._body);
+    motif("decorate", this, this._body, this);
   }
   render() {}
   /* Card-level cut block (kind "card" unless opts.kind says otherwise). */

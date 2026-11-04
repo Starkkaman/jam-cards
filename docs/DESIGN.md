@@ -117,6 +117,38 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
   stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
 
+## Transit rules (the Transit look, theme "Jam Transit"; brief docs/looks/TRANSIT.md)
+- Tokens (`tokens/looks/transit.mjs`): the cards are black signs with white text in **both** modes (`jam-slab` #000 light /
+  #111 dark, `jam-fg` #fff, `jam-dim` #9d9d9d, keys `jam-slab2` #262626, `jam-slab3` #333, `jam-line` #333); the page is HA's
+  ground (#fff / #000). Text that sits on the page (jam-heading title + kicker, the kiosk home) uses HA's page text,
+  `--primary-text-color` / `--secondary-text-color` (#000 / #5b5b5b light, #fff / #9d9d9d dark; theme aliases `text` /
+  `text-dim`; preview/looks.css carries them too). Arimo (dist/fonts, wght 400-700), mixed case: names 700 at .72, numerals
+  400 tabular at .85 (`jam-num-scale`), labels 400 and keys 700 in sentence case without tracking. Every shape token
+  `none`, no border, `jam-rule-h` / `jam-stripe-w` 4px. Routes (MTA): ochre (living, default) = orange #ff6319, teal
+  (kitchen) = green #00933c, blue = #0039a6, pink (marissa) and violet (music) = purple #b933ad, green (nerd) = lime #6cbe45;
+  `jam-red` = the service-change yellow #fccc0a (alert fills and alert text: yellow on the black sign, black text on it).
+  `jam-on-fg` black; focus ring yellow. Motion: "pull in" (8px slide + fade, `cubic-bezier(.16,.84,.3,1)`) for entrances,
+  stamps and the screensaver text; no washes, wipes or spiral flash.
+- Pack (`src/looks/transit.js`): the **sign rule** on every card / hero / jam-button face (4px rule, 3px gap, 1px rule: a
+  4px border + two flat inset shadows) in the page text colour over the page ground (inside sheets and the screensaver:
+  white over the sheet face); jam-heading's rule and the kiosk bar are the same double rule on the page. **Route bullets**:
+  24px circles (`[data-tr]::before`, the letter from `data-tr`) in the card's accent with the first letter of the name,
+  set by the `decorate` motif on jam-light / jam-heading / jam-tile / jam-panel / jam-list / jam-fan names, jam-button's
+  icon square (which becomes the round bullet) and the kiosk dock names (block accent; `accent: none` = grey). The letter
+  is white on blue / purple (>= 4.5:1), black on the other routes. Off / unavailable = a hollow grey ring; an alert tone
+  (`.stripe.s-alert`, `.tmk.t-alert`) and jam-alerts' title = the yellow diamond. No left tone stripes. Power corners = a
+  26px round bullet top-right (white ring, filled white with a black glyph when on), jam-tv's own corner the same.
+  jam-light stays the black sign when on: the light's colour is the 4px brightness bar; group members = 12px bullets
+  (off = hollow ring); no washes or plates. Keys are #262626 plates with white text; the active key / tab / scene / choice,
+  play, the OK disc, the weather "today" column and jam-tv's Turn on are white plates with black text (a 2px page-text ring
+  keeps a white plate visible on the white page). Kiosk: clock 500 with tight tracking (the mockup's greeting), dock blocks
+  = black signs under the sign rule with 32px route bullets. K1 speaker side panel = the sign, not the art colour.
+  Screensaver = arrivals board: black ground, white time, the now-playing block a sign panel under a white rule with a
+  purple "M" bullet, a route line along the bottom edge.
+- Motifs: empty = a route line with three stations, idleArt = parallel map strokes bending 45 degrees with one station,
+  flash = none, powerGlyph = a 2.4px stroke, screensaver = four route-coloured segments of one line along the bottom.
+- Remote d-pad arrows and the gauge keep their geometry (DESIGN geometry exceptions).
+
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
 scope: per mode or theme-wide, optional or not); `tokens/looks/poster.mjs` holds the Poster values; `tokens/ha.mjs`
@@ -328,7 +360,8 @@ Every motif is drawn through the motif registry (R7): `JamCards.motif(name, ctx,
 version (`ctx` = the card, a node in it, a sheet's `.pop` or a look id; the look is the nearest `data-look`), else Poster's
 (`defineMotif`). Names: `empty` (Golden Arm bars), `idleArt`, `flash` (Vertigo spiral), `wxGlyph` (jam-weather glyph SVG),
 `remoteGlyph` (jam-remote / jam-tv glyph markup, static), `powerGlyph` (power corner), `screensaver` (the poster
-composition's shapes). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
+composition's shapes), `decorate` (R10 Transit: called with `(body, card)` after a card rendered, in JamBase._render and
+jam-kiosk; a pack may mark rendered nodes with attributes its CSS draws from, never new text; Poster's does nothing). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
 aria-hidden nodes and never entity text. A look switch re-renders the cards whose motifs change, the open sheet's spiral,
 jam-popup's spiral and the screensaver shapes. Poster's motifs:
 - **Cut-paper idle art** (round 3, jam-speaker idle poster / thumbs without a cover): a flat Jam-palette ground (ink, cream,
