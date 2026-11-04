@@ -753,3 +753,14 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   the browser loads only one of the equal faces), views.js expects 8 tiles. 93-now-playing: the "new cover is not shown before it has loaded"
   check holds the cover response (page.route on a query of its own, so the memory-cached slide-1.png cannot answer first)
   until it has looked, instead of racing the preload.
+- **R10 Girard (done, 2026-11-04, branch look-girard).** Brief docs/looks/GIRARD.md (decisions and deviations under
+  "Built"), rules in DESIGN.md "Girard rules". `tokens/looks/girard.mjs`: theme "Jam Girard"
+  (`../jam-theme/themes/jamboard-girard.yaml`, jam-theme branch look-girard), light primary (cream-white page, white faces)
+  + dark (ink page, brown faces), saturated textile fills per room, Fraunces 600 (SOFT / WONK instance) + Work Sans,
+  square cards with pill chips, `jam-pad-card` / `-hero` / `-sheet` so text clears the frame, gentle 200 ms motion with
+  pack keyframes. Pack `src/looks/girard.js`: woven 6px pattern frames per room (inset band + a masked `::after`),
+  sun / heart / eye / bird / diamond motifs as CSS masks (room headings, jam-button discs, jam-light levels, idle art,
+  screensaver), tinted pill keys, `--acc-fg` computed from the fill (relative colour syntax), the sun power key (15° turn per
+  change), jam-light tint-on, kiosk woven band + framed dock blocks. Fonts in dist/fonts (OFL). **No shared-code hooks**:
+  CSS over the stable hooks and the existing motifs only; Poster pixel-identical (JAM_BASELINE vs main). Checks:
+  96-packs and views.js know the eighth look (picker tiles, Fraunces swatch, girard pack fonts).

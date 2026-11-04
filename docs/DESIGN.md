@@ -7,8 +7,9 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar and New Wave are the next looks (user, 2026-11-03;
-built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules" and "New Wave rules"); the
+the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar, New Wave and Girard are the next looks (user, 2026-11-03;
+built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules", "New Wave rules" and
+"Girard rules"); the
 global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
@@ -241,6 +242,41 @@ and a card's `fx: false` (the kiosks' setting: jam-kiosk, jam-screensaver; their
 - Contrast is measured on the opaque fx-off faces (preview/contrast.js skips gradients): run the harness with
   `JAM_FX=0` too. Under fx the plane mixes stay in the same lightness band (light: white-based pastel; dark: the plane
   mixed with the page) and the drifting light is mixed into `--slab` first, so it stays dim behind light text.
+
+## Girard rules (the Girard look, theme "Jam Girard"; brief docs/looks/GIRARD.md, decisions in its "Built" section)
+After Alexander Girard (Herman Miller textiles, La Fonda del Sol, 1950s-60s): folk warmth on a modernist grid. Bright and
+saturated: no warm-clay / terracotta palette, no gradients, no shadows; the frames and fills carry the joy.
+- Tokens (`tokens/looks/girard.mjs`): page cream-white #fbf6ec (HA ground) / ink #2a1a12 in dark, faces `--slab` #ffffff /
+  #3a2619, keys `--slab2` #f6efe1 / #4a3324, ink text #2a1a12 / cream #fbf6ec, dim #6b5446 / #cbb6a3. Room fills (same in
+  both modes): ochre (living, default) = vermilion #ec5236, teal (kitchen) = mustard #e8b028, blue (master) = cobalt
+  #2f5fd0, pink (marissa) = #f2a3b8, violet (music) = magenta #d6336c, green (nerd) = turquoise #1fa5a0, red = vermilion;
+  olive #7a8f2a only in the series / art palette. `jam-on-fg` ink, `jam-ink-fg` white; alert text #b3261e / #ff9a80.
+  Hero (`jam-paper`) = mustard with ink text. Fraunces 600 mixed case (the SOFT 100 / WONK 1 instance, opsz auto) at .7,
+  numerals x .78; Work Sans labels 500 / keys 600 in sentence case. Every shape token `none` (square cards), chips
+  radius 999px, `jam-pad-card` 14px / `-hero` / `-sheet` 16px (text clear of the frame), rule / stripe 6px, motion 200 ms
+  with one gentle ease and the pack's keyframes (enter = 6px rise + fade, stamp = a 1.04 pop, sheet = 18px rise; no
+  washes, wipes or spiral flash).
+- Pack (`src/looks/girard.js`): **framed textiles**: every card / hero / jam-button / sheet face (not kiosk cards) carries a
+  6px band inside its edge (an inset box-shadow in the room colour) woven with the room's pattern in a partner colour
+  (a `::after` with four mask strips, 12x6 tiles, the sides turned): living diamonds (pink), kitchen zigzag (vermilion),
+  master dots (mustard), marissa sawtooth (magenta), music stripes (pink), nerd checks (mustard); the room comes from the
+  accent written inline (`--acc: var(--x)`, the kiosk dock's `--bc`), so a jam-popup child with only an inherited
+  `--jam-accent` keeps the default pattern. A framed face's left tone stripe becomes the band (`.s-alert` = a vermilion
+  band). **Motifs** (flat SVG masks in the room colour): sun (living), diamonds (kitchen), sleeping eye (master), heart
+  (marissa), bird (music), eye (nerd); before room headings, as jam-button's icon disc when no icon is set, before
+  jam-light's level (filled with the light's colour when on), in the idle art (a textile swatch: a fill, one big motif, a
+  woven band) and on the screensaver (sun, heart, eye, bird in the layout's places). **Keys / chips / tabs / scenes** are
+  pills (keys and scenes radius 28px, so tall keys are rounded tiles): off = the room colour mixed 18% into the face
+  (OKLCH), on = the full fill; tone marks are little diamonds; strips are rounded with a ring knob on sliders. **Text on a
+  fill** (`--acc-fg`, the rocker, alert keys / chips, the sun power glyph) is worked out from the fill with relative colour
+  syntax: ink where the fill is light, white on cobalt / magenta (a gamma-space luminance switch at 100/255), so an
+  inherited accent gets it right too. **Power** = a Girard sun (disc + eight rays, 32px) top-right: off muted (`--dim`), on
+  the room / light colour; it turns 15° on each change (a 200 ms transition, none with reduced motion). **jam-light on** =
+  the face tinted with the light colour (a flat 20% mix into the face), ink / cream text, a pill brightness bar, members as
+  ringed dots; no label plates. **Kiosk**: a 12px woven band along the top, the big Fraunces clock (500), dock blocks as
+  small framed textiles (block colour band + its room pattern). **Screensaver**: the page ground, the Fraunces clock, the
+  four motifs (l1 stacks them smaller, stepped); the now-playing block keeps Poster's layout.
+- Remote d-pad arrows, the OK disc and the gauge keep their geometry (DESIGN geometry exceptions).
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
