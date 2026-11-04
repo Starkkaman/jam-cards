@@ -7,7 +7,6 @@
 const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
 const JG_SVG = "http://www.w3.org/2000/svg";
 function jgFmt(v) { return String(Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10); }
-defineMotif("gauge", () => null); // Poster: the card draws its wedges itself (see _arc)
 class JamGauge extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-gauge: entity is required"); }
   watched() { return [this._config.entity]; }

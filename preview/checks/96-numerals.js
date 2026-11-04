@@ -1,4 +1,4 @@
-// Grid cell numerals (docs/looks/GRID.md; the Grid pack's root decorator motif "numerals", core jamDecorate): on a separate
+// Grid cell numerals (docs/looks/GRID.md; the Grid pack's root hook motif "decorateRoot", core lookDecorateRoot): on a separate
 // ?look=grid page (so this page's look, fonts and state stay untouched): big numbers are drawn as aria-hidden cells while
 // the real text stays in the DOM (visually hidden) for assistive tech; a value change rebuilds the numeral cell by cell
 // (stepped, at most 300 ms); JamCards.motion = false draws it at once; the brightness row shows ceil(%/10) filled cells;

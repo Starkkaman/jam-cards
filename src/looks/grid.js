@@ -4,7 +4,7 @@
    hairline, Hanken Grotesk in mixed case and no motion; this pack draws what tokens cannot:
    - cell numerals: big numbers (light %, the light pop-up's brightness, kiosk / screensaver / weather clocks, temperatures,
      gauge and graph values) are drawn as 5x7 grid cells (squares, 45-degree cut cells on round strokes; digits, %, :, .,
-     -, degree) through the root decorator motif "numerals" (core jamDecorate). The real text stays in the DOM in a
+     -, degree) through the root hook motif "decorateRoot" (core look hooks, lookDecorateRoot). The real text stays in the DOM in a
      visually hidden span (screen readers, find, the contrast audit read it); the cells are an aria-hidden SVG. A value
      that has other characters (Off, N/A, a dash) stays Hanken text; non-numeral units (small PM, °F, kWh) stay text after
      the cells. When a value changes the numeral rebuilds cell by cell (stepped, 30 ms per cell, the whole rebuild at most
@@ -145,7 +145,7 @@
     const d = v => Math.round(v / 24) * 24 + 1 - v;
     svg.style.transform = `translate(${d(r.left).toFixed(2)}px,${d(r.top).toFixed(2)}px)`;
   }
-  /* The root decorator (motif "numerals"): draws every big number of root now and whenever a card writes one (a
+  /* The root hook (motif "decorateRoot"): draws every big number of root now and whenever a card writes one (a
      MutationObserver on the root); returns the cleanup (observer off, the card's own DOM back). Slots (class + index) remember
      the last value, so a card that renders a new node for a new value still gets the cell-by-cell rebuild. */
   function numerals(root) {
@@ -374,7 +374,7 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
     fonts: [{family: "Hanken Grotesk", weight: "100 900", file: "hanken-grotesk-var-latin.woff2"}],
     css: CSS,
     motifs: {
-      numerals,
+      decorateRoot: numerals,
       empty: gridEmpty,
       idleArt: gridIdle,
       flash() { return svgEl("svg", {viewBox: "0 0 1 1", "aria-hidden": "true"}); },

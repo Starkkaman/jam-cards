@@ -170,7 +170,7 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   signal (#e8401c / #ff4b26), text on it is black (`jam-on-fg`); the secondary blue (#1d3c9a / #6d8cf0) is `jam-focus`
   (focus ring, calm / info tone, selection); red text #c4300f in light mode; the hero is the ink inverted.
 - Pack (`src/looks/grid.js`): big numbers as cell numerals (5x7 cells, 45-degree cut cells on round strokes; digits, %, :,
-  ., -, degree) through the root decorator motif `numerals` (core `jamDecorate`): the text stays in the DOM, visually
+  ., -, degree) through the root hook motif `decorateRoot` (core look hooks, `lookDecorateRoot`): the text stays in the DOM, visually
   hidden, the cells are an aria-hidden SVG; a value with other characters stays text, non-numeral units stay small text;
   a change rebuilds cell by cell (30 ms per cell, <= 300 ms, none without motion). Keys, chips, dock blocks, lock and the
   32px power square are outlined squares, on / active = signal fill. jam-light on = white face, 4px signal top edge,
@@ -453,12 +453,20 @@ Every motif is drawn through the motif registry (R7): `JamCards.motif(name, ctx,
 version (`ctx` = the card, a node in it, a sheet's `.pop` or a look id; the look is the nearest `data-look`), else Poster's
 (`defineMotif`). Names: `empty` (Golden Arm bars), `idleArt`, `flash` (Vertigo spiral), `wxGlyph` (jam-weather glyph SVG),
 `remoteGlyph` (jam-remote / jam-tv glyph markup, static), `powerGlyph` (power corner), `screensaver` (the poster
-composition's shapes). R10 hooks where Poster draws nothing (its motif returns null and the card keeps its own drawing):
-`code` (name -> a small aria-hidden mark: jam-heading title, jam-button icon square, jam-kiosk dock blocks; jam-kiosk
-rebuilds its shell when the look's `code` motif changes), `gauge` (level 0..1 | null, band -> the whole jam-gauge arc
-meter) and `graph` (svg, data, geometry -> draws jam-graph's series itself and returns one y scale per series for the
-crosshair marks); `decorate` (R10 Transit: called with `(body, card)` after a card rendered, in JamBase._render and
-jam-kiosk; a pack may mark rendered nodes with attributes its CSS draws from, never new text; Poster's does nothing). Level fills also carry `--lv` (0..1) next to their width for a look's level CSS (Pulsar's ridges). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
+composition's shapes).
+**Look hooks** (R10, core.js "look hooks"; one mechanism for everything a pack does beyond its CSS): more motifs whose
+Poster version is a no-op, so under Poster nothing is drawn, marked or written, and a look switch that changes a hook
+re-renders the cards that use it. Content hooks, asked by a card where a look may draw a part itself (Poster: null, the
+card keeps its own drawing): `code` (name -> a small aria-hidden mark: jam-heading title, jam-button icon square,
+jam-kiosk dock blocks; jam-kiosk rebuilds its shell when the look's `code` changes; Pulsar), `gauge` (level 0..1 | null,
+band -> the whole jam-gauge meter; Pulsar), `graph` (svg, data, geometry -> draws jam-graph's series and returns one y
+scale per series for the crosshair marks; Pulsar). Render hook `decorate` (`(body, card)`, run by `lookDecorate` after
+every render of a card body: JamBase._render, jam-kiosk's `_render` and look switch; attributes and custom properties
+only, never text; Transit's route letters). Root hook `decorateRoot` (`(root) -> cleanup | null`, run by
+`lookDecorateRoot` for every shadow root jamStyle styles, after its sheets; the cleanup runs when the root is styled again
+or for another look; Grid's cell numerals). Plain data for a pack's CSS, written for every look: `data-jam-seed` (0..11,
+card host, from the entity; New Wave's confetti), `--lv` (level 0..1 next to every level fill's width; Pulsar's ridges),
+`--jam-ss-day` (time of day 0..1 on the screensaver overlay; New Wave's light). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
 aria-hidden nodes and never entity text. A look switch re-renders the cards whose motifs change, the open sheet's spiral,
 jam-popup's spiral and the screensaver shapes. Poster's motifs:
 - **Cut-paper idle art** (round 3, jam-speaker idle poster / thumbs without a cover): a flat Jam-palette ground (ink, cream,

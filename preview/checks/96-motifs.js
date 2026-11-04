@@ -22,7 +22,8 @@ module.exports = async (page, check) => {
       remote: typeof J.motif("remoteGlyph", "poster", "power") === "string" && J.motif("remoteGlyph", "poster", "nope") === null,
       power: J.motif("powerGlyph", "poster").localName === "svg",
       ss: J.motif("screensaver", "poster").map(n => n.className).join(",") === "sh b1 bar,sh b2 bar,sh b3 bar,sh dk disc",
-      hooks: J.motif("code", "poster", "Living") === null && J.motif("gauge", "poster", .5, null) === null && J.motif("graph", "poster") === null,
+      hooks: J.motif("code", "poster", "Living") === null && J.motif("gauge", "poster", .5, null) === null && J.motif("graph", "poster") === null &&
+        J.motif("decorate", "poster", document.createElement("div"), null) === undefined && J.motif("decorateRoot", "poster", document.createElement("div")) === null,
       unknown: (() => { try { J.motif("nope", "poster"); return false; } catch (e) { return true; } })(),
     };
     // Test pack: each motif = the Poster one + a data-mt marker.
@@ -62,7 +63,7 @@ module.exports = async (page, check) => {
     h.themes = {...h.themes};
     return out;
   });
-  check(Object.values(r.poster).every(Boolean), `motifs: Poster versions equal the old helpers (armBars, vertigoSpiral, JAM_GLYPHS, power glyph, screensaver shapes), the R10 hooks (code, gauge, graph) draw nothing, unknown names throw ${JSON.stringify(r.poster)}`);
+  check(Object.values(r.poster).every(Boolean), `motifs: Poster versions equal the old helpers (armBars, vertigoSpiral, JAM_GLYPHS, power glyph, screensaver shapes), the R10 look hooks (code, gauge, graph, decorate, decorateRoot) draw nothing, unknown names throw ${JSON.stringify(r.poster)}`);
   check(r.on.code > 0 && r.on.gauge > 0 && r.on.graph === r.graphPlots && r.codeIn.heading && r.codeIn.button && r.codeIn.kiosk,
     `R10 hooks reach the cards through the pack: code ${r.on.code} (jam-heading ${r.codeIn.heading}, jam-button ${r.codeIn.button}, jam-kiosk dock ${r.codeIn.kiosk}), gauge ${r.on.gauge}, graph ${r.on.graph} (of ${r.graphPlots} graphs with history)`);
   const ok = r.on.empty === r.before.arm && r.on.empty > 0 && r.on.idleArt >= r.before.idle && r.on.idleArt > 0 && r.on.flash >= 1 && r.on.wxGlyph > 0 &&

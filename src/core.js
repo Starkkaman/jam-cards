@@ -498,13 +498,48 @@ function armBars(key) {
   return box;
 }
 defineMotif("empty", armBars);
-/* Name code (R10 Pulsar hook): a look may mark a name with a small aria-hidden decoration (Pulsar: its colour code); Poster
-   draws none (null), so the cards append nothing. Asked by jam-heading (title), jam-button (icon square), jam-kiosk (dock). */
+
+/* ---------- look hooks (R10: one mechanism for everything a look pack does beyond its CSS) ---------- */
+/* Every hook is a motif (above): the Poster version is a no-op, so under Poster nothing is drawn, marked or written, and a
+   look switch that changes a hook re-renders the cards that use it (motifsDiffer / JamBase._relook). A pack overrides a
+   hook in its motifs ({name: fn}). Three kinds, by when they run:
+   - content hooks, asked by a card where a look may draw a part itself; Poster returns null and the card keeps its own
+     drawing (or appends nothing): code(name) -> a name's aria-hidden mark (jam-heading title, jam-button icon square,
+     jam-kiosk dock blocks; Pulsar's colour code), gauge(level 0..1 | null, band) -> jam-gauge's whole meter (Pulsar's
+     ridge stack), graph(svg, data, geometry) -> draws jam-graph's series and returns one y scale per series for the
+     crosshair marks (Pulsar's ridgelines);
+   - render hook decorate(body, card), run by lookDecorate after every render of a card body (JamBase._render, jam-kiosk's
+     _render and look switch): marks rendered nodes with attributes / custom properties the pack's CSS draws from, never
+     text (Transit's route letters);
+   - root hook decorateRoot(root) -> cleanup | null, run by lookDecorateRoot for every shadow root jamStyle styles (cards,
+     open sheets, jam-popup, jam-kiosk, the screensaver layer), after its sheets; the cleanup runs when the root is styled
+     again or for another look (Grid's cell numerals, redrawn from the text the cards write).
+   Plain data the cards write for every look, read by a pack's CSS alone (no call into the pack): data-jam-seed 0..11 on
+   the card host (jamSeedAttr; New Wave's confetti), --lv (level 0..1) next to every level fill's width (Pulsar's ridges),
+   --jam-ss-day (time of day 0..1) on the screensaver overlay (New Wave's drifting light). */
 defineMotif("code", () => null);
-/* decorate (R10 Transit): runs after a card rendered (JamBase._render, jam-kiosk) with (body, card); a pack may mark the
-   rendered nodes with attributes its CSS draws from (Transit: the route letter of a bullet). Attributes only, never new
-   text nodes (a look switch away leaves them inert). Poster marks nothing. */
+defineMotif("gauge", () => null);
+defineMotif("graph", () => null);
 defineMotif("decorate", () => {});
+defineMotif("decorateRoot", () => null);
+/* The render hook on a rendered card (its _body). */
+function lookDecorate(card) { motif("decorate", card, card._body, card); }
+/* The root hook: undo the last decoration of root, then decorate it for look (only when the look's pack has one). */
+function lookDecorateRoot(root, look) {
+  const undo = root._jamUndo;
+  if (undo) { root._jamUndo = null; try { undo(); } catch (e) { console.error("jam-cards: decorateRoot cleanup", e); } }
+  const pack = lookPack(look);
+  if (pack && typeof pack.motifs.decorateRoot === "function") root._jamUndo = motif("decorateRoot", look, root) || null;
+}
+/* Seed for seeded decoration: data-jam-seed = 0..11 on the card host, from its entity (else its whole config), so a pack
+   can place it with CSS alone (:host([data-jam-seed="3"])); HA wraps every card in its own element, so the card's position
+   cannot serve as a seed. Written only when it changes. */
+function jamSeedAttr(card, config) {
+  let k = config.entity;
+  if (typeof k !== "string" || !k) { try { k = JSON.stringify(config); } catch (e) { k = String(config.type || ""); } }
+  const v = String(seed(k) % 12);
+  if (card.getAttribute("data-jam-seed") !== v) card.setAttribute("data-jam-seed", v);
+}
 
 /* ---------- light colour helpers ---------- */
 /* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */
@@ -767,15 +802,6 @@ function jamFxOption(card, config) {
   else if (card.style.getPropertyValue("--jam-fx")) card.style.removeProperty("--jam-fx");
 }
 function setFx(node, on) { if (node && node.hasAttribute("data-fx") !== on) node.toggleAttribute("data-fx", on); }
-/* Decor seed (R10, New Wave): data-jam-seed = 0..11 on the card host, from its entity (else its whole config), so a look
-   pack can place seeded decoration with CSS alone (:host([data-jam-seed="3"])); HA wraps every card in its own element,
-   so the card's position cannot serve as a seed. Poster and the other looks ignore it. Written only when it changes. */
-function jamSeedAttr(card, config) {
-  let k = config.entity;
-  if (typeof k !== "string" || !k) { try { k = JSON.stringify(config); } catch (e) { k = String(config.type || ""); } }
-  const v = String(seed(k) % 12);
-  if (card.getAttribute("data-jam-seed") !== v) card.setAttribute("data-jam-seed", v);
-}
 
 /* ---------- look packs (theming plan 2.1, R6) ---------- */
 /* A look = an HA theme (every --jam-* token, --jam-look: <id>) + an optional pack registered here (src/looks/<id>.js):
@@ -825,18 +851,7 @@ function jamStyle(root, css, look) {
     if (st.textContent !== text) st.textContent = text;
     if (root.firstChild !== st) root.prepend(st);
   }
-  if (pack || root._jamUndo) jamDecorate(root, look); // after the sheets: the pack's decorator reads its own CSS
-}
-/* Root decorator motif "numerals" (Grid): a look pack may define it as fn(root) -> cleanup | null. jamStyle calls it with
-   every shadow root it styles for that look (cards, open sheets, jam-popup, jam-kiosk, the screensaver layer), so the pack
-   can redraw parts of the DOM the cards write (Grid: big numbers as cell numerals, the text kept for assistive tech); the
-   cleanup runs when the root is styled again or for another look. Poster (and a pack without it): nothing is called. */
-defineMotif("numerals", () => null);
-function jamDecorate(root, look) {
-  const undo = root._jamUndo;
-  if (undo) { root._jamUndo = null; try { undo(); } catch (e) { console.error("jam-cards: numerals cleanup", e); } }
-  const pack = lookPack(look);
-  if (pack && typeof pack.motifs.numerals === "function") root._jamUndo = motif("numerals", look, root) || null;
+  if (pack || root._jamUndo) lookDecorateRoot(root, look); // after the sheets: the pack's root hook reads its own CSS (look hooks)
 }
 /* Re-skins a root styled by jamStyle for another look (only when its pack sheet changes). */
 function jamRestyle(root, look) {
@@ -1131,7 +1146,7 @@ class JamBase extends HTMLElement {
     this._renderLook = this.dataset.look || "poster";
     this._body.textContent = "";
     this.render(this._body);
-    motif("decorate", this, this._body, this);
+    lookDecorate(this);
   }
   render() {}
   /* Card-level cut block (kind "card" unless opts.kind says otherwise). */

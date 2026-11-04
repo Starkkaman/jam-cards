@@ -25,6 +25,16 @@ Fonts (OFL): Londrina Solid and Jost (the default look) are embedded in `jam-car
 fonts are files in `fonts/` next to it, loaded only while that look is active. Licences are in `dist/fonts/`. Nothing is
 fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
 
+**0.9.0: four more looks.** **Jam Transit** (Vignelli's subway signs: black signs, route bullets, yellow alerts), **Jam
+Grid** (Crouwel's New Alphabet: a page grid, one signal colour, big numbers built from grid cells), **Jam Pulsar**
+(Factory Records: a black field with thin rules, ridge-line levels, colour codes) and **Jam New Wave** (April Greiman:
+tinted translucent planes, confetti, pixel type; set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets).
+Update the [jam-theme](https://github.com/Starkkaman/jam-theme) repo too, then pick a look in your profile. **Jam
+Braun** has more colour (lit lights tinted in their own colour, the ET66 yellow and olive keys, room-coloured heading
+rules, tinted dock blocks and bands). New [jam-looks](#jam-looks) card: a per-user look picker with a live swatch per
+look (it sets your own theme, like Profile → Theme). Visual editors now cover 21 cards (plus jam-looks), list options
+included (Home Assistant 2026.10 or newer).
+
 **0.8.0: looks.** Two new looks next to Poster, Braun and Olympia: install or update the
 [jam-theme](https://github.com/Starkkaman/jam-theme) repo and switch with Home Assistant's theme picker (profile, or
 `frontend.set_theme`): **Jam Braun** or **Jam Olympia** (JamBoard = Poster). Also visual editors for 13 cards, a short
@@ -600,8 +610,8 @@ watch: [lock.front_door]
 | `title`, `accent` | Title (default "Automations & alerts") and accent |
 
 ### jam-looks
-A look picker for **yourself**: one tile per installed look (JamBoard and every theme named "Jam ...", e.g. Jam Braun,
-Jam Olympia), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
+A look picker for **yourself**: one tile per installed look (JamBoard and every theme named "Jam ...": Jam Braun,
+Jam Grid, Jam New Wave, Jam Olympia, Jam Pulsar, Jam Transit), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
 current light / dark mode), plus **Use system default**. The current one is filled with the accent. A tap does exactly what
 Profile → Theme does: it sets the theme for the logged-in user (this browser, and Home Assistant 2026.10 also saves it to
 that user's profile, so their other browsers follow) and keeps their auto / light / dark choice. Other users, wall
@@ -631,7 +641,7 @@ list with every default is in [docs/DESIGN.md](docs/DESIGN.md) "Token reference"
 `data-look=<id>` from `--jam-look` (`poster` by default), and a theme or dark-mode switch re-renders the cards at once.
 Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun** (after Dieter Rams: warm-white or
 anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Braun rules") and **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
+[docs/DESIGN.md](docs/DESIGN.md) "Braun rules"), **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
 ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
 rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"), **Jam Transit** (after Vignelli's New York subway signage:
 every card a black sign under a double rule, round MTA route bullets with letters, Arimo, yellow "service change" for

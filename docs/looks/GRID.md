@@ -32,7 +32,7 @@ Choices the brief left open, and where the build departs from it, so a reviewer 
   other themes are unchanged): two repeating 1px linear-gradients every 24px over the ground, the brief's one allowed
   gradient. The preview paints `--lovelace-background` on a `body::before` layer. Cards cannot be placed on the grid from
   a theme (HA's sections layout sets gaps and row heights), so the faces cover the lines and the lines show in the gaps.
-- **Cell numerals** (motif `numerals`, a root decorator; see the pack header): light % (jam-light + its pop-up's
+- **Cell numerals** (motif `numerals`, a root decorator; renamed `decorateRoot` at the R10 merge, see DESIGN "Look hooks"; see the pack header): light % (jam-light + its pop-up's
   brightness), clocks (jam-kiosk, jam-weather, jam-screensaver incl. the photos time chip), temperatures (jam-weather,
   jam-house, the screensaver), jam-gauge and jam-graph values. Glyphs: the mockup's digits and %, plus ':', '.', '-' and
   '°'. A value with any other character (Off, N/A, a dash, a comma) stays Hanken text; units that are not numerals (PM,
@@ -59,7 +59,7 @@ Choices the brief left open, and where the build departs from it, so a reviewer 
 - **Motifs**: empty = a seeded 4 x 3 block of cells (ink, one signal), idleArt = one New Alphabet digit on a 9 x 9 cell
   grid with one signal cell, flash = none, powerGlyph = 2px square caps.
 - **Motion**: every keyframe token `none`, press transforms `none`; only the numerals move.
-- Shared-code hooks (additive; Poster pixel-identical): core `jamDecorate` + the Poster no-op motif `numerals` (jamStyle
+- Shared-code hooks (additive; Poster pixel-identical): core `jamDecorate` + the Poster no-op motif `numerals` (since the R10 merge: `lookDecorateRoot` + motif `decorateRoot`, one of the core look hooks) (jamStyle
   calls a pack's `numerals(root)` for every root it styles and runs its cleanup on the next style / look switch);
   tokens/ha.mjs alias `lovelace-bg`; tokens/index.mjs writes `--lovelace-background` into preview/looks.css for a look whose
   value differs from the ground; preview/index.html paints it (`body::before`, `.view` positioned above it).

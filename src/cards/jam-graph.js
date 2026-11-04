@@ -24,7 +24,6 @@ function jamGraphSvg(tag, attrs, cls) {
   for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
   return e;
 }
-defineMotif("graph", () => null); // Poster: the cards draw line / step / bars themselves (see _draw)
 class JamGraph extends JamBase {
   constructor() { super(); this._tok = 0; this._last = 0; this._lastQ = null; this._data = null; this._hover = null; }
   /* Never throws: a broken config renders as an in-card error (one bad card must not break a dashboard). */

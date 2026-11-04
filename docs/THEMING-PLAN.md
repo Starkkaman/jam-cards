@@ -737,3 +737,18 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   skips gradients), so a look with fx must pass both runs. 96-packs knows the newwave pack (Archivo + 2 Silkscreen faces).
   Silkscreen's unicode-range leaves out ° (falls back to monospace). Not done: the kiosks' dashboard YAML (`fx: false` on
   jam-kiosk / jam-screensaver) is the user's step (HA read-only for workers).
+- **R10 merge + 0.9.0 (done, 2026-11-03).** editors-2, look-picker, braun-colour, look-pulsar, look-transit, look-grid and
+  look-newwave merged into main (LOOKS: poster, braun, olympia, transit, grid, pulsar, newwave; stress stays harness-only).
+  **Look hooks unified** (core.js "look hooks", DESIGN "Motifs" -> Look hooks): every R10 hook is a motif with a no-op
+  Poster version, defined in one place, in three kinds by when it runs: content hooks `code` / `gauge` / `graph` (Pulsar;
+  the gauge / graph defaults moved from the card files into core), render hook `decorate` (Transit; run by
+  `lookDecorate(card)` from JamBase._render and jam-kiosk) and root hook `decorateRoot` (Grid's former `numerals` motif +
+  `jamDecorate`, now `lookDecorateRoot`; the grid pack registers its function as `decorateRoot`), plus the plain data the
+  cards write for pack CSS (`data-jam-seed` via jamSeedAttr, `--lv`, `--jam-ss-day`). Behaviour unchanged (same calls,
+  same order, same guards); jam-kiosk's two `_lookChanged` methods from Transit and Pulsar (the auto-merge kept both, the
+  second silently replaced the first) are one: rebuild the shell when the look's `code` changes, else `decorate`.
+  96-motifs also checks that Poster's `decorate` / `decorateRoot` do nothing. jam-looks lists all seven looks by default
+  (JamBoard + every "Jam ..." theme by name); 96-packs runs the picker under each of the seven looks (each swatch in its
+  look's display font), views.js expects 8 tiles. 93-now-playing: the "new cover is not shown before it has loaded"
+  check holds the cover response (page.route on a query of its own, so the memory-cached slide-1.png cannot answer first)
+  until it has looked, instead of racing the preload.

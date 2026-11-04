@@ -88,13 +88,22 @@ module.exports = async (page, check) => {
   s = await look();
   check(!s.shown, `now: a state outside the source's states (speaker paused) -> no block (${s.shown})`);
   await setState("media_player.np_speaker", "playing");
-  await setState("media_player.np_tv", "paused", {media_title: "Lofi beats to study to", media_artist: "Lofi Girl", entity_picture: "fixtures/slides/slide-1.png"});
+  // The new cover's response is held until the "not shown yet" look ran: slide-1.png is already in the memory cache (the
+  // photo slides), and even a local fetch can finish before the next page.evaluate, so without the hold the preload could
+  // land first (the old flake). A query of its own keeps the request off the cache, so page.route sees it.
+  let release;
+  const held = new Promise(r => { release = r; });
+  const isHeld = u => u.pathname.endsWith("/fixtures/slides/slide-1.png") && u.search === "?np=held";
+  await page.route(isHeld, async route => { await held; await route.continue(); });
+  await setState("media_player.np_tv", "paused", {media_title: "Lofi beats to study to", media_artist: "Lofi Girl", entity_picture: "fixtures/slides/slide-1.png?np=held"});
   s = await look();
   check(s.shown && s.kick === "On the TV · YouTube" && s.big === "Lofi beats to study to" && s.sub === "Lofi Girl",
     `now: the first active source wins (TV paused over the speaker): "${s.kick}" / "${s.big}" / "${s.sub}"`);
   check(s.bars && !s.cover, `now: a new cover is not shown before it has loaded (${JSON.stringify([s.bars, s.cover])})`);
+  release();
   await page.waitForTimeout(400);
   s = await look();
+  await page.unroute(isHeld);
   check(!s.bars && /slide-1\.png/.test(s.cover) && s.imgs === 0, `now: the cover is swapped in after preloading (background, not an <img>: ${s.imgs})`);
   await setState("media_player.np_tv", "paused", {entity_picture: "fixtures/slides/missing.png"});
   await page.waitForTimeout(400);

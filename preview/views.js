@@ -135,7 +135,7 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
           const tiles = [...e.shadowRoot.querySelectorAll(".opt")];
           return {look: e.dataset.look, tiles: tiles.length, on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(), sel: (h.selectedTheme || {}).theme};
         });
-        check(st.look === look && st.tiles === 4 && st.on === st.sel, `${T}: ${mode}/${width} jam-looks: data-look=${st.look}, ${st.tiles} tiles, current ${st.on} marked`);
+        check(st.look === look && st.tiles === 8 && st.on === st.sel, `${T}: ${mode}/${width} jam-looks: data-look=${st.look}, ${st.tiles} tiles (the seven looks + system default), current ${st.on} marked`);
         await ctlCheck(p, `${mode}/${width} jam-looks`, "#looks-view jam-looks");
         await ctCheck(p, `${mode}/${width} jam-looks`);
         await p.locator("#looks-view").screenshot({path: path.join(out, `looks-picker-${mode}-${width}.png`)});
