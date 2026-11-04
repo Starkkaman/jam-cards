@@ -71,3 +71,8 @@ Keep the appliance, add the colour Braun actually used (ET66 calculator keys, th
 - Kiosk clock colon stays orange; add a thin coloured second-hand dot ring (static) in the room colour.
 - Speaker/TV text bands: panel with the album/app colour tint (~12%).
 - Still no gradients; tints are flat mixes. Contrast ≥ 4.5:1 everywhere.
+
+Built 2026-11-03 (branch braun-colour; rules in docs/DESIGN.md "Braun rules", check preview/checks/96-r10-braun-colour.js).
+Notes: the regular speaker / TV cards know no album / app colour, so their bands take the card accent (`--acc`); only the
+jam-speaker kiosk panel (K1) tints with the sampled art colour. Olive keys carry deep ink #161616 text (neither white nor
+ink reaches 4.5:1). Not built: the kiosk clock dot ring (where it sits around the clock is not decided).
