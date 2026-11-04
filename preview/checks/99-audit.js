@@ -438,7 +438,9 @@ module.exports = async (page, check) => {
         A.set("media_player.au_speaker", "idle");
         const k = A.mount("jam-kiosk", {...cfg, attention: undefined, now_band: false}, wrap);
         await new Promise(r => setTimeout(r, 400));
-        const parse = c => { const m = String(c).match(/[\d.]+/g) || [0, 0, 0, 0]; return [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]]; };
+        const parse = c => { // rgb(a) or color(srgb r g b / a) (color-mix results)
+          const str = String(c), m = str.match(/[\d.]+/g) || [0, 0, 0, 0], k = /^color\(srgb/.test(str) ? 255 : 1;
+          return [m[0] * k, m[1] * k, m[2] * k, m[3] === undefined ? 1 : +m[3]]; };
         const over = (f, b) => [0, 1, 2].map(i => f[i] * f[3] + b[i] * (1 - f[3])).concat(1);
         const probe = document.createElement("i"); document.body.append(probe);
         const srgb = c => { probe.style.color = ""; probe.style.color = c; return getComputedStyle(probe).color; };
