@@ -654,8 +654,9 @@ field with thin rules, one warm accent, levels as Unknown Pleasures ridges, Blue
 Memphis: translucent planes tinted per room, confetti, Silkscreen pixel numbers and labels, sticker-yellow alerts; its
 effects are on by default, set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets; rules in
 [docs/DESIGN.md](docs/DESIGN.md) "New Wave rules") and **Jam Girard** (after Alexander Girard's textiles: a cream-white
-page, cards framed by a woven 6px pattern border per room, saturated vermilion / mustard / cobalt / pink / magenta /
-turquoise fills, pill keys, sun / heart / eye / bird / diamond motifs, a sun power key, Fraunces and Work Sans; rules in
+page, cards edged or framed with a woven pattern per room, saturated vermilion / mustard / cobalt / pink / magenta /
+turquoise fills, pill keys, sun / heart / eye / bird / diamond motifs, a sun power key, a kiosk in the room's own colour,
+Fraunces and Work Sans; rules in
 [docs/DESIGN.md](docs/DESIGN.md) "Girard rules"). Pick a look in the theme picker; JamBoard is Poster. The
 [jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,

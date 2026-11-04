@@ -5,7 +5,8 @@
 // Views (dark + light): popup-<mode>-390 (jam-popup bottom sheet), light-cards-<mode>-390, light-sheet-{group,wled,edit}-<mode>-390,
 // tv-remote-sheet-<mode>-390, tv-source-sheet-<mode>-390, watch-play-<mode>-390, speakers-<mode>-390 (the speaker section),
 // speaker-panel-{pinned,speakers}-<mode>-1280 (panel B), kiosk-sheet-{music,tv}-<mode>-{1024,961} (jam-kiosk sheets; fit.js
-// shoots the dark ones too), screensaver-{clock,photos}-<mode>-961, looks-picker-<mode>-{390,1280} (jam-looks, every look's
+// shoots the dark ones too), kiosk-dock-states-<mode>-1024 + kiosk-unlocked-<mode>-1024 (jam-kiosk home with stubbed dock
+// states, then the door unlocked), screensaver-{clock,photos}-<mode>-961, looks-picker-<mode>-{390,1280} (jam-looks, every look's
 // swatch in its own font, this look picked).
 // Check per opened view ("controls present"): every visible button / [role=button] / [role=slider] in the open sheet (or the
 // page section) is at least 1px in both directions, inside the viewport horizontally, and its centre hits itself (not
@@ -185,6 +186,46 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
           await shot(p, `kiosk-sheet-${name}-${mode}-${w}.png`);
           await p.keyboard.press("Escape"); await p.waitForTimeout(300);
         }
+      } finally { await ctx.close(); }
+    }
+    // ---- kiosk home: dock states + the door unlocked (1024x768). The dock states are stubbed: jam-kiosk sets
+    // data-state = on | off | action on each block from branch audit-fixes on; until then this view writes them (Lights on,
+    // TV / Music / Air off, All off = action) so a look's state styles can be reviewed. Then the door is unlocked. ----
+    {
+      const {ctx, p} = await open(mode, {width: 1024, height: 768});
+      try {
+        const st = await p.evaluate(async () => {
+          const src = document.querySelector("#view jam-kiosk");
+          if (!src) return null;
+          const cfg = JSON.parse(JSON.stringify(src._config));
+          document.getElementById("view").remove();
+          Object.assign(window.__hass, {locale: {language: "en", time_format: "12"}, language: "en"});
+          const wrap = document.createElement("div"); wrap.style.cssText = "padding:8px 16px 16px";
+          const e = document.createElement("jam-kiosk"); e.setConfig(cfg); e.hass = window.__hass;
+          wrap.append(e); document.body.append(wrap);
+          await new Promise(r => setTimeout(r, 300));
+          const blks = [...e.shadowRoot.querySelectorAll(".blk")], want = ["on", "off", "off", "off", "action"];
+          blks.forEach((b, i) => { if (!b.dataset.state) b.dataset.state = want[i] || "off"; });
+          const bg = b => getComputedStyle(b).backgroundColor;
+          return {n: blks.length, states: blks.map(b => b.dataset.state).join(","), bg: blks.map(bg)};
+        });
+        check(!!st && st.n === 5, `${T}: ${mode} kiosk dock states stubbed (${st && st.states})`);
+        if (look === "girard" && st) check(st.bg[0] !== st.bg[1] && st.bg[4] === "rgba(0, 0, 0, 0)",
+          `${T}: ${mode} kiosk dock: the on block is filled (${st.bg[0]}), off tinted (${st.bg[1]}), the action block outlined (${st.bg[4]})`);
+        await ctlCheck(p, `${mode} kiosk dock states`, "jam-kiosk");
+        await ctCheck(p, `${mode} kiosk dock states`);
+        await shot(p, `kiosk-dock-states-${mode}-1024.png`);
+        const lk = await p.evaluate(async () => {
+          const hs = window.__hass, e = document.querySelector("jam-kiosk"), o = hs.states["lock.kh_door"];
+          hs.states["lock.kh_door"] = {...o, state: "unlocked", last_updated: String(Math.random())};
+          e.hass = {...hs};
+          await new Promise(r => setTimeout(r, 500));
+          const l = e.shadowRoot.querySelector(".lk");
+          return {alert: !!l && l.classList.contains("alert"), label: l ? l.textContent : ""};
+        });
+        check(lk.alert, `${T}: ${mode} kiosk door unlocked: the lock shows its alert state (${lk.label})`);
+        await ctCheck(p, `${mode} kiosk door unlocked`);
+        await shot(p, `kiosk-unlocked-${mode}-1024.png`);
       } finally { await ctx.close(); }
     }
     // ---- screensaver: clock (poster view) and photos, 961x601 (Echo Show 8) ----

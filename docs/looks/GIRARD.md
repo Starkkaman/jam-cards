@@ -53,3 +53,32 @@ opsz 9-144 / wght 400-800 with SOFT 100 / WONK 1 pinned, 62 KB; Work Sans wght 4
 - **HA chrome**: white header and sidebar (dark: ink) over a 6px vermilion band, cobalt primary with white text (dark:
   mustard with ink text), pill badges / tile icons; card-mod view tabs in Work Sans over a 6px room band, the current tab
   a pill filled with its colour. HA's own cards are not framed (a theme cannot add the pattern to them).
+
+### Rework after the design review (2026-11-04)
+The independent review rated phone / desktop "ship with fixes" and kiosk + screensaver "rework": the kiosk measured 2.5%
+saturated pixels (Poster 12%, Olympia 16%) and read as cream + a brown serif clock. Changes (they replace the bullets above
+where they differ):
+- **Kiosk = the room's own field** (the review's "dramatic option", taken): in light mode the whole kiosk is pink for
+  living / alerts, mustard for kitchen, a light mix of the room colour for the others, with ink text (dim #4d3426, alert
+  text #8e1c14 there). Dark mode keeps the ink page (night).
+- **Runner** (56-72px) of the six rooms replaces the 12px band: each segment its colour with its pattern woven across the
+  lower 40%, on a white strip so the kiosk's own room colour still shows. Decorative: the card cannot know which rooms are
+  lit (no room -> entity mapping), so every segment is full colour.
+- **Sky motif** before the clock (0.82em, about 120 px): mustard sun by day, cobalt sleeping eye at night. The review asked
+  for 120-160 px; above the clock or in the empty top band it collided with the clock / lock at 961x601, inline it fits
+  both kiosk sizes.
+- **Dock blocks by state** (`data-state` from jam-kiosk, branch audit-fixes): off = 18% tint + 11px frame (20x10 tile, legible
+  at 3 m), on = the full fill with the pattern across the lower third, action = an outlined pill. Until audit-fixes is
+  merged no block carries data-state, so every block shows as off; preview/views.js stubs the states
+  (`kiosk-dock-states-<mode>-1024.png`) and also shoots the door unlocked (`kiosk-unlocked-<mode>-1024.png`).
+- **Lock**: locked = a quiet ink disc; unlocked / open / jammed = a vermilion rayed sun, rays turned 15° once (animation).
+- **Screensaver** = one framed textile panel (six room tiles with motif + woven strip, an outlined door tile) opposite the
+  text in every layout, instead of four scattered stickers. Room tiles are all "lit" (fill + motif): the screensaver has no
+  room states either; the door tile is neutral (outlined).
+- **Frames only on heroes, sheets / pop-ups and jam-button tiles**; every other card gets a 12px woven top edge. Room
+  heading rules are plain (the edge below them is woven). Lit-light tint 30%.
+- **Bugs**: a jam-tile key that wraps (Back door jammed at 390) keeps its own height, so the tile grows as under Poster;
+  jam-alerts values never break mid-word; idle things carry no colour (volume rocker, the ⋯ key, a Play key with nothing
+  playing). Not changed here: "N/A" / "Unavailable" become "Offline" in card code on branch audit-fixes; the two date formats
+  (kiosk "Wednesday · October 28", screensaver "Wednesday, October 28") are card code shared by every look (Poster pixels),
+  so unifying them needs a card change.

@@ -256,26 +256,40 @@ saturated: no warm-clay / terracotta palette, no gradients, no shadows; the fram
   radius 999px, `jam-pad-card` 14px / `-hero` / `-sheet` 16px (text clear of the frame), rule / stripe 6px, motion 200 ms
   with one gentle ease and the pack's keyframes (enter = 6px rise + fade, stamp = a 1.04 pop, sheet = 18px rise; no
   washes, wipes or spiral flash).
-- Pack (`src/looks/girard.js`): **framed textiles**: every card / hero / jam-button / sheet face (not kiosk cards) carries a
-  6px band inside its edge (an inset box-shadow in the room colour) woven with the room's pattern in a partner colour
-  (a `::after` with four mask strips, 12x6 tiles, the sides turned): living diamonds (pink), kitchen zigzag (vermilion),
-  master dots (mustard), marissa sawtooth (magenta), music stripes (pink), nerd checks (mustard); the room comes from the
-  accent written inline (`--acc: var(--x)`, the kiosk dock's `--bc`), so a jam-popup child with only an inherited
-  `--jam-accent` keeps the default pattern. A framed face's left tone stripe becomes the band (`.s-alert` = a vermilion
-  band). **Motifs** (flat SVG masks in the room colour): sun (living), diamonds (kitchen), sleeping eye (master), heart
-  (marissa), bird (music), eye (nerd); before room headings, as jam-button's icon disc when no icon is set, before
-  jam-light's level (filled with the light's colour when on), in the idle art (a textile swatch: a fill, one big motif, a
-  woven band) and on the screensaver (sun, heart, eye, bird in the layout's places). **Keys / chips / tabs / scenes** are
-  pills (keys and scenes radius 28px, so tall keys are rounded tiles): off = the room colour mixed 18% into the face
-  (OKLCH), on = the full fill; tone marks are little diamonds; strips are rounded with a ring knob on sliders. **Text on a
-  fill** (`--acc-fg`, the rocker, alert keys / chips, the sun power glyph) is worked out from the fill with relative colour
-  syntax: ink where the fill is light, white on cobalt / magenta (a gamma-space luminance switch at 100/255), so an
-  inherited accent gets it right too. **Power** = a Girard sun (disc + eight rays, 32px) top-right: off muted (`--dim`), on
-  the room / light colour; it turns 15° on each change (a 200 ms transition, none with reduced motion). **jam-light on** =
-  the face tinted with the light colour (a flat 20% mix into the face), ink / cream text, a pill brightness bar, members as
-  ringed dots; no label plates. **Kiosk**: a 12px woven band along the top, the big Fraunces clock (500), dock blocks as
-  small framed textiles (block colour band + its room pattern). **Screensaver**: the page ground, the Fraunces clock, the
-  four motifs (l1 stacks them smaller, stepped); the now-playing block keeps Poster's layout.
+- Pack (`src/looks/girard.js`): **textiles**: heroes, sheets / pop-ups and jam-button tiles are framed by a 6px band
+  inside their edge (an inset box-shadow in the room colour) woven with the room's pattern in a partner colour (a
+  `::after` with four mask strips, 12x6 tiles, the sides turned); every other card face starts with a 12px woven top edge
+  (24x12 tile; its top padding moves down 12px), so a page is not a quilt of frames. Patterns: living diamonds (pink),
+  kitchen zigzag (vermilion), master dots (mustard), marissa sawtooth (magenta), music stripes (pink), nerd checks
+  (mustard); the room comes from the accent written inline (`--acc: var(--x)`, the kiosk dock's `--bc`), so a jam-popup
+  child with only an inherited `--jam-accent` keeps the default pattern. A face's left tone stripe becomes the band / edge
+  (`.s-alert` = vermilion). **Motifs** (flat SVG masks): sun (living), diamonds (kitchen), sleeping eye (master), heart
+  (marissa), bird (music), eye (nerd); before room headings (whose rule is a plain room colour), as jam-button's icon disc
+  when no icon is set, before jam-light's level (in the light's colour when on), in the idle art (a fill, one big motif, a
+  woven band). **Keys / chips / tabs / scenes** are pills (keys and scenes radius 28px, so tall keys are rounded tiles):
+  off = the room colour mixed 18% into the face (OKLCH), on = the full fill; idle things carry no colour (the volume rocker,
+  a Play key with nothing playing, the ⋯ more key are tinted); tone marks are little diamonds; strips are rounded with a
+  ring knob on sliders; a jam-tile key that wraps under its text keeps its own height (the tile grows); jam-alerts values
+  never break inside a word. **Text on a fill** (`--acc-fg`, alert keys / chips, the sun power glyph) is worked out from the
+  fill with relative colour syntax: ink where the fill is light, white on cobalt / magenta (a gamma-space luminance switch
+  at 100/255). **Power** = a Girard sun (disc + eight rays, 32px, clear of the top edge): off muted (`--dim`), on the room /
+  light colour; it turns 15° on each change (a 200 ms transition, none with reduced motion). **jam-light on** = the face
+  tinted with the light colour (a flat 30% mix), its kicker in `--fg`, a pill brightness bar, members as ringed dots.
+- Kiosk (jam-kiosk): in light mode the whole kiosk is the room's own field (`--gi-kg`: living / alerts pink, kitchen
+  mustard, master / marissa / music / nerd a light mix of their colour; `--dim` #4d3426 and alert text #8e1c14 on it; dark
+  mode keeps the ink page). The accent bar becomes a 56-72px **runner** of the six rooms on a white strip (each segment its
+  colour with its pattern woven across the lower 40%; decorative: the card does not know which rooms are lit), added once by
+  the `decorate` hook. A **sky motif** (0.82em, before the clock) shows the first weather source's day / night: a mustard
+  sun, at night a cobalt sleeping eye (`sun.sun` when it exists, else a night weather state, else 07-19 h = day; set as
+  `data-gi-sky` on `.k` by `decorate`). **Dock blocks** by `data-state` (jam-kiosk sets it from branch audit-fixes on; until
+  then every block shows as off): off = an 18% room tint in an 11px woven frame (20x10 tile); on = the full room fill
+  (text from the fill) with the room pattern woven across its lower third; action = an outlined pill (4px ink ring), never
+  filled. The **lock**: locked = a quiet ink disc (glyph in the face colour); unlocked / open / jammed = a vermilion sun
+  whose rays turn 15° once when the state changes (one 300 ms animation). Clock 500.
+- Screensaver: the page ground, the Fraunces clock (500) and one framed **textile panel** of six room tiles (each its fill
+  with the room motif and a woven strip in the partner colour) and an outlined door tile (an arch door; it spans two cells
+  in the 4x2 grid), placed opposite each layout's text (l3: a single row of seven under the centred text); Poster's other
+  three shapes are hidden (node count kept). The now-playing block keeps Poster's layout.
 - Remote d-pad arrows, the OK disc and the gauge keep their geometry (DESIGN geometry exceptions).
 
 ## Token reference

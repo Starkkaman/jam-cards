@@ -764,3 +764,9 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   change), jam-light tint-on, kiosk woven band + framed dock blocks. Fonts in dist/fonts (OFL). **No shared-code hooks**:
   CSS over the stable hooks and the existing motifs only; Poster pixel-identical (JAM_BASELINE vs main). Checks:
   96-packs and views.js know the eighth look (picker tiles, Fraunces swatch, girard pack fonts).
+  **Design review rework (2026-11-04)**: kiosk = the room's own field in light mode, a runner of the six rooms, a sky motif
+  before the clock, dock blocks by `data-state` (on / off / action, from audit-fixes), lock ink disc / rayed sun; screensaver
+  = one textile panel of room tiles + a door tile; frames only on heroes / sheets / jam-button tiles (other cards: a 12px
+  woven top edge); bug fixes (tile key height, alert values, idle colours). Uses the existing `decorate` hook (jam-kiosk: runner
+  segments + `data-gi-sky`). preview/views.js (every non-Poster look): new views kiosk-dock-states (stubbed data-state) and
+  kiosk-unlocked.
