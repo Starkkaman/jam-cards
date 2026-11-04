@@ -16,8 +16,11 @@ module.exports = async (page, check) => {
     const out = {};
     // ---- registry + fonts ----
     out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
-    const braun = J.lookPack("braun"), oly = J.lookPack("olympia");
-    out.packs = !!braun && !!oly && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && J.lookPack("poster") === null;
+    const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), pul = J.lookPack("pulsar");
+    out.packs = !!braun && !!oly && !!pul && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && pul.fonts[0].family === "Archivo" &&
+      J.lookPack("poster") === null;
+    // Each pack declares its own faces (Pulsar re-declares Braun's Archivo file): count the distinct families.
+    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");
     out.fontStyles = fs.length;
     out.base = J.ASSET_BASE;
@@ -90,8 +93,8 @@ module.exports = async (page, check) => {
     out.missing = {late: out.late, status: face ? face.status : "none", err};
     return out;
   });
-  check(r.looks.join() === "poster,braun,olympia" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), Poster has no pack`);
-  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.declared.length === 2 && r.declared.every(d => d.endsWith(":unloaded")),
+  check(r.looks.join() === "poster,braun,olympia,pulsar" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), pulsar (Archivo), Poster has no pack`);
+  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 2 && r.declared.every(d => d.endsWith(":unloaded")),
     `fonts: one font style in head with the packs' URL @font-face on ${r.base}fonts/; under Poster declared but not fetched (${r.declared.join(", ")}; fetched ${JSON.stringify(r.posterFetch)})`);
   check(r.adopt && r.styleEls.length === 0, `shared stylesheets: every card adopts [BASE, own css], one BASE sheet for all, ${r.distinct} distinct sheets, no per-card <style>` +
     (r.styleEls.length ? " — " + r.styleEls.join(",") : ""));
