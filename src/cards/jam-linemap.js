@@ -99,7 +99,7 @@ class JamLinemap extends JamBase {
       display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
     .st.on .sn,.st.tk .sn{font-weight:600;color:var(--fg)}
     .sn .lb{vertical-align:-3px;margin-left:3px}
-    .sv{font:500 .72rem/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
+    .sv{font:500 max(12px,.72rem)/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
       text-overflow:ellipsis;font-variant-numeric:tabular-nums}
     .st.tk .sv{color:var(--fg);font-weight:600}
     .st:not(:disabled):hover .dot{outline:3px solid var(--line);outline-offset:2px}

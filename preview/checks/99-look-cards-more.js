@@ -110,7 +110,9 @@ module.exports = async (page, check, {callsNow}) => {
   await set("lock.mc_front", "unlocked");
   const ar2 = await page.evaluate(c => [...eval(c).shadowRoot.querySelectorAll(".row.svc .dn")].map(x => x.textContent), card("jam-arrivals"));
   await set("binary_sensor.mc_leak", "on"); await set("lock.mc_front", "locked");
-  check(ar2.join("|") === "Front door lock battery low|Front door unlocked", `jam-arrivals: service changes follow their conditions (${ar2.join(", ")})`);
+  // State grammar (audit-fixes): an unlocked lock's tone() is alert, so the unlocked row (no severity set) is an alert and
+  // sorts before the battery service change.
+  check(ar2.join("|") === "Front door unlocked|Front door lock battery low", `jam-arrivals: service changes follow their conditions, alerts first (${ar2.join(", ")})`);
   await page.evaluate(c => { window.__mi.length = 0; eval(c).shadowRoot.querySelectorAll(".row.en")[0].click(); }, card("jam-arrivals"));
   check((await page.evaluate(() => window.__mi)).includes("sensor.mc_washer"), "jam-arrivals: row tap = more-info");
 

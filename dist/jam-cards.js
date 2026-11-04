@@ -7517,7 +7517,7 @@ class JamLinemap extends JamBase {
       display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
     .st.on .sn,.st.tk .sn{font-weight:600;color:var(--fg)}
     .sn .lb{vertical-align:-3px;margin-left:3px}
-    .sv{font:500 .72rem/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
+    .sv{font:500 max(12px,.72rem)/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
       text-overflow:ellipsis;font-variant-numeric:tabular-nums}
     .st.tk .sv{color:var(--fg);font-weight:600}
     .st:not(:disabled):hover .dot{outline:3px solid var(--line);outline-offset:2px}
@@ -9623,7 +9623,7 @@ class JamProgramme extends JamBase {
     .bd.sel{outline:2px solid var(--fg);outline-offset:3px;z-index:2}
     .bd:focus-visible{outline:3px solid var(--focus);outline-offset:2px;z-index:3}
     .now{position:absolute;top:2px;bottom:-4px;width:3px;margin-left:-1.5px;background:var(--fg);pointer-events:none;z-index:4}
-    .nf{position:absolute;top:0;left:0;padding:2px 5px;background:var(--fg);color:var(--slab);font:600 .72rem/1.1 var(--body);white-space:nowrap}
+    .nf{position:absolute;top:0;left:0;padding:2px 5px;background:var(--fg);color:var(--slab);font:600 max(12px,.72rem)/1.1 var(--body);white-space:nowrap}
     .now.l .nf{left:auto;right:0}
     .ax{display:grid;grid-template-columns:var(--lw,92px) minmax(0,1fr);gap:10px}
     .ax > div{position:relative;height:1.1em}
@@ -10328,12 +10328,12 @@ class JamRidge extends JamBase {
     @supports not (grid-template-columns:subgrid){.row,.ax{grid-template-columns:minmax(64px,28%) minmax(0,1fr) 5.4rem;column-gap:12px}}
     .row{position:relative;align-items:end;
       height:${RG_ROW}px;padding:0 0 4px;text-align:left;color:var(--fg)}
-    .nm{display:flex;align-items:center;gap:6px;min-width:0;font:var(--lbl-w) .74rem/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));
+    .nm{display:flex;align-items:center;gap:6px;min-width:0;font:var(--lbl-w) max(12px,.74rem)/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));
       text-transform:var(--lbl-case);color:var(--fg)}
     .nm > span:last-child{min-width:0;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
     .v{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);font-size:calc(1.15rem * var(--num-scale,var(--disp-scale)));line-height:1;
       text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-    .v .unit{font:500 .7rem var(--body);margin-left:2px}
+    .v .unit{font:500 max(12px,.7rem) var(--body);margin-left:2px}
     .v.na{color:var(--dim)}
     .plot{position:absolute;top:0;bottom:0;pointer-events:none;overflow:visible}
     .plot path{fill:none;stroke:var(--fg);stroke-width:var(--rg-w,1.5px);stroke-linejoin:round;vector-effect:non-scaling-stroke}
@@ -10342,7 +10342,7 @@ class JamRidge extends JamBase {
     .plot path.off{stroke:var(--dim);stroke-dasharray:4 4}
     .plot path.hot{stroke:var(--acc);stroke-width:calc(var(--rg-w,1.5px) + .5px)}
     .ax > span{grid-column:2;display:flex;justify-content:space-between}
-    .ax .label{font-size:.66rem}
+    .ax .label{font-size:max(12px,.66rem)}
     .row:hover .nm > span:last-child{text-decoration:underline;text-underline-offset:3px}`; }
   render(b) {
     const c = this._config, h = this._hass, items = this._items();

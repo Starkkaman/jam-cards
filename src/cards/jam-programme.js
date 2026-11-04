@@ -222,7 +222,7 @@ class JamProgramme extends JamBase {
     .bd.sel{outline:2px solid var(--fg);outline-offset:3px;z-index:2}
     .bd:focus-visible{outline:3px solid var(--focus);outline-offset:2px;z-index:3}
     .now{position:absolute;top:2px;bottom:-4px;width:3px;margin-left:-1.5px;background:var(--fg);pointer-events:none;z-index:4}
-    .nf{position:absolute;top:0;left:0;padding:2px 5px;background:var(--fg);color:var(--slab);font:600 .72rem/1.1 var(--body);white-space:nowrap}
+    .nf{position:absolute;top:0;left:0;padding:2px 5px;background:var(--fg);color:var(--slab);font:600 max(12px,.72rem)/1.1 var(--body);white-space:nowrap}
     .now.l .nf{left:auto;right:0}
     .ax{display:grid;grid-template-columns:var(--lw,92px) minmax(0,1fr);gap:10px}
     .ax > div{position:relative;height:1.1em}

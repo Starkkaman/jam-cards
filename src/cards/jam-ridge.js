@@ -83,12 +83,12 @@ class JamRidge extends JamBase {
     @supports not (grid-template-columns:subgrid){.row,.ax{grid-template-columns:minmax(64px,28%) minmax(0,1fr) 5.4rem;column-gap:12px}}
     .row{position:relative;align-items:end;
       height:${RG_ROW}px;padding:0 0 4px;text-align:left;color:var(--fg)}
-    .nm{display:flex;align-items:center;gap:6px;min-width:0;font:var(--lbl-w) .74rem/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));
+    .nm{display:flex;align-items:center;gap:6px;min-width:0;font:var(--lbl-w) max(12px,.74rem)/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));
       text-transform:var(--lbl-case);color:var(--fg)}
     .nm > span:last-child{min-width:0;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
     .v{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);font-size:calc(1.15rem * var(--num-scale,var(--disp-scale)));line-height:1;
       text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-    .v .unit{font:500 .7rem var(--body);margin-left:2px}
+    .v .unit{font:500 max(12px,.7rem) var(--body);margin-left:2px}
     .v.na{color:var(--dim)}
     .plot{position:absolute;top:0;bottom:0;pointer-events:none;overflow:visible}
     .plot path{fill:none;stroke:var(--fg);stroke-width:var(--rg-w,1.5px);stroke-linejoin:round;vector-effect:non-scaling-stroke}
@@ -97,7 +97,7 @@ class JamRidge extends JamBase {
     .plot path.off{stroke:var(--dim);stroke-dasharray:4 4}
     .plot path.hot{stroke:var(--acc);stroke-width:calc(var(--rg-w,1.5px) + .5px)}
     .ax > span{grid-column:2;display:flex;justify-content:space-between}
-    .ax .label{font-size:.66rem}
+    .ax .label{font-size:max(12px,.66rem)}
     .row:hover .nm > span:last-child{text-decoration:underline;text-underline-offset:3px}`; }
   render(b) {
     const c = this._config, h = this._hass, items = this._items();

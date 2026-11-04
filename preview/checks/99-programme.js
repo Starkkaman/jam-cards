@@ -48,7 +48,8 @@ module.exports = async (page, check) => {
   const look = r.recs.every(x => (x.past ? x.bg !== x.base : true) && (x.cur ? x.ol !== "none" : true));
   check(curOk && pastOk && look, `jam-programme: past bands fade toward the track (${r.recs.filter(x => x.past).length}), the current one is outlined and taller (${r.recs.filter(x => x.cur).map(x => Math.round(x.h)).join(",")}px)`);
   check(/^Now .+ · /.test(r.s1), `jam-programme: header status "${r.s1}"`);
-  check(r.porch === "var(--ochre)" && r.lv === "01201", `jam-programme: the porch lane takes its area's room accent (Living Room -> ${r.porch}); lane variants ${r.lv}`);
+  // audit-fixes: ACCENTS.living is the --living token (default var(--ochre), Braun walnut, Olympia yellow)
+  check(r.porch === "var(--living)" && r.lv === "01201", `jam-programme: the porch lane takes its area's room accent (Living Room -> ${r.porch}); lane variants ${r.lv}`);
   // Details: click the dentist band, Esc, Enter.
   const det = await page.evaluate(async () => {
     const P = [...document.querySelectorAll("#view jam-programme")].find(c => c._config.title === "Programme"), R = P.shadowRoot;
