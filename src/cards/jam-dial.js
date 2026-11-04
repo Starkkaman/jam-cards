@@ -128,7 +128,7 @@ class JamDial extends JamLight {
     if (rgb) root.style.setProperty("--dl-c", rgbCss(dialReadable(rgb, slab)));
     // Header: name (button = pop-up) + sub line; power toggle top-right.
     const top = el("div", "dl-top");
-    const nm = el(dead ? "h3" : "button", "dl-name", name);
+    const nm = el(dead ? "h3" : "button", dead ? "dl-name" : "dl-name hit", name); // .hit: a 44px tap target (core)
     if (!dead) {
       nm.type = "button"; nm.dataset.key = "more"; nm.setAttribute("aria-haspopup", "dialog");
       nm.setAttribute("aria-label", `${name}: light settings`);

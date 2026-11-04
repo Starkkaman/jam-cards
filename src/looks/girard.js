@@ -217,6 +217,7 @@ ${RUNNER_CSS}
 :host(jam-kiosk) .blk[data-state=on]{background:var(--gi-bc);color:${fgOn("var(--gi-bc)")};box-shadow:none;justify-content:flex-start;padding-top:20px}
 :host(jam-kiosk) .host .blk[data-state=on] .st{color:inherit}
 :host(jam-kiosk) .blk[data-state=on]::after{inset:auto 0 0 0;height:34%;-webkit-mask:var(--gi-bph) left top/20px 10px repeat;mask:var(--gi-bph) left top/20px 10px repeat}
+:host(jam-kiosk) .blk[data-state=on] .st{-webkit-line-clamp:1} /* one line: a two-line state (a playing title) ran into the woven lower third */
 :host(jam-kiosk) .host .blk[data-state=action],:host(jam-kiosk) .host.light .blk[data-state=action]{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 4px var(--fg);border-radius:999px;align-items:center;text-align:center}
 :host(jam-kiosk) .blk[data-state=action]::after{content:none}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:color-mix(in oklch,var(--gi-bc) 34%,var(--slab))}
@@ -255,7 +256,10 @@ ${RUNNER_CSS}
 .gip .gt::after{content:"";position:absolute;left:0;right:0;bottom:6%;height:10%;background:var(--k);-webkit-mask:var(--p) left center/auto 100% repeat-x;mask:var(--p) left center/auto 100% repeat-x}
 .gip .gt.door{grid-column:span 2;width:auto;background:var(--slab);box-shadow:inset 0 0 0 .5vh var(--fg)} .ov .l3 .gip .gt.door{grid-column:auto;width:var(--t)} .gip .gt.door::before{background:var(--fg)} .gip .gt.door::after{content:none}
 .ov .l0 .sh.gip{right:7vw;top:8vh} .ov .l1 .sh.gip{left:7vw;bottom:9vh} .ov .l2 .sh.gip{right:7vw;bottom:9vh}
-.ov .l3 .sh.gip{--t:9.5vh;grid-template-columns:repeat(7,var(--t));left:0;right:0;margin:0 auto;width:max-content!important;bottom:6vh}
+.ov .l3 .sh.gip{--t:9.5vh;grid-template-columns:repeat(7,var(--t));left:0;right:0;margin:0 auto;width:max-content!important;bottom:4vh}
+/* l3: no top bar in this look, so the text block starts higher and clears the panel with a door block or alerts and the
+   now-playing block (it touched / overlapped the panel at 961x601 and 1024x768) */
+.ov .poster.l3 .txt{top:10vh}
 .ov .l4 .sh.gip{right:7vw;top:8vh} .ov .l5 .sh.gip{left:7vw;top:8vh}
 .tchip{background:var(--acc);color:var(--acc-fg);clip-path:none;border-radius:999px}
 .tchip small{color:inherit}

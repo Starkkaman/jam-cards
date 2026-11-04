@@ -122,6 +122,7 @@ const JAM_SPK_KIOSK_CSS = `
       font-size:calc(clamp(36px,14cqh,76px) * var(--disp-scale))}
     .ktx .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
     .ktx .artist{font:500 clamp(18px,5.5cqh,24px)/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ktx .artist.lp{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word} /* idle "Last played: …" wraps to 2 lines */
     .kb{display:grid;gap:10px}
     .kprog{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;font:600 18px/1 var(--body);letter-spacing:.04em}
     .kprog .bar{position:relative;height:6px;background:var(--ktr)}
@@ -522,7 +523,7 @@ class JamSpeaker extends JamBase {
     tx.append(clampTitle(!idle && a.media_title ? a.media_title : room));
     const line = off ? "Offline" : !idle ? [a.media_artist, a.media_album_name].filter(Boolean).join(" · ")
       : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : "Nothing playing";
-    if (line) tx.append(el("div", "artist", line));
+    if (line) tx.append(el("div", idle && !off && a.media_title ? "artist lp" : "artist", line));
     const kb = el("div", "kb"), p = !idle ? this._kPos(s) : null;
     this._kprog = null;
     if (p) {
