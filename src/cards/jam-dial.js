@@ -52,7 +52,7 @@ class JamDial extends JamLight {
     .dl-name{font:var(--disp-w) calc(24px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);
       letter-spacing:var(--jam-display-track,.01em);text-align:left;overflow-wrap:anywhere;max-width:100%;margin:0}
     button.dl-name{cursor:pointer}
-    .dl-sub{font:var(--lbl-w) 10px/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .dl-sub{font:var(--lbl-w) 12px/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
     .dl-dial{position:relative;width:min(100%,210px);aspect-ratio:1;margin:2px auto 0;-webkit-user-select:none;user-select:none}
     .dl-ring{position:absolute;inset:0;border-radius:50%;touch-action:none}
     .dl-ring[role=slider]{cursor:grab}

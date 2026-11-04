@@ -28,7 +28,8 @@ module.exports = async (page, check) => {
     // one tactile grammar: an on key is down; a playing play key is filled + down, a paused one a white slab
     const on = find(".key.on:not([data-key=play_pause]):not(:disabled) > .face");
     o.onKey = on ? getComputedStyle(on).transform : "none";
-    const keys = deep().flatMap(c => [...c.shadowRoot.querySelectorAll('[data-key="play_pause"]:not(:disabled)')]);
+    // keys with a face plate only (the pack fills `.key > .face`; jam-radio's round .rd-k keys have no face and fill themselves)
+    const keys = deep().flatMap(c => [...c.shadowRoot.querySelectorAll('[data-key="play_pause"]:not(:disabled)')]).filter(x => x.querySelector(":scope > .face"));
     o.play = keys.map(x => ({p: x.dataset.bruPlay, label: (x.getAttribute("aria-label") || x.textContent).trim(), bg: getComputedStyle(x.querySelector(".face")).backgroundColor}));
     o.slab = rgb("var(--jam-slab)");
     const pw = find('.pw[aria-pressed="true"]:not(.paper)'), pwOff = find('.pw[aria-pressed="false"]:not(.paper):not(:disabled)');
