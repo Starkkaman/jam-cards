@@ -673,6 +673,21 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   look's kiosk home, kiosk sheets and screensaver layouts. Not automated yet (reviewed by hand with contrast.js, 0
   findings in both modes): the jam-light pop-up (group, WLED), jam-tv Source / Remote sheets, jam-speaker panel B, the
   screensaver photos view; behaviour checks still run on Poster only (R9 note).
+- **R10 Transit (done, 2026-11-03, branch look-transit).** Brief docs/looks/TRANSIT.md (decisions and deviations under
+  "Built"). `tokens/looks/transit.mjs`: black signs with white text in both modes (#000 / #111), MTA routes for the room
+  hues, `jam-red` = the service-change yellow, Arimo 400-700 mixed case (display 700 x .72, numerals x .85, labels / keys
+  sentence case, no tracking), every shape token `none`, pull-in motion; theme "Jam Transit"
+  (`../jam-theme/themes/jamboard-transit.yaml`). Pack `src/looks/transit.js`: the sign double rule, route bullets with
+  letters, round power bullets, white active plates, K1 side panel as a sign, arrivals-board screensaver, motifs (route line,
+  map strokes, no flash, 2.4px power glyph, bottom route line, decorate). Font Arimo (OFL, latin variable subset 20 KB) +
+  `dist/fonts/OFL-Arimo.txt`. Shared hooks (additive, Poster pixel-identical, the other themes byte-identical):
+  - core: a `decorate` motif (Poster: no-op) called after JamBase._render and by jam-kiosk (`_render`, `_lookChanged`);
+  - tokens/ha.mjs: aliases `text`, `text-dim`, `card`, `card2`, `hair`, `on-primary`, `error`, `red` for HA's own
+    surfaces (defaults = the tokens they replaced, so jamboard / -braun / -olympia.yaml regenerate unchanged);
+  - tokens/index.mjs: looks.css also writes `--primary-text-color` / `--secondary-text-color` per look and mode (from the
+    `text` / `text-dim` aliases; no card reads them under Poster).
+  Harness: 96-packs knows the transit pack (Arimo) and accepts further looks in JamCards.looks().
+
 - **R10 Pulsar (done, 2026-11-03, branch look-pulsar).** Brief docs/looks/PULSAR.md (decisions and deviations under
   "Built"), rules in DESIGN.md "Pulsar rules". `tokens/looks/pulsar.mjs`: theme "Jam Pulsar"
   (`../jam-theme/themes/jamboard-pulsar.yaml`, jam-theme branch look-pulsar), dark primary (black field, #3d3d3d rules) +

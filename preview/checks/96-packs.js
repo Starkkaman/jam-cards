@@ -18,20 +18,21 @@ module.exports = async (page, check) => {
     const out = {};
     // ---- registry + fonts ----
     out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
-    const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), pul = J.lookPack("pulsar");
-    out.packs = !!braun && !!oly && !!pul && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" && pul.fonts[0].family === "Archivo" &&
-      J.lookPack("poster") === null;
+    const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), transit = J.lookPack("transit"), pul = J.lookPack("pulsar");
+    out.packs = !!braun && !!oly && !!transit && !!pul && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" &&
+      transit.fonts[0].family === "Arimo" && pul.fonts[0].family === "Archivo" && J.lookPack("poster") === null;
     // Each pack declares its own faces (Pulsar re-declares Braun's Archivo file): count the distinct families.
-    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
+    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans|Arimo/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");
     out.fontStyles = fs.length;
     out.base = J.ASSET_BASE;
     const css = fs[0] ? fs[0].textContent : "";
-    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2"].every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
-      /font-family:"Archivo";font-style:normal;font-weight:300 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css);
+    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2", "arimo-var-latin.woff2"].every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
+      /font-family:"Archivo";font-style:normal;font-weight:300 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css) &&
+      /font-family:"Arimo";[^}]*font-weight:400 700/.test(css);
     const fetched = () => performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2/.test(n)).map(n => n.replace(location.origin, ""));
     out.posterFetch = fetched();
-    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
+    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans|Arimo/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
     // ---- shared sheets under Poster ----
     const styled = top.filter(c => c.localName !== "jam-screensaver"); // its root holds a layer; the layer's root is styled (checked below)
     const sheets = styled.map(c => c.shadowRoot.adoptedStyleSheets || []);
@@ -116,8 +117,9 @@ module.exports = async (page, check) => {
     h.themes = {...h.themes};
     return out;
   });
-  check(r.looks.join() === "poster,braun,olympia,pulsar" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), pulsar (Archivo), Poster has no pack`);
-  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 2 && r.declared.every(d => d.endsWith(":unloaded")),
+  check(r.looks[0] === "poster" && ["braun", "olympia", "transit", "pulsar"].every(l => r.looks.includes(l)) && r.packs,
+    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), transit (Arimo), pulsar (Archivo), Poster has no pack`);
+  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 3 && r.declared.every(d => d.endsWith(":unloaded")),
     `fonts: one font style in head with the packs' URL @font-face on ${r.base}fonts/; under Poster declared but not fetched (${r.declared.join(", ")}; fetched ${JSON.stringify(r.posterFetch)})`);
   check(r.adopt && r.styleEls.length === 0, `shared stylesheets: every card adopts [BASE, own css], one BASE sheet for all, ${r.distinct} distinct sheets, no per-card <style>` +
     (r.styleEls.length ? " — " + r.styleEls.join(",") : ""));

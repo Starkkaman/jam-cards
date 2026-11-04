@@ -633,7 +633,9 @@ Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun**
 anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
 [docs/DESIGN.md](docs/DESIGN.md) "Braun rules") and **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
 ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
-rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"). Pick a look in the theme picker; JamBoard is Poster. The
+rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules") and **Jam Transit** (after Vignelli's New York subway signage:
+every card a black sign under a double rule, round MTA route bullets with letters, Arimo, yellow "service change" for
+alerts; rules in [docs/DESIGN.md](docs/DESIGN.md) "Transit rules"). Pick a look in the theme picker; JamBoard is Poster. The
 [jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while

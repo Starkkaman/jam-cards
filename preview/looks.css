@@ -56,6 +56,8 @@
   --jam-press-from:translate(2px,2px);
   --jam-look:poster;
   --primary-background-color:#141210;
+  --primary-text-color:#ece2c9;
+  --secondary-text-color:#9a8f7c;
 }
 :root.light{
   --jam-ink:#141210;
@@ -113,6 +115,8 @@
   --jam-press-from:translate(2px,2px);
   --jam-look:poster;
   --primary-background-color:#ece2c9;
+  --primary-text-color:#141210;
+  --secondary-text-color:#6b6152;
 }
 :root[data-look="stress"]{
   --jam-ink:#141210;
@@ -170,6 +174,8 @@
   --jam-press-from:translate(2px,2px);
   --jam-look:stress;
   --primary-background-color:#141210;
+  --primary-text-color:#ece2c9;
+  --secondary-text-color:#9a8f7c;
 }
 :root[data-look="stress"].light{
   --jam-ink:#141210;
@@ -227,6 +233,8 @@
   --jam-press-from:translate(2px,2px);
   --jam-look:stress;
   --primary-background-color:#ece2c9;
+  --primary-text-color:#141210;
+  --secondary-text-color:#6b6152;
 }
 :root[data-look="braun"]{
   --jam-ink:#1c1c1a;
@@ -323,6 +331,8 @@
   --jam-elev-1:0 1px 0 rgba(255,255,255,.04) inset, 0 2px 10px rgba(0,0,0,.35);
   --jam-look:braun;
   --primary-background-color:#1c1c1a;
+  --primary-text-color:#ece9e2;
+  --secondary-text-color:#aca89f;
 }
 :root[data-look="braun"].light{
   --jam-ink:#262626;
@@ -419,6 +429,8 @@
   --jam-elev-1:0 1px 0 rgba(255,255,255,.7) inset, 0 2px 8px rgba(0,0,0,.08);
   --jam-look:braun;
   --primary-background-color:#e7e3da;
+  --primary-text-color:#262626;
+  --secondary-text-color:#605c54;
 }
 :root[data-look="olympia"]{
   --jam-ink:#10202b;
@@ -512,6 +524,8 @@
   --jam-kf-ss-pop:jam-oly-fade;
   --jam-look:olympia;
   --primary-background-color:#10202b;
+  --primary-text-color:#e9f1f5;
+  --secondary-text-color:#93aab8;
 }
 :root[data-look="olympia"].light{
   --jam-ink:#1f3b4d;
@@ -605,6 +619,204 @@
   --jam-kf-ss-pop:jam-oly-fade;
   --jam-look:olympia;
   --primary-background-color:#f4f6f7;
+  --primary-text-color:#1f3b4d;
+  --secondary-text-color:#52697a;
+}
+:root[data-look="transit"]{
+  --jam-ink:#000000;
+  --jam-slab:#111111;
+  --jam-slab2:#262626;
+  --jam-slab3:#333333;
+  --jam-paper:#111111;
+  --jam-paper-fg:#ffffff;
+  --jam-paper-dim:#9d9d9d;
+  --jam-fg:#ffffff;
+  --jam-dim:#9d9d9d;
+  --jam-line:#333333;
+  --jam-ochre:#ff6319;
+  --jam-red:#fccc0a;
+  --jam-alert-text:#fccc0a;
+  --jam-teal:#00933c;
+  --jam-blue:#0039a6;
+  --jam-pink:#b933ad;
+  --jam-violet:#b933ad;
+  --jam-green:#6cbe45;
+  --jam-on-fg:#000000;
+  --jam-shadow:#000000;
+  --jam-s1:#ff6319;
+  --jam-s2:#00add0;
+  --jam-s3:#fccc0a;
+  --jam-s4:#6cbe45;
+  --jam-s5:#d36ccb;
+  --jam-ink-fg:#ffffff;
+  --jam-ink-dim:#9d9d9d;
+  --jam-ink-dim2:#b3b3b3;
+  --jam-band:#111111;
+  --jam-band-fg:#ffffff;
+  --jam-band-dim:#9d9d9d;
+  --jam-band-key:#262626;
+  --jam-band-off:#6b6b6b;
+  --jam-band-tile:#262626;
+  --jam-plate:#000000;
+  --jam-plate-fg:#ffffff;
+  --jam-focus:#fccc0a;
+  --jam-art-1:#ee352e;
+  --jam-art-2:#ff6319;
+  --jam-art-3:#fccc0a;
+  --jam-art-4:#6cbe45;
+  --jam-art-5:#00933c;
+  --jam-art-6:#0039a6;
+  --jam-art-7:#b933ad;
+  --jam-art-8:#a7a9ac;
+  --jam-display:"Arimo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --jam-body:"Arimo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --jam-display-weight:700;
+  --jam-display-case:none;
+  --jam-display-track:-.01em;
+  --jam-display-lead:1.16;
+  --jam-display-scale:.72;
+  --jam-num-scale:.85;
+  --jam-label-weight:400;
+  --jam-label-case:none;
+  --jam-label-track-scale:0;
+  --jam-key-weight:700;
+  --jam-key-case:none;
+  --jam-key-track-scale:0;
+  --jam-shape-card:none;
+  --jam-shape-key:none;
+  --jam-shape-chip:none;
+  --jam-shape-hero:none;
+  --jam-shape-sheet:none;
+  --jam-shape-poster:none;
+  --jam-shape-pw:none;
+  --jam-shape-strip-end:none;
+  --jam-shape-tab:none;
+  --jam-shape-scene:none;
+  --jam-shape-icon:none;
+  --jam-shape-pin:none;
+  --jam-shape-plate:none;
+  --jam-shape-key-plate:none;
+  --jam-shape-chip-plate:none;
+  --jam-rule-h:4px;
+  --jam-stripe-w:4px;
+  --jam-dur:1;
+  --jam-press:none;
+  --jam-press-from:translateY(1px);
+  --jam-ease-2:cubic-bezier(.16,.84,.3,1);
+  --jam-ease-3:cubic-bezier(.16,.84,.3,1);
+  --jam-ease-4:cubic-bezier(.16,.84,.3,1);
+  --jam-kf-enter:transit-pull;
+  --jam-kf-print:transit-press;
+  --jam-kf-uncover:none;
+  --jam-kf-retreat:none;
+  --jam-kf-stamp:transit-pull;
+  --jam-kf-shake:transit-nudge;
+  --jam-kf-sheet:transit-rise;
+  --jam-kf-flash:none;
+  --jam-kf-ss-cut:transit-fade;
+  --jam-kf-ss-pop:transit-pull;
+  --jam-look:transit;
+  --primary-background-color:#000000;
+  --primary-text-color:#ffffff;
+  --secondary-text-color:#9d9d9d;
+}
+:root[data-look="transit"].light{
+  --jam-ink:#000000;
+  --jam-slab:#000000;
+  --jam-slab2:#262626;
+  --jam-slab3:#333333;
+  --jam-paper:#000000;
+  --jam-paper-fg:#ffffff;
+  --jam-paper-dim:#9d9d9d;
+  --jam-fg:#ffffff;
+  --jam-dim:#9d9d9d;
+  --jam-line:#333333;
+  --jam-ochre:#ff6319;
+  --jam-red:#fccc0a;
+  --jam-alert-text:#fccc0a;
+  --jam-teal:#00933c;
+  --jam-blue:#0039a6;
+  --jam-pink:#b933ad;
+  --jam-violet:#b933ad;
+  --jam-green:#6cbe45;
+  --jam-on-fg:#000000;
+  --jam-shadow:#d6d6d6;
+  --jam-s1:#ff6319;
+  --jam-s2:#00add0;
+  --jam-s3:#fccc0a;
+  --jam-s4:#6cbe45;
+  --jam-s5:#d36ccb;
+  --jam-ink-fg:#ffffff;
+  --jam-ink-dim:#9d9d9d;
+  --jam-ink-dim2:#b3b3b3;
+  --jam-band:#000000;
+  --jam-band-fg:#ffffff;
+  --jam-band-dim:#9d9d9d;
+  --jam-band-key:#262626;
+  --jam-band-off:#6b6b6b;
+  --jam-band-tile:#262626;
+  --jam-plate:#000000;
+  --jam-plate-fg:#ffffff;
+  --jam-focus:#fccc0a;
+  --jam-art-1:#ee352e;
+  --jam-art-2:#ff6319;
+  --jam-art-3:#fccc0a;
+  --jam-art-4:#6cbe45;
+  --jam-art-5:#00933c;
+  --jam-art-6:#0039a6;
+  --jam-art-7:#b933ad;
+  --jam-art-8:#a7a9ac;
+  --jam-display:"Arimo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --jam-body:"Arimo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --jam-display-weight:700;
+  --jam-display-case:none;
+  --jam-display-track:-.01em;
+  --jam-display-lead:1.16;
+  --jam-display-scale:.72;
+  --jam-num-scale:.85;
+  --jam-label-weight:400;
+  --jam-label-case:none;
+  --jam-label-track-scale:0;
+  --jam-key-weight:700;
+  --jam-key-case:none;
+  --jam-key-track-scale:0;
+  --jam-shape-card:none;
+  --jam-shape-key:none;
+  --jam-shape-chip:none;
+  --jam-shape-hero:none;
+  --jam-shape-sheet:none;
+  --jam-shape-poster:none;
+  --jam-shape-pw:none;
+  --jam-shape-strip-end:none;
+  --jam-shape-tab:none;
+  --jam-shape-scene:none;
+  --jam-shape-icon:none;
+  --jam-shape-pin:none;
+  --jam-shape-plate:none;
+  --jam-shape-key-plate:none;
+  --jam-shape-chip-plate:none;
+  --jam-rule-h:4px;
+  --jam-stripe-w:4px;
+  --jam-dur:1;
+  --jam-press:none;
+  --jam-press-from:translateY(1px);
+  --jam-ease-2:cubic-bezier(.16,.84,.3,1);
+  --jam-ease-3:cubic-bezier(.16,.84,.3,1);
+  --jam-ease-4:cubic-bezier(.16,.84,.3,1);
+  --jam-kf-enter:transit-pull;
+  --jam-kf-print:transit-press;
+  --jam-kf-uncover:none;
+  --jam-kf-retreat:none;
+  --jam-kf-stamp:transit-pull;
+  --jam-kf-shake:transit-nudge;
+  --jam-kf-sheet:transit-rise;
+  --jam-kf-flash:none;
+  --jam-kf-ss-cut:transit-fade;
+  --jam-kf-ss-pop:transit-pull;
+  --jam-look:transit;
+  --primary-background-color:#ffffff;
+  --primary-text-color:#000000;
+  --secondary-text-color:#5b5b5b;
 }
 :root[data-look="pulsar"]{
   --jam-ink:#000000;
@@ -701,6 +913,8 @@
   --jam-kf-ss-pop:pulsar-fade;
   --jam-look:pulsar;
   --primary-background-color:#000000;
+  --primary-text-color:#ffffff;
+  --secondary-text-color:#9a9a9a;
 }
 :root[data-look="pulsar"].light{
   --jam-ink:#000000;
@@ -797,4 +1011,6 @@
   --jam-kf-ss-pop:pulsar-fade;
   --jam-look:pulsar;
   --primary-background-color:#e7e2d2;
+  --primary-text-color:#000000;
+  --secondary-text-color:#555555;
 }

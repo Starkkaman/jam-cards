@@ -164,7 +164,7 @@ class JamKioskHome extends JamBase {
   _render(force) {
     if (!this._config) return;
     if (force || !this._k) this._shell();
-    if (this._hass) this._update();
+    if (this._hass) { this._update(); motif("decorate", this, this._body, this); }
   }
   _shell() {
     const c = this._config, root = this.shadowRoot;
@@ -276,10 +276,13 @@ class JamKioskHome extends JamBase {
   }
   /* A look's web fonts arrived (core _watchFonts): the clock / lock label were measured with the fallback face. */
   _fontsLoaded() { this._fit(); }
-  /* Live look switch: the shell is built once, so rebuild it when the dock's name code motif changes (R10 hook). */
+  /* Live look switch (queueLook): the shell is built once, so rebuild it when the dock's name code motif changes (R10
+     hook, Pulsar); otherwise let the new look's pack mark the rendered nodes (motif decorate, Transit). A rebuild runs
+     decorate itself (_render). */
   _lookChanged(look) {
     const code = l => { const p = lookPack(l); return p ? p.motifs.code : undefined; };
     if (this._k && code(this._shellLook) !== code(look)) this._render(true);
+    else if (this._hass && this._k) motif("decorate", this, this._body, this);
   }
   /* Height: from the card's top to the bottom of the viewport, minus the view's bottom padding (16px); one correction
      pass when the page still scrolls by a few pixels (HA paddings differ from the guess). */
