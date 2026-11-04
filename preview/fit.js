@@ -62,7 +62,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
     const p = await ctx.newPage();
     p.on("pageerror", e => errs.push(`${look}/${mode}/${viewport.width}: ${e.message}`));
     await p.clock.setFixedTime(new Date("2026-10-28T14:41:00-07:00"));
-    await p.goto(`${base}?mode=${mode}${look === "poster" ? "" : "&look=" + look}${query}`);
+    await p.goto(`${base}?mode=${mode}${look === "poster" ? "" : "&look=" + look + (process.env.JAM_FX === "0" ? "&fx=0" : "")}${query}`);
     await p.waitForFunction(() => window.__ready);
     await p.evaluate(() => document.fonts.ready);
     return {ctx, p};

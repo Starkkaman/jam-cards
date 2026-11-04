@@ -635,10 +635,15 @@ anthracite panels with a hairline and a soft shadow, one orange signal, toggle s
 ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
 rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"), **Jam Transit** (after Vignelli's New York subway signage:
 every card a black sign under a double rule, round MTA route bullets with letters, Arimo, yellow "service change" for
-alerts; rules in [docs/DESIGN.md](docs/DESIGN.md) "Transit rules") and **Jam Grid** (after Wim Crouwel's New Alphabet: a white
+alerts; rules in [docs/DESIGN.md](docs/DESIGN.md) "Transit rules"), **Jam Grid** (after Wim Crouwel's New Alphabet: a white
 or black page with a visible 24px grid, square faces with a 1px ink line, one orange-red signal, Hanken Grotesk, and big
 numbers built from grid cells that rebuild cell by cell when the value changes; screen readers still get the number; rules
-in [docs/DESIGN.md](docs/DESIGN.md) "Grid rules"). Pick a look in the theme picker; JamBoard is Poster. The
+in [docs/DESIGN.md](docs/DESIGN.md) "Grid rules"), **Jam Pulsar** (after Peter Saville's Factory Records sleeves: a black
+field with thin rules, one warm accent, levels as Unknown Pleasures ridges, Blue Monday colour codes; rules in
+[docs/DESIGN.md](docs/DESIGN.md) "Pulsar rules") and **Jam New Wave** (after April Greiman with a touch of
+Memphis: translucent planes tinted per room, confetti, Silkscreen pixel numbers and labels, sticker-yellow alerts; its
+effects are on by default, set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets; rules in
+[docs/DESIGN.md](docs/DESIGN.md) "New Wave rules"). Pick a look in the theme picker; JamBoard is Poster. The
 [jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while

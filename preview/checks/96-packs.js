@@ -18,21 +18,24 @@ module.exports = async (page, check) => {
     const out = {};
     // ---- registry + fonts ----
     out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
-    const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), transit = J.lookPack("transit"), grid = J.lookPack("grid"), pul = J.lookPack("pulsar");
-    out.packs = !!braun && !!oly && !!transit && !!grid && !!pul && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" &&
-      transit.fonts[0].family === "Arimo" && grid.fonts[0].family === "Hanken Grotesk" && pul.fonts[0].family === "Archivo" && J.lookPack("poster") === null;
-    // Each pack declares its own faces (Pulsar re-declares Braun's Archivo file): count the distinct families.
-    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans|Arimo/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
+    const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), transit = J.lookPack("transit"), grid = J.lookPack("grid"), pul = J.lookPack("pulsar"),
+      nw = J.lookPack("newwave");
+    out.packs = !!braun && !!oly && !!transit && !!grid && !!pul && !!nw && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" &&
+      transit.fonts[0].family === "Arimo" && grid.fonts[0].family === "Hanken Grotesk" && pul.fonts[0].family === "Archivo" &&
+      nw.fonts.map(f => f.family).join() === "Archivo,Silkscreen,Silkscreen" && J.lookPack("poster") === null;
+    // Each pack declares its own faces (Pulsar and New Wave re-declare Braun's Archivo file): count the distinct families.
+    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");
     out.fontStyles = fs.length;
     out.base = J.ASSET_BASE;
     const css = fs[0] ? fs[0].textContent : "";
-    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2", "arimo-var-latin.woff2"].every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
+    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2", "arimo-var-latin.woff2", "silkscreen-400-latin.woff2", "silkscreen-700-latin.woff2"]
+      .every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
       /font-family:"Archivo";font-style:normal;font-weight:300 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css) &&
-      /font-family:"Arimo";[^}]*font-weight:400 700/.test(css);
+      /font-family:"Arimo";[^}]*font-weight:400 700/.test(css) && /font-family:"Silkscreen";[^}]*font-weight:400;[^}]*unicode-range:U\+0000-00AF, U\+00B1-00FF/.test(css);
     const fetched = () => performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2/.test(n)).map(n => n.replace(location.origin, ""));
     out.posterFetch = fetched();
-    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans|Arimo/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
+    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
     // ---- shared sheets under Poster ----
     const styled = top.filter(c => c.localName !== "jam-screensaver"); // its root holds a layer; the layer's root is styled (checked below)
     const sheets = styled.map(c => c.shadowRoot.adoptedStyleSheets || []);
@@ -118,9 +121,9 @@ module.exports = async (page, check) => {
     return out;
   });
   // Poster first, then every pack in the bundle (src/looks/ by name); other looks may be added next to these.
-  check(r.looks[0] === "poster" && ["braun", "olympia", "transit", "grid", "pulsar"].every(l => r.looks.includes(l)) && r.packs,
-    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), transit (Arimo), grid (Hanken Grotesk), pulsar (Archivo), Poster has no pack`);
-  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 3 && r.declared.every(d => d.endsWith(":unloaded")),
+  check(r.looks[0] === "poster" && ["braun", "olympia", "transit", "grid", "pulsar", "newwave"].every(l => r.looks.includes(l)) && r.packs,
+    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), transit (Arimo), grid (Hanken Grotesk), pulsar (Archivo), newwave (Archivo + Silkscreen 400 / 700), Poster has no pack`);
+  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 4 && r.declared.every(d => d.endsWith(":unloaded")),
     `fonts: one font style in head with the packs' URL @font-face on ${r.base}fonts/; under Poster declared but not fetched (${r.declared.join(", ")}; fetched ${JSON.stringify(r.posterFetch)})`);
   check(r.adopt && r.styleEls.length === 0, `shared stylesheets: every card adopts [BASE, own css], one BASE sheet for all, ${r.distinct} distinct sheets, no per-card <style>` +
     (r.styleEls.length ? " — " + r.styleEls.join(",") : ""));

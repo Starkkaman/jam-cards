@@ -28,6 +28,9 @@ if (new URLSearchParams(location.search).get("mode") === "light") document.docum
 // ?look=<id>: another look's tokens from looks.css (:root[data-look=id]); the cards read --jam-look from them.
 const lookParam = new URLSearchParams(location.search).get("look");
 if (lookParam && /^[a-z][a-z0-9-]*$/.test(lookParam)) document.documentElement.dataset.look = lookParam;
+// ?fx=0: the effects switch off for the whole page (as a card's `fx: false` would; the kiosks' setting), so a look with
+// jam-fx: 1 (New Wave) can be checked flat too.
+if (new URLSearchParams(location.search).get("fx") === "0") document.documentElement.style.setProperty("--jam-fx", "0");
 const now = new Date().toISOString();
 const states = {}, layout = [];
 // Fixture API (preview/fixtures/*.js, loaded in name order by fixtures/index.js):

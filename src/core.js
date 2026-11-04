@@ -767,6 +767,15 @@ function jamFxOption(card, config) {
   else if (card.style.getPropertyValue("--jam-fx")) card.style.removeProperty("--jam-fx");
 }
 function setFx(node, on) { if (node && node.hasAttribute("data-fx") !== on) node.toggleAttribute("data-fx", on); }
+/* Decor seed (R10, New Wave): data-jam-seed = 0..11 on the card host, from its entity (else its whole config), so a look
+   pack can place seeded decoration with CSS alone (:host([data-jam-seed="3"])); HA wraps every card in its own element,
+   so the card's position cannot serve as a seed. Poster and the other looks ignore it. Written only when it changes. */
+function jamSeedAttr(card, config) {
+  let k = config.entity;
+  if (typeof k !== "string" || !k) { try { k = JSON.stringify(config); } catch (e) { k = String(config.type || ""); } }
+  const v = String(seed(k) % 12);
+  if (card.getAttribute("data-jam-seed") !== v) card.setAttribute("data-jam-seed", v);
+}
 
 /* ---------- look packs (theming plan 2.1, R6) ---------- */
 /* A look = an HA theme (every --jam-* token, --jam-look: <id>) + an optional pack registered here (src/looks/<id>.js):
@@ -1052,6 +1061,7 @@ class JamBase extends HTMLElement {
     if (!config) throw new Error("Invalid configuration");
     this.validate(config);
     jamFxOption(this, config);
+    jamSeedAttr(this, config);
     this._config = config; this._sig = null; this._render(true);
   }
   validate() {}

@@ -21,7 +21,7 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
     const ctx = await browser.newContext({viewport, timezoneId: "America/Los_Angeles"});
     const p = await ctx.newPage();
     if (fixed) await p.clock.setFixedTime(new Date("2026-10-28T14:41:00-07:00")); // the screensaver's idle timer needs a running clock
-    await p.goto(`${base}?mode=${mode}&look=${look}${query}`);
+    await p.goto(`${base}?mode=${mode}&look=${look}${process.env.JAM_FX === "0" ? "&fx=0" : ""}${query}`); // JAM_FX=0: effects off (shoot.js)
     await p.waitForFunction(() => window.__ready);
     await p.evaluate(() => document.fonts.ready);
     await p.waitForTimeout(900);
