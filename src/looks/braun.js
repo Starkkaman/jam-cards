@@ -4,7 +4,11 @@
    corners, smooth 160-220 ms ease-out motion. Colour, type, shape and motion tokens come from the theme "Jam Braun"
    (tokens/looks/braun.mjs); this pack only skins the stable class hooks and adds the Braun motifs:
    empty = a 5x4 dot grille, idleArt = a speaker-grille dot field with one orange dot, flash = none, powerGlyph = a thin
-   1.75px stroke, screensaver = the AB-1 dial ring. The pack sheet is adopted only while the look is active, so nothing here
+   1.75px stroke, screensaver = the AB-1 dial ring. Colour revision 2026-11-03 ("more colour"): lit lights = a flat tint of
+   the light's colour over the panel (18% light, 24% dark via a style query on --jam-ink), ET66 yellow #e8b12a for the
+   secondary accent keys (shuffle / favourite on, active tab / scene / choice, current source), olive #6f8f3a for on toggles
+   and switch keys, room colour as a 4px rule on top of jam-heading and a 15% dock-block tint (pressed = solid), 12% accent /
+   tint on the speaker / TV text bands (the K1 side panel stays the plain panel). The pack sheet is adopted only while the look is active, so nothing here
    needs a look selector. Font: Archivo (SIL OFL 1.1, latin subset from Google Fonts, variable wght axis; declared 300-700:
    300 = the kiosk clock). */
 (() => {
@@ -116,15 +120,16 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
   background:var(--slab3);border:1px solid var(--line);transition:background-color 180ms ease-out,border-color 180ms ease-out}
 .pw:not(.paper)::after{content:"";position:absolute;right:30px;top:16px;width:14px;height:14px;border-radius:50%;background:var(--ink-fg);
   box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform 180ms ease-out,background-color 180ms ease-out}
-.pw[aria-pressed=true]:not(.paper)::before,.pw:not([aria-pressed]):not(.off):not(.paper)::before{background:var(--fg);border-color:var(--fg)}
-.pw[aria-pressed=true]:not(.paper)::after,.pw:not([aria-pressed]):not(.off):not(.paper)::after{transform:translateX(16px);background:var(--slab)}
+.pw[aria-pressed=true]:not(.paper)::before,.pw:not([aria-pressed]):not(.off):not(.paper)::before{background:#6f8f3a;border-color:#6f8f3a} /* ok / on = olive */
+.pw[aria-pressed=true]:not(.paper)::after,.pw:not([aria-pressed]):not(.off):not(.paper)::after{transform:translateX(16px);background:var(--ink-fg)}
 .pw:not(.paper):disabled::before,.pw:not(.paper):disabled::after{opacity:.45}
 .pw:not(.paper):focus-visible{outline:none}
 .pw:not(.paper):focus-visible::before{outline:2px solid var(--focus);outline-offset:2px}
 
 /* ---------- jam-light: face stays panel; LED dot in the light's colour; brightness strip; member dots ---------- */
-.lc.on > .face{background:var(--slab);color:var(--fg)}
-.lc.on .sub{color:var(--dim)}
+.lc.on > .face{--b-tint:18%;background:color-mix(in srgb,var(--lc) var(--b-tint),var(--slab));color:var(--fg)}
+@container style(--jam-ink: #1c1c1a){.lc.on > .face{--b-tint:24%}} /* dark mode (Braun dark ink); without style queries 18% */
+.lc.on .sub{color:color-mix(in srgb,var(--fg) 72%,var(--dim))} /* dim text stays >= 4.5:1 on the tint */
 /* the name flows around the toggle (and the member dots): only its first line is shortened */
 .lc .tap{padding-right:14px}
 .lc .top{display:block}
@@ -168,15 +173,19 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 /* ---------- jam-tabs / jam-scenes / jam-choice / lists / panels ---------- */
 .tab{border-radius:10px;background:var(--slab2);color:var(--dim)}
 .tab::after{left:10px;right:10px;height:2px}
-.tab.on{background:var(--ochre);color:var(--on-fg)}
+.tab.on{background:#e8b12a;color:var(--on-fg)}
 .tab.on::after{background:var(--on-fg)}
 .scene > .sf{border-radius:999px}
-.scene.on > .sf{background:var(--ochre);color:var(--on-fg)}
+.scene.on > .sf{background:#e8b12a;color:var(--on-fg)}
+.opt.on > .face,.mu .acts .key.sel > .face{background:#e8b12a;color:var(--on-fg)}
+/* ok / on switch keys (list rows, tiles, speaker Join): olive, deep ink text (4.9:1; white is 3.7:1, --ink 4.1:1) */
+.key.sw.on > .face,.key.tog.on > .face{background:#6f8f3a;color:#161616}
 .scene.jam-stamp > .sf::before{content:none}
 .opt.busy > .face{border-color:var(--ochre)}
 .row + .row{border-top-width:1px}
 .row{border-top-width:1px}
 .acc{height:2px}
+.h > .rule{order:-1;height:4px;border-radius:2px} /* jam-heading: the room colour as a 4px rule on top */
 .cnt{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
 .meta span + span::before{border-radius:50%}
 
@@ -205,7 +214,7 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .tile > .face{background:var(--slab2);color:var(--fg)}
 .key.tile .nm::before{content:"";display:inline-block;width:8px;height:8px;margin:0 7px 2px 0;border-radius:50%;background:var(--app,var(--dim));vertical-align:middle}
 .tile.cur{outline:none}
-.tile.cur > .face{background:var(--ochre);color:var(--on-fg)}
+.tile.cur > .face{background:#e8b12a;color:var(--on-fg)}
 .key.tile.cur .nm::before{box-shadow:0 0 0 1.5px var(--on-fg)}
 .tile.home > .face{background:var(--slab3);color:var(--fg)}
 .tile .now{border-radius:999px;padding:4px 7px}
@@ -225,8 +234,9 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 
 /* ---------- jam-speaker + Music Assistant panel ---------- */
 .poster > .face{background:var(--slab2)}
+.poster:not(.off) .band{background:color-mix(in srgb,var(--acc) 12%,var(--slab))}
 .kk i{border-radius:50%}
-.bk .shuf.on > .face{background:var(--ochre);color:var(--on-fg)}
+.bk .shuf.on > .face,.bk .fav.on > .face,.dock .ikey.fav.on > .face{background:#e8b12a;color:var(--on-fg)} /* ET66 yellow: secondary accent keys */
 .pg{height:4px;background:var(--ochre);border-radius:0 2px 2px 0}
 .row{border-radius:10px}
 .row .play > .face{background:var(--slab3)}
@@ -240,10 +250,10 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .sbar input{border:1px solid var(--line);border-radius:10px}
 .spk{border-top-width:1px}
 /* K1 (kiosk speaker): the side panel stays a quiet panel, not the sampled art colour */
-.side{--kbg:var(--slab)!important;--kfg:var(--fg)!important;--ktr:var(--slab2)!important;background:var(--slab);color:var(--fg)}
+.side{--kbg:var(--slab)!important;--kfg:var(--fg)!important;--ktr:var(--slab2)!important;background:var(--slab);color:var(--fg)} /* plain panel: a 12% tint of dark art reads grey */
 .kart{background:var(--slab2)}
 .kbk .ikey > .face{border:1px solid var(--line);background:var(--slab2);color:var(--fg)}
-.kbk .shuf.on > .face{background:var(--ochre);color:var(--on-fg);border-color:var(--ochre)}
+.kbk .shuf.on > .face,.kbk .fav.on > .face{background:#e8b12a;color:var(--on-fg);border-color:#e8b12a}
 .kt .ikey > .face{background:var(--slab2);color:var(--fg)}
 .kt .ikey.main > .face{background:var(--ochre);color:var(--on-fg)}
 .kt .ikey:disabled > .face{background:var(--slab2);color:var(--dim)}
@@ -265,12 +275,16 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 
 /* ---------- jam-kiosk: panel dock blocks with a room dot; pressed inverts; clock 300 with the colon in signal ---------- */
 .k .bar{height:2px}
-.blk{background:var(--slab);color:var(--fg);border:1px solid var(--line);border-radius:14px;box-shadow:var(--jam-elev-1,none)}
+.blk{background:color-mix(in srgb,var(--bc,var(--acc)) 15%,var(--slab));color:var(--fg);border:1px solid var(--line);border-radius:14px;box-shadow:var(--jam-elev-1,none)}
+.blk.none{background:var(--slab)}
 .blk .nm::before{content:"";display:inline-block;width:12px;height:12px;margin:0 12px 4px 0;border-radius:50%;background:var(--bc,var(--acc));vertical-align:middle}
 .blk.none .nm::before{content:none}
 .blk .st,.host.light .blk.none .st{color:var(--dim)}
-.blk:active,.blk.stamp{background:var(--fg);color:var(--slab);border-color:var(--fg)}
-.blk:active .st,.blk.stamp .st{color:var(--slab)}
+.blk:active,.blk.stamp{background:var(--bc,var(--acc));color:var(--bf,var(--on-fg));border-color:var(--bc,var(--acc))}
+.blk:active .st,.blk.stamp .st{color:var(--bf,var(--on-fg))}
+.blk:active .nm::before,.blk.stamp .nm::before{background:var(--bf,var(--on-fg))}
+.blk.none:active,.blk.none.stamp{background:var(--fg);color:var(--slab);border-color:var(--fg)}
+.blk.none:active .st,.blk.none.stamp .st{color:var(--slab)}
 .blk:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .k .dock{gap:10px}
 .clock{font-weight:300}

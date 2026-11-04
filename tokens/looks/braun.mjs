@@ -13,7 +13,9 @@
 //   Contrast (brief: >= 4.5:1 for all text, both modes) moves three brief values a few steps: dim light #77736b ->
 //     #605c54 (4.1:1 on panel), dim dark #9c988f -> #aca89f (4.35:1 on panel 2), and text on the signal is ink, not white
 //     (white on #f07d1e is 2.7:1). Alert TEXT is a darker / lighter red (#b32205 / #ff8668), fills keep the brief's red.
-// Room hues (teal, blue, pink, violet) keep the Poster values: the brief shows them only as small dots / 2px rules.
+// Room hues (teal, blue, pink, violet) keep the Poster values. Colour revision 2026-11-03 (brief "more colour"): the pack
+//   (src/looks/braun.js) mixes them, and a light's own colour, into the panel as flat tints and adds the ET66 yellow
+//   #e8b12a / olive #6f8f3a key colours as pack constants; no new tokens.
 import poster from "./poster.mjs";
 
 const ARCHIVO = '"Archivo", "Helvetica Neue", Arial, sans-serif';
@@ -29,7 +31,8 @@ export default {
     "loads Archivo (dist/fonts/) and draws the Braun controls (its look pack, --jam-look: braun). Without Jam Cards the",
     "stacks fall back to Helvetica/Arial.",
     "Light mode = warm white (#e7e3da page, #f2efe8 panels); dark mode = anthracite (#1c1c1a page, #2a2a27 panels).",
-    "Room hues show only as small dots or 2px rules; jam-ochre is the orange signal (accent, focus, primary).",
+    "jam-ochre is the orange signal (accent, focus, primary); Jam Cards adds ET66 yellow keys, olive on-toggles, light-colour",
+    "and room-colour tints over the panels (revision 2026-11-03).",
   ],
   tokens: {
     "jam-display": ARCHIVO,

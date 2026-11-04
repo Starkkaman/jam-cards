@@ -99,6 +99,18 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   powerGlyph = 1.75px stroke, screensaver = the AB-1 dial ring (a hairline circle with an orange dot) on a panel page.
 - Motion: smooth `cubic-bezier(.2,.7,.3,1)` at the Poster durations; press = scale .98; entrance / sheets fade and rise;
   stamps settle, washes and wipes are gone. Reduced motion = none (BASE_CSS).
+- Colour revision 2026-11-03 (brief "more colour"; supersedes the dot-only room hue and LED-only light colour rules above,
+  all in the pack, no new tokens): a lit jam-light face is a flat `color-mix` of its light colour into `--slab` (18% light,
+  24% dark: an `@container style(--jam-ink: #1c1c1a)` query; browsers without style queries keep 18%), its sub text a
+  72/28 fg/dim mix so it stays >= 4.5:1 on any tint; off = the plain panel. ET66 yellow #e8b12a (ink `--on-fg` text) for the
+  secondary accent keys: shuffle / favourite on, the active tab, scene and jam-choice option, panel B's selected action,
+  the current TV source tile. Olive #6f8f3a for "ok / on": the on toggle track (knob `--ink-fg`) and on switch keys (list
+  rows, jam-tile, speaker Join) with deep ink #161616 text (4.9:1; white 3.7:1 and `--ink` 4.1:1 fail). The primary key
+  stays the orange signal. Room colour: jam-heading's rule is 4px, rounded, on top of the title; kiosk dock blocks are a 15%
+  room tint (a `none` block stays the plain panel) with the solid room dot, pressed = solid room colour face in `--bf`.
+  Speaker / TV text bands (not when off) = a 12% `--acc` tint of the panel; the jam-speaker K1 side panel stays the plain
+  panel (a tint of the sampled art colour read grey). Kiosk clock: the colon stays orange; no dot ring (dropped).
+  Check: preview/checks/96-r10-braun-colour.js.
 
 ## Olympia rules (the Olympia look, theme "Jam Olympia"; brief docs/looks/OLYMPIA.md)
 - Tokens (`tokens/looks/olympia.mjs`): light ground #f4f6f7 (HA ground alias; `jam-ink` is the navy ink #1f3b4d / #10202b
