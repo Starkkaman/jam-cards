@@ -83,6 +83,8 @@ const JE_LABELS = {
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
   show_swatches: "Swatches (whites and colours)", colors: "Colour swatches", keys: "Keys", all_on: "All on key", all_off: "All off key",
+  pictogram: "Pictogram", rules: "Pictogram rules (first match wins)", facts: "Facts (up to 4)", lanes: "Lanes",
+  ranges: "Fixed ranges", items: "Squares", thresholds: "Thresholds", word: "Word on the label (default high / low)", decimals: "Decimals", above: "Above", below: "Below",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -95,6 +97,10 @@ const JE_HELP = {
   disable_on: "No screensaver while one of these entities is in the state (default on / playing).",
   sources: "A source whose match has inputs is listed under Inputs, the rest under Apps.",
   looks: "Default: JamBoard and every installed theme named \"Jam ...\". Any installed theme name works.",
+  rules: "Swap the pictogram while an entity is in a state (default: on / playing).",
+  facts: "An entity's value, a group's members that are on, or the count of on entities in a list.",
+  lanes: "schedule.*, calendar.*, any on / off entity (its history today) or fixed ranges.",
+  thresholds: "The first one the value passes sets the colour and puts its word on the label.",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -345,6 +351,35 @@ const JAM_EDITORS = {
     stub: (h, e) => { const r = jePick(h, e, jeDom("remote"), null);
       return {media_player: jePick(h, e, (id, s) => jeDom("media_player")(id) && s.attributes.device_class === "tv", null) ||
         jePick(h, e, jeDom("media_player"), "media_player.jam"), ...(r ? {remote: r} : {})}; },
+  },
+  /* ---- look cards (Olympia): jam-pictogram, jam-programme, jam-results. Bare ids in facts / items go to YAML. ---- */
+  "jam-pictogram": {
+    schema: [jeGrid(jeText("name"), jeSel("pictogram", Object.keys(JP_GLYPHS), {default: "home"})), jeEnt("entity"), JE_ACCENT,
+      jeList("facts", [jeEnt("entity"), jeEnts("entities"), jeText("name"), jeText("attribute"), jeText("unit")], {label: "name", desc: "entity"}),
+      jeList("rules", [jeEnt("entity", null, {required: true}), jeTexts("state"), jeSel("pictogram", Object.keys(JP_GLYPHS), {required: true})],
+        {label: "entity", desc: "pictogram"}),
+      jeActions()],
+    stub: (h, e) => { const l = jePick(h, e, (id, s) => jeDom("light")(id) && Array.isArray(s.attributes.entity_id), null) || jePick(h, e, jeDom("light"), null);
+      const t = jePick(h, e, jeTemp, null);
+      return {name: "Living room", pictogram: "sofa-tv", facts: [...(l ? [{entity: l}] : []), ...(t ? [{entity: t, name: "inside"}] : [])]}; },
+  },
+  "jam-programme": {
+    schema: [jeText("title"), jeGrid(jeText("from"), jeText("to")),
+      jeList("lanes", [jeEnt("entity"), jeText("name"), {name: "color", selector: JE_ACCENT.selector}, jeTexts("state"),
+        jeList("ranges", [jeText("from", {required: true}), jeText("to", {required: true}), jeText("label")], {label: "label", desc: "from"})],
+        {label: "name", desc: "entity"}, {required: true}),
+      jeNum("refresh_minutes", {min: 1}, {default: 10}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("schedule", "calendar", "input_boolean"), 3);
+      return {title: "Today", lanes: ids.length ? ids.map(entity => ({entity})) : [{name: "Evening", ranges: [{from: "18:00", to: "22:00"}]}]}; },
+  },
+  "jam-results": {
+    schema: [jeList("items", [jeEnt("entity", null, {required: true}), jeText("name"), {name: "color", selector: JE_ACCENT.selector},
+      jeText("unit"), jeText("attribute"), jeNum("decimals", {min: 0, max: 6}),
+      jeList("thresholds", [jeNum("above", {step: "any"}), jeNum("below", {step: "any"}), {name: "color", selector: JE_ACCENT.selector, required: true},
+        jeText("word")], {label: "color", desc: "word"}),
+      JE_ACTION("tap_action")], {label: "entity", desc: "name"}, {required: true}),
+      jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeNumeric, 3); return {items: (ids.length ? ids : ["sensor.jam"]).map(entity => ({entity}))}; },
   },
   "jam-looks": {
     schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],

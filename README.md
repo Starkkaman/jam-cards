@@ -75,7 +75,7 @@ Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` acce
 (`perform_action`, `data`, `target`) and `none`. Add `confirmation: true` or `confirmation: {text: ...}` to ask first.
 
 ## Cards
-28 cards (jam-dial, jam-keypad and jam-radio are look cards: drawn after Braun objects, at home in every look). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
+31 cards (look cards, at home in every look: jam-dial, jam-keypad and jam-radio are drawn after Braun objects; jam-pictogram, jam-programme and jam-results were made for Olympia). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
 
 ### jam-heading
 Section label with a big title over a 5px accent rule.
@@ -743,6 +743,73 @@ name: Kitchen
 | `pinned` | Pinned items `{uri, name, image, media_type}` for the panel, as jam-speaker |
 | `config_entry_id` | Music Assistant config entry for the library calls (default: found automatically) |
 | `accent` | Play key while playing (default violet) |
+
+### jam-pictogram
+A room tile in the manner of Otl Aicher's 1972 pictograms (made for the Olympia look, works in every look): a field with a
+pictogram drawn from 45° and 90° strokes, the room name and 2-4 facts (2 on a half-width tile). While the room is on (a rule
+matches, `entity` is on, a counted entity is on or a player plays) the field is the card's accent; off it is a plain field
+under an accent strip; with its entities missing it is dashed and says Offline. A rule can swap the pictogram while
+something is on (TV playing → the watching figure, with the word on the field). Tap = `tap_action` (e.g. navigate to the room),
+default more-info of `entity`; without `entity` or actions the tile is not a control.
+```yaml
+type: custom:jam-pictogram
+name: Living room
+pictogram: sofa-tv
+accent: living
+rules: [{entity: media_player.living_room_tv, state: playing, pictogram: watch}]
+facts:
+  - {entity: light.living_room, name: lights on}
+  - {entity: media_player.living_room_tv, name: tv}
+  - {entity: sensor.living_room_temperature, name: inside}
+tap_action: {action: navigate, navigation_path: /jam-home/living}
+```
+| Option | Description |
+|---|---|
+| `name` | Room name (default: the entity's name, else "Room") |
+| `pictogram` | `home` (default), `sofa-tv`, `watch`, `cook`, `sleep`, `music`, `work-desk`, `bath`, `play`, `car`, `garden` (aliases `tv`, `work`, `garage`) |
+| `entity` | Entity for the default tap (more-info) |
+| `rules` | List of `{entity, state, pictogram}`: the first rule whose entity is in `state` (a state or a list; default an on state such as on / playing) shows its pictogram |
+| `facts` | Up to 4 entity ids or `{entity, entities, name, attribute, unit}`: a value (temperatures as 66°), a media player's app or title, the members of a group that are on (`entity` = a light group), or how many of `entities` are on |
+| `tap_action`, `hold_action`, `double_tap_action` | Actions |
+
+### jam-programme
+The day as a games programme sheet (made for the Olympia look, works in every look): one timeline for today with a lane per
+schedule, calendar, on / off entity or fixed range, a line for now with its time and the hours under it. Under the title:
+what is on now and what is next; tap a band for its times and event there (Esc or another tap goes back). Past bands fade
+toward the track, the current one stands out.
+```yaml
+type: custom:jam-programme
+title: Programme
+lanes:
+  - {entity: schedule.screens_off, color: blue}
+  - {entity: input_boolean.work_mode, name: Work, color: green}
+  - {entity: calendar.family}
+  - {name: Briefs, ranges: [{from: "07:00", to: "07:20", label: Morning brief}]}
+```
+| Option | Description |
+|---|---|
+| `title` | Title (default "Today"); the date is shown beside it |
+| `from`, `to` | The window, HH:MM (default 00:00 to 24:00) |
+| `lanes` | 1-8 lanes `{entity, name, color, state, ranges}`: a `schedule.*` shows its blocks for today (a YAML schedule: its history), a `calendar.*` today's events, any other entity its on periods today from the recorder (`state` = which states count as on); `ranges` = fixed bands `{from, to, label}` (to before from runs past midnight); `color` = an accent name (default: the room accent of the entity's area, matched by its name: living, kitchen, master, marissa, music, nerd / office; else blue, teal, ochre, pink, violet, green in order) |
+| `refresh_minutes` | Refetch interval (default 10; also when a lane entity changes, at most once a minute, and at midnight) |
+
+Data: `schedule/list` + `config/entity_registry/get` (schedule blocks), `call_service` `calendar.get_events` with
+`return_response` (events) and `history/history_during_period` (on periods), all over the frontend's websocket.
+
+### jam-results
+A results board (made for the Olympia look, works in every look): big numbers on flat colour squares, one square per sensor. A
+square is neutral until you give it a colour or a threshold it passes.
+```yaml
+type: custom:jam-results
+items:
+  - {entity: sensor.inside_temperature, name: inside, color: pink}
+  - {entity: sensor.energy_today, name: energy today}
+  - {entity: sensor.office_co2, name: CO2, thresholds: [{above: 1000, color: red}, {below: 600, color: green, word: good}]}
+```
+| Option | Description |
+|---|---|
+| `items` | 1-12 entity ids or `{entity, name, color, unit, attribute, decimals, thresholds, tap_action}`; `thresholds` = a list of `{above, below, color, word}`: the first one the value passes sets the square's colour and shows its `word` (default "high" above, "low" below) on an inverted label plate; `color` = an accent name; with neither the square is neutral (face colour, text colour numerals); a missing sensor shows its name and "Offline" |
+| `columns` | Fixed number of columns (default: as many squares of at least 112px as fit) |
 
 ## Design rules
 The default look, Poster: flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight

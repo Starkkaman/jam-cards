@@ -407,6 +407,10 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 
 /* ---------- failed action strip ---------- */
 .jam-err{border:1px solid var(--line);border-left:var(--stripe-w) solid var(--red)}
+/* jam-programme (Pulsar: every hue is the warm accent): lanes told apart by shape, not colour: lane variant 1 = outlined bands, 2 = half-height
+   bands (the current band keeps its taller outline). */
+:host(jam-programme) .lane[data-lv="1"] .bd{background:var(--slab);border:3px solid var(--bf)}
+:host(jam-programme) .lane[data-lv="2"] .bd:not(.bnow){top:25%;bottom:25%}
 `;
 
   registerLook({
