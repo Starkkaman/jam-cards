@@ -274,6 +274,13 @@ brighter field) only under `data-fx` (the theme sets `jam-fx: 1`; the kiosks' `f
 - Contrast is measured on the solid fx-off faces (preview/contrast.js skips gradients and the field): run the harness
   with `JAM_FX=0` too. Under fx the text colours stay the same; the frosted fill is light in light mode and dark in dark
   mode, so the blurred field behind it keeps text on the same side of the contrast line.
+- Review fixes (2026-11-04, docs/looks/GLASS.md "Design review fixes"; these win over the lines above): lit lights and lit
+  jam-buttons are re-lit panes (the colour in OKLCH with lightness clamped bright and chroma capped; fx: a glow from a
+  near-white core plus a halo; ink text) instead of a tint over the dark pane; unavailable = an empty pane with a dashed
+  edge; the tone stripe is an 8px tone dot; big numbers 40-48px in Figtree 300; kiosk dock tiles follow
+  `data-state` (on = solid room colour, off = neutral pane, action = outlined) and each block raises a disc of its colour
+  behind it (bright while on; flat without fx); odd-count multi-column kiosk sheets lead with a full-width tile; the
+  screensaver drops the layout's bars and keeps one flat orb.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,

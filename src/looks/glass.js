@@ -42,8 +42,16 @@
 /* cards inside a sheet: plain solid panes one step up (the sheet is the frosted layer) */
 :host-context(.pop) .host > .paper > .face{background:var(--slab);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:inset 0 0 0 1px var(--line);transform:none!important}
 /* ---------- type: light, large numbers; names 600; sentence-case labels ---------- */
-.time,.temp,.otemp,.big,.cur,.clock,.tt,.pct,.v,.vn,.hi,.lo{font-weight:300;font-variant-numeric:tabular-nums}
+.time,.temp,.otemp,.big,.cur,.clock,.tt,.pct{font-weight:300;font-variant-numeric:tabular-nums}
+.v,.vn,.hi,.lo{font-weight:400;font-variant-numeric:tabular-nums}
 .big.un{font-weight:var(--disp-w)}
+/* very large numbers (the brief): 40-48px in Figtree 300 where a card shows one value */
+.lc .pct{font-size:40px;line-height:1}
+:host(jam-slider) .v{font-size:40px;font-weight:300;line-height:1}
+:host(jam-house) .temp{font-size:46px} :host(jam-house) .otemp{font-size:32px}
+:host(jam-gauge) .big:not(.un){font-size:46px}
+:host(jam-graph) .cur{font-size:48px}
+:host(jam-tile) .val{font-weight:400;font-size:24px}
 .num{font-variant-numeric:tabular-nums}
 /* ---------- keys: rounded panes; on = the room colour with ink text ---------- */
 .key > .face{background:var(--slab2);color:var(--fg);border:0;box-shadow:inset 0 0 0 1px var(--line)}
@@ -51,6 +59,9 @@
 .key.on > .face,.ikey.main > .face{background:var(--acc);color:var(--acc-fg);box-shadow:none}
 :host([data-fx]) .key.on > .face,.pop[data-fx] .key.on > .face{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 20px -10px var(--acc)}
 .key.alert > .face{background:var(--red);color:var(--on-fg);box-shadow:none}
+/* a key in a wrapping row (jam-tile, jam-list) keeps its own height: Poster's height:100% stretches a wrapped key to the
+   row, which in a rounded tile reads as a tall blob spilling out of its card */
+.row > .key,.row > .paper.key{height:auto;align-self:center}
 .key.on:disabled > .face,.ikey.main:disabled > .face{background:var(--slab3);color:var(--dim);box-shadow:none}
 button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .chip.red::before,.chip.on::before{box-shadow:none}
@@ -67,12 +78,23 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .lg .sq{border-radius:50%}
 .lg .v{font-weight:inherit}
 :host(jam-graph) svg rect{rx:3px}
+/* weather glyphs: clouds / moon in a mid tone (Poster's --paper is the near-white pane in light mode) */
+:host(jam-weather) .host{--g-paper:var(--dim)}
 .rule{border-radius:999px}
 .arm span{border-radius:999px}
 .tab,.scene > .sf,.kf .sq{border-radius:999px}
 .scene > .sf{border-radius:18px}
 .kf .sq{border-radius:14px}
 .jam-err{border-radius:16px;border-left:0;box-shadow:inset 3px 0 0 var(--red)}
+/* tone: a dot before the first line instead of Poster's left stripe (a stripe turns into a crescent on a 28px corner) */
+.face.stripe{border-left:0;--p-l:30px}
+.face.stripe::after,:host(jam-remote) .sec > .face::after{content:"";position:absolute;left:15px;top:19px;width:8px;height:8px;border-radius:50%;background:var(--tc,var(--line));pointer-events:none}
+.face.s-on{--tc:var(--acc)} .face.s-alert{--tc:var(--red)} .face.s-calm{--tc:var(--teal)}
+:host(jam-remote) .sec > .face{border-left:0;--p-l:30px;--tc:var(--acc)}
+/* unavailable: an empty pane with a dashed edge (offline); off stays a quiet pane */
+.face.unavail,.lc.dead > .face,.kf.unavail{background:transparent!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  box-shadow:none!important;border:1.5px dashed color-mix(in oklab,var(--dim) 55%,var(--line))!important}
+.face.unavail::after{background:transparent;box-shadow:inset 0 0 0 1.5px var(--dim)}
 /* ---------- power: a 36px round button top-right; on = the room colour ---------- */
 .pw .tri{inset:10px 10px auto auto;width:36px;height:36px;border-radius:50%;background:var(--slab2);box-shadow:inset 0 0 0 1px var(--line)}
 .pw svg{right:19px;top:19px;width:18px;height:18px;color:var(--fg)}
@@ -86,37 +108,44 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-tv) .pw svg{right:19px;top:19px;width:18px;height:18px}
 :host(jam-tv) .kiosk .pw::before{right:14px;top:14px;width:52px;height:52px}
 :host(jam-tv) .kiosk .pw svg{right:27px;top:27px;width:26px;height:26px}
-/* ---------- jam-light: on = the pane glows from inside with the light's colour (fx: a soft radial tint over the frosted
-   pane; no fx: a tinted solid), text stays --fg; no label plates; brightness = a thick track with a round knob ---------- */
-.host > .paper.lc.on > .face{background:color-mix(in oklab,var(--lc) 30%,var(--slab));color:var(--fg)}
-:host([data-fx]) .host > .paper.lc.on > .face{background:radial-gradient(120% 130% at 16% 0%,color-mix(in srgb,var(--lc) 46%,transparent),color-mix(in srgb,var(--lc) 14%,transparent) 62%,transparent),var(--shadow)}
-.lc.on .sub,.lc.on .pct,.lc.on .nm{color:var(--fg)}
+/* ---------- lit = the pane lights up in its colour (jam-light on: the light's colour; jam-button on: the room colour).
+   The colour is re-lit in OKLCH: lightness clamped to a bright band and chroma capped, so a warm white never mixes with
+   the blue-grey pane into khaki. No fx: one bright tint (L .84); fx: a radial glow from a near-white core (L .95) through
+   the tint to a deeper rim (L .76) and a soft halo of the colour. Text on a lit pane is ink. ---------- */
+.host > .paper.lc.on > .face{--gl-c:var(--lc)}
+.host > .paper.btn > .kf.on{--gl-c:var(--acc)}
+.host > .paper.lc.on > .face,.host > .paper.btn > .kf.on{--gl-1:oklch(from var(--gl-c) .95 clamp(0,c,.05) h);--gl-2:oklch(from var(--gl-c) .84 clamp(0,c,.12) h);
+  --gl-3:oklch(from var(--gl-c) .76 clamp(0,c,.14) h);--gl-halo:oklch(from var(--gl-c) .8 clamp(0,c,.16) h / .55);
+  background:var(--gl-2);color:var(--on-fg);box-shadow:inset 0 0 0 1px var(--gl-3)}
+:host([data-fx]) .host > .paper.lc.on > .face,:host([data-fx]) .host > .paper.btn > .kf.on{
+  background:radial-gradient(130% 120% at 18% 0%,var(--gl-1),var(--gl-2) 48%,var(--gl-3));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.65),0 16px 44px -16px var(--gl-halo)}
+.lc.on .sub,.lc.on .pct,.lc.on .nm{color:var(--on-fg)}
 .lc.on.plate .top{margin:0;padding:0;background:none;color:inherit;clip-path:none}
-.lc.on.plate .pct{margin-left:0;padding:0;background:none;color:var(--fg)}
-.lc.on .pw[aria-pressed=true] .tri{background:var(--lc);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fg) 20%,transparent)}
-.lc.on .pw[aria-pressed=true] svg{color:var(--lc-fg,var(--on-fg))}
+.lc.on.plate .pct{margin-left:0;padding:0;background:none;color:var(--on-fg)}
+.lc.on .pw[aria-pressed=true] .tri,.kf.on .pw[aria-pressed=true] .tri{background:var(--on-fg);box-shadow:none}
+.lc.on .pw[aria-pressed=true] svg,.kf.on .pw[aria-pressed=true] svg{color:var(--gl-2)}
 .lc .bs{left:16px;right:16px;bottom:14px;height:14px;border-radius:999px;background:var(--slab2);overflow:visible}
-:host([data-fx]) .lc .bs{background:color-mix(in srgb,var(--fg) 14%,transparent)}
-.lc .bs i{min-width:14px;border-radius:999px;background:var(--lc)}
+.lc.on .bs{background:color-mix(in oklab,var(--on-fg) 18%,var(--gl-2))}
+.lc .bs i{min-width:14px;border-radius:999px;background:var(--on-fg)}
 .lc .bs i::after{content:"";position:absolute;right:-3px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(15,20,36,.2),0 2px 6px rgba(0,0,0,.3)}
 :host([data-fx]) .lc .bs i::after{background:${GLOSS}}
 .lc .bands{top:56px;bottom:36px;right:14px;width:22px;gap:3px;padding:0;background:none}
-.lc .bands i{border-radius:999px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fg) 30%,transparent)}
+.lc .bands i{border-radius:999px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--on-fg) 35%,transparent)}
 .lc.on .tap{padding-right:52px}
 /* light pop-up: the big brightness bar, the hue strip and the member tracks as rounded tracks, the hue marker a pill */
 .bigbar,.hb{border-radius:22px;overflow:hidden}
 .bigbar i{border-radius:0}
 .mk{border-radius:999px;outline:0;box-shadow:0 0 0 3px var(--ink)}
 .mtrack .mb,.mtrack .mb i{border-radius:999px}
-.sw > .face{border-radius:999px}
+.sws .sw > .face{border-radius:999px}
 .wp b{background:var(--plate);color:var(--plate-fg);padding:3px 8px 4px;border-radius:999px;right:auto;max-width:calc(100% - 16px)}
-/* ---------- jam-button: pane tile; on = the room colour ---------- */
-.host > .paper.btn > .kf.on,:host([data-fx]) .host > .paper.btn > .kf.on{background:var(--acc);color:var(--acc-fg);box-shadow:none}
-:host([data-fx]) .host > .paper.btn > .kf.on{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 14px 30px -18px var(--acc)}
-.kf.on .st{color:var(--acc-fg)}
+/* ---------- jam-button: pane tile; on = lit (above); big = a larger bento tile ---------- */
+.kf.on .st{color:var(--on-fg)}
 .kf .sq{background:var(--slab2);color:var(--fg)}
-.kf.on .sq{background:color-mix(in srgb,var(--on-fg) 14%,var(--acc));color:var(--on-fg)}
-.kf.on .pw .tri{background:color-mix(in srgb,var(--on-fg) 14%,var(--acc))} .kf.on .pw svg{color:var(--on-fg)}
+.kf.on .sq{background:color-mix(in oklab,var(--on-fg) 12%,var(--gl-2));color:var(--on-fg)}
+.kf.on .pw .tri{background:color-mix(in oklab,var(--on-fg) 12%,var(--gl-2));box-shadow:none} .kf.on .pw svg{color:var(--on-fg)}
+.paper.btn.big,.paper.kiosk{--rad:36px}
 /* ---------- jam-tabs / jam-scenes ---------- */
 .tab{background:var(--slab2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
 .tab.on{background:var(--c,var(--acc));color:var(--acc-fg);box-shadow:none}
@@ -139,18 +168,44 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 /* ---------- sheets: a frosted pane under fx ---------- */
 :host([data-fx]) .pop .sheet > .face,.pop[data-fx] .sheet > .face{background:color-mix(in srgb,var(--slab) 93%,transparent);
   -webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);box-shadow:var(--jam-elev-1,none)}
+/* bento: an odd-count multi-column kiosk sheet leads with one wide tile */
+.pop.full .body > :first-child:nth-last-child(2n+1):not(:only-child){grid-column:1 / -1}
 .t .label{color:var(--dim)} /* sheet kickers: dim text (an accent kicker is not text-safe on a light pane) */
 .pop[data-fx] .veil{-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 /* ---------- jam-kiosk: the big thin clock floating on the colour field; dock tiles = panes tinted with their colour ---------- */
 :host(jam-kiosk) .k{isolation:isolate;background:var(--primary-background-color,var(--ink))}
-:host(jam-kiosk) .k::before{content:"";position:absolute;inset:-40px;z-index:-1;pointer-events:none;background:${fieldBg(34, 36, 24)}}
+:host(jam-kiosk) .k::before{content:"";position:absolute;inset:-40px;z-index:-1;pointer-events:none;background:${fieldBg(16, 18, 12)}}
 :host(jam-kiosk) .k .bar{width:56px;height:6px;border-radius:999px;right:auto}
 :host(jam-kiosk) .clock{font-weight:300;letter-spacing:-.03em}
 :host(jam-kiosk) .dock{gap:12px}
+/* Dock tiles: a pane tinted with the block's colour (a "none" block: a neutral pane); with data-state (jam-kiosk:
+   on / off / action) on = the solid room colour with ink text (and a glow of it under fx), off = a neutral pane, action =
+   an outlined tile. */
 :host(jam-kiosk) .blk{border-radius:28px;background:color-mix(in oklab,var(--bc,var(--acc)) 24%,var(--slab));color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
-:host(jam-kiosk[data-fx]) .blk{background:color-mix(in srgb,var(--bc,var(--acc)) 22%,var(--shadow));-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);box-shadow:var(--jam-elev-1,none)}
-:host(jam-kiosk) .host .blk.none{--bc:var(--violet)}
-:host(jam-kiosk) .blk .st,:host(jam-kiosk) .host.light .blk.none .st,:host(jam-kiosk) .blk.none .st{color:var(--fg)}
+:host(jam-kiosk) .blk.none{--bc:var(--slab2);background:var(--slab)}
+:host(jam-kiosk[data-fx]) .blk{background:color-mix(in srgb,var(--bc,var(--acc)) 22%,var(--shadow));box-shadow:var(--jam-elev-1,none)}
+:host(jam-kiosk[data-fx]) .blk.none{background:var(--shadow)}
+:host(jam-kiosk) .blk .st,:host(jam-kiosk) .host.light .blk.none .st,:host(jam-kiosk) .blk.none .st{color:var(--dim)}
+:host(jam-kiosk) .host .blk[data-state=off]{background:var(--slab);color:var(--fg)}
+:host(jam-kiosk[data-fx]) .host .blk[data-state=off]{background:var(--shadow)}
+:host(jam-kiosk) .host .blk[data-state=on]{background:var(--bc,var(--acc));color:var(--on-fg);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--on-fg) 14%,var(--bc,var(--acc)))}
+:host(jam-kiosk[data-fx]) .host .blk[data-state=on]{background:var(--bc,var(--acc));box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+:host(jam-kiosk) .host .blk[data-state=on] .st{color:var(--on-fg)}
+:host(jam-kiosk) .host .blk[data-state=action],:host(jam-kiosk[data-fx]) .host .blk[data-state=action]{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;
+  box-shadow:inset 0 0 0 2px color-mix(in oklab,var(--fg) 55%,transparent);color:var(--fg)}
+/* The room field: one disc per dock block rising behind its tile, in the block's colour; bright while the block is on,
+   dim when off; it changes only with the block's data-state (no motion). Flat discs without fx (the kiosks' setting), a
+   soft blob under fx (the kiosk tiles skip the backdrop blur there, so the blob shows through them and the tile is no
+   stacking context that would put the blob over its pane). At most 26-30% of the colour, so dim text over it stays
+   >= 4.5:1. */
+/* drawn as the spread of the box-shadow of a 2px round dot (a spread grows its corner radius with it, so it stays a circle): a shadow is ink overflow, so the disc never makes the tile or the
+   dock scroll (the fit checks measure scroll sizes) */
+:host(jam-kiosk) .blk::before{content:"";position:absolute;left:50%;top:30%;width:2px;height:2px;margin-left:-1px;border-radius:1px;z-index:-1;pointer-events:none;
+  --gl-dc:color-mix(in oklab,var(--bc,var(--acc)) 9%,var(--primary-background-color,var(--ink)));box-shadow:0 -40px 0 min(130px,15cqw) var(--gl-dc)}
+:host(jam-kiosk) .blk.none::before,:host(jam-kiosk) .blk[data-state=action]::before{display:none}
+:host(jam-kiosk) .host .blk[data-state=on]::before{--gl-dc:color-mix(in oklab,var(--bc,var(--acc)) 26%,var(--primary-background-color,var(--ink)))}
+:host(jam-kiosk[data-fx]) .blk::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 12%,transparent);box-shadow:0 -40px 120px min(90px,11cqw) var(--gl-dc)}
+:host(jam-kiosk[data-fx]) .host .blk[data-state=on]::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 34%,transparent)}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:var(--bc,var(--acc));color:var(--on-fg)}
 :host(jam-kiosk) .blk:active .st,:host(jam-kiosk) .blk.stamp .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-7px}
@@ -171,10 +226,12 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .ov .kick{color:var(--sdim)}
 .ov .temp{color:var(--sfg)}
 .ov .time{letter-spacing:-.03em}
-.ov .sh{background:var(--slab);clip-path:none;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line)}
-.ov[data-fx] .sh{background:var(--shadow);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);box-shadow:var(--jam-elev-1,none)}
-.ov .sh.dk{background:color-mix(in oklab,var(--acc) 50%,var(--slab))}
-.ov[data-fx] .sh.dk{background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.5),transparent 42%),color-mix(in srgb,var(--acc) 68%,var(--shadow))}
+/* the layout's bars are left out (pills at the screen edge read as empty fields); its disc is a flat orb of the room
+   colour, under fx lit from its centre with a soft halo (no specular highlight) */
+.ov .sh.bar{display:none}
+.ov .sh.dk{clip-path:none;border-radius:50%;background:color-mix(in oklab,var(--acc) 72%,var(--primary-background-color,var(--ink)))}
+.ov[data-fx] .sh.dk{background:radial-gradient(circle,oklch(from var(--acc) .9 clamp(0,c,.09) h),oklch(from var(--acc) .8 clamp(0,c,.15) h) 70%);
+  box-shadow:0 0 120px 10px oklch(from var(--acc) .8 clamp(0,c,.16) h / .45)}
 .ov .poster,.ov .slides{z-index:1}
 .ov .sdock .np{background:var(--slab);clip-path:none;border-radius:28px;box-shadow:inset 0 0 0 1px var(--line)}
 .ov[data-fx] .sdock .np{${FROST}}

@@ -53,3 +53,33 @@ overrule them:
 - **Graphs**: legend marks are dots, bars and crosshair marks get a 3px corner radius (SVG `rx`).
 - **Bento spans**: the brief's mixed card sizes are a dashboard-layout choice (grid spans in the lab dashboards), not
   something the look can set; nothing in the cards changes for it.
+
+### Design review fixes (2026-11-04)
+An independent review rated phone / desktop "ship with fixes" and the kiosk "rework"; applied on the same branch:
+- **Lit = the pane lights up** (jam-light on, jam-button on; replaces the radial tint over the dark pane, which read khaki,
+  and the solid amber slab): the light / room colour is re-lit in OKLCH (relative colour syntax) with the lightness
+  clamped to a bright band and the chroma capped, so a warm white never mixes with the blue-grey pane. No fx: one tint
+  (L .84, C <= .12); fx: a radial glow from a near-white core (L .95) through the tint to a deeper rim (L .76) plus a soft
+  halo of the colour. Text on a lit pane is ink; the brightness track is the tint darkened with ink, the fill ink, the
+  knob white (glossy under fx); the power button an ink disc with the tint as glyph.
+- **Unavailable** = an empty pane (no fill, no blur, no shadow) with a dashed edge, the tone dot hollow; off stays a
+  quiet pane.
+- **Tone dot**: Poster's left tone stripe (a crescent on a 28px corner) is an 8px dot before the first line (jam-tile,
+  jam-slider, jam-choice, jam-media, jam-remote groups); faces with a dot get 30px left padding.
+- **Very large numbers** in Figtree 300: light % 40px, slider value 40px, house temperature 46px (outside 32px), gauge
+  46px, graph current value 48px; smaller values (volume, highs / lows, tile values) 400.
+- **Bugs**: a key in a wrapping row (jam-tile lock / switch key) keeps its own height (Poster's height 100% stretched the
+  jammed-door key into a tall red blob over the next card); the light pop-up swatch pill is scoped to `.sws`; weather
+  clouds and moon use `--dim` (Poster's `--paper` is the white pane in light mode).
+- **Kiosk dock states** (jam-kiosk `.blk[data-state=on|off|action]`, written by another branch; a preview stub
+  `preview/fixtures/86-kiosk-dock-state.js` stamps it until then): on = the solid room colour with ink text (fx: an
+  upward glow of it), off = a neutral pane, action = an outlined tile; a "none" block is a neutral pane (no violet).
+- **Room field on the kiosk**: one disc per dock block rises behind its tile in the block's colour, bright (26% into the
+  ground) while the block is on, dim (9%) when off, redrawn only when its data-state changes; flat discs without fx (so
+  the fx-off kiosk is colourful), soft blobs (30% / 12%) under fx, where the kiosk tiles skip the backdrop blur so the
+  blob shows through them. The kiosk's static three-blob field is turned down to let the room field lead. Dim text over
+  a lit disc stays >= 4.5:1 (#a9b1c6 on the amber disc 4.8:1).
+- **Bento**: a multi-column kiosk sheet with an odd card count leads with one full-width tile; `size: "kiosk"` cards and
+  `size: big` jam-buttons get a 36px radius. The dashboard's own grid spans stay the dashboard's job.
+- **Screensaver**: the layout's bars are left out (edge pills read as empty fields, mostly in light mode); its disc is a
+  flat orb in the room colour, under fx lit from its centre with a soft halo (no specular highlight).
