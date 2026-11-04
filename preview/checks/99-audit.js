@@ -458,10 +458,29 @@ module.exports = async (page, check) => {
         const on = blks.find(b => b.classList.contains("on")), off = blks.find(b => b.classList.contains("out") && b.dataset.state === "off");
         const out = on && off ? {on: face(on), off: face(off), onImg: getComputedStyle(on).backgroundImage !== "none", offImg: getComputedStyle(off).backgroundImage !== "none",
           onRing: ring(on), offRing: ring(off)} : null;
+        // data-alert (an unlocked lock block) wins over data-state: with dock_state fill, and without it too (a pack that styles
+        // [data-state] always: its alert block must not read as off)
+        const alertOf = async kk => {
+          const b = [...kk.shadowRoot.querySelectorAll(".blk")].find(x => x.dataset.alert === "true"), o = [...kk.shadowRoot.querySelectorAll(".blk")].find(x => x.dataset.state === "off" && !x.dataset.alert);
+          const img = e => getComputedStyle(e).backgroundImage === "none" ? "" : " + image"; // Olympia: the red is a hatched gradient
+          return b && o ? {alert: face(b) + img(b), off: face(o) + img(o)} : null;
+        };
+        A.set("lock.au_door", "unlocked"); k.hass = A.hass(); await new Promise(r => setTimeout(r, 300));
+        if (out) out.fill = await alertOf(k);
+        const k2 = A.mount("jam-kiosk", {...cfg, attention: undefined, now_band: false, dock_state: undefined}, wrap);
+        await new Promise(r => setTimeout(r, 400));
+        if (out) out.plain = await alertOf(k2);
+        A.set("lock.au_door", "locked");
         probe.remove(); wrap.remove(); return out;
       }, KIOSK);
       const ok = !!d && (d.on !== d.off || d.onImg !== d.offImg || (OUTLINE_LOOKS.has(look) && d.onRing > d.offRing));
       check(ok, `jam-kiosk dock_state fill ${look} ${mode}: on vs off at a glance (on ${d && d.on}${d && d.onImg ? " + image" : ""} ring ${d && d.onRing}px, off ${d && d.off}${d && d.offImg ? " + image" : ""} ring ${d && d.offRing}px)`);
+      const pk = await p.evaluate(() => { // does the look's pack style [data-state] on the dock (then it must style [data-alert] too)?
+        const J = window.JamCards, pack = J && J.lookPack && J.lookPack(document.documentElement.dataset.look || "poster");
+        return !!pack && /\.blk[^{,]*\[data-state/.test(pack.css || ""); });
+      check(!!d && !!d.fill && d.fill.alert !== d.fill.off && (!pk || (!!d.plain && d.plain.alert !== d.plain.off)),
+        `jam-kiosk dock ${look} ${mode}: an alert block (unlocked lock, data-alert) differs from an off block (fill: ${d && d.fill && d.fill.alert} vs ${d && d.fill && d.fill.off}` +
+        (pk ? `; without fill, the pack's [data-state] dock: ${d && d.plain && d.plain.alert} vs ${d && d.plain && d.plain.off}` : "") + ")");
       await p.close();
     }
   }

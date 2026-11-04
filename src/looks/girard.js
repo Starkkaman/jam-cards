@@ -220,6 +220,9 @@ ${RUNNER_CSS}
 :host(jam-kiosk) .blk[data-state=on] .st{-webkit-line-clamp:1} /* one line: a two-line state (a playing title) ran into the woven lower third */
 :host(jam-kiosk) .host .blk[data-state=action],:host(jam-kiosk) .host.light .blk[data-state=action]{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 4px var(--fg);border-radius:999px;align-items:center;text-align:center}
 :host(jam-kiosk) .blk[data-state=action]::after{content:none}
+:host(jam-kiosk) .host .blk[data-alert],:host(jam-kiosk) .host.light .blk[data-alert]{--gi-bc:var(--red);background:var(--red);color:${fgOn("var(--red)")};box-shadow:none} /* data-alert wins: an unlocked / open / jammed lock block */
+:host(jam-kiosk) .host .blk[data-alert] .st,:host(jam-kiosk) .host.light .blk[data-alert] .st{color:inherit}
+:host(jam-kiosk) .host .blk[data-alert]::after{content:none}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:color-mix(in oklch,var(--gi-bc) 34%,var(--slab))}
 :host(jam-kiosk) .blk[data-state=on]:active,:host(jam-kiosk) .blk[data-state=on].stamp{background:var(--gi-bc)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-15px}

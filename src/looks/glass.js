@@ -206,6 +206,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-kiosk) .host .blk[data-state=on]::before{--gl-dc:color-mix(in oklab,var(--bc,var(--acc)) 26%,var(--primary-background-color,var(--ink)))}
 :host(jam-kiosk[data-fx]) .blk::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 12%,transparent);box-shadow:0 -40px 120px min(90px,11cqw) var(--gl-dc)}
 :host(jam-kiosk[data-fx]) .host .blk[data-state=on]::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 34%,transparent)}
+/* data-alert (jam-kiosk: a lock block that is unlocked / open / jammed) wins over data-state: the alert pane (the red lit
+   pane, ink text) with its red disc (tone dot) behind it, also for a "none" block */
+:host(jam-kiosk) .host .blk[data-alert],:host(jam-kiosk[data-fx]) .host .blk[data-alert]{--bc:var(--red);background:var(--red);color:var(--on-fg);
+  box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--on-fg) 14%,var(--red))}
+:host(jam-kiosk) .host .blk[data-alert] .st,:host(jam-kiosk) .host.light .blk[data-alert] .st{color:var(--on-fg)}
+:host(jam-kiosk) .host .blk[data-alert]::before{display:block;--gl-dc:color-mix(in oklab,var(--red) 26%,var(--primary-background-color,var(--ink)))}
+:host(jam-kiosk[data-fx]) .host .blk[data-alert]::before{--gl-dc:color-mix(in srgb,var(--red) 34%,transparent)}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:var(--bc,var(--acc));color:var(--on-fg)}
 :host(jam-kiosk) .blk:active .st,:host(jam-kiosk) .blk.stamp .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-7px}

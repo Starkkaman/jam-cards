@@ -67,6 +67,13 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
   };
   /* Text contrast with the view open (preview/contrast.js walks the sheets and the screensaver layer too). */
   const ctCheck = async (p, what) => {
+    // Let finite animations end first: the screensaver views run on the wall clock, and a minute tick re-cuts the layout
+    // (.shift .txt pops its opacity in); text measured mid-fade read as low contrast (New Wave "AM" 3.76:1 = #4d4675 at ~70%).
+    await p.evaluate(() => Promise.race([new Promise(r => setTimeout(r, 2000)),
+      (() => { const all = new Set(document.getAnimations()), walk = n => { for (const e of n.querySelectorAll("*")) if (e.shadowRoot) {
+          for (const x of e.shadowRoot.getAnimations()) all.add(x); walk(e.shadowRoot); } }; walk(document);
+        return Promise.all([...all].filter(a => { const t = a.effect && a.effect.getComputedTiming(); return t && Number.isFinite(t.endTime); })
+          .map(a => a.finished.catch(() => {}))); })()]));
     const ct = await require("./contrast.js")(p);
     check(ct.findings.length === 0, `${T}: ${what}: text contrast >= 4.5:1 (large >= 3:1) for ${ct.texts} texts` +
       (ct.findings.length ? " — " + ct.findings.slice(0, 4).map(f => `${f.card} "${f.text}" ${f.ratio}:1 ${f.fg} on ${f.bg}`).join("; ") : ""));

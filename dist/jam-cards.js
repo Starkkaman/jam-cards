@@ -1912,6 +1912,8 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 :host(jam-kiosk) .dock .blk.blk.none[data-state=on]{background:var(--violet)}
 :host(jam-kiosk) .dock .blk.blk[data-state=on] .st{color:var(--on-fg)}
 :host(jam-kiosk) .dock .blk.blk[data-state=action]{background:transparent;color:var(--fg)}
+:host(jam-kiosk) .dock .blk.blk[data-alert][data-state]{background:var(--red);color:var(--on-fg);transform:none;box-shadow:var(--bru-sh)} /* data-alert wins: a lock block that is unlocked / open / jammed */
+:host(jam-kiosk) .dock .blk.blk[data-alert][data-state] .st{color:var(--on-fg)}
 :host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
 :host(jam-kiosk) .lk .disc{border:var(--bru-b) solid var(--bru-k);box-shadow:var(--bru-sh)}
@@ -2176,6 +2178,9 @@ ${RUNNER_CSS}
 :host(jam-kiosk) .blk[data-state=on] .st{-webkit-line-clamp:1} /* one line: a two-line state (a playing title) ran into the woven lower third */
 :host(jam-kiosk) .host .blk[data-state=action],:host(jam-kiosk) .host.light .blk[data-state=action]{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 4px var(--fg);border-radius:999px;align-items:center;text-align:center}
 :host(jam-kiosk) .blk[data-state=action]::after{content:none}
+:host(jam-kiosk) .host .blk[data-alert],:host(jam-kiosk) .host.light .blk[data-alert]{--gi-bc:var(--red);background:var(--red);color:${fgOn("var(--red)")};box-shadow:none} /* data-alert wins: an unlocked / open / jammed lock block */
+:host(jam-kiosk) .host .blk[data-alert] .st,:host(jam-kiosk) .host.light .blk[data-alert] .st{color:inherit}
+:host(jam-kiosk) .host .blk[data-alert]::after{content:none}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:color-mix(in oklch,var(--gi-bc) 34%,var(--slab))}
 :host(jam-kiosk) .blk[data-state=on]:active,:host(jam-kiosk) .blk[data-state=on].stamp{background:var(--gi-bc)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-15px}
@@ -2495,6 +2500,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-kiosk) .host .blk[data-state=on]::before{--gl-dc:color-mix(in oklab,var(--bc,var(--acc)) 26%,var(--primary-background-color,var(--ink)))}
 :host(jam-kiosk[data-fx]) .blk::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 12%,transparent);box-shadow:0 -40px 120px min(90px,11cqw) var(--gl-dc)}
 :host(jam-kiosk[data-fx]) .host .blk[data-state=on]::before{--gl-dc:color-mix(in srgb,var(--bc,var(--acc)) 34%,transparent)}
+/* data-alert (jam-kiosk: a lock block that is unlocked / open / jammed) wins over data-state: the alert pane (the red lit
+   pane, ink text) with its red disc (tone dot) behind it, also for a "none" block */
+:host(jam-kiosk) .host .blk[data-alert],:host(jam-kiosk[data-fx]) .host .blk[data-alert]{--bc:var(--red);background:var(--red);color:var(--on-fg);
+  box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--on-fg) 14%,var(--red))}
+:host(jam-kiosk) .host .blk[data-alert] .st,:host(jam-kiosk) .host.light .blk[data-alert] .st{color:var(--on-fg)}
+:host(jam-kiosk) .host .blk[data-alert]::before{display:block;--gl-dc:color-mix(in oklab,var(--red) 26%,var(--primary-background-color,var(--ink)))}
+:host(jam-kiosk[data-fx]) .host .blk[data-alert]::before{--gl-dc:color-mix(in srgb,var(--red) 34%,transparent)}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:var(--bc,var(--acc));color:var(--on-fg)}
 :host(jam-kiosk) .blk:active .st,:host(jam-kiosk) .blk.stamp .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-7px}
@@ -4153,6 +4165,8 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 /* dock_state: fill, light mode: an off (outlined) block keeps the sign's muted grey for its state line (core's page dim
    was 3.09:1 there). */
 :host(jam-kiosk) .host.light .k.dfill .blk.out .st{color:var(--jam-dim,#9d9d9d)}
+:host(jam-kiosk) .host .k.dfill .blk.alert,:host(jam-kiosk) .host.light .k.dfill .blk.alert{background:var(--red);color:var(--on-fg);--fg:var(--on-fg)} /* the sign rule above outranked core's alert fill in light mode */
+:host(jam-kiosk) .host .k.dfill .blk.alert .st,:host(jam-kiosk) .host.light .k.dfill .blk.alert .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk.counted .nm[data-tr]::before{width:28px;height:28px;font-size:17px;margin-right:8px} /* room for the count */
 :host(jam-kiosk) .blk .nm[data-tr]::before{--tr-bc:var(--bc,var(--acc));width:32px;height:32px;font-size:19px;margin-right:12px}
 :host(jam-kiosk) .blk.none .nm[data-tr]::before{--tr-bc:var(--jam-art-8);color:#000}

@@ -281,6 +281,8 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
 :host(jam-kiosk) .dock .blk.blk.none[data-state=on]{background:var(--violet)}
 :host(jam-kiosk) .dock .blk.blk[data-state=on] .st{color:var(--on-fg)}
 :host(jam-kiosk) .dock .blk.blk[data-state=action]{background:transparent;color:var(--fg)}
+:host(jam-kiosk) .dock .blk.blk[data-alert][data-state]{background:var(--red);color:var(--on-fg);transform:none;box-shadow:var(--bru-sh)} /* data-alert wins: a lock block that is unlocked / open / jammed */
+:host(jam-kiosk) .dock .blk.blk[data-alert][data-state] .st{color:var(--on-fg)}
 :host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
 :host(jam-kiosk) .lk .disc{border:var(--bru-b) solid var(--bru-k);box-shadow:var(--bru-sh)}
