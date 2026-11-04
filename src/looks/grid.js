@@ -366,6 +366,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 .np .th{background:var(--slab2)}
 .np .th .arm span{background:var(--fg)}
 .sdock .np{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+/* jam-programme (Grid: every hue is the signal): lanes told apart by shape, not colour: lane variant 1 = outlined bands, 2 = half-height
+   bands (the current band keeps its taller outline). */
+:host(jam-programme) .lane[data-lv="1"] .bd{background:var(--slab);border:3px solid var(--bf)}
+:host(jam-programme) .lane[data-lv="2"] .bd:not(.bnow){top:25%;bottom:25%}
+/* jam-results: cell numerals sized to the square (4 digits + a unit fit a 112px square at 4px cells, a 185px one at 5px). */
+:host(jam-results) .big.num{--gn-cell:4px}
+@container (min-width:185px){:host(jam-results) .big.num{--gn-cell:5px}}
 `;
 
   registerLook({

@@ -83,7 +83,7 @@ const JE_LABELS = {
   volume_down_action: "Volume down", mute_action: "Mute", match: "Lights up for",
   looks: "Looks to show (theme names, subset and order)",
   pictogram: "Pictogram", rules: "Pictogram rules (first match wins)", facts: "Facts (up to 4)", lanes: "Lanes",
-  ranges: "Fixed ranges", items: "Squares", thresholds: "Thresholds", decimals: "Decimals", above: "Above", below: "Below",
+  ranges: "Fixed ranges", items: "Squares", thresholds: "Thresholds", word: "Word on the label (default high / low)", decimals: "Decimals", above: "Above", below: "Below",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
@@ -99,7 +99,7 @@ const JE_HELP = {
   rules: "Swap the pictogram while an entity is in a state (default: on / playing).",
   facts: "An entity's value, a group's members that are on, or the count of on entities in a list.",
   lanes: "schedule.*, calendar.*, any on / off entity (its history today) or fixed ranges.",
-  thresholds: "The first one the value passes sets the colour.",
+  thresholds: "The first one the value passes sets the colour and puts its word on the label.",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -374,7 +374,8 @@ const JAM_EDITORS = {
   "jam-results": {
     schema: [jeList("items", [jeEnt("entity", null, {required: true}), jeText("name"), {name: "color", selector: JE_ACCENT.selector},
       jeText("unit"), jeText("attribute"), jeNum("decimals", {min: 0, max: 6}),
-      jeList("thresholds", [jeNum("above", {step: "any"}), jeNum("below", {step: "any"}), {name: "color", selector: JE_ACCENT.selector, required: true}], {label: "color"}),
+      jeList("thresholds", [jeNum("above", {step: "any"}), jeNum("below", {step: "any"}), {name: "color", selector: JE_ACCENT.selector, required: true},
+        jeText("word")], {label: "color", desc: "word"}),
       JE_ACTION("tap_action")], {label: "entity", desc: "name"}, {required: true}),
       jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
     stub: (h, e) => { const ids = jePickN(h, e, jeNumeric, 3); return {items: (ids.length ? ids : ["sensor.jam"]).map(entity => ({entity}))}; },

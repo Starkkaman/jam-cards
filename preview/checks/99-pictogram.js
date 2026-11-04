@@ -1,6 +1,7 @@
 // jam-pictogram (Olympia look card; fixture preview/fixtures/99-pictogram.js): pictograms from 45° / 90° strokes only, the
 // state rule (TV playing -> watch, off -> sofa-tv), facts (group members on, a list count, media app, 66.2°), stroke colour
-// on the field >= 3:1, the tile as one control (aria-label, Enter = action, more-info default), a tile without entity /
+// on the field >= 3:1, on / off / offline states (accent field + word, face-2 under a strip, dashed + Offline), 2 facts on
+// a half-width tile, names never the raw id, the tile as one control (aria-label, Enter = action, more-info default), a tile without entity /
 // actions is not a control, error paths show "—". Contract: module.exports = async (page, check) => {}; Poster dark/1280.
 module.exports = async (page, check) => {
   const r = await page.evaluate(() => {
@@ -10,8 +11,13 @@ module.exports = async (page, check) => {
       const R = c.shadowRoot, root = R.querySelector(".host > .paper"), fld = R.querySelector(".fld"), svg = R.querySelector("svg.pic");
       const rgb = s => (/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(s) || []).slice(1, 4).map(Number);
       const cs = getComputedStyle(fld);
+      const wd = R.querySelector(".wd"), tok = v => { const p = document.createElement("span"); p.style.color = v; R.querySelector(".host").append(p); const x = getComputedStyle(p).color; p.remove(); return x; };
       return {pic: svg && svg.dataset.pic, facts: [...R.querySelectorAll(".f .v")].map(v => v.textContent), role: root.getAttribute("role"),
-        tab: root.tabIndex, label: root.getAttribute("aria-label") || "", h: root.getBoundingClientRect().height,
+        shown: [...R.querySelectorAll(".f")].filter(f => f.getBoundingClientRect().width > 0).length,
+        labels: [...R.querySelectorAll(".f .label")].map(v => v.textContent), state: root.dataset.state, on: root.classList.contains("on"),
+        word: wd ? wd.textContent : "", wordPx: wd ? parseFloat(getComputedStyle(wd).fontSize) : 0, bg: cs.backgroundColor, slab2: tok("var(--slab2)"), acc: tok("var(--acc)"),
+        strip: getComputedStyle(fld).borderTopWidth, dash: svg ? getComputedStyle(svg.querySelector(".ps") || svg.querySelector(".pf")).strokeDasharray : "",
+        tab: root.tabIndex, label: root.getAttribute("aria-label") || "", h: root.getBoundingClientRect().height, name: R.querySelector(".nm").textContent,
         ratio: J.contrastRatio(rgb(cs.backgroundColor), rgb(cs.color)), un: R.querySelectorAll(".v.unavail").length};
     };
     // Every stroke / fill path: each segment horizontal, vertical or 45 degrees.
@@ -30,7 +36,7 @@ module.exports = async (page, check) => {
     }
     const all = cards.filter(c => !c.closest(".errors")).map(info);
     return {n: cards.length, bad, all, living: info(by("Living room")), kitchen: info(by("Kitchen")), bedroom: info(by("Bedroom")),
-      office: info(by("Office")), music: info(by("Music room")), err: info(by("Err pictogram"))};
+      office: info(by("Office")), music: info(by("Music room")), err: info(by("Err pictogram")), garden: info(by("Garden"))};
   });
   check(r.n >= 7 && r.bad.length === 0, `jam-pictogram: ${r.n} tiles, every pictogram segment is 0 / 45 / 90 degrees` + (r.bad.length ? " — " + r.bad.slice(0, 4).join("; ") : ""));
   const L = r.living;
@@ -39,21 +45,28 @@ module.exports = async (page, check) => {
   check(r.kitchen.facts[0] === "2" && r.bedroom.facts[0] === "0" && r.kitchen.pic === "cook" && r.bedroom.pic === "sleep",
     `jam-pictogram: list counts (kitchen ${r.kitchen.facts[0]} of 3 on, bedroom ${r.bedroom.facts[0]})`);
   check(r.all.every(x => x.ratio >= 3), `jam-pictogram: pictogram colour on its field >= 3:1 (${r.all.map(x => x.ratio.toFixed(1)).join(", ")})`);
+  check(L.state === "on" && L.on && L.bg === L.acc && L.word === "watching" && L.wordPx >= 14,
+    `jam-pictogram: on = the accent field, the rule's word on it ("${L.word}", ${L.wordPx}px)`);
+  check(r.bedroom.state === "off" && !r.bedroom.on && r.bedroom.bg === r.bedroom.slab2 && r.bedroom.strip === "6px" && r.garden.state === "off" && r.kitchen.state === "on" && r.music.state === "off",
+    `jam-pictogram: off (nothing on) = face-2 field under a 6px accent strip (bedroom ${r.bedroom.state}, garden ${r.garden.state}, music ${r.music.state}; kitchen ${r.kitchen.state})`);
+  check(r.err.state === "offline" && r.err.word === "Offline" && r.err.dash !== "none" && r.err.name === "Err pictogram" && r.err.facts.every(v => v === "Offline") && !r.err.labels.some(l => /\./.test(l)),
+    `jam-pictogram: offline = dashed pictogram + "Offline", names never the raw id (${r.err.labels.join(" / ")})`);
+  check(r.bedroom.facts.length === 3 && r.bedroom.shown === 2 && L.shown === 3, `jam-pictogram: a half-width tile shows 2 of its 3 facts (${r.bedroom.shown}), the full one 3 (${L.shown})`);
   check(L.role === "button" && L.tab === 0 && L.h >= 44 && r.office.role === null && r.office.tab < 0,
     `jam-pictogram: a tile with an action is one button (${L.role}, ${Math.round(L.h)}px); the office tile without entity / actions is not a control (${r.office.role})`);
-  check(r.err.un === 2 && r.err.pic === "bath", `jam-pictogram: missing entities show "—" (${r.err.un} facts), a rule on a missing entity is ignored (${r.err.pic})`);
+  check(r.err.un === 2 && r.err.pic === "bath", `jam-pictogram: missing entities show "Offline" (${r.err.un} facts), a rule on a missing entity is ignored (${r.err.pic})`);
   // Rule off: TV off -> the sofa figure, label without "watching".
   const off = await page.evaluate(async () => {
     const c = [...document.querySelectorAll("#view jam-pictogram")].find(x => x._config.name === "Living room"), h = window.__hass;
     const tv = h.states["media_player.pg_tv"];
     c.hass = {...h, states: {...h.states, "media_player.pg_tv": {...tv, state: "off"}}};
     const out = {pic: c.shadowRoot.querySelector("svg.pic").dataset.pic, label: c.shadowRoot.querySelector(".paper").getAttribute("aria-label"),
-      tv: c.shadowRoot.querySelectorAll(".f .v")[1].textContent};
+      tv: c.shadowRoot.querySelectorAll(".f .v")[1].textContent, state: c.shadowRoot.querySelector(".paper").dataset.state};
     c.hass = h;
     out.back = c.shadowRoot.querySelector("svg.pic").dataset.pic;
     return out;
   });
-  check(off.pic === "sofa-tv" && !/watching/.test(off.label) && off.back === "watch", `jam-pictogram: TV off -> sofa-tv, tv fact "${off.tv}"; playing again -> watch`);
+  check(off.pic === "sofa-tv" && !/watching/.test(off.label) && off.back === "watch" && off.state === "on", `jam-pictogram: TV off -> sofa-tv, tv fact "${off.tv}"; playing again -> watch`);
   // Keyboard: Enter on the music room = more-info of its entity; Enter on the living room = navigate.
   const keys = await page.evaluate(async () => {
     const got = [];

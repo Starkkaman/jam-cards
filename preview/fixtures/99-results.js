@@ -1,5 +1,5 @@
 // Preview fixture: jam-results (Olympia look card, renders in every look). Own rs_* entities: inside temperature, energy
-// today, a word state (air "Good"), humidity, CO2 over its threshold, a long word and a sensor missing from the states (no unavailable state: jam-alerts counts those); error paths
+// today (neutral: no colour), a word state (air "Good"), humidity (neutral), CO2 over its threshold ("high" plate), a long word and a sensor missing from the states (no unavailable state: jam-alerts counts those); error paths
 // in a section .errors. Checks: preview/checks/99-results.js.
 {
 const {st} = jamPreview;
@@ -22,7 +22,7 @@ jamPreview.add({
     ["", [
       {type: "custom:jam-results", columns: 2, items: [
         "sensor.rs_humidity",
-        {entity: "sensor.rs_co2", name: "CO2", color: "teal", thresholds: [{above: 1000, color: "red"}, {below: 600, color: "green"}]},
+        {entity: "sensor.rs_co2", name: "CO2", thresholds: [{above: 1000, color: "red"}, {below: 600, color: "green", word: "good"}]},
         {entity: "sensor.rs_washer", color: "violet"},
         {entity: "sensor.rs_outside", name: "Outside"}]},
     ]],

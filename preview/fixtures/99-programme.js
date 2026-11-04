@@ -50,7 +50,12 @@ function answer(msg) {
   }
   return undefined;
 }
+// Areas like the user's HA (read-only lookup 2026-11-04: living_room "Living Room", office "Master Bedroom", ...): the porch
+// light sits in the living room, so its lane takes the living accent without a color.
+const AREAS = {living_room: {area_id: "living_room", name: "Living Room"}, office: {area_id: "office", name: "Master Bedroom"}};
+const ENTS = {"light.pr_porch": {entity_id: "light.pr_porch", area_id: "living_room", device_id: null}};
 const wrap = h => {
+  if (h && !h.__jamProgrammeReg) { h.__jamProgrammeReg = true; h.entities = {...(h.entities || {}), ...ENTS}; h.areas = {...(h.areas || {}), ...AREAS}; }
   const prev = h.callWS;
   if (!h || (prev && prev.__jamProgramme)) return;
   const fn = function (msg) {
@@ -84,7 +89,7 @@ jamPreview.add({
         {entity: "input_boolean.pr_work", name: "Work", color: "green"},
         {name: "Briefs", color: "ochre", ranges: [{from: "07:00", to: "07:20", label: "Morning brief"}, {from: "12:30", to: "12:45", label: "Midday"}, {from: "17:00", to: "17:20", label: "Evening brief"}]},
         {entity: "calendar.pr_family", name: "Family"},
-        {entity: "light.pr_porch", name: "Porch light", color: "teal"}]},
+        {entity: "light.pr_porch", name: "Porch light"}]},
     ]],
     ["", [
       {type: "custom:jam-programme", title: "Evening", from: "12:00", to: "24:00", lanes: [
