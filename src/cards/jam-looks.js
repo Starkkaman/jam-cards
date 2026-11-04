@@ -44,7 +44,7 @@ class JamLooks extends JamBase {
     .sw-hues{display:grid;grid-template-columns:repeat(2,10px);gap:3px}
     .sw-hues > i{display:block;width:10px;height:10px}
     .nm{min-width:0;overflow-wrap:anywhere}
-    .sub{display:block;margin-top:3px;font-size:.66rem;letter-spacing:calc(.08em * var(--key-track));color:var(--dim);overflow-wrap:anywhere}
+    .sub{display:block;margin-top:3px;font-size:max(12px,.66rem);letter-spacing:calc(.08em * var(--key-track));color:var(--dim);overflow-wrap:anywhere}
     .opt.on .sub{color:inherit}`; }
   /* The theme names to show: `looks:` (installed ones, in that order), else JamBoard + every "Jam " theme by name. */
   _names(themes) {

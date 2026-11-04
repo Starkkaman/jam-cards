@@ -10,7 +10,7 @@ class JamTile extends JamBase {
     .tile{--p-r:12px;display:grid;gap:4px;min-height:78px;align-content:center}
     .row{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:space-between;align-items:center}
     .main{flex:1 1 0;max-width:100%}
-    .name{font:var(--lbl-w) .74rem/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);overflow-wrap:anywhere}
+    .name{font:var(--lbl-w) max(12px,.74rem)/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);overflow-wrap:anywhere}
     .val{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1.7rem * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));text-transform:var(--disp-case);overflow-wrap:break-word}
     .sw{flex:none;min-width:64px}
     .sub{color:var(--dim);font-size:.8rem}`; }
@@ -33,7 +33,7 @@ class JamTile extends JamBase {
       call = () => jamCall(key, h, "homeassistant", "toggle", {entity_id: c.entity}, "toggle", `Couldn't toggle ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "lock") {
       const locked = s.state === "locked";
-      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (s.state === "jammed" ? " alert" : ""), "chip");
+      key = cutKey(locked ? "Unlock" : "Lock", k, "sw" + (lockAlert(s) ? " alert" : ""), "chip"); // unlocked / open / jammed: the Lock key is the alert
       call = () => jamCall(key, h, "lock", locked ? "unlock" : "lock", {entity_id: c.entity}, "run", `Couldn't ${locked ? "unlock" : "lock"} ${c.name || friendly(h, c.entity)}`);
     } else if (ctl === "press") {
       key = cutKey("Press", k, "sw", "chip");
@@ -46,6 +46,7 @@ class JamTile extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
     const t = tone(s, c.tones);
+    jamState(this, !s || (s.state === "unavailable") ? "offline" : t === "on" ? "on" : "off");
     const {root, face} = this.paper(c.entity, {cls: "press", face: `tile stripe s-${t}${!s || UNAVAILABLE.has(s.state) ? " unavail" : ""}`});
     root.tabIndex = 0; root.setAttribute("role", "button");
     bindActions(root, () => this._hass, c, c.entity);

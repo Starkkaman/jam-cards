@@ -24,8 +24,8 @@ module.exports = async (page, check) => {
     return {media: t(q("jam-media", "media_player.err_null"), ".title"), tv: t(q("jam-tv", "Err TV"), ".poster .title"),
       spk: t(q("jam-speaker", "Err speaker"), ".poster .title"), tvGone: t(q("jam-tv", "Err TV gone"), ".poster .title")};
   });
-  check(nulls.media && nulls.media !== "null" && nulls.tv && nulls.tv !== "null" && nulls.spk === "Err speaker" && nulls.tvGone === "Unavailable",
-    `errors fixture: null media_title never prints "null" (media "${nulls.media}", tv "${nulls.tv}", speaker "${nulls.spk}"); a missing TV reads Unavailable ("${nulls.tvGone}")`);
+  check(nulls.media && nulls.media !== "null" && nulls.tv && nulls.tv !== "null" && nulls.spk === "Err speaker" && nulls.tvGone === "Offline",
+    `errors fixture: null media_title never prints "null" (media "${nulls.media}", tv "${nulls.tv}", speaker "${nulls.spk}"); a missing TV reads Offline ("${nulls.tvGone}")`);
 
   // Entity removed while a sheet is open: the sheet keeps working, shows the loss, and closes cleanly.
   const drop = ids => page.evaluate(ids => {
@@ -51,7 +51,7 @@ module.exports = async (page, check) => {
   const lGone = await sheetText();
   const lDead = await lightCard.evaluate(e => !!e.shadowRoot.querySelector(".lc.dead"));
   await closeAll(); await restore();
-  check(lOpen !== null && /Unavailable/.test(lGone || "") && lDead, `light removed while its pop-up is open: sheet shows Unavailable, card dead (${(lGone || "").slice(0, 30)})`);
+  check(lOpen !== null && /Offline/.test(lGone || "") && lDead, `light removed while its pop-up is open: sheet shows Offline, card dead (${(lGone || "").slice(0, 30)})`);
 
   // TV remote sheet (jam-remote child gets the update through the sheet host).
   const tv = page.locator("#view .sec.errors > jam-tv").first();
@@ -64,8 +64,8 @@ module.exports = async (page, check) => {
   });
   const tTitle = await tv.evaluate(e => e.shadowRoot.querySelector(".poster .title").textContent);
   await closeAll(); await restore();
-  check(tOpen && tGone && tGone.keys > 0 && tGone.enabled === 0 && tTitle === "Unavailable",
-    `TV + remote removed while the remote sheet is open: every key disabled (${tGone && tGone.enabled}/${tGone && tGone.keys} enabled), poster Unavailable`);
+  check(tOpen && tGone && tGone.keys > 0 && tGone.enabled === 0 && tTitle === "Offline",
+    `TV + remote removed while the remote sheet is open: every key disabled (${tGone && tGone.enabled}/${tGone && tGone.keys} enabled), poster Offline`);
 
   // jam-media ⋯ sheet (NerveOS, fixture 70-tv): its state entities removed while the sheet is open.
   await page.locator("#view jam-media").filter({hasText: "Hades"}).first().evaluate(e => { e.dataset.err = "nv"; });

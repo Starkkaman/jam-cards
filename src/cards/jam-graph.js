@@ -191,13 +191,15 @@ class JamGraph extends JamBase {
     .cur small{font:600 .9rem/1 var(--body);letter-spacing:.06em;color:var(--dim);margin-left:4px}
     .one{display:grid;gap:6px;min-width:0}
     .lg{display:flex;flex-wrap:wrap;gap:6px 14px}
-    .lg button{display:inline-flex;align-items:center;gap:6px;font:var(--lbl-w) .7rem/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);max-width:100%}
+    .lg button{display:inline-flex;align-items:center;gap:6px;font:var(--lbl-w) max(12px,.7rem)/1.2 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim);max-width:100%}
+    .lg button{position:relative} /* 44px hit area (audit 2026-11-03: the legend was a 13px target) */
+    .lg button::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)}
     .lg .v{color:var(--fg);letter-spacing:calc(.04em * var(--lbl-track))}
     .sq{display:inline-block;width:10px;height:10px;flex:none;background:var(--c)}
     .plot{position:relative;min-width:0;outline:none}
     .plot:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .plot svg{display:block;width:100%;touch-action:pan-y}
-    .ax{font:500 .72rem var(--body);fill:var(--dim)}
+    .ax{font:500 max(12px,.72rem) var(--body);fill:var(--dim)}
     .rule{stroke:var(--line);stroke-width:1;shape-rendering:crispEdges}
     .ln{fill:none;stroke-width:3;stroke-linecap:square;stroke-linejoin:miter}
     .xh{stroke:var(--dim);stroke-width:1;shape-rendering:crispEdges}
@@ -205,7 +207,7 @@ class JamGraph extends JamBase {
     .empty{display:flex;align-items:center;justify-content:center}
     .empty .arm{--acc:var(--dim)}
     .tip{position:absolute;top:0;background:var(--slab2);color:var(--fg);padding:6px 9px;border:2px solid var(--line);
-      pointer-events:none;font:500 .74rem/1.35 var(--body);display:grid;grid-template-columns:auto auto auto;gap:2px 8px;align-items:center;white-space:nowrap}
+      pointer-events:none;font:500 max(12px,.74rem)/1.35 var(--body);display:grid;grid-template-columns:auto auto auto;gap:2px 8px;align-items:center;white-space:nowrap}
     .tip[hidden]{display:none}
     .tip .label{grid-column:1/-1}
     .tip .v{text-align:right;font-weight:600}
@@ -286,7 +288,7 @@ class JamGraph extends JamBase {
     if (fixHi) hi = +c.max;
     const tk = JamGraph.ticks(lo, hi, fixLo, fixHi);
     const fmt = v => v.toLocaleString(this._lang(), {minimumFractionDigits: tk.dec, maximumFractionDigits: tk.dec});
-    const ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * 7, mr = 4, mt = 8, mb = 20;
+    const ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * 9, mr = 4, mt = 8, mb = 20; // 9px a digit: the axis labels are 12px (type floor)
     const per = JamGraph.per(this._hours());
     const x = t => ml + (t - d.t0) / (d.t1 - d.t0) * (W - ml - mr);
     const y = v => mt + (tk.hi - Math.min(tk.hi, Math.max(tk.lo, v))) / (tk.hi - tk.lo) * (H - mt - mb);

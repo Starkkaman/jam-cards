@@ -6,7 +6,8 @@
     the off-timer row hides when it does not exist), presets?: [{name, color_temp_kelvin | rgb_color, brightness_pct?}]
     (extra chips in the pop-up), show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours),
     show_members? (default true), member_bands?: "full" (default) | "corner" (group cards), tap_action? (default: open the
-    pop-up), hold_action? (default: open the pop-up)}
+    pop-up), hold_action? (default: open the pop-up), size?: "kiosk" (audit 2026-11-03, opt-in: a 150px card for kiosk
+    sheets: 36px name, 18px sub line, 52px %, 64px power corner, 14px strip; nothing under 18px)}
    Card (ROUND3 "Lights", 96px tall, grid rows auto): when on the face is the light's hue at full value (rgb_color scaled so
    the max channel is 255; kelvin -> rgb in color_temp mode; else the accent, resolved to rgb); text ink or paper, whichever
    contrasts more (textOn); when neither reaches 4.5:1 the name and the number sit on ink label plates. Name 24px display,
@@ -111,7 +112,7 @@ const LIGHT_SHEET_CSS = `
   .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .wt > .face{--p-t:12px;--p-r:12px;--p-b:14px;--p-l:12px;text-align:left;display:grid;gap:4px}
   .wt b{display:block;font:var(--disp-w) calc(1.2rem * var(--disp-scale))/calc(.95 * var(--disp-lead)) var(--display);text-transform:var(--disp-case)}
-  .wt small,.wp small{font:var(--lbl-w) .6rem/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track))}
+  .wt small,.wp small{font:var(--lbl-w) max(12px,.6rem)/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track))}
   .wt.on > .face{outline:3px solid var(--fg);outline-offset:-3px}
   .wp.on > .face::after{content:"";position:absolute;inset:0;border:3px solid var(--fg)}
   .wp > .face{padding:0;height:74px;background:var(--slab2);position:relative;overflow:hidden}
@@ -228,7 +229,7 @@ class JamLight extends JamBase {
     .top{display:grid;gap:5px;justify-items:start;min-width:0}
     .nm{display:flex;align-items:center;gap:6px;font:var(--disp-w) calc(24px * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);overflow-wrap:anywhere;margin:0;max-width:100%}
     .nm ha-icon{--mdc-icon-size:20px;flex:none}
-    .sub{font:var(--lbl-w) 10px/1 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .sub{font:var(--lbl-w) 12px/1 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
     .lc.on .sub{color:inherit}
     .pct{font:var(--disp-w) calc(26px * var(--num-scale))/calc(1 * var(--disp-lead)) var(--num-font);align-self:flex-start}
     .pct small{font-size:calc(15px * var(--num-scale));text-transform:var(--disp-case)}
@@ -246,6 +247,16 @@ class JamLight extends JamBase {
     .bands i{flex:1;display:block}
     .lc:not(.on) .bands{display:none}
     .tap:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+    /* size: kiosk (opt-in): a big block for kiosk sheets, nothing under 18px. */
+    .lc.kiosk,.lc.kiosk .tap{min-height:150px}
+    .lc.kiosk .tap{padding:18px calc(var(--bw,64px) + 14px) 26px 20px}
+    .lc.kiosk .nm{font-size:max(18px,calc(36px * var(--disp-scale)));gap:10px}
+    .lc.kiosk .nm ha-icon{--mdc-icon-size:30px}
+    .lc.kiosk .sub{font-size:18px}
+    .lc.kiosk .pct{font-size:max(18px,calc(52px * var(--num-scale)))}
+    .lc.kiosk .pct small{font-size:max(18px,calc(26px * var(--num-scale)))}
+    .lc.kiosk .bs{height:14px}
+    .lc.kiosk .bands{bottom:14px}
     @supports selector(:has(a)){
       .tap:focus-visible{outline:none}
       .lc:has(.tap:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
@@ -269,8 +280,9 @@ class JamLight extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", pct = lightPct(s), name = this._name();
-    const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off")});
+    const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off") + (c.size === "kiosk" ? " kiosk" : ""), face: dead ? "unavail" : ""});
     b.append(root); // in the page first, so an accent face can be resolved to rgb
+    jamState(this, dead ? "offline" : on ? "on" : "off");
     // Face colour: computed for the off state too, so a drag preview from off shows the light's colour.
     const rgb = dead ? null : this._faceRgb(s);
     this._accWait = !dead && !rgb;
@@ -306,11 +318,11 @@ class JamLight extends JamBase {
     const bs = el("div", "bs"), bi = el("i"); bs.append(bi); bs.setAttribute("aria-hidden", "true");
     const show = (v, isOn) => {
       num.textContent = "";
-      if (dead) num.append(el("small", null, s ? "N/A" : "Missing"));
+      if (dead) num.append(el("small", null, s ? OFFLINE : "Missing"));
       else if (isOn) num.append(document.createTextNode(String(v)), el("small", null, "%"));
       else num.append(el("small", null, "Off"));
       bi.style.width = (isOn ? v : 0) + "%"; bi.style.setProperty("--lv", (isOn ? v : 0) / 100); // level 0..1 (R10 look hook)
-      tap.setAttribute("aria-label", `${name}: ${dead ? "unavailable" : isOn ? v + "%" : "off"}`);
+      tap.setAttribute("aria-label", `${name}: ${dead ? "offline" : isOn ? v + "%" : "off"}`);
     };
     show(pct, on);
     tap.append(top, num);
@@ -494,7 +506,7 @@ class JamLight extends JamBase {
     const [fill, ink] = this._paint(s);
     sh.pop.style.setProperty("--lc", fill); sh.pop.style.setProperty("--lc-fg", ink);
     body.textContent = "";
-    if (!s || UNAVAILABLE.has(s.state)) { body.append(el("div", "label c-alert", "Unavailable")); return; }
+    if (!s || UNAVAILABLE.has(s.state)) { body.append(el("div", "label c-alert", OFFLINE)); return; }
     const a = s.attributes, modes = lightModes(s), on = s.state === "on";
     const sec = (label, ...kids) => { const d = el("div", "sec"); if (label) d.append(el("div", "label", label)); d.append(...kids); body.append(d); return d; };
     if (c.show_brightness !== false && lightDims(s)) sec("Brightness", this._bigBar(s));
@@ -689,13 +701,13 @@ class JamLight extends JamBase {
       const row = el("button", "mrow hit"); row.type = "button"; row.dataset.k = "m|" + id; row.disabled = dead;
       const n = el("span", "n", friendly(h, id)), pill = el("span", "chip num");
       const pshow = v => {
-        pill.textContent = dead ? "N/A" : v ? v + "%" : "Off";
+        pill.textContent = dead ? OFFLINE : v ? v + "%" : "Off";
         pill.style.background = !dead && v ? fill : ""; pill.style.color = !dead && v ? ink : dead ? "var(--alert-text)" : "";
       };
       pshow(on ? v0 : 0);
       row.append(n, pill);
       row.setAttribute("aria-pressed", on ? "true" : "false");
-      row.setAttribute("aria-label", `${friendly(h, id)}: ${dead ? "unavailable" : on ? v0 + "%" : "off"}`);
+      row.setAttribute("aria-label", `${friendly(h, id)}: ${dead ? "offline" : on ? v0 + "%" : "off"}`);
       row.onclick = () => this._call("light", "toggle", {entity_id: id});
       m.append(row);
       if (!dead && lightDims(s)) {

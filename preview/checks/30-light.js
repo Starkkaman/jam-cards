@@ -37,7 +37,8 @@ module.exports = async (page, check, {callsNow}) => {
       out[c._config.entity] = {bg: cs.backgroundColor, fg: cs.color, pct: r.querySelector(".pct").textContent,
         sub: (r.querySelector(".sub") || {}).textContent || "", cls: r.querySelector(".lc").className,
         strip: getComputedStyle(r.querySelector(".bs")).display, h: r.querySelector(".lc").getBoundingClientRect().height,
-        moreDisabled: r.querySelector("button.pw").disabled, plate: r.querySelector(".lc").classList.contains("plate")};
+        moreDisabled: r.querySelector("button.pw").disabled, plate: r.querySelector(".lc").classList.contains("plate"),
+        border: cs.borderTopStyle + " " + cs.borderTopWidth, faceCls: f.className, bgImg: cs.backgroundImage};
     }
     const r = document.querySelector(".sec > jam-light").shadowRoot;
     const col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
@@ -59,7 +60,9 @@ module.exports = async (page, check, {callsNow}) => {
   check(t.bg === look.tok.slab && t.fg === look.tok.fg && t.pct === "Off" && t.strip === "none" && /\boff\b/.test(t.cls),
     `off light: slab face, fg text, OFF, no strip (${t.bg}, ${t.pct})`);
   check(ga.bg === look.tok.ochre && ga.fg === look.tok.onfg, `light without colour falls back to the accent (living -> ochre ${ga.bg})`);
-  check(ha.pct === "N/A" && ha.moreDisabled && /\bdead\b/.test(ha.cls), "unavailable light: N/A, power corner disabled");
+  // State grammar (audit 2026-11-03): offline = the word "Offline" + a hole in the poster (no fill, dashed --dim edge), not "off".
+  check(ha.pct === "Offline" && ha.moreDisabled && /\bdead\b/.test(ha.cls) && /\bunavail\b/.test(ha.faceCls) && ha.bg === "rgba(0, 0, 0, 0)" && ha.border === "dashed 3px",
+    `unavailable light: "Offline", hollow face with a dashed 3px edge (${ha.bg}, ${ha.border}), power corner disabled`);
   check(g.sub === "1 of 2 on" && w.sub === "WLED" && k.sub === "", `sub lines: "${g.sub}", "${w.sub}"`);
   check(Math.abs(look["light.porch"].h - 96) <= 1, `light card is 96 px tall (${look["light.porch"].h})`);
   // WLED reports brightness-scaled rgb_color: [51,20,0] paints its full-value hue [255,100,0] (ink text on it), also in the pop-up.
@@ -136,7 +139,7 @@ module.exports = async (page, check, {callsNow}) => {
     `10 px bottom strip with a 9 px diagonal end; touch-action ${geo.touch}`);
   check(geo.grid.includes('"columns":6') && geo.grid.includes('"rows":"auto"') && geo.grid.includes('"min_columns":4'), `getGridOptions ${geo.grid}`);
   const ty = await light("Living room").evaluate(e => { const r = e.shadowRoot, f = n => parseFloat(getComputedStyle(r.querySelector(n)).fontSize); return {pct: f(".pct"), nm: f(".nm"), sub: f(".sub")}; });
-  check(ty.pct === 26 && ty.nm === 24 && ty.sub === 10, `light type: name 24px, sub 10px, brightness 26px (${ty.nm} / ${ty.sub} / ${ty.pct})`);
+  check(ty.pct === 26 && ty.nm === 24 && ty.sub === 12, `light type: name 24px, sub 12px (the label floor), brightness 26px (${ty.nm} / ${ty.sub} / ${ty.pct})`);
 
   // ---- tap = pop-up (round 3), corner = power, tap_action still honoured ----
   let n = await mark();

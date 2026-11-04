@@ -38,9 +38,9 @@ class JamButton extends JamBase {
     .sq .ic{--mdc-icon-size:18px;width:18px;height:18px}
     .big .sq .ic{--mdc-icon-size:24px;width:24px;height:24px}
     .lbl{font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);line-height:calc(.92 * var(--disp-lead));letter-spacing:var(--jam-display-track,-.005em);
-      font-size:calc(min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5))) * var(--disp-scale));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
+      font-size:max(12px,calc(min(var(--fs,1.25rem), calc(100cqi / (var(--fit) * .5))) * var(--disp-scale)));overflow-wrap:normal;word-break:normal;hyphens:none;text-wrap:balance}
     .big{--fs:1.9rem}
-    .st{font:var(--lbl-w) .66rem/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);overflow-wrap:anywhere}
+    .st{font:var(--lbl-w) max(12px,.66rem)/1.2 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);overflow-wrap:anywhere}
     .st{color:var(--dim)} .on .st{color:var(--acc-fg)}`; }
   /* Configured accent name (accent wins over color), or null = the card default. */
   _accent() {
@@ -61,6 +61,7 @@ class JamButton extends JamBase {
     const on = !!s && s.state === "on" && JB_ON.has(d), acc = this._accent(), plain = acc === "ink";
     const un = !!c.entity && (!s || (JB_STATELESS.has(d) ? s.state === "unavailable" : UNAVAILABLE.has(s.state)));
     const name = c.name || friendly(h, c.entity) || "";
+    jamState(this, un ? "offline" : on ? "on" : "off");
     const power = !!s && JB_ON.has(d); // on/off entity: power corner (round 3)
     const {root, face} = this.paper(c.entity || name || c.icon, {kind: power ? "card" : "key",
       cls: "press btn" + (c.size === "big" ? " big" : ""), face: "kf" + (on ? " on" : "") + (un ? " unavail" : "")});

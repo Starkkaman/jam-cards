@@ -239,6 +239,9 @@ entity: light.living_room
 | `show_brightness`, `show_color_temp`, `show_color`, `show_members` | Show/hide pop-up parts (whites, hue strip + your colours, group members) |
 | `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
 | `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
+| `size` | `kiosk` (opt-in): a 150 px block for kiosk sheets — 36 px name, 18 px sub line, 52 px number, 64 px power corner, nothing under 18 px. Two to a row (`columns: 2` on the jam-kiosk block) gives the big-light sheet |
+
+A light Home Assistant cannot reach reads "Offline" on a hollow card with a dashed edge (each look draws its own broken form).
 
 Changed in round 3: tap opens the pop-up (was: toggle), the ⋯ corner is now the power corner, the card is 96 px tall.
 Changed in 0.3.0: the ON key, brightness strip row, colour-temperature chips and fixed swatches moved off the card;
@@ -402,6 +405,7 @@ pinned:
 | `poster_height` | Height in px of the art above the band (default 150, min 72; below 110 the title is one line) |
 | `size` | `kiosk`: the K1 layout for jam-kiosk sheets — art flush left (58 %), the right panel in the album's own main colour (ink or paper text, whichever reads), Shuffle / Favourite by the room, huge title, artist · album, progress line with times, Prev / Play / Next, volume − / bar / + and a Speakers key; a shelf of covers along the bottom (pinned, then recent; tap = play; last tile Browse = the library panel, fullscreen). Fills the sheet height, nothing under 18 px, no animation (the progress line moves every 5 s while it is on screen in a sheet) |
 | `accent` | Play key, volume fill, power glyph, panel tab underline (default violet) |
+| `compact_idle` | `true` (opt-in): while the player is not playing or paused the card is one compact row (source dot + room, "Last played: …", a quiet Play key; tap = the library panel); the full card comes back while it plays or is paused. Not with `size: kiosk` |
 
 ### jam-fan
 Fan or air purifier: power corner (top-right, tap = on/off), speed steps, preset chips, air-quality sensors in the
@@ -419,6 +423,7 @@ sensor: sensor.air_purifier_air_quality
 | `presets` | Preset modes to show (default the fan's; `false` or `[]` hides the chips) |
 | `sensor`, `extra_sensor` | `id` or `{entity, name}` shown in the label |
 | `accent` | Power glyph when on, active speed and preset |
+| `size` | `kiosk` (opt-in): 36 px name, 18 px label, 64 px speed / preset keys with 18 px text, 64 px power corner |
 
 ### jam-house
 House strip for a landing view: inside / outside temperature, condition word, front door chip (tap = lock), who's home,
@@ -441,6 +446,10 @@ people: [person.alex, person.sam]
 | `title`, `kicker` | Title (default the HA location name) and label |
 | `compact` | One smaller row (kiosks) |
 | `inside_aq`, `outside_aq` | `{entity}` (or an id): "Air · Good" under the temperature, words only; a numeric state is a US AQI shown as its category (Good, Moderate, Unhealthy for sensitive, Unhealthy, Very unhealthy, Hazardous); `extra` is ignored; hidden while the entity is missing/unavailable |
+| `attention` | `true` or `{lights: [ids]}` (opt-in): a red strip at the top listing what needs someone — door unlocked / open (tap = lock), jammed or offline; "N lights offline" (the `lights` list, else every light); poor air inside / outside. Invisible while all is well |
+
+The door chip follows the state grammar: unlocked / open = red "Door unlocked · lock" (tap = lock), jammed = red, locked =
+plain, offline = a dashed "Door offline".
 
 ### jam-tabs
 Equal-width room tabs; the tab for the current path fills with its accent.
@@ -469,6 +478,7 @@ scenes:
 | `scenes` | `{entity, name, data}` with scene.* / script.* entities (required) |
 | `current_entity` | input_select naming the active scene |
 | `wrap` | `true`: wrap onto more rows instead of scrolling sideways |
+| `size` | `kiosk` (opt-in): 64 px keys with 24 px names, wrapped into rows (kiosk sheets) |
 | `accent` | Active scene fill |
 
 ### jam-screensaver
@@ -527,6 +537,19 @@ now:
   - {type: media, entity: media_player.kitchen}
 ```
 
+Door and alerts (opt-in): with `lock_entity` (and `lock_name`, default "Front door") and / or `alerts`
+(`{entity, state or states, name}`; without `state` an alert is on while the entity is on / problem), one block sits at the
+top of the clock's text block and above the time chip on photos. It is quiet while all is well (a small padlock and "Front
+door · locked" in the muted label style; a dashed ring and "Front door · offline" when the lock is unreachable) and loud only
+while something is true: an alert-red plate with "FRONT DOOR UNLOCKED · WATER LEAK" in the display face. The screensaver
+closes on the first tap, so the block has no action.
+```yaml
+type: custom:jam-screensaver
+lock_entity: lock.front_door
+alerts:
+  - {entity: binary_sensor.kitchen_leak, state: "on", name: Water leak}
+```
+
 Kiosk chrome (0.3.3): with `?kiosk` in the dashboard URL (e.g. `/jam-kitchen/0?kiosk`) the card hides Home Assistant's
 sidebar and top header and removes the space they reserve, without a kiosk-mode plugin. It applies to the dashboard the
 card is on only (it stays hidden while you switch views there, and comes back when you open another dashboard).
@@ -539,8 +562,9 @@ display font (0.6.1: its own line), a facts line (inside temperature, humidity, 
 read from across the room: nothing under 18 px, one room colour (the bar at the top) plus the dock blocks, no chips.
 A block opens a fullscreen sheet with its own cards, or runs an action. Weak-kiosk friendly: one timer per minute, no
 animation loops (a block stamps once when pressed). With `lock_entity` (0.6.2) a round lock button sits in the top-right
-corner under the bar: a cream (ink in light mode) disc with a closed padlock when locked, a red disc with an open padlock
-otherwise; tap locks at once, or asks "Unlock the front door?" first when locked. Put it alone in a full-width section (with jam-screensaver beside it).
+corner under the bar: a ring with a closed padlock when locked, a red disc with an open padlock
+otherwise; tap locks at once, or asks "Unlock the front door?" first when locked. Since the 2026-11-03 audit the locked
+state is quiet (a ring in the text colour, no fill), so the unlocked red disc is the loudest thing on the screen. Put it alone in a full-width section (with jam-screensaver beside it).
 ![Kiosk home](preview/shots/kiosk-home-dark-1024.png)
 ```yaml
 type: custom:jam-kiosk
@@ -570,10 +594,14 @@ dock:
 |---|---|
 | `accent` | Room colour of the 10 px bar at the top (default ochre); also the sheet colour of `none` blocks |
 | `inside_entity`, `humidity_entity`, `aq_entity` | Facts line under the clock: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent" (each part only while its sensor has a value; AQ as a word, a US AQI number becomes its category; wraps between parts, never cut off) |
-| `lock_entity`, `lock_name` | 0.6.2: round lock button top-right (≈104 px on a 1024×768 iPad, ≈88 px on an Echo Show 8) with a label line "FRONT DOOR · LOCKED" (just "LOCKED" when it does not fit; `lock_name` default "Front door"). Locked = calm disc in the text colour; Unlocked / Open / Jammed / Locking… / Unlocking… = red disc; unavailable = dim outline and "—". Tap: unlocked / open / jammed → `lock.lock` at once; locked → confirmation "Unlock the front door?" then `lock.unlock`; other states do nothing |
+| `lock_entity`, `lock_name` | 0.6.2: round lock button top-right (≈104 px on a 1024×768 iPad, ≈88 px on an Echo Show 8) with a label line "FRONT DOOR · LOCKED" (just "LOCKED" when it does not fit; `lock_name` default "Front door"). Locked = a quiet ring in the text colour; Unlocked / Open / Jammed / Locking… / Unlocking… = red disc; unavailable = dashed dim outline and "Offline". Tap: unlocked / open / jammed → `lock.lock` at once; locked → confirmation "Unlock the front door?" then `lock.unlock`; other states do nothing |
 | `now` | Sources for the right-hand block, the first active one wins. `{type: media, entity, states (default [playing]), kicker (default Playing / Paused), app_entity}`: title, else the app; small line = artist, else the app. `{type: weather, entity, temperature_entity, kicker (default Outside)}`: "51° cloudy" + the next change in the hourly forecast within 12 h ("Rain at 3 · high 64°"), else "High 64°", else humidity |
 | `dock` | 2-5 blocks: `name`, `accent` (colour or room alias; `none` = plain block with a dim state; default the card accent), `state`, `cards` + `kicker` + `columns` (1-3 equal, or a list of widths such as `[3, 2]` = 60 % / 40 %) for a sheet (cards with `size: kiosk` get the full sheet height), or `tap_action` (confirmation supported); `tap: sheet / action` forces one |
 | `fx` | `false`: keep a look's effects (`--jam-fx`) off on this card and its sheets; default: as the look's theme |
+| `dock_state` | `fill` (opt-in): a block is filled only while one of its entities is on or playing, otherwise a 4 px ring in its colour; a lock block that is unlocked fills red; action blocks are always outlined; a `count_on` block shows its count as a 72 px numeral at its right edge. Default: the fixed accent fill |
+| `attention` | Opt-in list `{entity, state or states, text, tap_action}`: while one is true, a 64 px red bar replaces the accent bar ("FRONT DOOR UNLOCKED · TAP TO LOCK"; default condition: unlocked / open / jammed / problem / offline). Tap: `tap_action`, else `lock.lock` for a lock, else more-info |
+| `now_band` | `true` (opt-in): the first active media `now` source moves into the empty top band (64 px title), left of the lock; the right block then shows the weather. While the attention bar shows, the band steps aside |
+| `sheet_heading` | `false` (opt-in, also per block): sheets leave out their top-level jam-heading cards (the sheet title already names the room) |
 | `state` | `{count_on: [ids], suffix: on}` → "3 on" / "All off"; `{entity, attribute, app_entity}` → the entity's state in words (media player: title while playing / paused, else the app from `app_entity`, else On / Idle, Off when off; lock: "Door locked" / "Door unlocked"; air-quality sensor: Good / Moderate / … or its own word); `{text}` |
 
 The clock follows the Home Assistant profile's time format (12 h with a small AM/PM, or 24 h). The card sizes itself from
@@ -632,6 +660,11 @@ The default look, Poster: flat colour, no gradients, no blur, no shadows, no rou
 edges with one cut corner. Motion is one-shot and stepped like cut paper (view entrance, press print, light colour wipe,
 scene/source stamp, sheet stagger, kiosk dock stamp); `prefers-reduced-motion` or `JamCards.motion = false` turns it off.
 The full rules (universal ones and the Poster look's own) are in [docs/DESIGN.md](docs/DESIGN.md).
+
+State grammar (2026-11-03 audit, every look): on = the strongest fill the look owns, off = quiet; a lock is never "on":
+unlocked / open / jammed use the alert tone and locked is quiet; an entity Home Assistant cannot reach reads **Offline**
+(never "N/A" or "unavailable") on a broken form (Poster: a hollow card with a dashed edge). Labels are at least 12 px,
+chips 13 px, scene keys and graph legend hits 44 px. Details: DESIGN.md "State grammar".
 
 ## Theme tokens and looks
 The cards read `--jam-*` theme variables: colours per light/dark mode (surfaces, hues, series, the fixed ink bands and label

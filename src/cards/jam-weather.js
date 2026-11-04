@@ -163,7 +163,7 @@ class JamWeather extends JamBase {
     .fc{display:grid;gap:6px}
     .col > .face{--p-t:8px;--p-r:3px;--p-b:8px;--p-l:3px;background:var(--slab2);display:grid;justify-items:center;gap:5px;text-align:center}
     .col .gl{width:30px;height:30px;--g-bg:var(--slab2)}
-    .col .label{font-size:.64rem;letter-spacing:calc(.1em * var(--lbl-track));overflow-wrap:anywhere}
+    .col .label{font-size:max(12px,.64rem);letter-spacing:calc(.1em * var(--lbl-track));overflow-wrap:anywhere}
     .hi,.lo{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(1.25rem * var(--num-scale));line-height:calc(1 * var(--disp-lead))}
     .lo{color:var(--dim)}
     .span{position:relative;width:8px;height:56px}

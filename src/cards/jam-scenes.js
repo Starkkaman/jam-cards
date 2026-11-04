@@ -2,7 +2,9 @@
    {type: custom:jam-scenes, scenes: [{entity (scene.* | script.*), name? (default friendly name), data? (extra
     service data, e.g. {transition: 2})}], current_entity? (input_select whose state names the active scene; matched
     case-insensitively to the scene name or its object id), wrap?: true (keys wrap onto more rows instead of scrolling
-    sideways), accent? (default ochre)}
+    sideways), accent? (default ochre), size?: "kiosk" (audit 2026-11-03, opt-in: 64px keys with 24px display type,
+    wrapped into rows, for kiosk sheets)}
+   Offline (state grammar): a scene / script HA cannot reach keeps its name on a dashed hollow key (aria "…, offline").
    Tap = scene.turn_on / script.turn_on with {entity_id, ...data}. The active scene is filled with the accent.
    Active scene (0.3.2): the listed scene with the newest activation time (a scene's state is its last activation ISO time;
    a script's is attributes.last_triggered); when current_entity changed (last_changed) after that time, its option match
@@ -23,15 +25,21 @@ class JamScenes extends JamBase {
   }
   watched() { const c = this._config; return [...c.scenes.map(s => s.entity), c.current_entity].filter(Boolean); }
   css() { return `
-    /* 0.3.9: each key is a 44px button (2px transparent above and below, cancelled by the row's -2px margins, so the layout
-       is unchanged) with the visible 40px face inside: a 44px touch target with the same look. */
+    /* 0.3.9: each key is a button with 2px transparent above and below (cancelled by the row's -2px margins); audit
+       2026-11-03: the visible face itself is at least 44px tall (it was 40-42px in five looks). */
     .scenes{display:flex;gap:6px;overflow-x:auto;margin:-2px 0;padding-bottom:2px;scrollbar-width:thin}
-    .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1rem * var(--disp-scale));line-height:calc(1 * var(--disp-lead));
+    .scene{position:relative;flex:0 0 auto;padding:2px 0;font-family:var(--display);font-weight:var(--disp-w);font-size:max(12px,calc(1rem * var(--disp-scale)));line-height:calc(1 * var(--disp-lead));
       text-transform:var(--disp-case);color:var(--fg);white-space:nowrap}
-    .scene > .sf{position:relative;display:block;padding:12px 14px;background:var(--slab2);
+    .scene > .sf{position:relative;display:block;padding:12px 14px;min-height:44px;background:var(--slab2);
       clip-path:var(--jam-shape-scene,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
     .scenes.wrap{flex-wrap:wrap;overflow-x:visible}
     .scene.on > .sf{background:var(--acc);color:var(--acc-fg)}
+    .scene.unavail{color:var(--dim)}
+    /* size: kiosk (opt-in): 64px keys, display type at 24px, wrapped into rows. */
+    .scenes.kiosk{gap:10px}
+    .scenes.kiosk .scene{flex:1 1 180px;font-size:max(18px,calc(24px * var(--disp-scale)))}
+    .scenes.kiosk .scene > .sf{min-height:64px;display:flex;align-items:center;padding:16px 22px}
+    .scene.offline > .sf{background:transparent;outline:2px dashed var(--dim);outline-offset:-2px}
     .scene:focus-visible{outline-offset:-2px} .scene.on:focus-visible{outline-color:var(--fg)}
     .scene:active > .sf{transform:var(--press-from);animation:var(--jam-kf-print,jam-print) calc(60ms * var(--jam-motion,1) * var(--dur)) var(--jam-ease-2,steps(2,end)) forwards}
     .scene.jam-stamp::before{content:none}
@@ -48,7 +56,7 @@ class JamScenes extends JamBase {
     const bySelect = !newest || (!!want && curT > newT);
     // Stamp (0.3.5): when the active scene changes after the first render, the new one gets the one-shot stamp + wipe.
     let active = null;
-    const row = el("div", "scenes" + (c.wrap ? " wrap" : ""));
+    const row = el("div", "scenes" + (c.wrap || c.size === "kiosk" ? " wrap" : "") + (c.size === "kiosk" ? " kiosk" : ""));
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Scenes");
     for (const sc of c.scenes) {
       const name = friendly(h, sc.entity, sc.name);
@@ -59,7 +67,8 @@ class JamScenes extends JamBase {
       btn.type = "button"; btn.setAttribute("aria-pressed", String(on));
       if (on && !active) active = {btn, id: sc.entity};
       const s = stateObj(h, sc.entity);
-      if (!s || UNAVAILABLE.has(s.state)) btn.classList.add("unavail");
+      if (!s || UNAVAILABLE.has(s.state)) btn.classList.add("unavail"); // a scene never activated is "unknown": dim only
+      if (!s || s.state === "unavailable") { btn.classList.add("offline"); btn.setAttribute("aria-label", `${name}, ${OFFLINE.toLowerCase()}`); }
       btn.onclick = () => jamCall(btn, this._hass, sc.entity.split(".")[0], "turn_on", {...(sc.data || {}), entity_id: sc.entity}, "start");
       row.append(btn);
     }

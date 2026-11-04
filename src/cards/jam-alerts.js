@@ -4,7 +4,8 @@
     show_unavailable_count? (true)}
    Same panel look as jam-panel. Automation rows sorted by attributes.last_triggered, newest first: "ran 21:40" today
    (hass.locale.time_format), "ran Mon" this week, "ran Jun 19" older, "never"; an automation that is off reads dim "off".
-   Watched entities read their state, red "unavailable" when unavailable/unknown/missing. The count row "N unavailable"
+   Watched entities read their state, red "Offline" (after a hollow mark) when unavailable/unknown/missing, a lock in the
+   alert text while unlocked / open / jammed. The count row "N offline"
    counts every unavailable entity except the update/button/scene/event domains (no tap). Header: red count chip of the
    failures (watched entities + automations that are unavailable). Row tap = more-info. */
 const JA_SKIP = new Set(["update", "button", "scene", "event"]);
@@ -70,7 +71,7 @@ class JamAlerts extends JamBase {
     .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px solid var(--line);padding:6px 0;cursor:pointer}
     .row.static{cursor:default}
     .nm{flex:1 1 auto;min-width:0;font:500 .8rem/1.3 var(--body);overflow-wrap:anywhere}
-    .v{flex:0 1 auto;min-width:0;text-align:right;font:var(--disp-w) calc(1rem * var(--disp-scale))/calc(1.1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);overflow-wrap:break-word}
+    .v{flex:0 1 auto;min-width:0;text-align:right;font:var(--disp-w) max(12px,calc(1rem * var(--disp-scale)))/calc(1.1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);overflow-wrap:break-word}
     .row.off .nm,.row.off .v{color:var(--dim)}
     .row.bad .v{color:var(--alert-text)}`; }
   _row(face, id, name, text, cls, tap, unitOf) {
@@ -78,7 +79,9 @@ class JamAlerts extends JamBase {
     if (id) row.dataset.entity = id;
     if (tap) { row.classList.add("focusable"); row.tabIndex = 0; row.setAttribute("role", "button"); bindActions(row, () => this._hass, {tap_action: {action: "more-info"}}, id); }
     else row.classList.add("static");
-    row.append(el("span", "nm", name), keepUnit(el("span", "v num", text), unitOf));
+    const v = keepUnit(el("span", "v num", text), unitOf);
+    if (text === OFFLINE) v.prepend(el("span", "tmk t-offline"));
+    row.append(el("span", "nm", name), v);
     face.append(row);
     return row;
   }
@@ -90,19 +93,20 @@ class JamAlerts extends JamBase {
     let fails = 0;
     for (const id of this._autos()) {
       const s = stateObj(h, id), name = friendly(h, id);
-      if (!s || UNAVAILABLE.has(s.state)) { fails++; this._row(face, id, name, "unavailable", "bad auto", true); continue; }
+      if (!s || UNAVAILABLE.has(s.state)) { fails++; this._row(face, id, name, OFFLINE, "bad auto offline", true); continue; }
       if (s.state === "off") { this._row(face, id, name, "off", "off auto", true); continue; }
       const w = jaWhen(h, s.attributes.last_triggered);
       this._row(face, id, name, w ? "ran " + w : "never", "auto", true);
     }
     for (const id of this._watch()) {
-      const s = stateObj(h, id), bad = !s || UNAVAILABLE.has(s.state);
+      const s = stateObj(h, id), bad = !s || UNAVAILABLE.has(s.state), lk = !bad && lockAlert(s);
       if (bad) fails++;
-      this._row(face, id, friendly(h, id), bad ? "unavailable" : fmtState(h, s), "watch" + (bad ? " bad" : ""), true, bad ? null : s);
+      // A lock that is unlocked / open / jammed reads in the alert text (state grammar); locked stays plain.
+      this._row(face, id, friendly(h, id), bad ? OFFLINE : fmtState(h, s), "watch" + (bad ? " bad offline" : lk ? " bad lock" : ""), true, bad ? null : s);
     }
     if (this._count()) {
       const n = jaCountUnavailable(h.states);
-      this._row(face, null, "Entities", `${n} unavailable`, "count" + (n ? " bad" : ""), false);
+      this._row(face, null, "Entities", `${n} offline`, "count" + (n ? " bad" : ""), false);
     }
     if (fails) {
       const chip = el("span", "chip cnt num", String(fails));

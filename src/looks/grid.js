@@ -63,8 +63,17 @@
   /* Cell size: --gn-cell (px) when the pack CSS sets one, else 12 % of the font size snapped down to a size that sits on the
      24px grid (3, 4, 6, 8, 12, 16, 24, 48: divisors or multiples of 24 except 16 = 2/3 of 48), at least 3px. */
   const SIZES = [48, 24, 16, 12, 8, 6, 4, 3];
-  function cellSize(n) {
+  function cellSize(n, w) {
     const cs = getComputedStyle(n), own = parseFloat(cs.getPropertyValue("--gn-cell"));
+    /* --gn-fit: 1 (the kiosk clock, audit 2026-11-03): the largest of 24 / 16 / 12 whose string (w columns) fits the clock
+       column (64 % of the poster, less the AM/PM tail) and 45 % of the poster's height; so a 12 h "2:41" gets one cell
+       per grid module on both kiosks (24 h "14:41" = 600px falls back to 16 on the Echo Show). */
+    const po = w > 0 && cs.getPropertyValue("--gn-fit").trim() === "1" ? n.closest(".poster") : null;
+    if (po && po.clientWidth) {
+      const pc = getComputedStyle(po), avail = (po.clientWidth - parseFloat(pc.paddingLeft) - parseFloat(pc.paddingRight)) * .64 - 80;
+      const fit = [24, 16, 12].find(x => w * x <= avail && 7 * x <= po.clientHeight * .45);
+      if (fit) return fit;
+    }
     if (own > 0) return Math.round(own);
     const raw = parseFloat(cs.fontSize) * .12;
     return SIZES.find(s => s <= raw) || 3;
@@ -92,7 +101,8 @@
     if (!drawable(str)) return "";
     const sr = el("span", "gn-sr");
     for (const c of [...n.childNodes]) if (!keep.includes(c)) sr.append(c);
-    const {m, w} = layout(str), c = cellSize(n), g = c >= 4 ? Math.max(1, Math.round(c * .08)) : 0, s = c - g;
+    // Gaps only from 12px cells (audit 2026-11-03): below that a 1px gap breaks the strokes into dots.
+    const {m, w} = layout(str), c = cellSize(n, w), g = c >= 12 ? Math.max(1, Math.round(c * .08)) : 0, s = c - g;
     const from = prev && motionOn() ? prev : null, cols = Math.max(w, from ? from.w : 0);
     const svg = svgEl("svg", {class: "gn-cells", "aria-hidden": "true", width: cols * c - g, height: 7 * c - g,
       viewBox: `0 0 ${cols * c - g} ${7 * c - g}`, fill: "currentColor"});
@@ -329,12 +339,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 :host(jam-tv) .pw svg{right:13px;top:13px;width:18px;height:18px}
 :host(jam-tv) .kiosk .pw::before{right:10px;top:10px;width:52px;height:52px}
 :host(jam-tv) .kiosk .pw svg{right:23px;top:23px;width:26px;height:26px}
+/* ---------- offline (state grammar): the square stays, its hairline turns dashed; no signal ---------- */
+.paper[data-cut] > .face.unavail{background:var(--slab);border:1px dashed var(--fg);box-shadow:none}
+.tmk.t-offline{--tc:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
 /* ---------- failed-action strip ---------- */
 .jam-err{border:1px solid var(--fg);border-left:var(--stripe-w) solid var(--red)}
 /* the kiosk / screensaver clocks: one cell per grid module when there is room (else 2/3 or 1/2 of one), snapped to the grid */
-:host(jam-kiosk) .clock{--gn-cell:12px;--gn-snap:1}
-@container (min-width:700px){:host(jam-kiosk) .clock{--gn-cell:16px}}
-@container (min-width:1080px) and (min-height:640px){:host(jam-kiosk) .clock{--gn-cell:24px}} /* 24 h "14:41" = 600px */
+:host(jam-kiosk) .clock{--gn-cell:12px;--gn-snap:1;--gn-fit:1} /* cell size from the string's width (cellSize) */
 .ov{container-type:size}
 .ov .time.num{--gn-cell:8px;--gn-snap:1}
 @container (min-width:600px){.ov .time.num{--gn-cell:16px}}

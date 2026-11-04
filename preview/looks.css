@@ -248,6 +248,7 @@
   --jam-dim:#aca89f;
   --jam-line:#3d3d38;
   --jam-ochre:#f28a2e;
+  --jam-living:#b07a52;
   --jam-red:#e5583a;
   --jam-alert-text:#ff8668;
   --jam-teal:#22a39a;
@@ -346,6 +347,7 @@
   --jam-dim:#605c54;
   --jam-line:#d6d1c6;
   --jam-ochre:#f07d1e;
+  --jam-living:#8a5a3b;
   --jam-red:#d9482b;
   --jam-alert-text:#b32205;
   --jam-teal:#22a39a;
@@ -443,9 +445,9 @@
   --jam-fg:#e9f1f5;
   --jam-dim:#93aab8;
   --jam-line:#2c4655;
-  --jam-ochre:#f39a46;
-  --jam-red:#f39a46;
-  --jam-alert-text:#f39a46;
+  --jam-ochre:#f6c445;
+  --jam-red:#f0503c;
+  --jam-alert-text:#ff8a73;
   --jam-teal:#34b56a;
   --jam-blue:#4a9be0;
   --jam-pink:#8fc7e8;
@@ -538,9 +540,9 @@
   --jam-fg:#1f3b4d;
   --jam-dim:#52697a;
   --jam-line:#d8e1e6;
-  --jam-ochre:#f08c33;
-  --jam-red:#f08c33;
-  --jam-alert-text:#9a4700;
+  --jam-ochre:#f6c445;
+  --jam-red:#f0503c;
+  --jam-alert-text:#a8261a;
   --jam-teal:#2aa65c;
   --jam-blue:#3a8fd8;
   --jam-pink:#8fc7e8;

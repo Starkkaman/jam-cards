@@ -25,11 +25,27 @@
    lock_entity? (0.6.2, lock.*), lock_name? ("Front door"): a round lock button in the poster's top-right corner (right edge on
     the accent bar's right edge, just under it; ≈104px on the iPad, ≈88px on the Echo Show: min(10.5cqw, 15.2cqh)). Inside a
     flat inline-SVG padlock (shackle closed when locked, raised to one side otherwise); under it one 18px label line
-    "FRONT DOOR · LOCKED" (just "LOCKED" when the long form does not fit). Locked = calm (--fg disc, glyph in the ground
-    colour); every other available state (unlocked / open / jammed / locking / unlocking / opening) = alert (--red disc, ink
-    glyph, label in --alert-text); unavailable / unknown = dim outline, label "—". Tap: locked -> confirm "Unlock the front
+    "FRONT DOOR · LOCKED" (just "LOCKED" when the long form does not fit). Locked = quiet (audit 2026-11-03: a 4px --fg
+    ring on no fill, glyph in --fg); every other available state (unlocked / open / jammed / locking / unlocking / opening) = alert (--red disc, ink
+    glyph, label in --alert-text); unavailable / unknown = dashed dim outline, label "FRONT DOOR · OFFLINE". Tap: locked -> confirm "Unlock the front
     door?" then lock.unlock; unlocked / open / jammed -> lock.lock at once; transitional or unavailable states do nothing.
     Stamps on press like a dock block; a native button (Enter / Space) with an aria-label "Front door, Locked".
+   Opt-in (audit 2026-11-03; all default off, so live dashboards keep today's look):
+   dock_state?: "fill" -> a block is filled (its accent) only while one of its entities is on / playing (count_on > 0, or
+    the state entity's tone is "on"), otherwise outlined in it (4px ring, --fg text); a lock block that is unlocked / open /
+    jammed (or an alert-class sensor that is on: leak, smoke, gas, ...) fills in the alert red; action blocks (tap: action) are always outlined; a count_on block shows its count as a
+    72px numeral (>= 64px) at its right edge and the suffix ("on") as its state.
+   attention?: [{entity, state? | states?, text?, tap_action?}] -> while a condition is true, a top attention bar (alert red,
+    ink text, 64px tall, display type) replaces the accent bar: "FRONT DOOR UNLOCKED · TAP TO LOCK" (text default: name +
+    state; " · +N" when more are true). Default condition: lockAlert / tone "alert" (unlocked, open, jammed, problem, offline).
+    Tap: tap_action, else lock.lock for a lock, else more-info.
+   now_band?: true -> the first active media `now` source moves into the empty top band (kicker · artist + a 64px title,
+    one line each), left of the lock and above its label; the right block then shows the next active source
+    (weather). While the attention bar shows, the band steps aside and the media goes back to the right block.
+   sheet_heading?: false -> a sheet leaves out its top-level jam-heading cards (the sheet title already names the room;
+    a block's own sheet_heading wins).
+   Pack contract (always set): every dock block carries data-state = "on" (one of its entities on / playing) | "off" |
+    "action" (tap: action), plus data-alert="true" on a lock block that is unlocked / open / jammed.
    A sheet whose cards include a `size: "kiosk"` card (jam-speaker / jam-tv / jam-media, 0.6.0) gives its cards the whole
    sheet height (one row that fills the body), so those layouts fit without scrolling.
    Fills the view: the card measures its own top and sets its height so it ends at the bottom of the viewport (re-measured
@@ -58,6 +74,8 @@ class JamKioskHome extends JamBase {
     }
     if (c.lock_entity !== undefined && !(typeof c.lock_entity === "string" && /^lock\./.test(c.lock_entity))) throw new Error("jam-kiosk: lock_entity must be a lock.* entity");
     if (c.now !== undefined && !Array.isArray(c.now)) throw new Error("jam-kiosk: now must be a list");
+    if (c.dock_state !== undefined && c.dock_state !== "fill" && c.dock_state !== "accent") throw new Error('jam-kiosk: dock_state is "fill" or "accent"');
+    if (c.attention !== undefined && !(Array.isArray(c.attention) && c.attention.every(a => a && typeof a.entity === "string"))) throw new Error("jam-kiosk: attention is a list of {entity, state?, text?}");
     for (const s of c.now || []) if (!s || !["media", "weather"].includes(s.type) || typeof s.entity !== "string") throw new Error("jam-kiosk: now sources are {type: media | weather, entity}");
   }
   _tapOf(b) { return b.tap === "sheet" || b.tap === "action" ? b.tap : Array.isArray(b.cards) ? "sheet" : b.tap_action ? "action" : "none"; }
@@ -77,7 +95,7 @@ class JamKioskHome extends JamBase {
   }
   get hass() { return this._hass; }
   watched() {
-    const c = this._config, ids = [c.inside_entity, c.humidity_entity, c.aq_entity, c.lock_entity];
+    const c = this._config, ids = [c.inside_entity, c.humidity_entity, c.aq_entity, c.lock_entity, ...(c.attention || []).map(a => a.entity)];
     for (const s of c.now || []) ids.push(s.entity, s.app_entity, s.temperature_entity);
     for (const b of c.dock) {
       const st = b.state || {};
@@ -114,13 +132,14 @@ class JamKioskHome extends JamBase {
     /* Lock button (0.6.2): a disc + one label line, top-right under the accent bar. */
     .lk{position:absolute;right:clamp(24px,4cqw,44px);top:calc(clamp(24px,4cqw,44px) + 24px);display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:1}
     .lk .disc{--d:min(10.5cqw,15.2cqh);width:var(--d);height:var(--d);border-radius:50%;display:grid;place-items:center;
-      background:var(--lk-bg);color:var(--lk-gl);border:0}
+      background:var(--lk-bg);color:var(--lk-gl);border:0;box-shadow:inset 0 0 0 4px var(--lk-ring)}
     .lk .disc svg{width:56%;height:56%;display:block}
-    .lk{--lk-bg:var(--fg);--lk-gl:var(--ink);--lk-tx:var(--fg)}
-    .host.light .lk:not(.alert):not(.off){--lk-gl:var(--ink-fg)}
-    .lk.alert{--lk-bg:var(--red);--lk-gl:var(--on-fg);--lk-tx:var(--alert-text)}
-    .lk.off .disc{background:none;border:4px solid var(--dim)}
-    .lk.off{--lk-gl:var(--dim);--lk-tx:var(--dim)}
+    /* State grammar (audit 2026-11-03): locked is quiet (a 4px --fg ring, glyph in --fg, no fill), unlocked / open /
+       jammed is the loudest thing on the poster (the solid red disc). */
+    .lk{--lk-bg:transparent;--lk-gl:var(--fg);--lk-tx:var(--fg);--lk-ring:var(--fg)}
+    .lk.alert{--lk-bg:var(--red);--lk-gl:var(--on-fg);--lk-tx:var(--alert-text);--lk-ring:transparent}
+    .lk.off .disc{background:none;border:4px dashed var(--dim)}
+    .lk.off{--lk-gl:var(--dim);--lk-tx:var(--dim);--lk-ring:transparent}
     .lk .disc:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
     .lk .disc.stamp{animation:var(--jam-kf-stamp,jam-stamp) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
     .lk .lbl{font:var(--lbl-w) 18px/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--lk-tx);white-space:nowrap;
@@ -153,6 +172,42 @@ class JamKioskHome extends JamBase {
     .st{font:var(--lbl-w) 18px/1.1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);max-width:100%;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .blk.none .st{color:var(--dim)}
     .st:empty{display:none}
+    /* dock_state: fill (opt-in): filled only while on / playing, otherwise a 4px ring in the block colour; action blocks
+       always outlined; a count numeral at the right edge. */
+    .k.dfill .blk{--blk-c:var(--bc,var(--acc))}
+    .k.dfill .blk.none{--blk-c:var(--dim)}
+    .k.dfill .blk.out{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 4px var(--blk-c)}
+    .k.dfill .blk.out .st,.host.light .k.dfill .blk.out .st{color:var(--dim)}
+    .k.dfill .blk.alert{--bc:var(--red);--bf:var(--on-fg);background:var(--red);color:var(--on-fg)}
+    .k.dfill .blk.alert .st{color:var(--on-fg)}
+    /* A counted block is a 2-column grid: name / state on the left (they keep what the count leaves), the numeral at the
+       right edge, so both fit at 1024 and 961 in every look (a look's name mark, e.g. Transit's bullet, included). */
+    .blk.counted{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-content:center;justify-items:start;padding:0 12px 0 18px}
+    .blk.counted > *{grid-column:1}
+    .blk .dn{grid-column:2;grid-row:1 / span 3;align-self:center;font-family:var(--num-font);font-weight:var(--disp-w);
+      font-size:max(64px,calc(72px * var(--num-scale)));line-height:.8;letter-spacing:var(--jam-display-track,-.01em)}
+    .blk:not(.counted) .dn{display:none}
+    /* Attention bar (opt-in): replaces the accent bar while a condition is true; the lock steps down under it. */
+    .k{--att-h:0px}
+    .k.att-on{--att-h:76px}
+    .att{position:absolute;left:clamp(24px,4cqw,44px);right:clamp(24px,4cqw,44px);top:clamp(24px,4cqw,44px);height:64px;z-index:2;
+      display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--red);color:var(--on-fg);text-align:left;
+      font-family:var(--display);font-weight:var(--disp-w);font-size:max(30px,calc(36px * var(--disp-scale)));line-height:1;text-transform:var(--disp-case);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .att .at{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .att:focus-visible{outline:3px solid var(--on-fg);outline-offset:-7px}
+    .k:not(.att-on) .att{display:none}
+    .k.att-on .bar{visibility:hidden}
+    .lk{top:calc(clamp(24px,4cqw,44px) + 24px + var(--att-h))}
+    /* Now band (opt-in): the empty top band carries now playing (>= 64px title), left of the lock. */
+    .band{position:absolute;left:clamp(24px,4cqw,44px);right:clamp(24px,4cqw,44px);top:calc(clamp(24px,4cqw,44px) + 22px);
+      display:grid;gap:6px;justify-items:start;min-width:0}
+    .k.has-lock .band{right:calc(clamp(24px,4cqw,44px) + max(min(10.5cqw,15.2cqh) + 40px, 36cqw + 16px))} /* clear of the disc and its label */
+    .band:empty,.k.att-on .band{display:none}
+    .band .bt{font-family:var(--display);font-weight:var(--disp-w);font-size:max(64px,calc(64px * var(--disp-scale)));line-height:calc(.9 * var(--disp-lead));
+      text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .band .kick,.band .small{text-align:left}
+    .band .kick{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* kicker (· artist) + title: the band stays above the lock label */
     .blk.stamp{z-index:1;animation:var(--jam-kf-stamp,jam-stamp) calc(210ms * var(--dur)) var(--jam-ease-3,steps(3,end))}
     @container (max-width:640px){
       .poster{grid-template-columns:minmax(0,1fr);align-content:end}
@@ -178,6 +233,22 @@ class JamKioskHome extends JamBase {
     this._now = el("div", "now"); this._now.setAttribute("aria-live", "off");
     this._nk = el("div", "kick"); this._nb = el("div", "big"); this._ns = el("div", "small");
     poster.append(bar, left, this._now);
+    // Opt-ins (audit 2026-11-03): attention bar, now band, fill dock.
+    this._att = null; this._band = null;
+    if (Array.isArray(c.attention) && c.attention.length) {
+      const att = el("button", "att"), at = el("span", "at");
+      att.type = "button"; att.append(at);
+      att.addEventListener("click", () => this._attTap());
+      poster.append(att);
+      this._att = {btn: att, txt: at, cur: null};
+    }
+    if (c.now_band === true) {
+      this._band = el("div", "band"); this._band.setAttribute("aria-live", "off");
+      this._bk = el("div", "kick"); this._bb = el("div", "bt");
+      poster.append(this._band);
+    }
+    k.classList.toggle("dfill", c.dock_state === "fill"); // (not "fill": that is the strip fill class)
+    k.classList.toggle("has-lock", !!c.lock_entity);
     this._lock = null;
     if (c.lock_entity) {
       const box = el("div", "lk"), disc = el("button", "disc"), lbl = el("div", "lbl");
@@ -197,10 +268,12 @@ class JamKioskHome extends JamBase {
       const code = motif("code", this, b.name); // a look's name code (R10 hook; Poster: none)
       if (code) btn.append(code);
       btn.append(nm, s);
+      const cnt = c.dock_state === "fill" && b.state && Array.isArray(b.state.count_on) ? el("span", "dn num") : null;
+      if (cnt) { cnt.setAttribute("aria-hidden", "true"); btn.append(cnt); }
       btn.addEventListener("pointerdown", e => { if (!e.button && motionOn()) oneShot(btn, "stamp"); });
       btn.addEventListener("click", () => this._tap(b));
       dock.append(btn);
-      return {cfg: b, btn, st: s};
+      return {cfg: b, btn, st: s, cnt};
     });
     k.append(poster, dock);
     this._body.append(k);
@@ -219,10 +292,7 @@ class JamKioskHome extends JamBase {
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
     // Date line: "Tuesday · October 28" (shown uppercase in the display font), one line.
     const d = new Date(), lang = this._lang(), parts = [];
-    let day;
-    try { day = d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
-    catch (e) { day = d.toDateString(); }
-    set(this._day, day);
+    set(this._day, jamDateText(d, lang)); // core: the one date format of the kiosk screens
     // Facts line: "67° inside · 58% humidity · air excellent"; one nowrap span per part, so it wraps between parts (never
     // inside one, never an ellipsis); empty (hidden) without any value. Rebuilt only when the text changed.
     const num = id => { const s = stateObj(h, id); return s && String(s.state).trim() !== "" && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
@@ -235,7 +305,18 @@ class JamKioskHome extends JamBase {
       parts.forEach((t, i) => { if (i) this._date.append(" "); this._date.append(el("span", "f", i < parts.length - 1 ? t + " ·" : t)); });
     }
     // Now: the first active source.
-    const n = this._nowText();
+    // Attention first: while it shows, the now band steps aside (the media goes back to the right block).
+    const attOn = this._attUpdate();
+    const bandN = this._band && !attOn ? this._nowText(s => s.type === "media") : null;
+    if (this._band) {
+      if (!bandN) { if (this._band.firstChild) this._band.textContent = ""; }
+      else {
+        if (this._band.childElementCount !== 2) this._band.append(this._bk, this._bb);
+        set(this._bk, bandN.small ? `${bandN.kick} · ${bandN.small}` : bandN.kick); set(this._bb, bandN.big);
+        this._band.dataset.source = bandN.src;
+      }
+    }
+    const n = this._nowText(bandN ? s => s.type !== "media" : null);
     if (!n) { if (this._now.firstChild) this._now.textContent = ""; }
     else {
       if (this._now.childElementCount !== 3) this._now.append(this._nk, this._nb, this._ns);
@@ -243,10 +324,25 @@ class JamKioskHome extends JamBase {
       this._now.dataset.source = n.src;
     }
     this._lockUpdate();
+    const fill = c.dock_state === "fill";
     for (const b of this._blocks) {
-      const t = this._stateText(b.cfg.state);
+      let t = this._stateText(b.cfg.state);
+      // Pack contract (always, whatever dock_state): data-state = on | off | action, data-alert on a lock block that
+      // needs attention. No visual change in Poster unless dock_state: fill.
+      const st = this._blockState(b.cfg), ds = this._tapOf(b.cfg) === "action" ? "action" : st === "on" ? "on" : "off";
+      if (b.btn.dataset.state !== ds) b.btn.dataset.state = ds;
+      if ((b.btn.dataset.alert === "true") !== (st === "alert")) { if (st === "alert") b.btn.dataset.alert = "true"; else delete b.btn.dataset.alert; }
+      if (fill) {
+        b.btn.classList.toggle("on", st === "on"); b.btn.classList.toggle("alert", st === "alert"); b.btn.classList.toggle("out", st !== "on" && st !== "alert");
+        if (b.cnt) {
+          const nOn = this._countOn(b.cfg.state);
+          set(b.cnt, nOn ? String(nOn) : "");
+          b.btn.classList.toggle("counted", nOn > 0);
+          if (nOn) t = b.cfg.state.suffix === undefined ? "on" : String(b.cfg.state.suffix);
+        }
+      }
       set(b.st, t);
-      const label = b.cfg.name + (t ? ", " + t : "");
+      const full = this._stateText(b.cfg.state), label = b.cfg.name + (full ? ", " + full : "");
       if (b.btn.getAttribute("aria-label") !== label) b.btn.setAttribute("aria-label", label);
     }
   }
@@ -298,8 +394,9 @@ class JamKioskHome extends JamBase {
     if (over > 0 && over <= 64 && hgt - over >= 420) apply(hgt - over);
   }
   /* ---- now block ---- */
-  _nowText() {
+  _nowText(want) {
     for (const s of this._config.now || []) {
+      if (want && !want(s)) continue;
       const t = s.type === "media" ? this._media(s) : this._weather(s);
       if (t) return t;
     }
@@ -376,7 +473,7 @@ class JamKioskHome extends JamBase {
     const id = spec.entity, s = stateObj(h, id);
     if (!id) return "";
     const dom = id.split(".")[0];
-    if (!s) return "Unavailable";
+    if (!s) return OFFLINE;
     if (spec.attribute) { const v = s.attributes[spec.attribute]; return v === null || v === undefined ? "" : String(v); }
     if (dom === "media_player") {
       if (UNAVAILABLE.has(s.state) || s.state === "off" || s.state === "standby") return "Off";
@@ -386,18 +483,74 @@ class JamKioskHome extends JamBase {
       if (s.state === "playing" || s.state === "paused") return a.app_name && !JAM_KIOSK_PKG.test(a.app_name) ? String(a.app_name) : s.state === "playing" ? "Playing" : "Paused";
       return s.state === "on" ? "On" : "Idle";
     }
-    if (UNAVAILABLE.has(s.state)) return "Unavailable";
+    if (UNAVAILABLE.has(s.state)) return OFFLINE;
     if (dom === "lock") { const t = String(s.state).replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); }
     const dc = s.attributes && s.attributes.device_class;
-    if (spec.format === "aq" || (dom === "sensor" && (dc === "aqi" || /air_quality|(^|[._])aqi/.test(id)))) return aqWord(s.state) || "Unavailable";
+    if (spec.format === "aq" || (dom === "sensor" && (dc === "aqi" || /air_quality|(^|[._])aqi/.test(id)))) return aqWord(s.state) || OFFLINE;
     const t = fmtState(h, s);
     return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  /* ---- dock_state: fill (opt-in) ---- */
+  _countOn(spec) {
+    const h = this._hass;
+    return spec && Array.isArray(spec.count_on) ? spec.count_on.filter(id => { const s = stateObj(h, id); return s && s.state === "on"; }).length : 0;
+  }
+  /* "on" (filled), "alert" (a lock needing attention: filled red) or "out" (outlined). Action blocks are always "out". */
+  _blockState(b) {
+    if (this._tapOf(b) === "action") return "out";
+    const spec = b.state || {};
+    if (Array.isArray(spec.count_on)) return this._countOn(spec) > 0 ? "on" : "out";
+    const s = spec.entity && stateObj(this._hass, spec.entity);
+    if (!s) return "out";
+    if (isLock(s)) return lockAlert(s) ? "alert" : "out";
+    const t = tone(s); // a wet leak / smoke sensor (alert classes) fills red, never the "on" fill (review 2026-11-04)
+    return t === "on" ? "on" : t === "alert" && !UNAVAILABLE.has(s.state) ? "alert" : "out";
+  }
+  /* ---- attention bar (opt-in) ---- */
+  _attHits() {
+    const h = this._hass, out = [];
+    for (const a of this._config.attention || []) {
+      const s = stateObj(h, a.entity);
+      const want = a.states !== undefined ? [].concat(a.states).map(String) : a.state !== undefined ? [String(a.state)] : null;
+      const hit = want ? !!s && want.includes(String(s.state)) : !s || lockAlert(s) || tone(s) === "alert";
+      if (hit) out.push({a, s});
+    }
+    return out;
+  }
+  _attText({a, s}) {
+    if (typeof a.text === "string" && a.text.trim()) return a.text.trim();
+    const name = friendly(this._hass, a.entity, a.name);
+    if (!s || UNAVAILABLE.has(s.state)) return `${name} ${OFFLINE.toLowerCase()}`;
+    if (isLock(s) && ["unlocked", "open"].includes(String(s.state))) return `${name} ${s.state} · tap to lock`;
+    return `${name} ${String(fmtState(this._hass, s)).toLowerCase()}`;
+  }
+  /* Shows / hides the bar; returns true while it shows. */
+  _attUpdate() {
+    const A = this._att;
+    if (!A) return false;
+    const hits = this._attHits(), on = hits.length > 0;
+    this._k.classList.toggle("att-on", on);
+    A.cur = on ? hits[0] : null;
+    const t = on ? this._attText(hits[0]) + (hits.length > 1 ? ` · +${hits.length - 1}` : "") : "";
+    if (A.txt.textContent !== t) A.txt.textContent = t;
+    if (A.btn.getAttribute("aria-label") !== t) A.btn.setAttribute("aria-label", t);
+    A.btn.tabIndex = on ? 0 : -1;
+    return on;
+  }
+  _attTap() {
+    const cur = this._att && this._att.cur;
+    if (!cur) return;
+    const {a, s} = cur;
+    if (a.tap_action) runAction(this._att.btn, this._hass, a.tap_action, a.entity);
+    else if (s && /^lock\./.test(a.entity) && ["unlocked", "open", "jammed"].includes(String(s.state)))
+      runAction(this._att.btn, this._hass, {action: "perform-action", perform_action: "lock.lock", target: {entity_id: a.entity}});
+    else moreInfo(this, a.entity);
   }
   /* ---- lock button (0.6.2) ---- */
   _lockState() {
     const s = stateObj(this._hass, this._config.lock_entity), st = s ? String(s.state) : "unavailable";
     const words = {locked: "Locked", unlocked: "Unlocked", locking: "Locking…", unlocking: "Unlocking…", jammed: "Jammed", open: "Open", opening: "Opening…"};
-    if (UNAVAILABLE.has(st) || !words[st]) return {st, word: "—", tone: "off", closed: true};
+    if (UNAVAILABLE.has(st) || !words[st]) return {st, word: OFFLINE, tone: "off", closed: true};
     return {st, word: words[st], tone: st === "locked" ? "calm" : "alert", closed: st === "locked"};
   }
   _lockName() { const n = this._config.lock_name; return typeof n === "string" && n.trim() ? n.trim() : "Front door"; }
@@ -409,13 +562,10 @@ class JamKioskHome extends JamBase {
     L.box.dataset.state = s.st;
     if (L.glyph !== s.closed) {
       L.glyph = s.closed;
-      // Static markup, no entity data. Flat padlock: square body with a keyhole cut, 5-unit shackle (closed arch, or raised and swung open to the left).
-      const shackle = s.closed ? "M16 22V15a8 8 0 0 1 16 0v7" : "M32 22V11a8 8 0 0 0-16 0v4";
-      L.disc.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="${shackle}" fill="none" stroke="currentColor" stroke-width="5"/>` +
-        `<path fill="currentColor" fill-rule="evenodd" d="M9 21h30v22H9zM21.5 29a2.5 2.5 0 1 1 5 0a2.5 2.5 0 0 1-1 2v5h-3v-5a2.5 2.5 0 0 1-1-2z"/></svg>`;
+      L.disc.innerHTML = jamLockSvg(s.closed); // static markup (core), no entity data
       L.disc.dataset.glyph = s.closed ? "closed" : "open";
     }
-    const aria = `${name}, ${s.word === "—" ? "Unavailable" : s.word}`;
+    const aria = `${name}, ${s.word}`;
     if (L.disc.getAttribute("aria-label") !== aria) L.disc.setAttribute("aria-label", aria);
     const key = name + "|" + s.word;
     if (L.key !== key) { L.key = key; this._lockFit(); }
@@ -424,7 +574,7 @@ class JamKioskHome extends JamBase {
   _lockFit() {
     const L = this._lock;
     if (!L || !this._hass) return;
-    const s = this._lockState(), long = s.word === "—" ? "—" : `${this._lockName()} · ${s.word}`;
+    const s = this._lockState(), long = `${this._lockName()} · ${s.word}`;
     if (L.lbl.textContent !== long) L.lbl.textContent = long;
     if (L.lbl.scrollWidth > L.lbl.clientWidth + 1) L.lbl.textContent = s.word;
     L.lbl.dataset.form = L.lbl.textContent === long ? "long" : "short";
@@ -448,10 +598,14 @@ class JamKioskHome extends JamBase {
     const ws = Array.isArray(b.columns) ? b.columns.slice(0, 3).map(Number).filter(x => x > 0)
       : Array(Math.max(1, Math.min(3, Math.round(+b.columns) || 1))).fill(1);
     // size: "kiosk" cards get the whole sheet height: one row that fills the body, cards stretched into it.
-    const fill = (b.cards || []).some(x => x && x.size === "kiosk");
+    // (only the player cards: jam-light / jam-fan / jam-scenes size kiosk set their own heights)
+    const fill = (b.cards || []).some(x => x && x.size === "kiosk" && /^custom:jam-(speaker|tv|media)$/.test(String(x.type)));
     let css = ws.length > 1 ? `.body{grid-template-columns:${ws.map(w => `minmax(0,${w}fr)`).join(" ")};align-items:start}` : "";
     if (fill) css += ".body{grid-template-rows:minmax(0,1fr);grid-auto-rows:minmax(0,1fr);align-items:stretch}.body > *{min-height:0}";
-    jamCardSheet(this, {title: b.name, kicker: b.kicker, accent, cards: b.cards, fullscreen: true, css});
+    // sheet_heading: false (opt-in): the sheet title already names the room, so top-level jam-heading cards are left out.
+    const heads = b.sheet_heading !== undefined ? b.sheet_heading : this._config.sheet_heading;
+    const cards = heads === false ? (b.cards || []).filter(x => !(x && x.type === "custom:jam-heading")) : b.cards;
+    jamCardSheet(this, {title: b.name, kicker: b.kicker, accent, cards, fullscreen: true, css});
   }
   getCardSize() { return 12; }
   getGridOptions() { return {columns: "full", rows: "auto"}; }

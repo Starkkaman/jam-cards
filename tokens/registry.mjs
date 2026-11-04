@@ -20,6 +20,7 @@ export const TOKENS = [
   {name: "jam-line", css: "line", scope: "mode", note: "rules, off marks"},
   // ---- colour: hues ----
   {name: "jam-ochre", css: "ochre", scope: "mode", note: "accent ochre (default accent)"},
+  {name: "jam-living", css: "living", scope: "mode", optional: true, fallback: "var(--ochre)", note: "room hue of the living room (accent alias living; default: the ochre token). A look whose ochre is its signal gives living its own hue (audit 2026-11-03)"},
   {name: "jam-red", css: "red", scope: "mode", note: "alert fills (reserved)"},
   {name: "jam-alert-text", css: "alert-text", scope: "mode", note: "red TEXT, >= 4.5:1 on slab/slab2/slab3"},
   {name: "jam-teal", css: "teal", scope: "mode", note: "accent teal (also calm / info)"},
