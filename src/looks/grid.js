@@ -384,6 +384,17 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 /* jam-results: cell numerals sized to the square (4 digits + a unit fit a 112px square at 4px cells, a 185px one at 5px). */
 :host(jam-results) .big.num{--gn-cell:4px}
 @container (min-width:185px){:host(jam-results) .big.num{--gn-cell:5px}}
+/* ---------- look cards (2026-11-03): jam-matrix cells = outlined squares (on = the ink fill, a problem = the signal), the info sticker = an
+   outlined white / black note (warn and alert keep the signal) ---------- */
+:host(jam-matrix) .cell{background:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix){--mx-on:var(--fg);--mx-on-fg:var(--slab)}
+:host(jam-matrix) .cell.on{background:var(--fg)}
+:host(jam-matrix) .cell.alert{background:var(--acc)}
+:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell:hover,:host(jam-matrix) .cell.sel{box-shadow:inset 0 0 0 3px var(--focus)}
+:host(jam-matrix) .slot{box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.info{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-linemap) .trk path{stroke-linecap:square}
 `;
 
   registerLook({

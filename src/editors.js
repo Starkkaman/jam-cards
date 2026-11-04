@@ -85,7 +85,12 @@ const JE_LABELS = {
   show_swatches: "Swatches (whites and colours)", colors: "Colour swatches", keys: "Keys", all_on: "All on key", all_off: "All off key",
   pictogram: "Pictogram", rules: "Pictogram rules (first match wins)", facts: "Facts (up to 4)", lanes: "Lanes",
   ranges: "Fixed ranges", items: "Squares", thresholds: "Thresholds", word: "Word on the label (default high / low)", decimals: "Decimals", above: "Above", below: "Below",
+  lines: "Lines (rooms)", stations: "Stations (entities, in order)", calendars: "Calendars",
+  events: "Events to show", hours: "Look ahead (hours)", message: "Message", text: "Text", severity: "Severity",
+  conditions: "Show while (all hold)", condition: "Condition", state_not: "State is not", action_name: "Key name",
 };
+/* Per card labels where a shared key means something else (jam-house `alerts` = alert chips). */
+const JE_TAG_LABELS = {"jam-arrivals": {alerts: "Service changes"}};
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
   show_color_temp: "Default: when the light supports colour temperature.",
@@ -101,6 +106,8 @@ const JE_HELP = {
   facts: "An entity's value, a group's members that are on, or the count of on entities in a list.",
   lanes: "schedule.*, calendar.*, any on / off entity (its history today) or fixed ranges.",
   thresholds: "The first one the value passes sets the colour and puts its word on the label.",
+  stations: "An entity on two lines is an interchange.",
+  conditions: "Like HA's visibility conditions: state (state / state is not) or numeric_state (above / below).",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -151,7 +158,7 @@ function jeForm(tag, schema, check) {
   const base = jeAssert(tag, schema);
   return {
     schema,
-    computeLabel: f => JE_LABELS[f.name] || (f.name ? f.name.replace(/_/g, " ") : undefined),
+    computeLabel: f => (JE_TAG_LABELS[tag] || {})[f.name] || JE_LABELS[f.name] || (f.name ? f.name.replace(/_/g, " ") : undefined),
     computeHelper: f => JE_HELP[f.name] || undefined,
     assertConfig: check ? config => { base(config); check(config); } : base,
   };
@@ -410,6 +417,42 @@ const JAM_EDITORS = {
       jeList("pinned", [jeText("uri", {required: true}), jeText("name"), jeText("image"), jeText("media_type")], {label: "name", desc: "uri"}),
       jeMore("Advanced", [jeEnt("favorite_entity", "button"), {name: "config_entry_id", selector: {config_entry: {integration: "music_assistant"}}}])],
     stub: (h, e) => JAM_EDITORS["jam-speaker"].stub(h, e),
+  },
+  /* ---- look cards (2026-11-03, night plan §3): jam-linemap (Transit), jam-arrivals (Transit), jam-matrix (Grid), jam-ridge
+     (Pulsar), jam-sticker (New Wave). Bare ids in an object list (arrivals calendars / entities as {entity, name}) go to YAML. ---- */
+  "jam-linemap": {
+    schema: [jeText("title"), JE_ACCENT,
+      jeList("lines", [jeText("name", {required: true}), {name: "color", selector: JE_ACCENT.selector}, jeText("path"),
+        jeEnts("stations", null, {required: true})], {label: "name", desc: "path"}, {required: true})],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light", "switch"), 4);
+      return {title: "House lines", lines: [{name: "Living", color: "living", stations: ids.length ? ids : ["light.jam"]}]}; },
+  },
+  "jam-arrivals": {
+    schema: [jeText("title"), JE_ACCENT,
+      jeList("alerts", [jeEnt("entity", null, {required: true}), jeText("state"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"}),
+        jeText("message"), jeSel("severity", ["alert", "warn"])], {label: "entity", desc: "message"}),
+      jeEnts("media", "media_player"), jeEnts("calendars", "calendar"),
+      jeGrid(jeNum("events", {min: 1, max: 20}, {default: 4}), jeNum("hours", {min: 1}, {default: 48}), jeNum("refresh_minutes", {min: 1}, {default: 15})),
+      jeEnts("entities")],
+    stub: (h, e) => { const cal = jePickN(h, e, jeDom("calendar"), 1), ents = jePickN(h, e, jeDom("sensor", "lock", "binary_sensor"), 2);
+      return {title: "Arrivals", ...(cal.length ? {calendars: cal} : {}), entities: ents.length ? ents : ["sun.sun"]}; },
+  },
+  "jam-matrix": {
+    schema: [jeText("title"), jeEnts("entities", null, {required: true}), jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light"), 8); return {title: "Lights", entities: ids.length ? ids : ["light.jam"]}; },
+  },
+  "jam-ridge": {
+    schema: [jeText("title"), jeEnts("entities", JE_NUMERIC, {required: true}),
+      jeGrid(jeNum("hours_to_show", {min: 1}, {default: 24}), jeNum("refresh_minutes", {min: 1}, {default: 5})), JE_ACCENT],
+    stub: (h, e) => { const ids = jePickN(h, e, jeTemp, 4); return {title: "Temperatures", entities: ids.length ? ids : ["sensor.jam"]}; },
+  },
+  "jam-sticker": {
+    schema: [jeText("title"), {name: "text", selector: {text: {multiline: true}}}, jeSel("severity", ["info", "warn", "alert"], {default: "info"}),
+      jeList("conditions", [jeSel("condition", ["state", "numeric_state"]), jeEnt("entity", null, {required: true}), jeText("state"),
+        jeText("state_not"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"})], {label: "entity", desc: "state"}, {required: true}),
+      jeMore("Key", [jeEnt("entity"), jeText("action_name"), JE_ACTION("tap_action")])],
+    stub: (h, e) => { const id = jePick(h, e, jeDom("binary_sensor", "input_boolean", "switch"), "input_boolean.jam");
+      return {title: "Heads up", text: "Shows while the condition holds.", conditions: [{condition: "state", entity: id, state: "on"}]}; },
   },
 };
 

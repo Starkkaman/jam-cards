@@ -21,7 +21,8 @@ const PHASE1 = ["jam-heading", "jam-hero", "jam-tile", "jam-choice", "jam-slider
   "jam-list", "jam-panel", "jam-tabs", "jam-scenes", "jam-tv", // phase 2 (object lists; jam-tv: main keys + sources)
   "jam-looks", // look picker
   "jam-dial", "jam-keypad", "jam-radio", // look cards (2026-11-03)
-  "jam-pictogram", "jam-programme", "jam-results"]; // Olympia look cards
+  "jam-pictogram", "jam-programme", "jam-results", // Olympia look cards
+  "jam-linemap", "jam-arrivals", "jam-matrix", "jam-ridge", "jam-sticker"]; // look cards (2026-11-03, Transit / Grid / Pulsar / New Wave)
 const SELECTORS = new Set(["entity", "text", "number", "boolean", "select", "icon", "ui_action", "ui_color", "config_entry", "object", "color_rgb"]);
 
 /* README "### jam-x" section -> the backticked option names of its table's first column (+ rows: option -> its table row). */
@@ -256,7 +257,7 @@ module.exports = async (page, check) => {
     check(!!e.name && !!e.description && e.doc === "https://github.com/Starkkaman/jam-cards#" + e.type && readmeTags.has(anchor) && e.preview === e.stub,
       `editors customCards ${e.type}: name, description, documentationURL, preview=${e.preview}`);
   }
-  check(r.entries.length === 31, `editors: 31 jam customCards entries (${r.entries.length})`);
+  check(r.entries.length === 36, `editors: 36 jam customCards entries (${r.entries.length})`);
   for (const [tag, f] of Object.entries(r.fixtures)) {
     console.log(`INFO editors fixtures ${tag}: ${f.ok} fit the form, ${f.yaml.length} go to YAML${f.yaml.length ? " (" + [...new Set(f.yaml)].join(" | ") + ")" : ""}`);
     if (f.lists) check(!f.uncovered.length && !f.trip.length, `editors ${tag}: ${f.lists} object lists in fitting fixture / README configs round-trip, every item key is a field` +

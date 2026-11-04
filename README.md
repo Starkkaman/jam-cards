@@ -75,7 +75,7 @@ Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` acce
 (`perform_action`, `data`, `target`) and `none`. Add `confirmation: true` or `confirmation: {text: ...}` to ask first.
 
 ## Cards
-31 cards (look cards, at home in every look: jam-dial, jam-keypad and jam-radio are drawn after Braun objects; jam-pictogram, jam-programme and jam-results were made for Olympia). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
+36 cards (look cards, at home in every look: jam-dial, jam-keypad and jam-radio are drawn after Braun objects; jam-pictogram, jam-programme and jam-results were made for Olympia; jam-linemap and jam-arrivals for Transit, jam-matrix for Grid, jam-ridge for Pulsar and jam-sticker for New Wave). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
 
 ### jam-heading
 Section label with a big title over a 5px accent rule.
@@ -810,6 +810,113 @@ items:
 |---|---|
 | `items` | 1-12 entity ids or `{entity, name, color, unit, attribute, decimals, thresholds, tap_action}`; `thresholds` = a list of `{above, below, color, word}`: the first one the value passes sets the square's colour and shows its `word` (default "high" above, "low" below) on an inverted label plate; `color` = an accent name; with neither the square is neutral (face colour, text colour numerals); a missing sensor shows its name and "Offline" |
 | `columns` | Fixed number of columns (default: as many squares of at least 112px as fit) |
+
+### jam-linemap
+The house as a subway map (made for the Transit look, drawn in every look): every room is a coloured line, every entity a
+station on it. A big filled dot = on, a small hollow one = off, a dashed ring = offline, a tick across the track = a sensor
+with its value; a line with nothing on is out of service (dashed); a long line turns back on the next row. An entity on
+two lines is an interchange (a bigger ring, filled with the line colour when on, with the other line's bullet after its
+name). Tap a station to toggle it (or open its details), tap a line's name to open its room.
+```yaml
+type: custom:jam-linemap
+title: House lines
+lines:
+  - name: Living
+    color: living
+    path: /lovelace/living
+    stations: [light.floor_lamp, light.sofa, switch.hallway, sensor.living_temperature]
+  - name: Kitchen
+    color: kitchen
+    stations: [light.ceiling, light.island, switch.hallway]
+```
+| Option | Description |
+|---|---|
+| `lines` | The lines, in order: `name`, `color` (a hue or room alias; default ochre, teal, blue, pink, violet, green by position), `path` (tap the name to go there), `stations` (entity ids, in order) |
+| `title`, `accent` | Title and the colour of its rule |
+
+### jam-arrivals
+An arrivals board (made for the Transit look): alerts and service changes first, then what is playing, the next calendar
+events and entity states, each row with a route bullet (every line its own letter) and the status on the right ("Now",
+"7:30 PM", "Tue 9:00", "Tomorrow").
+```yaml
+type: custom:jam-arrivals
+alerts:
+  - entity: binary_sensor.sink_leak
+    message: Water under the sink
+  - entity: sensor.front_door_battery
+    below: 15
+media: [media_player.kitchen]
+calendars: [calendar.family]
+events: 4
+entities: [sensor.washer, lock.front_door]
+```
+| Option | Description |
+|---|---|
+| `alerts` | Rows while a condition holds: `entity` with `state` (one or a list), `above` / `below`, or nothing (= while on or in a problem state); `message` (default "name: state"); `severity` `alert` (red mark, "Now", the sensor as detail; first) or `warn` (a "Service change"; default: alert when the entity is in a problem state) |
+| `media` | Media players shown as "Now playing" while they play or are paused |
+| `calendars` | Calendar ids (or `{entity, name, accent, bullet}`): their next events, merged in time order |
+| `events`, `hours` | How many events (default 4) within how many hours (default 48) |
+| `refresh_minutes` | How often the calendars are read again (default 15) |
+| `entities` | Rows whose state is the status (ids or `{entity, name, accent, bullet}`); `bullet` sets the letter, else the first letter of the name that no other line uses |
+| `title`, `accent` | Title (default "Arrivals") and the default bullet colour |
+
+### jam-matrix
+A toggle matrix (made for the Grid look): one square per entity, filled while on; squares of 64px or more show their name.
+Hover or focus a square to read it in the caption (at rest the caption lists what is on); on a touch screen the first tap
+selects a square and names it, the second one toggles it. The count of what is on sits in the header as a big numeral
+(cell numerals in the Grid look). Arrow keys move between squares.
+```yaml
+type: custom:jam-matrix
+title: Lights
+entities: [light.floor_lamp, light.sofa, light.ceiling, light.island]
+```
+| Option | Description |
+|---|---|
+| `entities` | Entity ids (or `{entity, name}`); on / off entities toggle, others open their details |
+| `columns` | Squares per row (default: the count, 3 to 6; at most 4 on a phone) |
+| `title`, `accent` | Title (default "Matrix") and the fill of a square that is on |
+
+### jam-ridge
+Stacked ridgelines of the recorder history of 1–8 sensors (made for the Pulsar look): one calm line per sensor, each on
+its own scale so the shape of the day reads, the current value on the right. The one sensor that has left its range of
+the day is drawn in the accent; an offline one is dashed. Static; tap a row for its details.
+```yaml
+type: custom:jam-ridge
+title: Temperatures
+entities: [sensor.outside_temperature, sensor.living_room_temperature, sensor.bedroom_temperature]
+```
+| Option | Description |
+|---|---|
+| `entities` | 1–8 entity ids or `{entity, name}` |
+| `hours_to_show` | Window (default 24) |
+| `refresh_minutes` | Default 5 |
+| `title`, `accent` | Title (default "History") and the colour of its rule |
+
+### jam-sticker
+A sticker note that is only there while its conditions hold (made for the New Wave look): alerts, reminders, a key to act
+on them. Info, warn and alert stickers have their own colours (an alert has a mark, a bigger title and comes first); in New
+Wave they are tilted stickers with a hard shadow.
+```yaml
+type: custom:jam-sticker
+title: Dishwasher is done
+text: Unload it before dinner.
+conditions:
+  - entity: sensor.dishwasher
+    state: done
+action_name: Mark emptied
+tap_action:
+  action: perform-action
+  perform_action: input_boolean.turn_on
+  target: {entity_id: input_boolean.dishwasher_emptied}
+```
+| Option | Description |
+|---|---|
+| `conditions` | All must hold, like HA's visibility conditions: `condition` (`state` / `numeric_state`, optional), `entity`, `state` / `state_not` (one or a list), `above` / `below`; an item with only an entity holds while it is on |
+| `title`, `text` | The note |
+| `severity` | `info` (default), `warn` or `alert` |
+| `action_name`, `tap_action` | A key on the sticker (default name "Open") and what it does |
+| `entity` | The entity a `more-info` key opens |
+| `accent` | Not used (the severity sets the colour) |
 
 ## Design rules
 The default look, Poster: flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight

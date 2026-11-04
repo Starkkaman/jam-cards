@@ -411,6 +411,18 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
    bands (the current band keeps its taller outline). */
 :host(jam-programme) .lane[data-lv="1"] .bd{background:var(--slab);border:3px solid var(--bf)}
 :host(jam-programme) .lane[data-lv="2"] .bd:not(.bnow){top:25%;bottom:25%}
+/* ---------- look cards (2026-11-03): thin tracks, 1px ridges, outlined matrix cells (on = a warm ring around a warm
+   core), stickers as outlined notes (alert: a warm outline and warm title) ---------- */
+:host(jam-linemap){--lm-w:3px}
+:host(jam-ridge){--rg-w:1px}
+:host(jam-matrix) .cell,:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:var(--acc);box-shadow:inset 0 0 0 1px var(--acc),inset 0 0 0 6px var(--slab)}
+:host(jam-matrix) .cell.alert{--acc:var(--red)}
+:host(jam-matrix) .cell:hover,:host(jam-matrix) .cell.sel{box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on:hover,:host(jam-matrix) .cell.on.sel{box-shadow:inset 0 0 0 1px var(--fg),inset 0 0 0 6px var(--slab)}
+:host(jam-sticker) .sk.sk{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--line)}
+:host(jam-sticker) .sk.alert{box-shadow:inset 0 0 0 1px var(--red)}
+:host(jam-sticker) .sk.alert .ttl{color:var(--alert-text)}
 `;
 
   registerLook({
