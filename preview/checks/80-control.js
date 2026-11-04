@@ -23,7 +23,7 @@ module.exports = async (page, check) => {
   check(bats[0].bad && bats[2].bad && !bats[1].bad && bats[0].color === red && bats[1].color !== red,
     `jam-panel: bad.below 20 turns 18% / 15% red, 81% plain (${bats.map(b => b.v + (b.bad ? "!" : "")).join(" ")})`);
   const pw = row("Serenity", "Power");
-  check(pw.v === "unavailable" && pw.bad && pw.color === red, `jam-panel: unavailable entity → red "unavailable" (${pw.v})`);
+  check(pw.v === "Offline" && pw.bad && pw.color === red, `jam-panel: unavailable entity → red "Offline" after a hollow mark (${pw.v})`);
   // Threshold kinds on a scratch card: above, below, state list, attribute, missing entity.
   const scratch = await page.evaluate(() => {
     const e = document.createElement("jam-panel");
@@ -39,7 +39,7 @@ module.exports = async (page, check) => {
     const out = [...e.shadowRoot.querySelectorAll(".row")].map(r => ({bad: r.classList.contains("bad"), v: r.querySelector(".v").textContent, btn: r.getAttribute("role") === "button"}));
     e.remove(); return out;
   });
-  check(scratch[0].bad && !scratch[1].bad && scratch[2].bad && !scratch[3].bad && scratch[3].v === "0" && scratch[4].bad && scratch[4].v === "unavailable"
+  check(scratch[0].bad && !scratch[1].bad && scratch[2].bad && !scratch[3].bad && scratch[3].v === "0" && scratch[4].bad && scratch[4].v === "Offline"
     && !scratch[5].btn, `jam-panel: above / in-range / state list (case-insensitive) / attribute / missing / tap none (${JSON.stringify(scratch.map(s => s.v + (s.bad ? "!" : "")))})`);
   // Row tap → more-info.
   await page.evaluate(() => { window.__mi8 = []; window.addEventListener("hass-more-info", e => window.__mi8.push(e.detail.entityId)); });
@@ -70,7 +70,7 @@ module.exports = async (page, check) => {
   const today = al.rows.find(x => x.id === "automation.dim_kiosks_for_tv_at_night"), old = al.rows.find(x => x.id === "automation.charge_ipad");
   check(/^ran \d{1,2}:\d\d/.test(today.v) && /^ran [A-Za-z]{3} \d{1,2}/.test(old.v), `jam-alerts: "ran <time>" today, "ran <date>" older (${today.v}; ${old.v})`);
   const w1 = al.rows.find(x => x.id === "lock.front_door"), w2 = al.rows.find(x => x.id === "sensor.stove_lights_power");
-  check(w1 && !w1.cls.includes("bad") && w2 && w2.cls.includes("bad") && w2.v === "unavailable" && w2.color === red,
+  check(w1 && !w1.cls.includes("bad") && w2 && w2.cls.includes("bad") && w2.v === "Offline" && w2.color === red,
     `jam-alerts: watched entity unavailable → red row (${w1 && w1.v} / ${w2 && w2.v})`);
   check(al.chip === "1" && al.title === "Automations & alerts", `jam-alerts: header failure chip (${al.chip}), default title`);
 
@@ -111,7 +111,7 @@ module.exports = async (page, check) => {
   check(sc["12"].vals[0] === "ran " + sc.wantA12 && /AM|PM/.test(sc["12"].vals[0]) && sc["24"].vals[0] === "ran " + sc.wantA24 && !/AM|PM/.test(sc["24"].vals[0])
     && sc["12"].vals[2] === "ran " + sc.wantB,
     `jam-alerts: time follows hass.locale.time_format (12: ${sc["12"].vals[0]}; 24: ${sc["24"].vals[0]}), weekday this week (${sc["12"].vals[2]})`);
-  check(sc["12"].vals[sc["12"].vals.length - 1] === "3 unavailable",
+  check(sc["12"].vals[sc["12"].vals.length - 1] === "3 offline",
     `jam-alerts: unavailable count skips update/button/scene/event and unknown (${sc["12"].vals[sc["12"].vals.length - 1]}, want 3: sensor.x, light.z, automation.e)`);
   check(sc.all.length === 5 && sc.all[3] === "automation.d" && sc.chip === "1" && sc.nocount === 0,
     `jam-alerts: default limit, never-run + unavailable rows, chip counts the unavailable automation, count row optional (${sc.all.join(",")}; chip ${sc.chip})`);

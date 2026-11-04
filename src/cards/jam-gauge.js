@@ -3,7 +3,7 @@
     semantics), style?: arc|bar, tap_action?, hold_action?, double_tap_action?, accent?}
    Bands green/yellow/red -> teal/ochre/red (fixed, not the accent); without severity one band in the card accent
    (default ochre). Every wedge has the same radius. Values outside min..max are clamped
-   (the numeral still shows the real value). Unavailable / non-numeric -> red "Unavailable", no fill. */
+   (the numeral still shows the real value). Unavailable / non-numeric -> red "Offline", no fill. */
 const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
 const JG_SVG = "http://www.w3.org/2000/svg";
 function jgFmt(v) { return String(Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10); }
@@ -38,7 +38,7 @@ class JamGauge extends JamBase {
       unit: c.unit ?? (s && s.attributes.unit_of_measurement) ?? ""};
   }
   _numeral(m, parent) {
-    if (!m.ok) { parent.append(el("div", "big un c-alert", "Unavailable")); return; }
+    if (!m.ok) { parent.append(el("div", "big un c-alert", OFFLINE)); return; }
     const n = el("div", "big num", jgFmt(m.v));
     if (m.unit) n.append(el("span", "u", m.unit));
     parent.append(n);
@@ -47,7 +47,7 @@ class JamGauge extends JamBase {
     node.setAttribute("role", "meter"); node.setAttribute("aria-label", this._name());
     node.setAttribute("aria-valuemin", m.min); node.setAttribute("aria-valuemax", m.max);
     if (m.ok) { node.setAttribute("aria-valuenow", m.cv); node.setAttribute("aria-valuetext", jgFmt(m.v) + (m.unit ? " " + m.unit : "")); }
-    else node.setAttribute("aria-valuetext", "Unavailable");
+    else node.setAttribute("aria-valuetext", OFFLINE);
   }
   _arc(face, m) {
     /* R10 hook: a look may draw the whole meter (motif "gauge": Pulsar's ridge stack); Poster's returns null. */

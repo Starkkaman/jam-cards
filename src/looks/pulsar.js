@@ -376,9 +376,14 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 .lk{--lk-bg:transparent;--lk-gl:var(--fg);--lk-tx:var(--fg)}
 .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
 .lk .disc{box-shadow:inset 0 0 0 1px var(--fg)}
-.lk.alert{--lk-bg:transparent;--lk-gl:var(--alert-text);--lk-tx:var(--alert-text)}
-.lk.alert .disc{box-shadow:inset 0 0 0 1px var(--red)}
-.lk.off .disc{border:1px solid var(--dim);box-shadow:none}
+/* unlocked = the one warm fill (audit: a 1px warm ring was weaker than the locked ring) */
+.lk.alert{--lk-bg:var(--red);--lk-gl:var(--on-fg);--lk-tx:var(--alert-text)}
+.lk.alert .disc{box-shadow:none}
+.lk.off .disc{border:1px dashed var(--dim);box-shadow:none}
+
+/* ---------- offline (state grammar): no fill, the 1px rule dashed, dim text ---------- */
+.paper[data-cut] > .face.unavail{background:none;border:1px dashed var(--dim);box-shadow:none}
+.tmk.t-offline{--tc:transparent;box-shadow:inset 0 0 0 1px var(--dim)}
 
 /* ---------- jam-screensaver: black field, ridge band, thin time ---------- */
 .ov .time,.ov .tchip .tt{font-weight:300}
@@ -387,6 +392,11 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 .sh.pband svg{width:100%;height:100%}
 .l0 .pband,.l4 .pband,.l5 .pband{top:7vh} .l1 .pband,.l2 .pband,.l3 .pband{bottom:6vh}
 .l2 .pband,.l3 .pband{height:24vh}
+/* With a now-playing block the text column grows: the band shrinks to the edge strip away from it (audit: the ridges
+   struck through the title). preview/fit.js checks text against motif shapes in every layout. */
+.ov[data-now=on] .pband{height:13vh}
+.ov[data-now=on] .l0 .pband,.ov[data-now=on] .l4 .pband,.ov[data-now=on] .l5 .pband{top:4vh}
+.ov[data-now=on] .l1 .pband,.ov[data-now=on] .l2 .pband,.ov[data-now=on] .l3 .pband{bottom:3vh}
 .tchip{background:transparent;color:var(--sfg);box-shadow:inset 0 0 0 1px var(--sdim)}
 .tchip small{color:var(--sdim)}
 .np .th{background:var(--ink);box-shadow:inset 0 0 0 1px var(--sdim)}

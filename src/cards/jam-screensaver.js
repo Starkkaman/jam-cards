@@ -6,6 +6,8 @@
     mode_entity? (0.4.1: input_select / select / input_boolean choosing the mode live, see below),
     poster_every? (images mode WITHOUT a mode_entity: every Nth slide is the poster; ignored when mode_entity is set, 0.7.1),
     now?: [sources, first active one wins] (0.7.1, same shape as jam-kiosk's now list; see "Now playing" below),
+    lock_entity?, lock_name? ("Front door"), alerts?: [{entity, state? | states?, name?}] (audit 2026-11-03, opt-in; see
+    "Door and alerts" below),
     active_hours?: {from: "06:00", to: "23:00"},
     disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
     motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
@@ -58,7 +60,13 @@
    logged or stored. Poster: the block sits in the text block under the weather line (so it moves with the layout and can
    never overlap the clock, date or weather), cover ~16vh, title in the display face 5.75vh (44px at 768 high), max 2 lines.
    Photos: the same block as a solid ink cut-paper label (no gradient / blur) under the time chip at the bottom-left, cover
-   11.5vh (88px at 768), title 4.4vh (34px). Updated only from hass updates that change a now entity (no polling, no animation). */
+   11.5vh (88px at 768), title 4.4vh (34px). Updated only from hass updates that change a now entity (no polling, no animation).
+   Door and alerts (opt-in, both modes): one block at the top of the poster's text block (so it moves with the layout and can
+   never cover the clock) and above the time chip on photos. Quiet while all is well: a small padlock + "Front door ·
+   locked" in the muted label style (offline: a dashed ring, "Front door · offline"). Loud only while true: the lock
+   unlocked / open / jammed or an alert matching (alert: `state` / `states`, else the alert tone, e.g. on / problem): an
+   alert-red plate with ink display text "FRONT DOOR UNLOCKED · WATER LEAK", the open padlock first. The screensaver is
+   dismissed by the first tap, so the block has no action. */
 const SS_CSS = `
   :host{display:block;height:0;overflow:visible}
   .ov{position:fixed;inset:0;z-index:2147483000;display:none;overflow:hidden;background:var(--ink);
@@ -111,7 +119,7 @@ const SS_CSS = `
     clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%))}
   .tchip .tt{font-family:var(--num-font);font-weight:var(--disp-w);font-size:calc(8vh * var(--num-scale));line-height:calc(.85 * var(--disp-lead));white-space:nowrap}
   .tchip small{color:var(--acc-fg)}
-  .tchip .cap{font:var(--lbl-w) max(11px,1.8vh)/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);max-width:40vw}
+  .tchip .cap{font:var(--lbl-w) max(12px,1.8vh)/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);max-width:40vw}
   .tchip .cap:empty{display:none}
   /* Now playing (0.7.1): poster block in the text column; photos label = the same block on solid ink. */
   .np{display:flex;align-items:center;gap:2.6vh;margin-top:2.2vh;max-width:min(62vw,820px);min-width:0;text-align:left}
@@ -133,6 +141,20 @@ const SS_CSS = `
   .sdock .np .th{width:11.5vh;height:11.5vh}
   .sdock .np .nb{font-size:calc(4.4vh * var(--disp-scale))}
   .sdock .np .ns{font-size:max(12px,2vh)}
+  /* Door and alerts (opt-in): quiet line / loud alert plate, first in the text block and in the photos dock. */
+  .al{display:flex;align-items:center;gap:1.4vh;max-width:min(70vw,900px);min-width:0;text-align:left}
+  .al.off{display:none}
+  .al svg{flex:none;width:2.6vh;height:2.6vh;min-width:16px;min-height:16px;display:block}
+  .al .at{min-width:0;font:var(--lbl-w) max(13px,2.1vh)/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--sdim);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .al.quiet{color:var(--sdim)}
+  .al.offline svg{border-radius:50%;outline:2px dashed var(--sdim);outline-offset:3px}
+  .al.loud{gap:2vh;padding:1.4vh 3vh 1.4vh 2.2vh;background:var(--red);color:var(--on-fg)}
+  .al.loud svg{width:6vh;height:6vh}
+  .al.loud .at{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(5vh * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));
+    letter-spacing:var(--jam-display-track,0);text-transform:var(--disp-case);color:var(--on-fg)}
+  .r .al{flex-direction:row-reverse;text-align:right}
+  .sdock .al.quiet{padding:1vh 1.6vh;background:var(--ink)}
   @media (prefers-reduced-motion:reduce){.shift .sh,.shift .txt,.img.cut{animation:none!important}.img,.slides{transition:none!important}}`;
 /* Tokens carried onto the layer when it moves to document.body (the theme may be set on an HA view, not on <html>):
    every --jam-* token (JAM_TOKENS from core, generated from tokens/). */
@@ -295,6 +317,8 @@ class JamScreensaver extends JamBase {
     if (c.mode_entity !== undefined && typeof c.mode_entity !== "string") throw new Error("jam-screensaver: mode_entity is an entity id");
     if (c.now !== undefined && !Array.isArray(c.now)) throw new Error("jam-screensaver: now must be a list");
     for (const n of c.now || []) if (!n || !["media", "weather"].includes(n.type) || typeof n.entity !== "string") throw new Error("jam-screensaver: now sources are {type: media | weather, entity}");
+    if (c.lock_entity !== undefined && !(typeof c.lock_entity === "string" && /^lock\./.test(c.lock_entity))) throw new Error("jam-screensaver: lock_entity must be a lock.* entity");
+    if (c.alerts !== undefined && !(Array.isArray(c.alerts) && c.alerts.every(a => a && typeof a.entity === "string"))) throw new Error("jam-screensaver: alerts is a list of {entity, state?, name?}");
     if (c.kiosk !== undefined && c.kiosk !== true && c.kiosk !== false && c.kiosk !== "url") throw new Error('jam-screensaver: kiosk is true, false or "url"');
   }
   setConfig(config) {
@@ -343,6 +367,8 @@ class JamScreensaver extends JamBase {
     const h = this._hass, c = this._config, st = (h && h.states) || {};
     const out = [st[c.weather_entity], st[c.temperature_entity], h && h.locale, h && h.language];
     for (const n of this._nowSrcs()) out.push(st[n.entity], n.app_entity ? st[n.app_entity] : null);
+    if (c.lock_entity) out.push(st[c.lock_entity]);
+    for (const a of c.alerts || []) out.push(st[a.entity]);
     return out;
   }
   get hass() { return this._hass; }
@@ -396,6 +422,9 @@ class JamScreensaver extends JamBase {
     this._time = el("div", "time num"); this._date = el("div", "date");
     this._wx = el("div", "wx"); this._word = el("span", "word"); this._temp = el("span", "temp num");
     if (this._kick) txt.append(this._kick);
+    this._al = (c.lock_entity || (c.alerts || []).length) ? [this._alBlock(), this._alBlock()] : null; /* [poster, photos] */
+    this._alKey = null;
+    if (this._al) txt.append(this._al[0].box);
     this._np = [this._npBlock(), this._npBlock()]; /* [poster block, photos label] */
     this._npKey = null; this._npArt = null; this._npPre = null;
     txt.append(this._time, this._date, this._wx, this._np[0].box);
@@ -403,7 +432,9 @@ class JamScreensaver extends JamBase {
     const slides = el("div", "slides");
     this._chip = el("div", "tchip"); this._ctime = el("div", "tt num"); this._cap = el("div", "cap");
     this._chip.append(this._ctime, this._cap);
-    this._sdock = el("div", "sdock"); this._sdock.append(this._chip, this._np[1].box); slides.append(this._sdock);
+    this._sdock = el("div", "sdock");
+    if (this._al) this._sdock.append(this._al[1].box);
+    this._sdock.append(this._chip, this._np[1].box); slides.append(this._sdock);
     ov.append(poster, slides);
     /* Everything that reaches the overlay stays there (it is the top layer; HA must not see these events). */
     for (const t of ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "click", "contextmenu"]) {
@@ -638,6 +669,46 @@ class JamScreensaver extends JamBase {
       if (isFinite(temp)) { this._temp.textContent = Math.round(temp) + (unit ? unit.replace(/^°?/, "°").replace(/[CF]$/, "") : "°"); this._wx.append(this._temp); }
     }
     this._nowRender();
+    this._alRender();
+  }
+  /* ---- door and alerts (opt-in) ---- */
+  _alBlock() {
+    const box = el("div", "al off"), gl = el("span", "gl"), at = el("div", "at");
+    gl.setAttribute("aria-hidden", "true"); box.append(gl, at);
+    return {box, gl, at, glyph: null};
+  }
+  /* -> {tone: "loud" | "quiet" | "offline", closed, text} or null (nothing configured to show). */
+  _alState() {
+    const h = this._hass, c = this._config, loud = [];
+    let lock = null;
+    const name = typeof c.lock_name === "string" && c.lock_name.trim() ? c.lock_name.trim() : "Front door";
+    if (c.lock_entity) {
+      const s = stateObj(h, c.lock_entity);
+      if (!s || UNAVAILABLE.has(s.state)) lock = {tone: "offline", closed: true, text: `${name} · ${OFFLINE.toLowerCase()}`};
+      else if (lockAlert(s)) loud.push(`${name} ${String(s.state).replace(/_/g, " ")}`);
+      else lock = {tone: "quiet", closed: s.state === "locked", text: `${name} · ${String(fmtState(h, s)).toLowerCase()}`};
+    }
+    for (const a of c.alerts || []) {
+      const s = stateObj(h, a.entity);
+      if (!s) continue;
+      const want = a.states !== undefined ? [].concat(a.states).map(String) : a.state !== undefined ? [String(a.state)] : null;
+      if (want ? want.includes(String(s.state)) : ["alert", "on"].includes(tone(s))) loud.push(a.name || friendly(h, a.entity));
+    }
+    if (loud.length) return {tone: "loud", closed: !(c.lock_entity && lockAlert(stateObj(h, c.lock_entity))), text: loud.join(" · ")};
+    return lock;
+  }
+  _alRender() {
+    if (!this._al) return;
+    const a = this._hass ? this._alState() : null, key = a ? a.tone + "|" + a.closed + "|" + a.text : "";
+    if (key === this._alKey) return;
+    this._alKey = key;
+    for (const b of this._al) {
+      b.box.className = "al " + (a ? a.tone + (a.tone === "offline" ? " quiet" : "") : "off");
+      if (!a) continue;
+      if (b.glyph !== a.closed) { b.glyph = a.closed; b.gl.innerHTML = jamLockSvg(a.closed); }
+      b.at.textContent = a.text;
+    }
+    this._ov.dataset.alert = a && a.tone === "loud" ? "on" : "off";
   }
   /* ---- now playing (0.7.1) ---- */
   _nowSrcs() { return (this._config.now || []).filter(n => n && n.type === "media" && typeof n.entity === "string"); }

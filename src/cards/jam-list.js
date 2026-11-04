@@ -52,7 +52,7 @@ class JamList extends JamBase {
         const v = el("div", "v num" + (c.state_color === false ? "" : ` c-${t === "off" ? "dim" : t}`), s ? this._val(s) : "—");
         if (s) keepUnit(v, s);
         if (c.state_color !== false && (t === "on" || t === "calm")) { v.classList.add("t-" + t); v.prepend(el("span", "tmk")); }
-        if (!s || UNAVAILABLE.has(s.state)) row.classList.add("unavail");
+        if (!s || UNAVAILABLE.has(s.state)) { row.classList.add("unavail", "offline"); if (s && s.state === "unavailable") v.prepend(el("span", "tmk t-offline")); }
         row.append(v);
       }
       face.append(row);

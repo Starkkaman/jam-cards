@@ -86,7 +86,7 @@ module.exports = async (page, check, {callsNow}) => {
   await push("jam-gauge", "sensor.dehumidifier_current_consumption", {state: "-5"});
   check(await meter.getAttribute("aria-valuenow") === "0", "gauge clamps below min to 0");
   await push("jam-gauge", "sensor.dehumidifier_current_consumption", {state: "unavailable"});
-  check((await g.locator(".big.c-alert").textContent()) === "Unavailable" && await g.locator("path.cut").count() === 0, "unavailable gauge: red label, no value cut");
+  check((await g.locator(".big.c-alert").textContent()) === "Offline" && await g.locator("path.cut").count() === 0, "unavailable gauge: red \"Offline\" label, no value cut");
   await push("jam-gauge", "sensor.dehumidifier_current_consumption", {state: "111.4"});
   const bar = page.locator("jam-gauge").filter({hasText: "NAS_Effect"});
   const bw = await bar.locator(".fill").evaluate(f => parseFloat(f.style.width));

@@ -6,8 +6,9 @@
 // (tools/bundle.mjs). Edit here, then run node tools/bundle.mjs && node tools/themes.mjs.
 //
 // Token mapping (the cards keep Poster's token names):
-//   - room hues map onto the spectrum: ochre (living, the default accent) = orange, teal (kitchen) = green, blue (master)
-//     = blue, pink (marissa) = light blue, violet (music) = blue, green (nerd) = green, red (alerts) = orange;
+//   - room hues map onto the spectrum: ochre (living, the default accent) = yellow, teal (kitchen) = green, blue (master)
+//     = blue, pink (marissa) = light blue, violet (music) = blue, green (nerd) = green, red (alerts) = orange: orange is the
+//     alert's own colour (audit 2026-11-03: living was the same #f08c33 as the alert), drawn with a hatch by the pack;
 //   - ink = the dark "ink" of the look (navy): sheet veil, text plates, dark fixed surfaces; ink-fg = white. The page ground
 //     is the HA ground alias (#f4f6f7 light / the ink in dark), as Poster's light mode does;
 //   - band = the card face (the tv / speaker text sits on the card under its art, as in the approved mockup; keys on it
@@ -32,8 +33,9 @@ export default {
     "and loads Albert Sans from its dist/fonts/. Themes cannot load web fonts: without Jam Cards the stacks fall back",
     "to Helvetica/Arial.",
     "Light mode (primary) = #f4f6f7 ground, white faces, navy ink text; dark mode = #10202b ground, #172b38 faces.",
-    "Room hues on the spectrum: jam-ochre (orange) living, jam-teal (green) kitchen, jam-blue master, jam-pink (light blue)",
-    "marissa, jam-violet (blue) music, jam-green nerd; jam-red is orange (alerts). jam-on-fg = text on spectrum fills.",
+    "Room hues on the spectrum: jam-ochre (yellow) living, jam-teal (green) kitchen, jam-blue master, jam-pink (light blue)",
+    "marissa, jam-violet (blue) music, jam-green nerd; jam-red is orange, the alerts' own colour (hatched by Jam Cards).",
+    "jam-on-fg = text on spectrum fills.",
     "jam-alert-text = alert TEXT, >= 4.5:1 on slab/slab2/slab3 in its mode.",
   ],
   tokens: {
@@ -141,7 +143,7 @@ export default {
         "jam-ink": "#10202b", "jam-slab": "#172b38", "jam-slab2": "#223a49", "jam-slab3": "#263f4f",
         "jam-paper": "#8fc7e8", "jam-paper-fg": "#10202b", "jam-paper-dim": "#2a4c62",
         "jam-fg": "#e9f1f5", "jam-dim": "#93aab8", "jam-line": "#2c4655",
-        "jam-ochre": "#f39a46", "jam-red": "#f39a46", "jam-alert-text": "#f39a46", "jam-teal": "#34b56a", "jam-blue": "#4a9be0",
+        "jam-ochre": "#f6c445", "jam-red": "#f39a46", "jam-alert-text": "#f39a46", "jam-teal": "#34b56a", "jam-blue": "#4a9be0",
         "jam-pink": "#8fc7e8", "jam-violet": "#4a9be0", "jam-green": "#34b56a", "jam-on-fg": "#10202b", "jam-shadow": "#0b1820",
         "jam-s1": "#4a9be0", "jam-s2": "#34b56a", "jam-s3": "#f39a46", "jam-s4": "#f6c445", "jam-s5": "#8fc7e8",
         "jam-ink-fg": "#e9f1f5", "jam-ink-dim": "#93aab8", "jam-ink-dim2": "#a9bcc8",
@@ -161,7 +163,7 @@ export default {
         "jam-ink": "#1f3b4d", "jam-slab": "#ffffff", "jam-slab2": "#e7edf0", "jam-slab3": "#dde5ea",
         "jam-paper": "#8fc7e8", "jam-paper-fg": "#1f3b4d", "jam-paper-dim": "#2a4c62",
         "jam-fg": "#1f3b4d", "jam-dim": "#52697a", "jam-line": "#d8e1e6",
-        "jam-ochre": "#f08c33", "jam-red": "#f08c33", "jam-alert-text": "#9a4700", "jam-teal": "#2aa65c", "jam-blue": "#3a8fd8",
+        "jam-ochre": "#f6c445", "jam-red": "#f08c33", "jam-alert-text": "#9a4700", "jam-teal": "#2aa65c", "jam-blue": "#3a8fd8",
         "jam-pink": "#8fc7e8", "jam-violet": "#3a8fd8", "jam-green": "#2aa65c", "jam-on-fg": "#10202b", "jam-shadow": "#c9d3d9",
         "jam-s1": "#3a8fd8", "jam-s2": "#2aa65c", "jam-s3": "#f08c33", "jam-s4": "#f6c445", "jam-s5": "#8fc7e8",
         "jam-ink-fg": "#ffffff", "jam-ink-dim": "#b9c9d3", "jam-ink-dim2": "#c6d4dc",

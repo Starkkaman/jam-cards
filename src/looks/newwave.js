@@ -12,7 +12,7 @@
    - confetti: one seeded shape per card (triangle, squiggle, ring, dot grid) under a corner of its plane, peeking out
      (and showing through the translucent plane under fx); seeded by the card's data-jam-seed (core, from its entity);
    - stickers: alerts / "needs you" (alert chips and keys, the jam-alerts rows, the failed-action strip is the terminal)
-     in the sticker yellow, ok in mint; the screensaver's now-playing block is a sticker;
+     in the sticker yellow, ok in mint; the screensaver's now-playing block is a mint sticker (yellow = needs you only);
    - the bands (jam-tv / jam-speaker text, music dock, error strip) are the terminal (jam-band tokens);
    - kiosk: a big pixel clock, dock blocks as tinted planes (no tilt, no confetti); screensaver: the pixel clock on the page
      ground with confetti (the four layout shapes) and, under fx, a soft light field that drifts with the time of day
@@ -46,13 +46,14 @@
     return `:host([data-jam-seed="${s}"]) .host{--nw-rot:${ROT[(s * 7 + 1) % 4]}deg}
 :host([data-jam-seed="${s}"]) .host > .paper[data-cut=card]:not(.kiosk)::before{${x};${y};-webkit-mask-image:${SHAPES[sh]};mask-image:${SHAPES[sh]};transform:rotate(${(s * 7) % 21 - 10}deg)}`;
   }).join("\n");
-  /* Room pairs: the accent's partner hue for the plane gradient and the confetti (default: peach -> sticker yellow). */
+  /* Room pairs: the accent's partner hue for the plane gradient and the confetti (default: peach -> pink; audit 2026-11-03:
+     the sticker yellow is kept for "needs you" only). */
   const PAIRS = [["teal", "green"], ["green", "teal"], ["blue", "violet"], ["pink", "violet"], ["violet", "blue"], ["red", "pink"], ["ink", "violet"], ["paper", "violet"]]
     .map(([a, b]) => `[style*="--acc: var(--${a})"]{--nw-t2:var(--${b})}`).join(" ");
 
   const CSS = `
 /* ---------- plane variables ---------- */
-.host{--nw-t2:var(--jam-art-6,var(--ochre));--nw-plane:color-mix(in srgb,var(--slab) 58%,transparent);--nw-rot:0deg}
+.host{--nw-t2:var(--pink);--nw-plane:color-mix(in srgb,var(--slab) 58%,transparent);--nw-rot:0deg}
 ${PAIRS}
 /* ---------- planes: card / hero faces tinted by the room; flat and opaque without fx ---------- */
 .host > .paper[data-cut=card] > .face,.host > .paper[data-cut=hero] > .face,.host > .paper.btn > .face{
@@ -74,6 +75,10 @@ ${PAIRS}
   -webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center}
 :host-context(.pop) .host > .paper::before{display:none}
 ${SEEDS}
+/* Offline (state grammar, audit 2026-11-03): a 45deg pixel hatch of the plane (6px / 2px), dim text, no tint, no tilt. */
+.host > .paper[data-cut] > .face.unavail,:host([data-fx]) .host > .paper[data-cut] > .face.unavail{
+  background:repeating-linear-gradient(45deg,var(--slab) 0 6px,var(--slab2) 6px 8px);color:var(--dim);border:0;box-shadow:inset 0 0 0 1px var(--dim);transform:none}
+.tmk.t-offline{--tc:var(--slab);box-shadow:inset 0 0 0 2px var(--dim)}
 /* ---------- type: pixel caps for labels, pixel numerals (theme), Archivo headings ---------- */
 .label,.kick,.sub,.st,:host(jam-tile) .name,.lb,.kk,.grp,.here,.ns,.cap,.now,.lg button,.small,.lk .lbl,.per,.unit,.tmk + span{font-family:"Silkscreen","Courier New",monospace;font-weight:400}
 /* words in a numeral slot (a gauge's "Unavailable") stay in the display face */
@@ -84,6 +89,8 @@ ${SEEDS}
 .key:not(:disabled):hover > .face{box-shadow:inset 0 0 0 2px var(--fg)}
 .key.on > .face,.ikey.main > .face{background:var(--fg);color:var(--slab);box-shadow:3px 3px 0 var(--acc)}
 .key.alert > .face{background:var(--jam-art-6);color:var(--on-fg);box-shadow:3px 3px 0 var(--red)}
+/* Power keys (remote / TV) are an action, not an alert: an ink block with a red offset (audit: yellow means "needs you"). */
+:host(jam-remote) .key.alert > .face,:host(jam-tv) .key.alert > .face{background:var(--fg);color:var(--slab);box-shadow:3px 3px 0 var(--red)}
 .key:disabled > .face{color:var(--dim)}
 .key.on:disabled > .face,.ikey.main:disabled > .face{background:var(--slab2);color:var(--dim);box-shadow:none}
 button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
@@ -118,6 +125,8 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 /* (specificity above the room plane rules) */
 :host([data-fx]) .host > .paper.lc.on > .face{background:linear-gradient(150deg,color-mix(in srgb,var(--lc) 48%,var(--ink-fg)),color-mix(in srgb,var(--lc) 16%,var(--ink-fg)))}
 .lc.on .sub,.lc.on .pct,.lc.on .nm{color:var(--on-fg)}
+/* The "%" (and Off / Offline) in Archivo: Silkscreen's % at this size reads as a "z" (audit 2026-11-03). */
+.pct small{font-family:var(--display);font-weight:700;font-size:max(13px,.62em)}
 .lc.on.plate .top{margin:0;padding:0;background:none;color:inherit;clip-path:none}
 .lc.on.plate .pct{margin-left:0;padding:0;background:none;color:var(--on-fg)}
 .lc.on .pw .tri{background:var(--ink-fg);box-shadow:inset 0 0 0 1.5px var(--on-fg)} .lc.on .pw svg{color:var(--on-fg)}
@@ -131,7 +140,8 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 /* light pop-up presets keep their plates */
 .wp b{background:var(--plate);color:var(--plate-fg);padding:3px 6px 4px;right:auto;max-width:calc(100% - 16px)}
 /* ---------- jam-button: plane tile; on = ink block ---------- */
-.host > .paper.btn > .kf.on{background:var(--fg);color:var(--slab);box-shadow:3px 3px 0 var(--acc)}
+.host > .paper.btn > .kf.on,:host([data-fx]) .host > .paper.btn > .kf.on{background:var(--fg);color:var(--slab);box-shadow:3px 3px 0 var(--acc)}
+/* (the fx plane rule above is (0,6,0): the lit key must outrank it, else its label is ink on the plane) */
 .kf.on .st{color:var(--slab)}
 .kf .sq{background:var(--slab);color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--fg)}
 .kf.on .sq{background:var(--acc);color:var(--on-fg);box-shadow:none}
@@ -173,10 +183,11 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:var(--fg);color:var(--slab)}
 :host(jam-kiosk) .blk:active .st,:host(jam-kiosk) .blk.stamp .st{color:var(--slab)}
 :host(jam-kiosk) .blk:focus-visible{outline:3px solid var(--focus);outline-offset:-7px}
-:host(jam-kiosk) .lk{--lk-bg:var(--fg);--lk-gl:var(--slab)}
-:host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--slab)}
+/* The lock: locked = a quiet plane with an ink ring (core --lk-ring); unlocked = the sticker (yellow, ink edge, red offset). */
+:host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .lk .disc{border-radius:2px}
 :host(jam-kiosk) .lk.alert{--lk-bg:var(--jam-art-6);--lk-gl:var(--on-fg)}
+:host(jam-kiosk) .lk.alert .disc{box-shadow:inset 0 0 0 4px var(--on-fg),8px 8px 0 var(--red)}
 /* ---------- motion ---------- */
 @keyframes nw-enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes nw-sheet{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
@@ -212,8 +223,8 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 .ov .poster,.ov .slides{z-index:1}
 /* now playing = a sticker: the yellow backing grows around the block as a box-shadow spread (the block keeps Poster's box
    for the fit checks), with a hard offset in the text colour; under fx it is turned by 2deg and the offset softens. */
-.ov .np{position:relative;background:var(--jam-art-6);box-shadow:0 0 0 14px var(--jam-art-6),9px 9px 0 14px var(--fg)}
-.ov[data-fx] .np{transform:rotate(-2deg);box-shadow:0 0 0 14px var(--jam-art-6),12px 14px 0 14px color-mix(in srgb,var(--fg) 30%,transparent)}
+.ov .np{position:relative;background:var(--jam-art-8);box-shadow:0 0 0 14px var(--jam-art-8),9px 9px 0 14px var(--fg)}
+.ov[data-fx] .np{transform:rotate(-2deg);box-shadow:0 0 0 14px var(--jam-art-8),12px 14px 0 14px color-mix(in srgb,var(--fg) 30%,transparent)}
 .ov .np .nb,.ov .np .ns,.ov .np .kick{color:var(--on-fg)}
 .ov .sdock .np{background:none;clip-path:none}
 .ov .time small,.ov .tchip small{font-size:max(18px,.14em)}

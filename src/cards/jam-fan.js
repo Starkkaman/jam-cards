@@ -2,13 +2,14 @@
    {type: custom:jam-fan, entity (fan.*), name?, speeds?: [percent, ...] (default from percentage_step, e.g. 25 -> 25/50/75/100;
     none when the fan cannot set a speed), presets?: [mode, ...] (default the fan's preset_modes; false or [] = no preset chips),
     sensor?: id | {entity, name?} (kicker, e.g. air quality "Excellent"), extra_sensor?: id | {entity, name?}
-    (kicker, "PM2.5 1 µg/m³"; name defaults from the device class), accent? (DESIGN "Colour system")}
+    (kicker, "PM2.5 1 µg/m³"; name defaults from the device class), accent? (DESIGN "Colour system"), size?: "kiosk"
+    (audit 2026-11-03, opt-in: 36px name, 18px kicker, 64px keys with 18px text, 64px power corner)}
    Slab card: name + kicker, segmented speed keys (active = accent; fan.set_percentage), preset chips (active = accent;
    fan.set_preset_mode). While a preset runs no speed is active. Speed keys and preset chips use the chip cut (bottom-right 6px).
    Power (round 3, ROUND3 "Interaction rule"; replaces the On/Off pill): core powerCorner, 46px top-right triangle in slab2
    (the shade of the slab face), glyph in the accent when on, --fg when off; fan.turn_on / turn_off. Tap anywhere else on
    the card (not on a key) = more-info (the fan's detail view). Keys: Enter on the name = more-info, P or Shift+Enter on the
-   name = power. Unavailable = "N/A" kicker in alert text, every control disabled. */
+   name = power. Unavailable = "Offline" kicker in alert text, every control disabled. */
 const JAM_FAN_SET_SPEED = 1, JAM_FAN_PRESET = 8;
 const JAM_FAN_DC = {pm25: "PM2.5", pm10: "PM10", pm1: "PM1", carbon_dioxide: "CO₂", volatile_organic_compounds: "VOC", aqi: "AQI"};
 class JamFan extends JamBase {
@@ -30,7 +31,15 @@ class JamFan extends JamBase {
     .seg .key > .face{--p-t:14px;--p-b:14px;--p-l:4px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0}
-    .chips .key > .face{--p-t:10px;--p-b:10px;--p-l:12px;--p-r:12px;min-height:38px;display:flex;align-items:center;font-size:.66rem}`; }
+    .chips .key > .face{--p-t:10px;--p-b:10px;--p-l:12px;--p-r:12px;min-height:38px;display:flex;align-items:center;font-size:max(13px,.66rem)}
+    /* size: kiosk (opt-in): 36px name, 18px kicker, 64px keys with 18px text, 64px power corner. */
+    .kiosk .wrap{gap:16px}
+    .kiosk .head{min-height:64px;padding-right:72px}
+    .kiosk .nm h3{font-size:max(18px,calc(36px * var(--disp-scale)))}
+    .kiosk .nm .label{font-size:18px}
+    .kiosk .seg{gap:6px}
+    .kiosk .seg .key > .face,.kiosk .chips .key > .face{min-height:64px;font-size:18px}
+    .kiosk .chips .key > .face{--p-l:18px;--p-r:18px}`; }
   _speeds(a) {
     const c = this._config;
     if (Array.isArray(c.speeds)) return c.speeds.map(Number).filter(v => v > 0 && v <= 100);
@@ -60,7 +69,8 @@ class JamFan extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), a = (s && s.attributes) || {};
     const bad = !s || UNAVAILABLE.has(s.state), on = !bad && s.state === "on", feat = Number(a.supported_features) || 0;
-    const {root, face: wrap} = this.paper(c.entity, {face: "wrap" + (bad ? " unavail" : "")});
+    const {root, face: wrap} = this.paper(c.entity, {cls: c.size === "kiosk" ? "kiosk" : "", face: "wrap" + (bad ? " unavail" : "")});
+    jamState(this, bad ? "offline" : on ? "on" : "off");
     const call = (svc, data) => jamCall(this, h, "fan", svc, {entity_id: c.entity, ...data});
 
     const head = el("div", "head"), nm = el("div", "nm");
@@ -73,7 +83,7 @@ class JamFan extends JamBase {
     asButton(t, () => moreInfo(this, c.entity));
     nm.append(t);
     const kick = this._kicker(); if (kick) nm.append(kick);
-    if (bad) nm.append(el("div", "label c-alert", "N/A"));
+    if (bad) nm.append(el("div", "label c-alert", OFFLINE));
     head.append(nm); wrap.append(head);
     // Tap on the card face (not on a key or the name) = more-info.
     wrap.addEventListener("click", e => { if (!e.target.closest("button,[role=button]")) moreInfo(this, c.entity); });

@@ -89,9 +89,13 @@ module.exports = async (page, check) => {
     check(Math.abs(m.d.r - m.bar.r) <= 1 && m.d.t >= m.bar.b + 4 && m.d.t <= m.bar.b + 32 && Math.abs(m.lb.r - m.bar.r) <= 1 && m.lb.t >= m.d.b,
       `${tag}: top-right, right edge on the accent bar (${Math.round(m.d.r)} / ${Math.round(m.bar.r)}), ${Math.round(m.d.t - m.bar.b)}px under it, label under the disc`);
     check(m.overlaps.length === 0, `${tag}: clear of clock, date, facts, now and dock (weather)` + (m.overlaps.length ? " — overlaps " + m.overlaps.join(", ") : ""));
-    check(m.bg === m.fg && m.shape === "closed" && m.glyphRatio >= 4.5 && m.label === "Front door · Locked" && m.upper === "uppercase" &&
-      m.labelFs >= 18 && m.labelLines === 1 && m.labelCol === m.fg && m.shadow === "none" && m.bgImage === "none",
-      `${tag}: locked = --fg disc (${m.bg}), glyph ${m.glyph} ${m.glyphRatio.toFixed(1)}:1, closed shackle, label "${m.label}" ${m.labelFs}px uppercase, no shadow/gradient`);
+    // State grammar (audit 2026-11-03): locked is quiet = a 4px --fg ring on no fill, the glyph in --fg (on the page ground).
+    const gPage = await p.evaluate(() => { const r = document.querySelector("jam-kiosk").shadowRoot, g = getComputedStyle(r.querySelector(".lk .disc svg")).color;
+      const pg = getComputedStyle(document.body).backgroundColor, L = c => { const v = c.match(/[\d.]+/g).slice(0, 3).map(x => { x /= 255; return x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+      const a = L(g), b = L(pg); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05); });
+    check(/^rgba\(0, 0, 0, 0\)$|transparent/.test(m.bg) && m.shadow.includes("4px") && m.shadow.includes(m.fg) && m.glyph === m.fg && gPage >= 4.5 && m.shape === "closed" &&
+      m.label === "Front door · Locked" && m.upper === "uppercase" && m.labelFs >= 18 && m.labelLines === 1 && m.labelCol === m.fg && m.bgImage === "none",
+      `${tag}: locked = quiet 4px --fg ring, no fill (${m.bg}, ${m.shadow}), glyph ${m.glyph} ${gPage.toFixed(1)}:1 on the page, closed shackle, label "${m.label}" ${m.labelFs}px uppercase, no gradient`);
     check(m.aria === "Front door, Locked", `${tag}: aria-label "${m.aria}"`);
     // Unlocked + a long 2-line TV title in the now block.
     await set(p, "lock.kh_door", "unlocked");
@@ -102,12 +106,12 @@ module.exports = async (page, check) => {
     check(m.overlaps.length === 0, `${tag}: clear of clock, date, facts, now and dock (2-line TV title, unlocked label)` + (m.overlaps.length ? " — overlaps " + m.overlaps.join(", ") : ""));
     if (w === 1024) await p.screenshot({path: path.join(__dirname, "..", "shots", `kiosk-home-unlocked-${mode}-1024.png`)});
     await set(p, "media_player.kh_tv", "off", {media_title: null});
-    // Unavailable: outline only, dim, "—".
+    // Unavailable (state grammar): a dashed dim outline, dim glyph, "Offline".
     await set(p, "lock.kh_door", "unavailable");
     m = await measure(p);
-    check(m.bgImage === "none" && /^rgba\(0, 0, 0, 0\)$|transparent/.test(m.bg) && m.border.startsWith("4px solid") && m.border.endsWith(m.dim) &&
-      m.glyph === m.dim && m.label === "—" && m.labelCol === m.dim && m.aria === "Front door, Unavailable",
-      `${tag}: unavailable = dim outline (${m.border}), dim glyph, label "${m.label}"`);
+    check(m.bgImage === "none" && /^rgba\(0, 0, 0, 0\)$|transparent/.test(m.bg) && m.border.startsWith("4px dashed") && m.border.endsWith(m.dim) &&
+      m.glyph === m.dim && m.label === "Front door · Offline" && m.labelCol === m.dim && m.aria === "Front door, Offline",
+      `${tag}: unavailable = dashed dim outline (${m.border}), dim glyph, label "${m.label}"`);
     await set(p, "lock.kh_door", "locked");
     await ctx.close();
   }
@@ -117,7 +121,7 @@ module.exports = async (page, check) => {
     const {ctx, p} = await mount(961, 601, "dark");
     const words = [];
     for (const st of ["locking", "unlocking", "jammed", "open", "unknown"]) { await set(p, "lock.kh_door", st); const m = await measure(p); words.push(`${st}:${m.label}:${m.bg === m.red ? "red" : m.bg === m.fg ? "fg" : "none"}`); }
-    check(words.join("|") === "locking:Front door · Locking…:red|unlocking:Front door · Unlocking…:red|jammed:Front door · Jammed:red|open:Front door · Open:red|unknown:—:none",
+    check(words.join("|") === "locking:Front door · Locking…:red|unlocking:Front door · Unlocking…:red|jammed:Front door · Jammed:red|open:Front door · Open:red|unknown:Front door · Offline:none",
       `jam-kiosk lock: state words + tones ${words.join(" | ")}`);
     // Narrow label slot: falls back to the state alone.
     const short = await p.evaluate(() => {
@@ -127,7 +131,7 @@ module.exports = async (page, check) => {
     });
     await set(p, "lock.kh_door", "locked");
     const s2 = await p.evaluate(() => { const r = document.querySelector("jam-kiosk").shadowRoot, l = r.querySelector(".lk .lbl"); l.style.maxWidth = "120px"; document.querySelector("jam-kiosk")._lockFit(); const t = l.textContent; l.style.maxWidth = ""; document.querySelector("jam-kiosk")._lockFit(); return {t, back: l.textContent}; });
-    check(s2.t === "Locked" && s2.back === "Front door · Locked" && short.t === "—", `jam-kiosk lock: label falls back to the state when the long form does not fit ("${s2.t}", back to "${s2.back}")`);
+    check(s2.t === "Locked" && s2.back === "Front door · Locked" && short.t === "Offline", `jam-kiosk lock: label falls back to the state when the long form does not fit ("${s2.t}", back to "${s2.back}")`);
     const tap = async (ok) => p.evaluate(ok => {
       const d = document.querySelector("jam-kiosk").shadowRoot.querySelector(".lk .disc");
       window.__calls.length = 0; let asked = null;

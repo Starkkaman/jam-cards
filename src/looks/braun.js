@@ -127,6 +127,8 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .pw:not(.paper):focus-visible::before{outline:2px solid var(--focus);outline-offset:2px}
 
 /* ---------- jam-light: face stays panel; LED dot in the light's colour; brightness strip; member dots ---------- */
+/* Offline (state grammar): the panel lifts out: no face, no elevation, a dashed hairline; dim text. */
+.paper[data-cut] > .face.unavail{background:transparent;box-shadow:none;border:1.5px dashed var(--dim)}
 .lc.on > .face{--b-tint:18%;background:color-mix(in srgb,var(--lc) var(--b-tint),var(--slab));color:var(--fg)}
 @container style(--jam-ink: #1c1c1a){.lc.on > .face{--b-tint:24%}} /* dark mode (Braun dark ink); without style queries 18% */
 .lc.on .sub{color:color-mix(in srgb,var(--fg) 72%,var(--dim))} /* dim text stays >= 4.5:1 on the tint */

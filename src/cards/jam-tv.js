@@ -28,7 +28,7 @@
    (34px display, 2 lines, cream; tap = more-info), time = position / duration (13px, cream), 5px accent progress strip.
    Power = the 44px top-right corner triangle (ink, accent glyph; red with an ink glyph when the TV is off).
    Idle (on, no title): title = the source on screen, else the app. Off / unavailable: slab2 poster, "TV off" /
-   "Unavailable", then a big red Turn on key (power_action) and quick source tiles (3-up colour tiles, tap = the source).
+   "Offline", then a big red Turn on key (power_action) and quick source tiles (3-up colour tiles, tap = the source).
    On: Prev / Play-Pause (accent, 1.5x) / Next with SVG glyphs, the violet volume rocker, then outlined Remote and Source
    tabs with glyphs. Remote = a sheet (jamCardSheet) with a jam-remote in groups: TV (teal rule, red power: d-pad with teal
    OK, Back / Home / Menu / Settings, Rewind / Play / Forward) and Stereo (violet rule, violet power: rocker, inputs, the
@@ -101,7 +101,7 @@ const JAM_TV_TILE_CSS = `
     .tile .nm{min-width:0;overflow-wrap:normal;word-break:normal;hyphens:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .tile .gl{position:absolute;right:10px;top:10px}
     .tile .gl svg,.tile ha-icon{display:block;width:22px;height:22px;--mdc-icon-size:22px}
-    .tile .now{position:absolute;left:10px;top:10px;font:var(--lbl-w) .62rem/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);white-space:nowrap;background:var(--band);color:var(--band-fg);padding:4px 5px}
+    .tile .now{position:absolute;left:10px;top:10px;font:var(--lbl-w) max(12px,.62rem)/1 var(--body);letter-spacing:calc(.12em * var(--lbl-track));text-transform:var(--lbl-case);white-space:nowrap;background:var(--band);color:var(--band-fg);padding:4px 5px}
     .tile.cur{outline:4px solid var(--fg);outline-offset:3px}
     .tile.cur:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .tile.home > .face{background:var(--slab3);color:var(--fg)}
@@ -112,7 +112,7 @@ const JAM_TV_SHEET_CSS = `
     .grid{display:grid;gap:12px 10px}
     .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
     .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}` + JAM_TV_TILE_CSS + `
-    @media (max-width:420px){ .tile > .face{font-size:calc(1.05rem * var(--disp-scale))} .tile .gl{right:8px} .tile .gl svg{width:20px;height:20px} }`;
+    @media (max-width:420px){ .tile > .face{font-size:max(12px,calc(1.05rem * var(--disp-scale)))} .tile .gl{right:8px} .tile .gl svg{width:20px;height:20px} }`;
 /* Art analysis cache: src -> {light, busy} (luminance of the text area + its spread). */
 const JAM_TV_ART = new Map(), JAM_TV_ART_MAX = 64;
 class JamTv extends JamSheetHost(JamBase) {
@@ -162,12 +162,12 @@ class JamTv extends JamSheetHost(JamBase) {
     .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .seg .key{min-width:0}
     .seg .key > .face{--p-t:0px;--p-b:0px;--p-l:8px;--p-r:10px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:9px;
-      font-size:.72rem;letter-spacing:calc(.14em * var(--key-track));--ol:var(--dim)}
+      font-size:max(12px,.72rem);letter-spacing:calc(.14em * var(--key-track));--ol:var(--dim)}
     .turnon > .face{--p-t:0px;--p-b:0px;min-height:60px;display:flex;align-items:center;justify-content:center;gap:12px;
       font:var(--disp-w) calc(1.6rem * var(--disp-scale))/calc(1 * var(--disp-lead)) var(--display);letter-spacing:var(--jam-display-track,.01em)}
     .turnon .gl svg{width:24px;height:24px}
     .src{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .src .tile > .face{height:auto;min-height:64px;font-size:calc(.95rem * var(--disp-scale))}
+    .src .tile > .face{height:auto;min-height:64px;font-size:max(12px,calc(.95rem * var(--disp-scale)))}
     .src .tile .gl svg{width:18px;height:18px}` + JAM_TV_TILE_CSS + JAM_OUTLINE_CSS + JAM_ROCKER_CSS +
     (this._config && this._config.size === "kiosk" ? JAM_TV_KIOSK_CSS : ""); }
   /* Remote sheet config: jam-remote with a TV group (teal) and, with `stereo`, a Stereo group (violet). */
@@ -364,7 +364,7 @@ class JamTv extends JamSheetHost(JamBase) {
     face.append(sky);
     const band = el("div", "band"), act = !off ? this._activeSource() : null;
     let kick, title, sub = null, frac = null;
-    if (off) { kick = name; title = s && s.state === "off" ? "TV off" : "Unavailable"; } // missing entity = unavailable
+    if (off) { kick = name; title = s && s.state === "off" ? "TV off" : OFFLINE; } // missing entity = unavailable
     else {
       const app = this._app(a) || (act && act.name) || (a.source ? String(a.source) : null);
       const p = playing ? this._posParts(s) : null;

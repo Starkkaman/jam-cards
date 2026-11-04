@@ -132,13 +132,13 @@ class JamMedia extends JamSheetHost(JamBase) {
     .grp{display:grid;gap:6px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips .key{min-width:0;max-width:100%;height:auto}
-    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:.66rem;letter-spacing:calc(.12em * var(--key-track));overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}
+    .chips .key > .face{--p-t:8px;--p-b:8px;--p-l:10px;--p-r:10px;font-size:max(13px,.66rem);letter-spacing:calc(.12em * var(--key-track));overflow-wrap:anywhere;min-height:34px;display:flex;align-items:center}
     .ctl .more > .face{font-size:1rem;letter-spacing:0}
     .mini{--p-t:10px;--p-r:14px;--p-b:14px;--p-l:10px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center}
     .mini .art{width:52px}
     .mini .art .arm{gap:3px} .mini .art .arm span{max-width:7px}
-    .mini .title{font-size:calc(1.05rem * var(--disp-scale));line-height:calc(.95 * var(--disp-lead))}
-    .mini .sub{font-size:.74rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .mini .title{font-size:max(12px,calc(1.05rem * var(--disp-scale)));line-height:calc(.95 * var(--disp-lead))}
+    .mini .sub{font-size:max(12px,.74rem);line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .mini .one{width:48px;min-width:48px;height:48px}
     .mini .one > .face{padding:0;display:grid;place-items:center;font:900 1.05rem/1 var(--body);letter-spacing:0}` +
     (this._config && this._config.size === "kiosk" ? JAM_MEDIA_KIOSK_CSS : ""); }

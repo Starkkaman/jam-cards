@@ -4,13 +4,18 @@
     the full friendly name), alerts?: [{entity, state?, name}] (red chip while
     the entity matches `state`, or without `state` while it is on/open/problem), title? (default
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller),
-    inside_aq? / outside_aq?: {entity, extra?} (or just an entity id; extra is accepted and ignored since 0.3.5)}
+    inside_aq? / outside_aq?: {entity, extra?} (or just an entity id; extra is accepted and ignored since 0.3.5),
+    attention?: true | {lights?: [light ids]} (audit 2026-11-03, opt-in)}
+   Attention strip (opt-in): a strip at the top of the card listing what needs someone, invisible when all is well: the door
+   (unlocked / open / jammed / offline; tap on unlocked / open = lock.lock), "N lights offline" (the `lights` list, else every
+   light.* in hass; tap = more-info of the first), and poor air ("Air poor inside" / "outside": aqPoor, poor or worse; tap =
+   more-info). Alert-red fill, ink text, one 44px key per item.
    Air line under each temperature, words only (0.3.5): "Air · Good". A word state is capitalised ("poor" -> "Poor"); a
    numeric state is a US AQI turned into its category word (Good ≤50, Moderate ≤100, Unhealthy for sensitive ≤150,
    Unhealthy ≤200, Very unhealthy ≤300, Hazardous); no AQI or PM numbers. The line is hidden while the AQ entity is
    missing or unavailable (the config may name a sensor that does not exist yet).
-   Door chip: unlocked -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
-   (tap = more-info); jammed/unavailable -> red, tap = more-info. */
+   Door chip: unlocked / open -> red "Door unlocked · lock" (tap = lock.lock, no confirmation); locked -> slab "Door locked"
+   (tap = more-info); jammed -> red, tap = more-info; unavailable -> dashed "Door offline" (state grammar), tap = more-info. */
 /* Numeric state as written (73.9 stays 73.9, 63.0 -> 63); anything else -> "—". */
 function jamHouseNum(v) {
   const n = Number(v);
@@ -29,7 +34,33 @@ class JamHouse extends JamBase {
   watched() {
     const c = this._config;
     const aq = [jamHouseAq(c.inside_aq), jamHouseAq(c.outside_aq)].filter(Boolean).map(a => a.entity);
-    return [c.inside_entity, c.outside_entity, c.lock_entity, ...(c.people || []), ...(c.alerts || []).map(a => a && a.entity), ...aq].filter(Boolean);
+    const ids = [c.inside_entity, c.outside_entity, c.lock_entity, ...(c.people || []), ...(c.alerts || []).map(a => a && a.entity), ...aq].filter(Boolean);
+    if (c.attention) ids.push(...this._attLights());
+    return ids;
+  }
+  /* Lights the attention strip counts: attention.lights, else every light.* in hass. */
+  _attLights() {
+    const a = this._config.attention, h = this._hass;
+    if (a && Array.isArray(a.lights)) return a.lights.filter(x => typeof x === "string");
+    return h && h.states ? Object.keys(h.states).filter(id => id.startsWith("light.")) : [];
+  }
+  /* Attention items [{text, tap}] (opt-in); empty when all is well. */
+  _attention() {
+    const c = this._config, h = this._hass, out = [];
+    if (!c.attention) return out;
+    if (c.lock_entity) {
+      const s = stateObj(h, c.lock_entity), st = s ? String(s.state) : "unavailable";
+      if (!s || UNAVAILABLE.has(st)) out.push({text: "Door " + OFFLINE.toLowerCase(), tap: n => moreInfo(n, c.lock_entity)});
+      else if (st === "unlocked" || st === "open") out.push({text: `Door ${st} · lock`, tap: n => jamCall(n, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door")});
+      else if (lockAlert(s)) out.push({text: `Door ${st}`, tap: n => moreInfo(n, c.lock_entity)});
+    }
+    const dead = this._attLights().filter(id => { const s = stateObj(h, id); return !!s && s.state === "unavailable"; });
+    if (dead.length) out.push({text: `${dead.length} ${dead.length === 1 ? "light" : "lights"} ${OFFLINE.toLowerCase()}`, tap: n => moreInfo(n, dead[0])});
+    for (const [cfg, where] of [[c.inside_aq, "inside"], [c.outside_aq, "outside"]]) {
+      const a = jamHouseAq(cfg), s = a && stateObj(h, a.entity);
+      if (s && aqPoor(s.state)) out.push({text: `Air ${aqWord(s.state).toLowerCase()} ${where}`, tap: () => moreInfo(this, a.entity)});
+    }
+    return out;
   }
   css() { return `
     .house{display:grid;gap:8px;align-content:start}
@@ -45,10 +76,19 @@ class JamHouse extends JamBase {
     .chip.red{--chip-bg:var(--red);color:var(--on-fg)}
     .chip.red:focus-visible{outline-color:currentColor}
     .chip.home{--chip-bg:var(--teal);color:var(--on-fg)}
+    .chip.offline{--chip-bg:transparent;color:var(--dim)}
+    .chip.offline::before{border:2px dashed var(--dim)}
     .compact .house{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;--p-t:10px;--p-b:14px}
     .compact .in,.compact .out{text-align:left;justify-items:start}
     .compact .temp{font-size:calc(1.8rem * var(--num-scale))} .compact .otemp{font-size:calc(1.4rem * var(--num-scale))}
-    .compact .chips{flex:1 1 auto;justify-content:flex-end}`; }
+    .compact .chips{flex:1 1 auto;justify-content:flex-end}
+    /* Attention strip (opt-in): only while something needs someone. */
+    .att{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 4px;padding:4px 6px 4px 12px;background:var(--red);color:var(--on-fg)}
+    .att .ah{font:var(--lbl-w) max(12px,.72rem)/1.2 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);margin-right:6px}
+    .att button{min-height:44px;padding:0 10px;font:var(--key-w) max(13px,.8rem)/1.1 var(--body);letter-spacing:calc(.08em * var(--key-track));text-transform:var(--key-case);
+      color:var(--on-fg);text-align:left;box-shadow:inset 0 0 0 2px var(--on-fg)}
+    .att button:focus-visible{outline:3px solid var(--on-fg);outline-offset:2px}
+    .compact .att{flex:1 1 100%}`; }
   /* "Air · Good" line (category word only), or null while the AQ entity is missing / unavailable. */
   _aq(cfg) {
     const h = this._hass, a = jamHouseAq(cfg), s = a && stateObj(h, a.entity);
@@ -94,11 +134,14 @@ class JamHouse extends JamBase {
     if (c.lock_entity) {
       const ls = stateObj(h, c.lock_entity), st = ls ? ls.state : "unavailable";
       let chip;
-      if (st === "unlocked") {
-        chip = el("button", "chip red", "Door unlocked · lock");
+      if (st === "unlocked" || st === "open") {
+        chip = el("button", "chip red", st === "open" ? "Door open · lock" : "Door unlocked · lock");
         chip.onclick = () => jamCall(chip, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door");
+      } else if (!ls || UNAVAILABLE.has(st)) {
+        chip = el("button", "chip offline", "Door " + OFFLINE.toLowerCase()); // state grammar: a dashed hole, not the alert fill
+        chip.onclick = () => moreInfo(this, c.lock_entity);
       } else {
-        const red = st === "jammed" || st === "open" || UNAVAILABLE.has(st);
+        const red = st === "jammed";
         chip = el("button", "chip" + (red ? " red" : ""), st === "locked" ? "Door locked" : `Door ${st}`);
         chip.onclick = () => moreInfo(this, c.lock_entity);
       }
@@ -125,6 +168,14 @@ class JamHouse extends JamBase {
       chips.append(chip);
     }
 
+    const att = this._attention();
+    if (att.length) {
+      const strip = el("div", "att"); strip.dataset.role = "attention";
+      strip.setAttribute("role", "group"); strip.setAttribute("aria-label", "Needs attention");
+      strip.append(el("span", "ah", "Needs you"));
+      for (const it of att) { const k = el("button", "", it.text); k.type = "button"; k.onclick = () => it.tap(k); strip.append(k); }
+      face.append(strip);
+    }
     if (c.compact) face.append(inBox, outBox);
     else { const row = el("div", "row"); row.append(inBox, outBox); face.append(row); }
     if (chips.childNodes.length) face.append(chips);

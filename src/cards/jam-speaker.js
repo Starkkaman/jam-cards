@@ -16,7 +16,9 @@
     tab + kiosk shelf, before the user's own pins), show_shuffle? (true), show_favorite? (true), favorite_entity? (button id;
     default found in the entity registry; false = no Favourite key), config_entry_id? (MA config entry; default found),
     power_action? (Lovelace action for the power corner), poster_height? (px of art above the band, default 150, min 72),
-    size? ("kiosk")}
+    size? ("kiosk"), compact_idle?: true (audit 2026-11-03, opt-in: while the player is not playing / paused the card is
+    one compact row — source dot + room, "Last played: …", a quiet Play key; tap = panel B — and the full poster card
+    comes back while it plays or is paused; not with size kiosk)}
    Card (mockup round 3 "Take 3"): poster (poster cut) = an art area (poster_height, default 150px: the hero, also on a
    phone) with the ink band under it: the artwork (entity_picture_local / entity_picture), or the accent
    with Golden Arm bars while playing without art, or — idle — a cut-paper abstract (jam-music-panel jamMuIdleArt, seeded
@@ -55,8 +57,18 @@ const JAM_SPK_CSS = `
     .band{position:relative;z-index:2;background:var(--band);color:var(--band-fg);padding:10px 12px 12px 14px;display:grid;
       grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:10px;pointer-events:none}
     .bt{display:grid;gap:3px;min-width:0}
-    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 11px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--band-dim)}
+    .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 12px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--band-dim)}
     .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--band-dim))}
+    /* compact_idle (opt-in): one row while idle. */
+    .cidle{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-height:76px}
+    .cidle .ct{position:relative;display:grid;gap:4px;min-width:0;cursor:pointer}
+    .cidle .ct:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    .cidle .kk{color:var(--dim)}
+    .cidle .cn{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(1.4rem * var(--disp-scale));line-height:calc(1 * var(--disp-lead));
+      text-transform:var(--disp-case);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cidle .cs{font:500 max(12px,.8rem)/1.25 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cidle .ikey{min-width:0;width:56px}
+    .cidle .ikey > .face{height:56px;--ic:22px}
     .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal}
     .band .title{font-family:var(--display);font-weight:var(--disp-w);font-size:calc(30px * var(--disp-scale));line-height:calc(.95 * var(--disp-lead));text-transform:var(--disp-case);letter-spacing:var(--jam-display-track,-.005em);overflow-wrap:anywhere}
     .band .title > .tl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -408,11 +420,27 @@ class JamSpeaker extends JamBase {
     this._favFetch(s);
     if (this._panel) this._panel.update();
     if (this._kiosk) { this._k1(b, s, off, idle, stamp); return; }
+    if (c.compact_idle === true && idle) { this._compact(b, s, off); return; }
     const {root, face} = this.paper(c.entity, {face: "wrap"});
     root.dataset.mode = off ? "off" : idle ? "idle" : s.state;
     face.append(this._poster(s, off, idle));
     const keys = el("div", "keys"); keys.append(...this._transportKeys(s, off));
     face.append(keys, this._volRow(s, off, false));
+    b.append(root);
+  }
+  /* compact_idle (opt-in): one row while not playing / paused: source dot + room, the last track, a quiet Play key. */
+  _compact(b, s, off) {
+    const c = this._config, a = (s && s.attributes) || {}, room = this._room();
+    const {root, face} = this.paper(c.entity, {cls: "compact", face: "cidle" + (off ? " unavail" : "")});
+    root.dataset.mode = off ? "off" : "idle";
+    const ct = el("div", "ct");
+    ct.append(this._kicker(s, true), el("div", "cn", room));
+    const sub = off ? OFFLINE : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : "";
+    if (sub) ct.append(el("div", "cs", sub));
+    asButton(ct, () => this._openPanel());
+    ct.setAttribute("aria-label", `${room} music: library and speakers`);
+    const play = jamMuKey("play", "Play", "play_pause", "", () => jamCall(this, this._hass, "media_player", "media_play_pause", {entity_id: c.entity}), off);
+    face.append(ct, play);
     b.append(root);
   }
   _poster(s, off, idle) {

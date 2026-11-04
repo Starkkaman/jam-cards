@@ -3,7 +3,7 @@
     bad?: {above?, below?, state?: [..]}, tap_action?}]}
    Slab panel (card cut), Londrina title, rows split by 2px --jam-line rules: name left (Jost .8rem), value right (Londrina 1rem).
    Values are never in the accent colour. A row is red when its value crosses a `bad` threshold, its state is listed in
-   bad.state, or the entity is unavailable/unknown/missing (value "unavailable"). `max` shows "value / max unit".
+   bad.state, or the entity is unavailable/unknown/missing (value "Offline" after a hollow mark). `max` shows "value / max unit".
    Row tap = more-info unless tap_action says otherwise. A configured `accent` shows as a 4px rule under the title.
    Names and the title never break mid-word; the value column shrinks and wraps instead. */
 const JP_RATE = {"bit/s": 1 / 8, "kbit/s": 125, "mbit/s": 125e3, "gbit/s": 125e6, "b/s": 1, "kb/s": 1e3, "mb/s": 1e6, "gb/s": 1e9,
@@ -44,14 +44,14 @@ class JamPanel extends JamBase {
     .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:2px solid var(--line);padding:6px 0;cursor:pointer}
     .row.static{cursor:default}
     .nm{flex:0 1 auto;min-width:min-content;font:500 .8rem/1.3 var(--body);overflow-wrap:normal;word-break:normal;hyphens:none}
-    .v{flex:1 1 auto;min-width:0;text-align:right;font:var(--disp-w) calc(1rem * var(--disp-scale))/calc(1.1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);overflow-wrap:anywhere}
+    .v{flex:1 1 auto;min-width:0;text-align:right;font:var(--disp-w) max(12px,calc(1rem * var(--disp-scale)))/calc(1.1 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);color:var(--fg);overflow-wrap:anywhere}
     .row.bad .v{color:var(--alert-text)}`; }
   /* -> {text, raw (number|null), unavail} for one row. */
   value(r) {
     const s = stateObj(this._hass, r.entity);
-    if (!s || (!r.attribute && UNAVAILABLE.has(s.state))) return {text: "unavailable", raw: null, unavail: true};
+    if (!s || (!r.attribute && UNAVAILABLE.has(s.state))) return {text: OFFLINE, raw: null, unavail: true};
     const v = r.attribute ? s.attributes[r.attribute] : s.state;
-    if (v === undefined || v === null) return {text: "unavailable", raw: null, unavail: true};
+    if (v === undefined || v === null) return {text: OFFLINE, raw: null, unavail: true};
     const unit = r.attribute ? "" : s.attributes.unit_of_measurement || "", n = jpNum(v), str = String(v);
     let text;
     switch (r.format) {
@@ -94,7 +94,9 @@ class JamPanel extends JamBase {
       row.dataset.entity = r.entity;
       if (act.action === "none") row.classList.add("static");
       else { row.classList.add("focusable"); row.tabIndex = 0; row.setAttribute("role", "button"); bindActions(row, () => this._hass, {tap_action: act}, r.entity); }
-      row.append(el("span", "nm", r.name || friendly(h, r.entity)), keepUnit(el("span", "v num", v.text), v.unit));
+      const val = keepUnit(el("span", "v num", v.text), v.unit);
+      if (v.unavail) { row.classList.add("offline"); val.prepend(el("span", "tmk t-offline")); }
+      row.append(el("span", "nm", r.name || friendly(h, r.entity)), val);
       face.append(row);
     }
     b.append(root);

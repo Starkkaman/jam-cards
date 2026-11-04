@@ -29,6 +29,20 @@ const OLY_CSS = `
 .paper[data-cut=key] > .kf{border:var(--jam-border,0px none);border-top:var(--rule-h) solid var(--oly-top,var(--acc))}
 .stripe{border-left:var(--bord,0px none);--oly-top:${OLY_SILVER}}
 .stripe.s-on{--oly-top:var(--acc)} .stripe.s-alert{--oly-top:var(--red)} .stripe.s-calm{--oly-top:var(--teal)}
+/* Trouble has a form, not only a hue (audit 2026-11-03): a 45deg orange / face hatch. Orange is the alert's own colour
+   (living moved to yellow in the theme); text stays on a solid orange plate inside the hatch, so contrast holds.
+   Top stripes: the hatch drawn over the stripe (the border stays, transparent, for the box). */
+.host{--oly-hatch:repeating-linear-gradient(45deg,var(--red) 0 6px,var(--slab) 6px 11px)}
+.paper[data-cut] > .face.stripe.s-alert,.paper[data-cut] > .face.unavail{border-top-color:transparent;background-image:var(--oly-hatch);background-size:100% var(--rule-h);
+  background-repeat:no-repeat;background-origin:border-box;background-clip:border-box}
+button.chip.red::before,.chip.red:not(button),.cnt{border:4px solid transparent;
+  background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+:host(jam-kiosk) .lk.alert .disc{border:8px solid transparent;background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+.tmk.t-alert{background:var(--oly-hatch)}
+/* Offline (state grammar): the face stays, the top stripe is the hatch, the text dim; not "off" (silver stripe). */
+.paper[data-cut] > .face.unavail{background-color:var(--slab);border-style:solid;border-color:transparent;border-width:var(--rule-h) 0 0;
+  box-shadow:inset 0 0 0 1px var(--line);color:var(--dim)}
+.tmk.t-offline{--tc:var(--slab);box-shadow:inset 0 0 0 1px var(--dim);background-image:var(--oly-hatch)}
 /* Strips: 6px, square, face-2 track. */
 .strip{inset:13px 0}
 :host(jam-scenes) .scene{min-height:44px} /* Albert Sans' shorter line box would leave the key at 43px */
@@ -87,6 +101,8 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 :host(jam-kiosk) .host .blk.none:nth-child(even){--bc:var(--jam-art-2)}
 :host(jam-kiosk) .host .blk.none .st{color:var(--on-fg)}
 :host(jam-kiosk) .lk .disc{border-radius:0}
+/* locked = quiet: a 2px ring in the text colour on no fill (core --lk-bg transparent) */
+:host(jam-kiosk) .lk .disc{box-shadow:inset 0 0 0 2px var(--lk-ring)}
 @keyframes jam-oly-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes jam-oly-sheet{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 @keyframes jam-oly-fade{from{opacity:0}to{opacity:1}}

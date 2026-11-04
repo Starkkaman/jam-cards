@@ -8,7 +8,8 @@
 //  - text spill: an element with its own text, overflow visible, whose content is wider than its box (text running over
 //    its neighbours); clipped text (ellipsis, line clamps, overflow hidden) is a deliberate cut, not a spill;
 //  - kiosk floors: own-text elements under 18px on the kiosk screens (jam-kiosk home, kiosk sheets, screensaver);
-//  - page scroll on the fixed-viewport kiosk screens.
+//  - page scroll on the fixed-viewport kiosk screens;
+//  - text over motif shapes on the screensaver layouts (audit 2026-11-03): absolute, in every look and in Poster.
 // Scenarios: the preview page (all fixtures; dark + light at 390 and 1280, plus "papers fit" like shoot.js), jam-kiosk home
 // (85 fixture) and the kiosk Music + TV sheets (87 fixtures) at 1024x768 and 961x601, the screensaver's 6 poster layouts
 // at 961x601 (text block inside the viewport); kiosk sheets and screensaver in both modes (R10). The look's kiosk home,
@@ -173,6 +174,23 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
         const m = await meas(p, true);
         m.outside = await p.evaluate(() => { const t = window.__fx.overlay.querySelector(".poster .txt").getBoundingClientRect();
           return t.left < 0 || t.top < 0 || t.right > innerWidth + 1 || t.bottom > innerHeight + 1 ? `${Math.round(t.left)},${Math.round(t.top)} to ${Math.round(t.right)},${Math.round(t.bottom)}` : ""; });
+        // Text over motif shapes (audit 2026-11-03: Pulsar's ridge band struck through the now-playing title): the ink box of
+        // every text in the poster's text block (clock, date, weather, kicker, now block) against each visible look shape
+        // (.sh, the layout's bars / disc / band). Any overlap larger than 2 % of the text box fails, in every look, Poster too.
+        m.motif = await p.evaluate(() => {
+          const o = window.__fx.overlay, out = [];
+          const shapes = [...o.querySelectorAll(".poster .sh")].filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== "hidden" && getComputedStyle(e).display !== "none")
+            .map(e => ({e, r: e.getBoundingClientRect()})).filter(x => x.r.width > 1 && x.r.height > 1 && x.r.width * x.r.height < .5 * innerWidth * innerHeight); // a full-screen layer (Grid's page grid) is a ground, not a shape
+          for (const t of o.querySelectorAll(".poster .txt *")) {
+            if (![...t.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) || !t.getClientRects().length) continue;
+            const g = document.createRange(); g.selectNodeContents(t); const r = g.getBoundingClientRect(); if (!r.width) continue;
+            for (const {e, r: b} of shapes) {
+              const a = Math.max(0, Math.min(r.right, b.right) - Math.max(r.left, b.left)) * Math.max(0, Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top));
+              if (a > .02 * r.width * r.height) out.push(`"${t.textContent.trim().slice(0, 16)}" under ${String(e.className).replace(/\s+/g, ".")}`);
+            }
+          }
+          return [...new Set(out)];
+        });
         if (look !== "poster") m.contrast = await contrastOf(p);
         await shot(p, `look-${look}-screensaver-l${n}${mode === "dark" ? "" : "-" + mode}-961.png`);
         out.push({label: "l" + n, m});
@@ -181,10 +199,14 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
     } finally { await ctx.close(); }
   }]);
 
-  const posterRuns = {};
+  const posterRuns = {}, posterMotif = new Set();
   for (const look of looks) {
     for (const [name, run] of scenarios) {
       const P = posterRuns[name] || (posterRuns[name] = await run("poster")), L = await run(look); // Poster runs once per scenario
+      if (!posterMotif.has(name)) {
+        posterMotif.add(name);
+        for (const x of P) if (x.m.motif) check(x.m.motif.length === 0, `poster: ${name}${x.label ? " " + x.label : ""}: no text over a motif shape` + (x.m.motif.length ? " — " + x.m.motif.slice(0, 4).join("; ") : ""));
+      }
       for (let i = 0; i < L.length; i++) {
         const a = L[i].m, b = (P[i] || {m: {face: {}, spill: {}, small: {}}}).m, tag = `look ${look}: ${name}${L[i].label ? " " + L[i].label : ""}`;
         const bad = [...added(a.face, b.face).map(x => "overflows: " + x), ...added(a.spill, b.spill).map(x => "spills: " + x),
@@ -192,6 +214,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
         if (a.scroll && !b.scroll) bad.push("page scrolls " + a.scroll);
         if (a.body && !b.body) bad.push("sheet body scrolls " + a.body);
         if (a.outside && !b.outside) bad.push("text block outside the viewport " + a.outside);
+        if (a.motif && a.motif.length) bad.push(...a.motif.map(x => "text over a motif shape: " + x));
         if (a.layout && a.layout.length) bad.push(...a.layout);
         if ("applied" in a && a.applied !== look) bad.push(`cards carry data-look=${a.applied}, not ${look}`);
         if (a.contrast && a.contrast.length) bad.push(...a.contrast.map(f => `contrast ${f.card} ${f.el} "${f.text}" ${f.ratio}:1 < ${f.need} (${f.fg} on ${f.bg} ${f.font})`));

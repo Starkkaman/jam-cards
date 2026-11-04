@@ -53,11 +53,11 @@ ${TOKEN_CSS}  display:block; font:15px/1.45 var(--body); color:var(--fg);
 *{box-sizing:border-box}
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
 .unit{text-transform:none}
-.label{font:var(--lbl-w) .72rem/1.25 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+.label{font:var(--lbl-w) max(12px,.72rem)/1.25 var(--body);letter-spacing:calc(.16em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
 .disp{font-family:var(--display);font-weight:var(--disp-w);text-transform:var(--disp-case);line-height:calc(.92 * var(--disp-lead));letter-spacing:var(--jam-display-track,.01em);margin:0;text-wrap:balance}
 /* Chips/pills: flat block (--chip-bg, default slab2), bottom-right 6px cut. A tappable chip (button.chip) is not clipped
    itself: its face is a clipped ::before, so its ::after hit area (below) can reach 44px. */
-.chip{font:var(--key-w) .66rem/1 var(--body);letter-spacing:calc(.14em * var(--key-track));text-transform:var(--key-case);padding:6px 10px 6px 8px;border:0;flex:none;background:var(--chip-bg,var(--slab2));color:inherit;
+.chip{font:var(--key-w) max(13px,.66rem)/1 var(--body);letter-spacing:calc(.14em * var(--key-track));text-transform:var(--key-case);padding:6px 10px 6px 8px;border:0;flex:none;background:var(--chip-bg,var(--slab2));color:inherit;
   clip-path:var(--jam-shape-chip,polygon(0 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%));border-radius:var(--jam-radius-chip,0px)}
 button.chip{position:relative;isolation:isolate;background:none;clip-path:none}
 button.chip::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--chip-bg,var(--slab2));
@@ -83,6 +83,11 @@ button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outlin
 .c-on,.c-calm{color:var(--fg)} .c-alert{color:var(--alert-text)} .c-dim{color:var(--dim)}
 .num{font-variant-numeric:tabular-nums}
 .unavail{color:var(--dim)}
+/* Offline (audit 2026-11-03, DESIGN "State grammar"): an entity HA cannot reach is a hole in the poster, not "off": its face
+   drops the fill (the ground shows through) behind a dashed --dim edge, and the word is "Offline" (OFFLINE). A row value
+   gets the hollow .t-offline mark. Looks restyle .face.unavail / .t-offline in their own grammar. */
+.face.unavail{background:transparent;border:3px dashed var(--dim)}
+.tmk.t-offline{--tc:transparent;box-shadow:inset 0 0 0 2px var(--dim)}
 /* Card accent (DESIGN "Colour system"): --acc fills anything on/active, --acc-fg is the text on it. A card's accent
    option sets both on .host; without one the card follows --jam-accent (set by a jam-popup for its children, or by
    the user) and then ochre. */
@@ -106,7 +111,7 @@ ${SHAPE_CSS}
 /* Keys (buttons, chips): slab2 off, accent fill + ink text on, red for alert/power. */
 .key{min-width:56px;text-align:center}
 .key > .face{--p-t:10px;--p-r:12px;--p-b:10px;--p-l:12px;background:var(--slab2);color:var(--fg);border:2px solid transparent;
-  font:var(--key-w) .74rem/1.1 var(--body);letter-spacing:calc(.12em * var(--key-track));text-transform:var(--key-case)}
+  font:var(--key-w) max(12px,.74rem)/1.1 var(--body);letter-spacing:calc(.12em * var(--key-track));text-transform:var(--key-case)}
 .key:not(:disabled):hover > .face{border-color:var(--dim)}
 .key.on > .face{background:var(--acc);color:var(--acc-fg)}
 .key.alert > .face{background:var(--red);color:var(--on-fg)}
@@ -148,8 +153,21 @@ ${SHAPE_CSS}
 
 /* ---------- helpers ---------- */
 const UNAVAILABLE = new Set(["unavailable", "unknown"]);
-const ON_STATES = new Set(["on", "playing", "open", "unlocked", "home", "heat", "cool", "heat_cool", "auto", "active", "cleaning"]);
+const ON_STATES = new Set(["on", "playing", "open", "home", "heat", "cool", "heat_cool", "auto", "active", "cleaning"]);
 const ALERT_STATES = new Set(["problem", "unavailable", "jammed", "error", "triggered"]);
+/* State grammar (audit 2026-11-03, DESIGN "State grammar"): a lock is never "on". unlocked / open / jammed = alert,
+   locked = off (quiet), locking / unlocking / opening = calm. A binary_sensor of device_class lock is on = unlocked. */
+const LOCK_ALERT = new Set(["unlocked", "open", "jammed"]);
+/* The one word for an entity HA cannot reach (state "unavailable", or a missing entity), in every card. */
+const OFFLINE = "Offline";
+function isLock(s) { return !!s && (/^lock\./.test(String(s.entity_id || "")) || (s.attributes && s.attributes.device_class === "lock" && /^binary_sensor\./.test(String(s.entity_id || "")))); }
+/* true while a lock state needs attention (unlocked / open / jammed; a lock binary_sensor that is on). */
+function lockAlert(s) {
+  if (!s) return false;
+  const st = String(s.state).toLowerCase();
+  if (/^binary_sensor\./.test(String(s.entity_id || ""))) return isLock(s) && st === "on";
+  return LOCK_ALERT.has(st);
+}
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -165,6 +183,7 @@ function friendly(hass, id, fallback) {
 /* Display a state the way HA would (translated + unit) when the frontend helper exists. */
 function fmtState(hass, s) {
   if (!s) return "—";
+  if (s.state === "unavailable") return OFFLINE;
   try { if (hass && typeof hass.formatEntityState === "function") return hass.formatEntityState(s); } catch (e) { /* fall through */ }
   const u = s.attributes && s.attributes.unit_of_measurement;
   return u ? `${s.state} ${u}` : String(s.state);
@@ -186,6 +205,10 @@ function tone(s, overrides) {
   const st = String(s.state).toLowerCase();
   if (overrides && overrides[st]) return overrides[st];
   if (ALERT_STATES.has(st)) return "alert";
+  if (isLock(s) || (!s.entity_id && st === "unlocked")) {
+    if (lockAlert(s) || st === "unlocked") return "alert";
+    return st === "locked" || st === "off" ? "off" : "calm";
+  }
   if (s.attributes && s.attributes.device_class === "problem" && st === "on") return "alert";
   if (ON_STATES.has(st)) return "on";
   if (st === "off" || st === "closed" || st === "locked" || st === "idle" || st === "standby" || st === "paused") return "off";
@@ -366,9 +389,11 @@ function icon(name) {
 
 /* ---------- colour system (DESIGN "Colour system") ---------- */
 /* Accent names and room aliases -> jam colour token. Unknown names resolve to null (the card falls back). */
+/* living -> its own token --living (theme jam-living, default the ochre token): a look whose ochre is its signal colour
+   (Braun) gives the living room another hue (audit 2026-11-03). Poster leaves jam-living unset, so living = ochre. */
 const ACCENTS = Object.freeze({
   ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red", ink: "ink", paper: "paper",
-  living: "ochre", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red",
+  living: "living", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red",
 });
 function accentName(a) { return (a && ACCENTS[String(a).trim().toLowerCase()]) || null; }
 /* CSS fill for an accent ("var(--teal)"), or null when the name is unknown. */
@@ -652,7 +677,8 @@ const POWER_CSS = `
   .pw .tri{position:absolute;inset:0;background:var(--pw-bg,var(--slab2));clip-path:var(--jam-shape-pw,polygon(0 0,100% 0,100% 100%))}
   .pw svg{position:absolute;right:6px;top:6px;width:17px;height:17px;color:var(--pw-fg,var(--fg))}
   .pw:disabled{cursor:default} .pw:disabled svg{color:var(--dim)}
-  .pw:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}`;
+  .pw:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+  .kiosk .pw{transform:scale(1.4);transform-origin:100% 0} /* size: kiosk cards (jam-light, jam-fan): a 64px corner in every look */`;
 /* Power corner (ROUND3): a real <button class="pw"> = 46px top-right triangle with a power glyph; tap = power toggle.
    opts: {name (aria-label "<name> power"), on (aria-pressed), disabled, bg (CSS colour of the triangle: a shade of the
    card face, see shade(); default slab2), fg (glyph colour; default --fg), cls, onClick}. Put it as the last child of a
@@ -710,6 +736,18 @@ function aqWord(st) {
   const w = v.replace(/[-_]+/g, " ");
   return w.charAt(0).toUpperCase() + w.slice(1);
 }
+/* Flat padlock (static markup, no entity data; jam-kiosk lock button, jam-screensaver lock line): a square body with a
+   keyhole cut and a 5-unit shackle, closed (arch) or raised and swung open to the left. */
+function jamLockSvg(closed) {
+  const shackle = closed ? "M16 22V15a8 8 0 0 1 16 0v7" : "M32 22V11a8 8 0 0 0-16 0v4";
+  return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="${shackle}" fill="none" stroke="currentColor" stroke-width="5"/>` +
+    `<path fill="currentColor" fill-rule="evenodd" d="M9 21h30v22H9zM21.5 29a2.5 2.5 0 1 1 5 0a2.5 2.5 0 0 1-1 2v5h-3v-5a2.5 2.5 0 0 1-1-2z"/></svg>`;
+}
+/* State hook for look packs (state grammar contract): data-state on a card host = "on" | "off" | "offline" (jam-light,
+   jam-button, jam-tile, jam-fan), written only when it changes (no DOM write on an unrelated hass update). */
+function jamState(node, st) { if (node && node.dataset && node.dataset.state !== st) node.dataset.state = st; }
+/* Air that asks for action (audit 2026-11-03): "Poor" or worse ("Unhealthy …", "Very poor", "Hazardous"; an AQI over 100). */
+function aqPoor(st) { const w = aqWord(st); return !!w && /poor|unhealthy|hazard|bad/i.test(w); }
 
 /* ---------- motion (DESIGN "Motion", 0.3.5) ---------- */
 /* Page-wide switch: JamCards.motion = false (jam-screensaver `motion: false`) turns the one-shot motion off; the OS
@@ -1160,8 +1198,8 @@ class JamBase extends HTMLElement {
 window.JamCards = Object.freeze(Object.defineProperty({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
-  el, stateObj, friendly, fmtState, keepUnit, tone, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, vertigoSpiral, deepActive, openSheet,
+  el, stateObj, friendly, fmtState, keepUnit, tone, OFFLINE, isLock, lockAlert, jamState, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,

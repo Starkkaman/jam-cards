@@ -218,15 +218,15 @@ class JamRemote extends JamBase {
     .gl svg{display:block;width:20px;height:20px}
     .sec .gh .pw .gl svg{width:18px;height:18px}
     /* Glyph keys: glyph above a small label. */
-    .sec .row .key.ico > .face{--p-t:8px;--p-b:7px;--p-l:2px;--p-r:2px;min-height:54px;flex-direction:column;gap:5px;font-size:.64rem;letter-spacing:calc(.12em * var(--key-track));
+    .sec .row .key.ico > .face{--p-t:8px;--p-b:7px;--p-l:2px;--p-r:2px;min-height:54px;flex-direction:column;gap:5px;font-size:max(12px,.64rem);letter-spacing:calc(.03em * var(--key-track));
       overflow-wrap:normal;word-break:normal}
     .row.tr{grid-auto-flow:row;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)}
-    .row.pick .key > .face{--ol:var(--acc)}
+    .row.pick .key > .face{--ol:var(--acc);--p-l:4px;--p-r:4px;letter-spacing:calc(.03em * var(--key-track))} /* 12px floor: "Turntable" fits at 360px */
     .row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
     .row .key{min-width:0}
     .row .key > .face{--p-t:13px;--p-b:13px;--p-l:6px;--p-r:6px;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
     /* Rows of 4+ keys (layout full: SETTINGS / KEYBOARD / CAPTIONS): smaller, tighter labels that never break mid-word. */
-    .row.dense .key > .face{--p-l:3px;--p-r:5px;font-size:.62rem;letter-spacing:calc(.04em * var(--key-track));overflow-wrap:normal;word-break:normal}
+    .row.dense .key > .face{--p-l:3px;--p-r:5px;font-size:max(12px,.62rem);letter-spacing:calc(.04em * var(--key-track));overflow-wrap:normal;word-break:normal}
     .pad{display:grid;grid-template-columns:repeat(3,minmax(56px,78px));grid-template-rows:repeat(3,minmax(56px,78px));justify-content:center;gap:2px;padding:4px 0 8px}
     .pad > .paper{min-width:48px;min-height:48px;aspect-ratio:1}
     .pad > .paper > .face{padding:0;display:grid;place-items:center;background:var(--slab2);color:var(--fg)}

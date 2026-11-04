@@ -107,7 +107,10 @@
   const CSS = `
 /* ---------- sign rule: 4px rule, 3px gap, 1px rule in the page's text colour over the page's ground ---------- */
 :host{--tr-rule:var(--primary-text-color,var(--fg));--tr-gap:var(--primary-background-color,var(--ink));--tr-pg:var(--primary-text-color,var(--fg));--tr-pgdim:var(--secondary-text-color,var(--dim))}
-.pop,.ov{--tr-rule:var(--fg);--tr-gap:var(--slab)}
+.pop,.ov{--tr-rule:var(--fg);--tr-gap:var(--slab);
+  /* page-text cards inside a sheet (jam-heading, kiosk text) read the sheet's sign colours, not the page's (audit: black on
+     the black sheet in light mode) */
+  --primary-text-color:var(--fg);--secondary-text-color:var(--dim);--primary-background-color:var(--slab)}
 .paper[data-cut=card] > .face,.paper[data-cut=hero] > .face,.paper.btn > .face{border-top:4px solid var(--tr-rule);
   box-shadow:inset 0 3px 0 var(--tr-gap),inset 0 4px 0 var(--tr-rule)}
 .jam-wash{display:none}
@@ -122,6 +125,9 @@
 [data-tr]::before{content:attr(data-tr);flex:none;display:inline-grid;place-items:center;box-sizing:border-box;width:24px;height:24px;margin-right:10px;
   border-radius:50%;background:var(--tr-bc,var(--acc));color:var(--tr-bf,#000);font:700 14px/1 var(--body);letter-spacing:0;text-transform:none;vertical-align:middle}
 .lc .nm[data-tr]::before{margin-right:4px}
+/* Offline (state grammar): the sign stays, out of service: dashed grey edges and a dashed sign rule. */
+.scene.offline > .sf{background:var(--slab)} /* a scene key sits on the page: keep the sign under its dashed edge */
+.paper[data-cut] > .face.unavail{background:var(--slab);border:3px dashed var(--jam-art-8);border-top:4px dashed var(--jam-art-8);box-shadow:none}
 /* off / unavailable: a hollow grey ring */
 .lc:not(.on) .nm[data-tr]::before,.kf.unavail [data-tr]::before{background:none;box-shadow:inset 0 0 0 2px var(--jam-art-8);color:var(--jam-art-8)}
 /* ---------- tone marks and stripes: round marks; no left stripe (the sign rule is the only edge), an alert tone turns the
@@ -227,11 +233,19 @@
 /* ---------- kiosk ---------- */
 :host(jam-kiosk) .host.light .k{--fg:var(--tr-pg);--dim:var(--tr-pgdim)}
 :host(jam-kiosk) .clock{font-weight:500;letter-spacing:-.025em}
+/* The lock (audit 2026-11-03): locked = the quiet hollow ring in page text (core --lk-ring); unlocked = the service-change
+   sign: the yellow disc with a page-text ring and the label as a yellow plate with black text, in both modes. */
+:host(jam-kiosk) .host.light .lk.alert{--lk-tx:var(--tr-pg)}
+:host(jam-kiosk) .host.light .lk.alert .disc{box-shadow:0 0 0 4px var(--tr-pg)}
+:host(jam-kiosk) .lk.alert .lbl{background:var(--red);color:var(--on-fg);padding:4px 10px;max-width:calc(36cqw + 20px)}
 :host(jam-kiosk) .bar{height:4px;background:var(--tr-pg);box-shadow:0 3px 0 var(--tr-gap),0 4px 0 var(--tr-pg)}
 :host(jam-kiosk) .blk,:host(jam-kiosk) .host.light .blk,:host(jam-kiosk) .host.light .blk.none{background:var(--slab);color:var(--jam-fg,#fff);--fg:var(--jam-fg,#fff);
   border-top:4px solid var(--tr-rule);box-shadow:inset 0 3px 0 var(--tr-gap),inset 0 4px 0 var(--tr-rule)}
 :host(jam-kiosk) .blk .st,:host(jam-kiosk) .host.light .blk .st,:host(jam-kiosk) .host.light .blk.none .st{color:var(--jam-dim,#9d9d9d)}
 :host(jam-kiosk) .blk .nm{display:flex;align-items:center}
+/* dock_state: fill (opt-in): a block that is on is the white plate (Transit's "active"), off blocks keep the sign under a ring */
+:host(jam-kiosk) .k.dfill .blk.on{background:var(--jam-fg,#fff);color:var(--on-fg);--fg:var(--on-fg)}
+:host(jam-kiosk) .k.dfill .blk.on .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk .nm[data-tr]::before{--tr-bc:var(--bc,var(--acc));width:32px;height:32px;font-size:19px;margin-right:12px}
 :host(jam-kiosk) .blk.none .nm[data-tr]::before{--tr-bc:var(--jam-art-8);color:#000}
 /* ---------- screensaver: arrivals board ---------- */
@@ -241,7 +255,7 @@
 .sh.bar,.sh.disc{display:none}
 .ov .sh.tline{bottom:0;height:1.2vh}
 .ov .np .kick::before{content:"M";display:inline-grid;vertical-align:middle;place-items:center;width:max(20px,2.8vh);height:max(20px,2.8vh);margin-right:1vh;border-radius:50%;
-  background:var(--pink);color:#fff;font:700 max(11px,1.6vh)/1 var(--body);letter-spacing:0}
+  background:var(--pink);color:#fff;font:700 max(12px,1.6vh)/1 var(--body);letter-spacing:0}
 `;
 
   registerLook({
