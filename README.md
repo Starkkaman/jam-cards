@@ -11,10 +11,15 @@ with one cut corner, one accent colour per card (per room), heavy uppercase disp
 2. For the palette, also install the [JamBoard theme](https://github.com/Starkkaman/jam-theme) (HACS category **Theme**)
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
-Thirteen cards have a visual editor (jam-heading, jam-hero, jam-tile, jam-choice, jam-slider, jam-button, jam-gauge, jam-fan,
-jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker) and a live preview in the card picker; their list options
-(hero chips, tile tones, light whites / presets, fan speeds / presets, speaker pins, graph series names) stay YAML and are
-kept when you edit the form. Every other card, and every option, is YAML (the tables below). Unknown or unavailable
+Twenty-one cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
+jam-slider, jam-button, jam-gauge, jam-fan, jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker, jam-media,
+jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes and jam-tv (main options and sources). List options
+such as hero chips, list rows, panel rows, tabs, scenes, house alerts, light whites / presets, speaker pins, screensaver
+`now` and TV sources are edited as a list of items (Home Assistant 2026.10 or newer). Options the form does not show
+(tile tones, fan speeds / presets, jam-media `sources` / `more`, TV `stereo` / `remote_card`, screensaver `kiosk` ...)
+stay YAML and are kept when you edit the form; a config the form cannot show (a bare id in a list of `{entity, name}`
+items, a bare uri among pins) opens in the YAML editor instead. jam-remote, jam-kiosk and jam-popup are YAML only (the
+tables below). The screensaver stays inert in the picker and while the dashboard is in edit mode. Unknown or unavailable
 entities render as unavailable instead of throwing.
 Fonts (OFL): Londrina Solid and Jost (the default look) are embedded in `jam-cards.js` (latin subset); the other looks'
 fonts are files in `fonts/` next to it, loaded only while that look is active. Licences are in `dist/fonts/`. Nothing is

@@ -306,8 +306,19 @@ class JamScreensaver extends JamBase {
     if (imgSig !== this._imgSig) { this._list = null; this._listAt = 0; this._imgSig = imgSig; }
     this._config = config;
     this._shell();
+    if (this._preview) return; // editor / card picker preview: inert (see `preview` below)
     if (this.isConnected) { this._restartIdle(); JamKiosk.join(this); this._motion(true); }
     else this._motion(true);
+  }
+  /* HA sets card.preview = true in the card picker, the card editor and edit mode: the card is then inert (no idle timer,
+     no page listeners, no overlay, no kiosk chrome, no motion switch); it starts as usual when preview turns false. */
+  get preview() { return !!this._preview; }
+  set preview(v) {
+    v = !!v;
+    if (v === !!this._preview) return;
+    this._preview = v;
+    if (!this.isConnected) return;
+    if (v) this._detach(); else this._attach();
   }
   /* motion: false switches JamCards.motion off while this card is connected; on leaves it as it found it. */
   _motion(on) {
@@ -337,15 +348,22 @@ class JamScreensaver extends JamBase {
   get hass() { return this._hass; }
   connectedCallback() {
     queueLook(this);
+    if (!this._preview) this._attach();
+  }
+  /* Page listeners, idle timer, kiosk chrome and the motion switch (connected and not a preview). */
+  _attach() {
+    if (this._layer && this._layer.parentNode !== this.shadowRoot && this._layer.parentNode !== document.body) this.shadowRoot.append(this._layer);
     this._motion(true);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.addEventListener(t, this._onAct, {capture: true, passive: false});
     document.addEventListener("visibilitychange", this._onVis);
-    if (this._layer && this._layer.parentNode !== this.shadowRoot && this._layer.parentNode !== document.body) this.shadowRoot.append(this._layer);
     this._restartIdle();
     if (this._config) JamKiosk.join(this);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._detach();
+  }
+  _detach() {
     this._motion(false);
     for (const t of ["pointerdown", "keydown", "wheel"]) document.removeEventListener(t, this._onAct, {capture: true});
     document.removeEventListener("visibilitychange", this._onVis);
@@ -400,7 +418,7 @@ class JamScreensaver extends JamBase {
   /* ---- idle / activity ---- */
   _restartIdle() {
     clearTimeout(this._idleT); this._idleT = null;
-    if (!this._config || !this.isConnected || document.hidden || this._shown) return;
+    if (!this._config || !this.isConnected || this._preview || document.hidden || this._shown) return;
     this._idleT = setTimeout(() => this._tryShow(), this._idleMs());
   }
   _activity(e) {
@@ -441,7 +459,7 @@ class JamScreensaver extends JamBase {
   }
   _tryShow() {
     this._idleT = null;
-    if (!this.isConnected || document.hidden || this._shown) return;
+    if (!this.isConnected || this._preview || document.hidden || this._shown) return;
     if (!this._inHours() || this._blocked()) { this._idleT = setTimeout(() => this._tryShow(), 60e3); return; }
     this._show();
   }

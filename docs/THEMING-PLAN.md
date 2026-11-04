@@ -350,8 +350,32 @@ per-series names (an entities list with objects goes to YAML). Check: `preview/c
 README option table, selectors, stubs on the preview hass and an empty hass through assertConfig + setConfig + render
 with `card.preview = true`, an ha-form style edit keeping an unknown key, customCards entries; logs how many fixture
 configs fit the form: all but one jam-graph with named series).
-Still to do: phase 1b (jam-media, jam-house, jam-screensaver: these three must honour `card.preview` before they get
-`preview: true`), phase 2 (object lists; `object` selector confirmed above), phase 3 (custom editors).
+**Phases 1b and 2 (done 2026-11-03, branch `editors-2`).** Object selector checked once more in the 20260930.2 source
+(`ha-selector-object.ts`, `dialog-form.ts`, `format_selector_value.ts`): `fields` + `multiple` renders a list of rows
+(label = `label_field`, supporting text = `description_field`, else every field joined with " · "), each edited in a form
+dialog whose ha-form merges `{...item, ...change}`, so unknown item keys survive; nested `object` fields open a stacked
+dialog; an object field with no `fields` is a YAML editor (jam-scenes `data`). Two traps: a field `default` IS written into a
+newly added item (so object fields carry none), and a non-multiple object's delete writes `""` (accepted as "absent").
+The list already shows drag handles in 2026.10, but nothing relies on reordering. `text` + `multiple` wraps a plain text
+with ensureArray, so a "text or list" key (`match.app`, `states`, `input_app`, disable_on `state`) fits as either.
+- 1b: jam-media (YAML-only: `sources` true-or-list, `more`, `sub_entities`), jam-house (`alerts` as a list;
+  `inside_aq` / `outside_aq` as entities, the `{entity, extra}` form goes to YAML like jam-fan's sensor object),
+  jam-screensaver (`images` / `active_hours` objects, `now` / `disable_on` lists, a single disable_on object fits;
+  YAML-only: `kiosk`, whose values mix true / false / "url"). jam-screensaver now honours `card.preview` (picker, card
+  editor, dashboard edit mode): no idle timer, page listeners, overlay, kiosk chrome or motion switch until it turns false.
+  jam-media and jam-house open nothing on their own (sheets only on a tap), so they needed no guard.
+- 2: jam-list (`entities`), jam-panel (`rows` with a nested `bad` object; a text `bad.state` goes to YAML because the card
+  only reads a list), jam-tabs, jam-scenes, jam-hero `chips`, jam-light `whites` / `presets` (`rgb_color` = color_rgb),
+  jam-speaker `pinned`, jam-tv (main keys + `sources` with a nested `match`; `launchers` goes to YAML, `stereo` /
+  `remote_card` / `remote_title` stay YAML). jam-speaker `speakers` stays an entity list (ids; `{entity, name}` to YAML).
+- Mixed lists cannot be shown: a bare id among jam-list `{entity, name}` rows or a bare uri among jam-speaker pins sends the
+  card to YAML (assertConfig), so nothing is lost. Fixture fit after this round: jam-list 0 of 2 (both mix bare ids),
+  jam-speaker pins 2 configs, jam-house 2 (aq objects), jam-hero / jam-graph 1 each (error fixture / named series).
+- 94-editors adds: object item keys named in the option's README row, no defaults in object fields, every object list of
+  each fitting fixture / README config round-trips through a simulated item dialog with an unknown key and every item key
+  is a field, YAML / form edge cases, and jam-screensaver inert with `preview` (and live again when it turns false).
+Still to do: phase 3 custom editors (jam-remote, jam-tv `stereo` / `remote_card`, jam-kiosk, jam-popup); the picker
+preview of jam-screensaver shows an empty card (it takes no space); a visible picker preview would be a design decision.
 
 ---
 
