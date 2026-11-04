@@ -11,9 +11,10 @@ with one cut corner, one accent colour per card (per room), heavy uppercase disp
 2. For the palette, also install the [JamBoard theme](https://github.com/Starkkaman/jam-theme) (HACS category **Theme**)
    and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
 
-Twenty-five cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
+Thirty-three cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
 jam-slider, jam-button, jam-gauge, jam-fan, jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker, jam-media,
-jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes, jam-tv (main options and sources), jam-looks, jam-dial, jam-keypad and jam-radio. List options
+jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes, jam-tv (main options and sources), jam-looks and the look cards (jam-dial, jam-keypad, jam-radio, jam-pictogram,
+jam-programme, jam-results, jam-linemap, jam-arrivals, jam-matrix, jam-ridge, jam-sticker). List options
 such as hero chips, list rows, panel rows, tabs, scenes, house alerts, light whites / presets, speaker pins, screensaver
 `now` and TV sources are edited as a list of items (Home Assistant 2026.10 or newer). Options the form does not show
 (tile tones, fan speeds / presets, jam-media `sources` / `more`, TV `stereo` / `remote_card`, screensaver `kiosk` ...)
@@ -25,16 +26,20 @@ Fonts (OFL): Londrina Solid and Jost (the default look) are embedded in `jam-car
 fonts are files in `fonts/` next to it, loaded only while that look is active. Licences are in `dist/fonts/`. Nothing is
 fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
 
-**0.10.0: state grammar, opt-in attention, look cards, two more looks.** One state grammar in every look: on is the
+**0.10.0: state grammar, opt-in attention, eleven look cards, three more looks.** One state grammar in every look: on is the
 strongest fill the look owns, off is quiet, a lock is never "on" (unlocked / open / jammed are alerts, locked is quiet),
 trouble sensors (problem, moisture, smoke, gas, CO, safety, tamper, battery, heat, cold) are alerts while on, and an
 unreachable entity reads **Offline** on a broken form; jam-kiosk and jam-screensaver share one date line. Labels are at
 least 12 px and chips 13 px everywhere. New opt-ins (all off by default, so live dashboards keep their look): jam-kiosk
 `dock_state: fill`, `attention`, `now_band` and `sheet_heading: false`; `size: kiosk` on jam-light, jam-scenes and jam-fan;
-jam-speaker `compact_idle`; jam-screensaver `lock_entity` and `alerts`; jam-house `attention`. Three look cards drawn after
-Braun objects, at home in every look: [jam-dial](#jam-dial), [jam-keypad](#jam-keypad) and [jam-radio](#jam-radio). Two
-more looks: **Jam Brutal** (neo-brutalism: bordered white slabs, hard shadows, keys that go down) and **Jam Glass** (liquid
-glass + bento over a soft colour field; set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets). Update the
+jam-speaker `compact_idle`; jam-screensaver `lock_entity` and `alerts`; jam-house `attention`. Eleven look cards, each
+made for one look and at home in every look: after Braun objects [jam-dial](#jam-dial), [jam-keypad](#jam-keypad) and
+[jam-radio](#jam-radio); for Olympia [jam-pictogram](#jam-pictogram), [jam-programme](#jam-programme) and
+[jam-results](#jam-results); for Transit [jam-linemap](#jam-linemap) and [jam-arrivals](#jam-arrivals); for Grid
+[jam-matrix](#jam-matrix); for Pulsar [jam-ridge](#jam-ridge); for New Wave [jam-sticker](#jam-sticker). Three more looks:
+**Jam Brutal** (neo-brutalism: bordered white slabs, hard shadows, keys that go down), **Jam Glass** (liquid glass + bento
+over a soft colour field; set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets) and **Jam Girard**
+(Alexander Girard's textiles: woven room patterns, saturated fills, sun / heart / eye / bird motifs). Update the
 [jam-theme](https://github.com/Starkkaman/jam-theme) repo too. For look packs: jam-kiosk dock blocks carry
 `data-state="on|off|action"` (plus `data-alert`), and jam-light / jam-button / jam-tile / jam-fan hosts carry
 `data-state="on|off|offline"`.
