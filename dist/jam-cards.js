@@ -1342,6 +1342,14 @@ function jamNowMedia(hass, src) {
 .key:not(:disabled):hover > .face{border-color:var(--line)}
 .key.on > .face,.ikey.main > .face{background:var(--ochre);color:var(--on-fg)}
 .key.alert > .face{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+/* jam-matrix alert cells (a trouble sensor on = alert since the state grammar) follow the same rule: panel-2, red text, red ring */
+:host(jam-matrix) .cell.alert{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+/* jam-house attention strip (opt-in): the same alert rule (panel-2 face, red text, red ring; ink on the red fill was 3.54:1
+   in light mode); its "Needs you" label gets its word space back (Archivo's space nearly vanishes in small uppercase). */
+:host(jam-house) .att{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+:host(jam-house) .att .ah{word-spacing:.3em}
+:host(jam-house) .att button{color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+:host(jam-house) .att button:focus-visible{outline-color:var(--focus)}
 .key:disabled > .face{color:var(--dim)}
 /* a switch key in a wrapped tile / list row keeps its own height (no stretched dome) */
 .row .sw.paper,.row .sw.paper > .face{height:auto}
@@ -2165,6 +2173,7 @@ ${RUNNER_CSS}
 :host(jam-kiosk) .blk[data-state=on]{background:var(--gi-bc);color:${fgOn("var(--gi-bc)")};box-shadow:none;justify-content:flex-start;padding-top:20px}
 :host(jam-kiosk) .host .blk[data-state=on] .st{color:inherit}
 :host(jam-kiosk) .blk[data-state=on]::after{inset:auto 0 0 0;height:34%;-webkit-mask:var(--gi-bph) left top/20px 10px repeat;mask:var(--gi-bph) left top/20px 10px repeat}
+:host(jam-kiosk) .blk[data-state=on] .st{-webkit-line-clamp:1} /* one line: a two-line state (a playing title) ran into the woven lower third */
 :host(jam-kiosk) .host .blk[data-state=action],:host(jam-kiosk) .host.light .blk[data-state=action]{background:transparent;color:var(--fg);box-shadow:inset 0 0 0 4px var(--fg);border-radius:999px;align-items:center;text-align:center}
 :host(jam-kiosk) .blk[data-state=action]::after{content:none}
 :host(jam-kiosk) .blk:active,:host(jam-kiosk) .blk.stamp{background:color-mix(in oklch,var(--gi-bc) 34%,var(--slab))}
@@ -2203,7 +2212,10 @@ ${RUNNER_CSS}
 .gip .gt::after{content:"";position:absolute;left:0;right:0;bottom:6%;height:10%;background:var(--k);-webkit-mask:var(--p) left center/auto 100% repeat-x;mask:var(--p) left center/auto 100% repeat-x}
 .gip .gt.door{grid-column:span 2;width:auto;background:var(--slab);box-shadow:inset 0 0 0 .5vh var(--fg)} .ov .l3 .gip .gt.door{grid-column:auto;width:var(--t)} .gip .gt.door::before{background:var(--fg)} .gip .gt.door::after{content:none}
 .ov .l0 .sh.gip{right:7vw;top:8vh} .ov .l1 .sh.gip{left:7vw;bottom:9vh} .ov .l2 .sh.gip{right:7vw;bottom:9vh}
-.ov .l3 .sh.gip{--t:9.5vh;grid-template-columns:repeat(7,var(--t));left:0;right:0;margin:0 auto;width:max-content!important;bottom:6vh}
+.ov .l3 .sh.gip{--t:9.5vh;grid-template-columns:repeat(7,var(--t));left:0;right:0;margin:0 auto;width:max-content!important;bottom:4vh}
+/* l3: no top bar in this look, so the text block starts higher and clears the panel with a door block or alerts and the
+   now-playing block (it touched / overlapped the panel at 961x601 and 1024x768) */
+.ov .poster.l3 .txt{top:10vh}
 .ov .l4 .sh.gip{right:7vw;top:8vh} .ov .l5 .sh.gip{left:7vw;top:8vh}
 .tchip{background:var(--acc);color:var(--acc-fg);clip-path:none;border-radius:999px}
 .tchip small{color:inherit}
@@ -2902,6 +2914,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 :host(jam-kiosk) .host .blk:active{background:var(--ochre);color:var(--on-fg);box-shadow:none}
 :host(jam-kiosk) .host .blk:active .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* dock_state: fill (opt-in): the outlined squares above would draw an on block like every other one; on = filled with the
+   text colour (white in dark, ink in light) with inverted text, an alert block (a lock that is unlocked) = the signal fill;
+   off and action keep core's outline. */
+:host(jam-kiosk) .k.dfill .blk.on{background:var(--fg);color:var(--slab);box-shadow:none}
+:host(jam-kiosk) .k.dfill .blk.on .st{color:var(--slab)}
+:host(jam-kiosk) .k.dfill .blk.alert{background:var(--ochre);color:var(--on-fg);box-shadow:none}
+:host(jam-kiosk) .k.dfill .blk.alert .st{color:var(--on-fg)}
 :host(jam-kiosk) .lk .disc{border-radius:0}
 :host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
@@ -3375,6 +3394,7 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 :host(jam-kiosk) .host .blk.none{--bc:var(--jam-art-4);--bf:var(--on-fg)}
 :host(jam-kiosk) .host .blk.none:nth-child(even){--bc:var(--jam-art-2)}
 :host(jam-kiosk) .host .blk.none .st{color:var(--on-fg)}
+:host(jam-kiosk) .host .k.dfill .blk.none.out .st{color:var(--dim)} /* dock_state: fill: an outlined "none" block is on the page, not on its fill (navy on navy was 1:1 in dark) */
 :host(jam-kiosk) .lk .disc{border-radius:0}
 /* locked = quiet: a 2px ring in the text colour on no fill (core --lk-bg transparent) */
 :host(jam-kiosk) .lk .disc{box-shadow:inset 0 0 0 2px var(--lk-ring)}
@@ -3814,6 +3834,11 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 .blk > .pcode i{width:10px;height:10px}
 .blk > .pcode i.ck{margin-left:6px}
 .blk:active{box-shadow:inset 0 0 0 1px var(--fg)}
+/* dock_state: fill (opt-in): core's 4px ring would make the OFF block the heaviest on Pulsar's 1px outlines; off = the plain 1px
+   outline, on = a 2px --fg outline with its state in --fg, so the lit block reads as the lit one. */
+.k.dfill .blk.out,.host.light .k.dfill .blk.out{box-shadow:inset 0 0 0 1px var(--line)}
+.k.dfill .blk.on{box-shadow:inset 0 0 0 2px var(--fg)}
+.k.dfill .blk.on .st{color:var(--fg)}
 .blk:focus-visible{outline:2px solid var(--focus);outline-offset:-6px}
 .lk{--lk-bg:transparent;--lk-gl:var(--fg);--lk-tx:var(--fg)}
 .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
@@ -4125,6 +4150,9 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 /* dock_state: fill (opt-in): a block that is on is the white plate (Transit's "active"), off blocks keep the sign under a ring */
 :host(jam-kiosk) .k.dfill .blk.on{background:var(--jam-fg,#fff);color:var(--on-fg);--fg:var(--on-fg)}
 :host(jam-kiosk) .k.dfill .blk.on .st{color:var(--on-fg)}
+/* dock_state: fill, light mode: an off (outlined) block keeps the sign's muted grey for its state line (core's page dim
+   was 3.09:1 there). */
+:host(jam-kiosk) .host.light .k.dfill .blk.out .st{color:var(--jam-dim,#9d9d9d)}
 :host(jam-kiosk) .blk.counted .nm[data-tr]::before{width:28px;height:28px;font-size:17px;margin-right:8px} /* room for the count */
 :host(jam-kiosk) .blk .nm[data-tr]::before{--tr-bc:var(--bc,var(--acc));width:32px;height:32px;font-size:19px;margin-right:12px}
 :host(jam-kiosk) .blk.none .nm[data-tr]::before{--tr-bc:var(--jam-art-8);color:#000}
@@ -5475,15 +5503,16 @@ class JamHouse extends JamBase {
     if (a && Array.isArray(a.lights)) return a.lights.filter(x => typeof x === "string");
     return h && h.states ? Object.keys(h.states).filter(id => id.startsWith("light.")) : [];
   }
-  /* Attention items [{text, tap}] (opt-in); empty when all is well. */
+  /* Attention items [{text, tap, door?}] (opt-in); empty when all is well. door = the lock item (the chip row then leaves
+     out its own door chip, so the door is not shown twice). */
   _attention() {
     const c = this._config, h = this._hass, out = [];
     if (!c.attention) return out;
     if (c.lock_entity) {
       const s = stateObj(h, c.lock_entity), st = s ? String(s.state) : "unavailable";
-      if (!s || UNAVAILABLE.has(st)) out.push({text: "Door " + OFFLINE.toLowerCase(), tap: n => moreInfo(n, c.lock_entity)});
-      else if (st === "unlocked" || st === "open") out.push({text: `Door ${st} · lock`, tap: n => jamCall(n, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door")});
-      else if (lockAlert(s)) out.push({text: `Door ${st}`, tap: n => moreInfo(n, c.lock_entity)});
+      if (!s || UNAVAILABLE.has(st)) out.push({door: true, text: "Door " + OFFLINE.toLowerCase(), tap: n => moreInfo(n, c.lock_entity)});
+      else if (st === "unlocked" || st === "open") out.push({door: true, text: `Door ${st} · lock`, tap: n => jamCall(n, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door")});
+      else if (lockAlert(s)) out.push({door: true, text: `Door ${st}`, tap: n => moreInfo(n, c.lock_entity)});
     }
     const dead = this._attLights().filter(id => { const s = stateObj(h, id); return !!s && s.state === "unavailable"; });
     if (dead.length) out.push({text: `${dead.length} ${dead.length === 1 ? "light" : "lights"} ${OFFLINE.toLowerCase()}`, tap: n => moreInfo(n, dead[0])});
@@ -5560,9 +5589,10 @@ class JamHouse extends JamBase {
     outBox.append(ot);
     const outAq = this._aq(c.outside_aq); if (outAq) outBox.append(outAq);
 
-    // Chips: door, people at home, matching alerts.
+    // Chips: door (unless the attention strip already carries it), people at home, matching alerts.
+    const att = this._attention();
     const chips = el("div", "chips");
-    if (c.lock_entity) {
+    if (c.lock_entity && !att.some(it => it.door)) {
       const ls = stateObj(h, c.lock_entity), st = ls ? ls.state : "unavailable";
       let chip;
       if (st === "unlocked" || st === "open") {
@@ -5599,7 +5629,6 @@ class JamHouse extends JamBase {
       chips.append(chip);
     }
 
-    const att = this._attention();
     if (att.length) {
       const strip = el("div", "att"); strip.dataset.role = "attention";
       strip.setAttribute("role", "group"); strip.setAttribute("aria-label", "Needs attention");
@@ -7253,7 +7282,7 @@ class JamDial extends JamLight {
     if (rgb) root.style.setProperty("--dl-c", rgbCss(dialReadable(rgb, slab)));
     // Header: name (button = pop-up) + sub line; power toggle top-right.
     const top = el("div", "dl-top");
-    const nm = el(dead ? "h3" : "button", "dl-name", name);
+    const nm = el(dead ? "h3" : "button", dead ? "dl-name" : "dl-name hit", name); // .hit: a 44px tap target (core)
     if (!dead) {
       nm.type = "button"; nm.dataset.key = "more"; nm.setAttribute("aria-haspopup", "dialog");
       nm.setAttribute("aria-label", `${name}: light settings`);
@@ -11628,6 +11657,7 @@ const JAM_SPK_KIOSK_CSS = `
       font-size:calc(clamp(36px,14cqh,76px) * var(--disp-scale))}
     .ktx .title > .tl{display:-webkit-box;-webkit-line-clamp:var(--tl);-webkit-box-orient:vertical;overflow:hidden}
     .ktx .artist{font:500 clamp(18px,5.5cqh,24px)/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ktx .artist.lp{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word} /* idle "Last played: …" wraps to 2 lines */
     .kb{display:grid;gap:10px}
     .kprog{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;font:600 18px/1 var(--body);letter-spacing:.04em}
     .kprog .bar{position:relative;height:6px;background:var(--ktr)}
@@ -12028,7 +12058,7 @@ class JamSpeaker extends JamBase {
     tx.append(clampTitle(!idle && a.media_title ? a.media_title : room));
     const line = off ? "Offline" : !idle ? [a.media_artist, a.media_album_name].filter(Boolean).join(" · ")
       : a.media_title ? `Last played: ${a.media_title}${a.media_artist ? " · " + a.media_artist : ""}` : "Nothing playing";
-    if (line) tx.append(el("div", "artist", line));
+    if (line) tx.append(el("div", idle && !off && a.media_title ? "artist lp" : "artist", line));
     const kb = el("div", "kb"), p = !idle ? this._kPos(s) : null;
     this._kprog = null;
     if (p) {
