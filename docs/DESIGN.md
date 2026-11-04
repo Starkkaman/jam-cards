@@ -7,9 +7,9 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar, New Wave and Brutal are the next looks (user, 2026-11-03;
-built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules", "New Wave rules" and
-"Brutal rules"); the
+the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar, New Wave, Brutal and Glass are the next looks (user,
+2026-11-03; built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules", "New Wave
+rules", "Brutal rules" and "Glass rules"); the
 global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
@@ -263,8 +263,8 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
 - Audit 2026-11-03: with a now-playing block (`.ov[data-now=on]`) the screensaver band shrinks to a 13vh strip at the edge
   away from the text (the ridges struck through the title); the unlocked kiosk lock is the one warm fill.
 ## New Wave rules (the New Wave look, theme "Jam New Wave"; brief docs/looks/NEWWAVE.md)
-After April Greiman (Design Quarterly #133, 1986) with a touch of Memphis. The only look with translucency, soft shadows
-and gradients, all behind the effects switch (universal rule "Effects only under `data-fx`"): the theme sets `jam-fx: 1`,
+After April Greiman (Design Quarterly #133, 1986) with a touch of Memphis. The first look with translucency, soft shadows
+and gradients (Glass is the second), all behind the effects switch (universal rule "Effects only under `data-fx`"): the theme sets `jam-fx: 1`,
 and a card's `fx: false` (the kiosks' setting: jam-kiosk, jam-screensaver; their sheets and layer follow) turns them off.
 - Tokens (`tokens/looks/newwave.mjs`): page #fbf8ff / #140f2e (HA ground alias), the plane `--slab` #ffffff / #2a2060
   (opaque: the fx-off face and the colour the translucent plane is mixed from), `--slab2` / `--slab3` lavender planes for
@@ -336,6 +336,46 @@ is a hard offset in the line colour.
   hollow knob. jam-heading: a bordered room sticker behind the title, no rule. Cards keep 6px right / bottom for their own
   shadow. jam-kiosk dock: `data-state` on = fill + down, off = white slab, action = outlined slab. K1 side panel = white.
 - Focus ring: the universal 3px `--focus` ring in blue (#2b45ff / #8c9bff), so it never reads as one more black border.
+
+## Glass rules (the Glass look, theme "Jam Glass"; brief docs/looks/GLASS.md, decisions in its "Built" section)
+Liquid glass + bento (Apple 2025, Linear / Vercel bento grids, Arc): frosted panes floating over a soft colour field, calm
+and tactile. Dark mode is the primary one. Effects (translucency, blur, the glow, glossy knobs, the hover lift, the
+brighter field) only under `data-fx` (the theme sets `jam-fx: 1`; the kiosks' `fx: false` turns them off).
+- Tokens (`tokens/looks/glass.mjs`): page #0b1020 / #eef1f7 (HA ground alias; `jam-ink` stays the dark ink in light mode for
+  the veil and plates), the solid pane `--slab` #182036 / #fbfcff (the fx-off face; every contrast is measured on it),
+  `--slab2` / `--slab3` deeper panes for keys and tracks, text #f4f6fb / #0f1424, dim #a9b1c6 / #4b536b; room hues from the
+  field (teal #1fb5a8, amber #ffb44d, violet fill #8f7aff) plus blue, pink, green, with ink text on every fill (`--on-fg`,
+  >= 5.8:1); the frosted fill rides on the legacy `jam-shadow` token (white .08 / .62); `jam-elev-1` = a 1px light inner
+  edge + a soft drop shadow; `jam-art-1..3` = the field colours (teal, #7c5cff, amber). The colour field is HA's
+  `lovelace-background`: three radial blobs fixed to the viewport, alpha x (1 + `--jam-fx`) / 2. Figtree 600 names
+  (mixed case, x .74), labels 500 in sentence case, keys 600; every shape token `none`, radius 28px on card / hero / sheet,
+  18px on keys, 999px on chips, 22px on posters; spring ease-out (cubic-bezier(.2,1.25,.35,1)) x 1.2 (about 260 ms), press
+  scale .97, a 1.04 pop for stamps, no washes / wipes / spiral flash.
+- Pack (`src/looks/glass.js`): every card / hero / jam-button face is a pane: solid with a 1px `--line` edge, or under fx
+  the frosted fill + `backdrop-filter: blur(24px) saturate(1.4)` + `jam-elev-1` and a 2px lift on hover (pointer devices,
+  not while pressed). Cards inside a sheet are plain solid panes; the sheet itself is the frosted layer (slab 93% + blur)
+  over a lightly blurred veil. Big numbers (clocks, temperatures, values, percentages) in Figtree 300. Keys are slab2
+  panes with an edge; on = the room colour with ink text (a soft glow of that colour under fx); tabs show their colour as
+  a dot and fill with it when current; chips are pills, tone marks dots, the power button a 36px circle (on = the room /
+  light colour). Strips are thick rounded tracks (24px, slab2) with a 28px round knob on sliders (glossy under fx).
+  jam-light on: the pane glows from inside with the light's colour (fx: a radial tint from the top-left over the frosted
+  fill; no fx: the colour 30% into the solid pane, mixed in OKLab so warm lights stay warm), text stays `--fg`, no label plates; brightness = a 14px rounded track
+  with a 20px knob. Empty art: the Golden Arm bars in the room colour, rounded; idle art: three soft orbs in the field
+  colours (blurred under fx). Kiosk: jam-kiosk paints its own field (opaque ground + blobs, scaled by its own fx), the
+  clock in Figtree 300 floats on it, the accent bar is a 56px pill, dock tiles are 28px panes tinted 24% with their colour
+  (frosted under fx), the lock a slab2 disc. Screensaver: the same field, the thin clock, the layout's bars as glass pills
+  and its disc as a tinted orb, now playing on a pane, kick and temperature in text colours. Focus ring: the universal 3px
+  `--focus` ring (#8ef0e4 dark, #5b3fe6 light).
+- Contrast is measured on the solid fx-off faces (preview/contrast.js skips gradients and the field): run the harness
+  with `JAM_FX=0` too. Under fx the text colours stay the same; the frosted fill is light in light mode and dark in dark
+  mode, so the blurred field behind it keeps text on the same side of the contrast line.
+- Review fixes (2026-11-04, docs/looks/GLASS.md "Design review fixes"; these win over the lines above): lit lights and lit
+  jam-buttons are re-lit panes (the colour in OKLCH with lightness clamped bright and chroma capped; fx: a glow from a
+  near-white core plus a halo; ink text) instead of a tint over the dark pane; unavailable = an empty pane with a dashed
+  edge; the tone stripe is an 8px tone dot; big numbers 40-48px in Figtree 300; kiosk dock tiles follow
+  `data-state` (on = solid room colour, off = neutral pane, action = outlined) and each block raises a disc of its colour
+  behind it (bright while on; flat without fx); odd-count multi-column kiosk sheets lead with a full-width tile; the
+  screensaver drops the layout's bars and keeps one flat orb.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,

@@ -765,3 +765,18 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   the browser loads only one of the equal faces), views.js expects 8 tiles. 93-now-playing: the "new cover is not shown before it has loaded"
   check holds the cover response (page.route on a query of its own, so the memory-cached slide-1.png cannot answer first)
   until it has looked, instead of racing the preload.
+- **R10 Glass (done, 2026-11-03, branch look-glass).** Brief docs/looks/GLASS.md (decisions and deviations under "Built"),
+  rules in DESIGN.md "Glass rules". `tokens/looks/glass.mjs`: theme "Jam Glass" (`../jam-theme/themes/jamboard-glass.yaml`,
+  jam-theme branch look-glass), dark primary, `jam-fx: 1`; the colour field is the `lovelace-bg` alias (three radial blobs
+  fixed to the viewport, brightness x (1 + --jam-fx) / 2), the frosted fill rides on the legacy `jam-shadow` token, Figtree
+  600 / 300 numerals, radii 28 / 18 / 999 / 22, spring motion. Pack `src/looks/glass.js` + Figtree variable 300-700 in
+  dist/fonts (OFL): solid panes with a 1px edge, under fx frosted (backdrop blur 24px saturate 1.4, jam-elev-1, hover lift);
+  room-colour on keys / tabs / scenes / jam-buttons with ink text; pills, dots, a round power button; thick rounded tracks
+  with a round (glossy) knob; lit lights glow from inside (fx) or are tinted solids; kiosk and screensaver paint their own
+  colour field scaled by their own fx; motifs idleArt (soft orbs) and flash (none). No shared-code hook added. Harness:
+  96-packs knows the glass pack (Figtree; 5 font families, 8 looks in the picker), views.js derives the picker's tile
+  count from the preview themes (every look's theme + system default) instead of a fixed 8.
+  Design review fixes (2026-11-04, GLASS.md): lit panes re-lit in OKLCH (relative colour syntax), dashed unavailable panes,
+  tone dots, 40-48px numerals, the jammed-key / swatch / weather-glyph bugs, kiosk dock `data-state` styling (preview stub
+  `preview/fixtures/86-kiosk-dock-state.js` until jam-kiosk writes the attribute; delete it then), the per-block room
+  discs on the kiosk, a lead tile in odd-count kiosk sheets, a bar-less screensaver with a flat orb. Still no shared hook.
