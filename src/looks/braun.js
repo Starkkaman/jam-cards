@@ -73,6 +73,14 @@
 .key:not(:disabled):hover > .face{border-color:var(--line)}
 .key.on > .face,.ikey.main > .face{background:var(--ochre);color:var(--on-fg)}
 .key.alert > .face{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+/* jam-matrix alert cells (a trouble sensor on = alert since the state grammar) follow the same rule: panel-2, red text, red ring */
+:host(jam-matrix) .cell.alert{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+/* jam-house attention strip (opt-in): the same alert rule (panel-2 face, red text, red ring; ink on the red fill was 3.54:1
+   in light mode); its "Needs you" label gets its word space back (Archivo's space nearly vanishes in small uppercase). */
+:host(jam-house) .att{background:var(--slab2);color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+:host(jam-house) .att .ah{word-spacing:.3em}
+:host(jam-house) .att button{color:var(--alert-text);box-shadow:inset 0 0 0 1.5px var(--red)}
+:host(jam-house) .att button:focus-visible{outline-color:var(--focus)}
 .key:disabled > .face{color:var(--dim)}
 /* a switch key in a wrapped tile / list row keeps its own height (no stretched dome) */
 .row .sw.paper,.row .sw.paper > .face{height:auto}
