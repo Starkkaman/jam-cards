@@ -309,7 +309,7 @@ class JamLight extends JamBase {
       if (dead) num.append(el("small", null, s ? "N/A" : "Missing"));
       else if (isOn) num.append(document.createTextNode(String(v)), el("small", null, "%"));
       else num.append(el("small", null, "Off"));
-      bi.style.width = (isOn ? v : 0) + "%";
+      bi.style.width = (isOn ? v : 0) + "%"; bi.style.setProperty("--lv", (isOn ? v : 0) / 100); // level 0..1 (R10 look hook)
       tap.setAttribute("aria-label", `${name}: ${dead ? "unavailable" : isOn ? v + "%" : "off"}`);
     };
     show(pct, on);
@@ -534,7 +534,7 @@ class JamLight extends JamBase {
     const wrap = el("div", "bwrap"), bar = el("div", "bigbar"), fi = el("i"), val = el("b", "num");
     bar.append(fi, val); wrap.append(bar);
     wrap.dataset.k = "bright"; wrap.setAttribute("aria-label", "Brightness");
-    const show = v => { fi.style.width = v + "%"; val.textContent = v ? v + "%" : "Off"; bar.classList.toggle("hi", v >= 78); };
+    const show = v => { fi.style.width = v + "%"; fi.style.setProperty("--lv", v / 100); val.textContent = v ? v + "%" : "Off"; bar.classList.toggle("hi", v >= 78); };
     show(v0);
     const at = e => { const r = wrap.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
     this._slide(wrap, {v0, at, show, send: v => this._setPct(id, v)});
@@ -702,7 +702,7 @@ class JamLight extends JamBase {
         const tr = el("div", "mtrack hit"), mb = el("div", "mb"), fi = el("i");
         fi.style.background = fill; mb.append(fi); tr.append(mb);
         tr.dataset.k = "mb|" + id; tr.setAttribute("aria-label", friendly(h, id) + " brightness");
-        const show = v => { fi.style.width = v + "%"; pshow(v); };
+        const show = v => { fi.style.width = v + "%"; fi.style.setProperty("--lv", v / 100); pshow(v); };
         show(on ? v0 : 0);
         const at = e => { const r = tr.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * 100; };
         this._slide(tr, {v0: on ? v0 : 0, at, show, step: 10, send: v => this._setPct(id, v)});

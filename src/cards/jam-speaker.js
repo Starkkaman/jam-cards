@@ -334,8 +334,8 @@ class JamSpeaker extends JamBase {
     const track = el("div", "vt hit" + (thin ? " thin" : "")), strip = el("div", "strip"), fill = el("div", "fill");
     strip.append(fill); track.append(strip); track.dataset.entity = id;
     let cur = Math.round((Number(s && s.attributes.volume_level) || 0) * 100);
-    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; track.setAttribute("aria-valuenow", cur); if (onShow) onShow(cur); };
-    fill.style.width = (off ? 0 : cur) + "%";
+    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; fill.style.setProperty("--lv", cur / 100); track.setAttribute("aria-valuenow", cur); if (onShow) onShow(cur); };
+    fill.style.width = (off ? 0 : cur) + "%"; fill.style.setProperty("--lv", (off ? 0 : cur) / 100); // --lv: level 0..1 (R10 look hook)
     if (off) return {track, cur: () => cur, set: () => {}};
     const send = () => jamCall(this, this._hass, "media_player", "volume_set", {entity_id: id, volume_level: cur / 100});
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", friendly(this._hass, id) + " volume");

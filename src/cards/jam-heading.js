@@ -21,6 +21,8 @@ class JamHeading extends JamBase {
     }
     const row = el("div", "row"), t = el("div", "t");
     if (c.kicker) t.append(el("div", "label", c.kicker));
+    const code = motif("code", this, c.title); // a look's name code (R10 hook; Poster: none)
+    if (code) t.append(code);
     t.append(el("h2", "disp", c.title));
     row.append(t);
     const ids = c.entities || [];

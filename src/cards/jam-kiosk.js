@@ -194,6 +194,8 @@ class JamKioskHome extends JamBase {
       const none = String(b.accent || "").toLowerCase() === "none", acc = !none && accentVar(b.accent);
       if (none) btn.classList.add("none");
       else if (acc) { btn.style.setProperty("--bc", acc); btn.style.setProperty("--bf", accentFg(b.accent)); }
+      const code = motif("code", this, b.name); // a look's name code (R10 hook; Poster: none)
+      if (code) btn.append(code);
       btn.append(nm, s);
       btn.addEventListener("pointerdown", e => { if (!e.button && motionOn()) oneShot(btn, "stamp"); });
       btn.addEventListener("click", () => this._tap(b));
@@ -204,7 +206,7 @@ class JamKioskHome extends JamBase {
     this._body.append(k);
     root.append(this._body);
     jamStyle(root, this.css(), this.dataset.look);
-    this._k = k; this._clockKey = null;
+    this._k = k; this._clockKey = null; this._shellLook = this.dataset.look || "poster";
     if (this._kh) k.style.setProperty("--kh", this._kh + "px");
   }
   _update() {
@@ -274,6 +276,11 @@ class JamKioskHome extends JamBase {
   }
   /* A look's web fonts arrived (core _watchFonts): the clock / lock label were measured with the fallback face. */
   _fontsLoaded() { this._fit(); }
+  /* Live look switch: the shell is built once, so rebuild it when the dock's name code motif changes (R10 hook). */
+  _lookChanged(look) {
+    const code = l => { const p = lookPack(l); return p ? p.motifs.code : undefined; };
+    if (this._k && code(this._shellLook) !== code(look)) this._render(true);
+  }
   /* Height: from the card's top to the bottom of the viewport, minus the view's bottom padding (16px); one correction
      pass when the page still scrolls by a few pixels (HA paddings differ from the guess). */
   _fit() {

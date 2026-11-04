@@ -498,6 +498,9 @@ function armBars(key) {
   return box;
 }
 defineMotif("empty", armBars);
+/* Name code (R10 Pulsar hook): a look may mark a name with a small aria-hidden decoration (Pulsar: its colour code); Poster
+   draws none (null), so the cards append nothing. Asked by jam-heading (title), jam-button (icon square), jam-kiosk (dock). */
+defineMotif("code", () => null);
 
 /* ---------- light colour helpers ---------- */
 /* Approximate rgb of a colour temperature (Tanner Helland's black-body fit), e.g. 2200 K -> [255,146,39]. */

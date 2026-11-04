@@ -37,7 +37,7 @@ class JamSlider extends JamBase {
     strip.append(fill); track.append(strip); wrap.append(track); b.append(root);
     if (!m || isNaN(m.v)) return;
     const pct = v => Math.max(0, Math.min(100, ((v - m.min) / ((m.max - m.min) || 1)) * 100));
-    fill.style.width = pct(m.v) + "%";
+    fill.style.width = pct(m.v) + "%"; fill.style.setProperty("--lv", pct(m.v) / 100); // --lv: the level 0..1 for a look's level motif (R10 hook; Poster ignores it)
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", c.name || friendly(h, c.entity));
     track.setAttribute("aria-valuemin", m.min); track.setAttribute("aria-valuemax", m.max); track.setAttribute("aria-valuenow", m.v);
     const snap = x => Math.round((m.min + x * (m.max - m.min)) / m.step) * m.step;
@@ -45,7 +45,7 @@ class JamSlider extends JamBase {
     const at = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
     const show = v => {
       cur = m.int ? Math.round(v) : Number(v.toFixed(6));
-      fill.style.width = pct(cur) + "%"; val.textContent = `${cur}${m.unit ? " " + m.unit : ""}`;
+      fill.style.width = pct(cur) + "%"; fill.style.setProperty("--lv", pct(cur) / 100); val.textContent = `${cur}${m.unit ? " " + m.unit : ""}`;
       track.setAttribute("aria-valuenow", cur);
     };
     track.onpointerdown = e => { try { track.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ } show(snap(at(e))); track.dataset.drag = "1"; };

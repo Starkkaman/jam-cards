@@ -13,7 +13,7 @@ module.exports = async (page, check) => {
     const cards = () => { const out = []; for (const r of roots()) for (const e of r.querySelectorAll("*")) if (e._config && e.localName.startsWith("jam-")) out.push(e); return out; };
     const all = sel => roots().reduce((n, r) => n + r.querySelectorAll(sel).length, 0);
     const theme = () => { const nh = {...h, themes: {...h.themes}}; for (const c of cards()) c.hass = nh; return tick(); };
-    const NAMES = ["empty", "idleArt", "flash", "wxGlyph", "remoteGlyph", "powerGlyph", "screensaver"];
+    const NAMES = ["empty", "idleArt", "flash", "wxGlyph", "remoteGlyph", "powerGlyph", "screensaver", "code", "gauge", "graph"];
     const out = {};
     // Poster motifs are the old helpers.
     out.poster = {
@@ -22,6 +22,7 @@ module.exports = async (page, check) => {
       remote: typeof J.motif("remoteGlyph", "poster", "power") === "string" && J.motif("remoteGlyph", "poster", "nope") === null,
       power: J.motif("powerGlyph", "poster").localName === "svg",
       ss: J.motif("screensaver", "poster").map(n => n.className).join(",") === "sh b1 bar,sh b2 bar,sh b3 bar,sh dk disc",
+      hooks: J.motif("code", "poster", "Living") === null && J.motif("gauge", "poster", .5, null) === null && J.motif("graph", "poster") === null,
       unknown: (() => { try { J.motif("nope", "poster"); return false; } catch (e) { return true; } })(),
     };
     // Test pack: each motif = the Poster one + a data-mt marker.
@@ -34,6 +35,10 @@ module.exports = async (page, check) => {
       remoteGlyph(...a) { const m = this.poster(...a); return m && m.replace("<svg", '<svg data-mt="remoteGlyph"'); },
       powerGlyph(...a) { return mark(this.poster(...a), "powerGlyph"); },
       screensaver(...a) { return this.poster(...a).map(n => mark(n, "screensaver")); },
+      // R10 hooks (Poster draws none: null): the name code, the gauge meter, the graph series.
+      code(name) { const n = document.createElement("span"); n.className = "mtcode"; n.setAttribute("aria-hidden", "true"); n.dataset.name = name; return mark(n, "code"); },
+      gauge() { return mark(document.createElementNS("http://www.w3.org/2000/svg", "svg"), "gauge"); },
+      graph(svg) { svg.setAttribute("data-mt", "graph"); return null; }, // marks the svg, then lets the card draw (null = not handled)
     }});
     const before = {arm: all(".arm"), idle: all(".abs"), mt: all("[data-mt]")};
     const tile = document.querySelector("#view jam-tile");
@@ -43,6 +48,12 @@ module.exports = async (page, check) => {
     const count = name => all(`[data-mt="${name}"]`);
     out.on = Object.fromEntries(NAMES.map(n => [n, count(n)]));
     out.onSheet = !!sheet.pop.querySelector('.spiral [data-mt="flash"]');
+    const inCard = tag => [...document.querySelectorAll("#view " + tag), ...[...document.querySelectorAll("#view *")].filter(e => e.shadowRoot).flatMap(e => [...e.shadowRoot.querySelectorAll(tag)])]
+      .some(c => c.shadowRoot && c.shadowRoot.querySelector('[data-mt="code"]'));
+    // jam-graph draws its series (and asks the graph motif) only once it has history: earlier checks may leave a graph
+    // loading, so the marks must equal the graphs that have a plot now.
+    out.graphPlots = cards().filter(c => c.localName === "jam-graph" && c._plot && c._plot.isConnected).length;
+    out.codeIn = {heading: inCard("jam-heading"), button: inCard("jam-button"), kiosk: inCard("jam-kiosk")};
     out.before = before;
     de.style.removeProperty("--jam-look");
     await theme(); await tick(200);
@@ -51,7 +62,9 @@ module.exports = async (page, check) => {
     h.themes = {...h.themes};
     return out;
   });
-  check(Object.values(r.poster).every(Boolean), `motifs: Poster versions equal the old helpers (armBars, vertigoSpiral, JAM_GLYPHS, power glyph, screensaver shapes), unknown names throw ${JSON.stringify(r.poster)}`);
+  check(Object.values(r.poster).every(Boolean), `motifs: Poster versions equal the old helpers (armBars, vertigoSpiral, JAM_GLYPHS, power glyph, screensaver shapes), the R10 hooks (code, gauge, graph) draw nothing, unknown names throw ${JSON.stringify(r.poster)}`);
+  check(r.on.code > 0 && r.on.gauge > 0 && r.on.graph === r.graphPlots && r.codeIn.heading && r.codeIn.button && r.codeIn.kiosk,
+    `R10 hooks reach the cards through the pack: code ${r.on.code} (jam-heading ${r.codeIn.heading}, jam-button ${r.codeIn.button}, jam-kiosk dock ${r.codeIn.kiosk}), gauge ${r.on.gauge}, graph ${r.on.graph} (of ${r.graphPlots} graphs with history)`);
   const ok = r.on.empty === r.before.arm && r.on.empty > 0 && r.on.idleArt >= r.before.idle && r.on.idleArt > 0 && r.on.flash >= 1 && r.on.wxGlyph > 0 &&
     r.on.remoteGlyph > 0 && r.on.powerGlyph > 0 && r.on.screensaver > 0 && r.on.screensaver % 4 === 0 && r.onSheet;
   check(ok, `a look switch redraws every motif through the pack: ${JSON.stringify(r.on)} (Poster had ${r.before.arm} arm bars, ${r.before.idle} idle arts), open sheet flash ${r.onSheet}`);
