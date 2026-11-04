@@ -777,6 +777,6 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   96-packs knows the glass pack (Figtree; 5 font families, 8 looks in the picker), views.js derives the picker's tile
   count from the preview themes (every look's theme + system default) instead of a fixed 8.
   Design review fixes (2026-11-04, GLASS.md): lit panes re-lit in OKLCH (relative colour syntax), dashed unavailable panes,
-  tone dots, 40-48px numerals, the jammed-key / swatch / weather-glyph bugs, kiosk dock `data-state` styling (preview stub
-  `preview/fixtures/86-kiosk-dock-state.js` until jam-kiosk writes the attribute; delete it then), the per-block room
+  tone dots, 40-48px numerals, the jammed-key / swatch / weather-glyph bugs, kiosk dock `data-state` styling (its preview stub
+  `preview/fixtures/86-kiosk-dock-state.js` was removed in the 0.10.0 release merge: jam-kiosk writes the attribute), the per-block room
   discs on the kiosk, a lead tile in odd-count kiosk sheets, a bar-less screensaver with a flat orb. Still no shared hook.

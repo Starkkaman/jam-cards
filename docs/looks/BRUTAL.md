@@ -72,7 +72,7 @@ subset, variable weight 200-800 and optical size 12-96, 77 KB; `OFL-BricolageGro
   - jam-speaker K1 (kiosk Music sheet): a white side panel with bordered keys, the room fill while playing, a bordered
     volume strip and progress bar, instead of the sampled art colour;
   - jam-kiosk dock state: styled against `data-state="on|off|action"` on `.blk` (on = room fill, latched down; off = white
-    slab; action = outlined slab on the page ground); without the attribute the blocks keep their room fills. The
-    attribute comes from another branch; check 96-r10-brutal.js writes it as a stub until then;
+    slab; action = outlined slab on the page ground); without the attribute the blocks keep their room fills. jam-kiosk
+    writes the attribute since the 0.10.0 merge of audit-fixes; check 96-r10-brutal.js reads it (its stub was removed then);
   - jam-dial / jam-keypad / jam-radio are not on main (only on branch cards-braun): no Brutal styles yet.
 - Shared-code hooks: none (the pack uses the existing `decorate` render hook and motif registry).

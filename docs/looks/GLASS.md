@@ -71,8 +71,8 @@ An independent review rated phone / desktop "ship with fixes" and the kiosk "rew
 - **Bugs**: a key in a wrapping row (jam-tile lock / switch key) keeps its own height (Poster's height 100% stretched the
   jammed-door key into a tall red blob over the next card); the light pop-up swatch pill is scoped to `.sws`; weather
   clouds and moon use `--dim` (Poster's `--paper` is the white pane in light mode).
-- **Kiosk dock states** (jam-kiosk `.blk[data-state=on|off|action]`, written by another branch; a preview stub
-  `preview/fixtures/86-kiosk-dock-state.js` stamps it until then): on = the solid room colour with ink text (fx: an
+- **Kiosk dock states** (jam-kiosk `.blk[data-state=on|off|action]`, written by jam-kiosk itself
+  since the 0.10.0 audit-fixes merge; the preview stub fixture was removed then): on = the solid room colour with ink text (fx: an
   upward glow of it), off = a neutral pane, action = an outlined tile; a "none" block is a neutral pane (no violet).
 - **Room field on the kiosk**: one disc per dock block rises behind its tile in the block's colour, bright (26% into the
   ground) while the block is on, dim (9%) when off, redrawn only when its data-state changes; flat discs without fx (so

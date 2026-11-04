@@ -1,7 +1,7 @@
 // Brutal (docs/looks/BRUTAL.md "Built", review fixes 2026-11-04): on the dark/1280 preview page, switched to the brutal look
-// (light, its primary mode) and back to Poster. Stub for the jam-kiosk dock state: the check writes data-state="on|off|action"
-// on the dock blocks itself (jam-kiosk writes it once that change is merged) and reads the pack's answer: on = the room fill,
-// latched down 4px with the 2px shadow; off = a white slab; action = an outlined slab on the page ground. Also the one tactile
+// (light, its primary mode) and back to Poster. The jam-kiosk dock state: reads the data-state="on|off|action" that jam-kiosk
+// writes on its dock blocks (85-kiosk-home: Lights on, TV / Music / Air off, All off = action) and the pack's answer: on = the
+// room fill, latched down 4px with the 2px shadow; off = a white slab; action = an outlined slab on the page ground. Also the one tactile
 // grammar (an on key stays down), the play key filled only while playing, power keys as white slabs, the pill switch (on =
 // black track, off = white track with a hollow knob), the heading sticker and the d-pad's drop-shadow border. JAM_SHOTS=<dir>
 // also writes brutal-dock-states.png. The page is left as it was. No fixture. Contract: module.exports = async (page, check) => {}.
@@ -20,9 +20,6 @@ module.exports = async (page, check) => {
     const o = {};
     const k = deep().find(c => c.localName === "jam-kiosk");
     const blks = k ? [...k.shadowRoot.querySelectorAll(".dock .blk")] : [];
-    const states = ["on", "off", "on", "off", "action"];
-    blks.forEach((b, i) => b.setAttribute("data-state", states[i % states.length]));
-    await tick(80);
     o.dock = blks.map(b => { const cs = getComputedStyle(b);
       return {st: b.dataset.state, none: b.classList.contains("none"), bg: cs.backgroundColor, bc: rgb(cs.getPropertyValue("--bc").trim() || cs.getPropertyValue("--acc").trim()),
         slab: rgb(cs.getPropertyValue("--slab").trim()), tf: cs.transform, sh: cs.boxShadow}; });
@@ -53,16 +50,15 @@ module.exports = async (page, check) => {
   await page.evaluate(async () => {
     const h = window.__hass, de = document.documentElement;
     const deep = () => { const out = []; const walk = n => { for (const e of n.querySelectorAll("*")) { if (e._config && e.localName.startsWith("jam-")) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); } }; walk(document); return out; };
-    for (const c of deep()) if (c.localName === "jam-kiosk") c.shadowRoot.querySelectorAll(".dock .blk[data-state]").forEach(b => b.removeAttribute("data-state"));
     de.classList.remove("light"); delete de.dataset.look;
     const nh = {...h, themes: {...h.themes, darkMode: true}}; for (const c of deep()) c.hass = nh;
     await new Promise(res => setTimeout(res, 120));
     h.themes = {...h.themes};
   });
   const d = r.dock, down = "matrix(1, 0, 0, 1, 4, 4)";
-  check(d.length >= 3 && d.every(b => b.st === "on" ? b.tf === down && (b.none || b.bg === b.bc) && /2px 2px/.test(b.sh)
+  check(d.length >= 3 && ["on", "off", "action"].every(v => d.some(b => b.st === v)) && d.every(b => b.st === "on" ? b.tf === down && (b.none || b.bg === b.bc) && /2px 2px/.test(b.sh)
       : b.st === "off" ? b.tf === "none" && b.bg === b.slab : b.bg === "rgba(0, 0, 0, 0)" && b.tf === "none"),
-    `brutal dock (data-state stub): on = room fill + latched down, off = white slab, action = outlined slab (${JSON.stringify(d.map(b => [b.st, b.bg, b.tf]))})`);
+    `brutal dock (jam-kiosk data-state): on = room fill + latched down, off = white slab, action = outlined slab (${JSON.stringify(d.map(b => [b.st, b.bg, b.tf]))})`);
   check(/matrix\(1, 0, 0, 1, [24], [24]\)/.test(r.onKey), `brutal: an on key stays down (${r.onKey})`);
   check(r.play.some(p => p.p === "on") && r.play.some(p => p.p === "off") && r.play.every(p => p.p === "on" ? p.bg !== r.slab : p.bg === r.slab),
     `brutal: the play key is filled only while playing (${JSON.stringify(r.play)})`);
