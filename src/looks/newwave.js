@@ -60,6 +60,8 @@ ${PAIRS}
 :host([data-fx]) .host > .paper[data-cut=card] > .face,:host([data-fx]) .host > .paper[data-cut=hero] > .face,:host([data-fx]) .host > .paper.btn > .face{
   background:linear-gradient(140deg,color-mix(in oklch,var(--acc) 30%,var(--nw-plane)),color-mix(in oklch,var(--nw-t2) 22%,var(--nw-plane)));
   box-shadow:var(--jam-elev-1,none)}
+/* An offline jam-dial is the plain plane: no room tint, no lit gradient. */
+.host > .paper.dl.dead[data-cut] > .face,:host([data-fx]) .host > .paper.dl.dead[data-cut] > .face{background:var(--slab)}
 /* Tilt: ±0.6° per plane under fx (the face turns, not the paper, so the confetti stays under every plane; not kiosk cards,
    not in sheets, not with reduced motion). */
 :host([data-fx]) .host > .paper[data-cut=card]:not(.kiosk) > .face,:host([data-fx]) .host > .paper[data-cut=hero] > .face,

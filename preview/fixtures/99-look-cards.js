@@ -3,7 +3,7 @@
 { // block scope: every fixture file may declare its own st
 const {st} = jamPreview;
 const q = document.createElement("style");
-q.textContent = ".sec > .third{grid-column:span 4} @media (max-width:700px){.sec > .third{grid-column:span 12}}";
+q.textContent = ".sec > .third{grid-column:span 4;align-self:start} @media (max-width:700px){.sec > .third{grid-column:span 12}}";
 document.head.append(q);
 const t = m => new Date(Date.UTC(2026, 9, 28, 12, m)).toISOString();
 const F = 1 | 4 | 16 | 32 | 16384 | 32768; // pause, volume_set, previous, next, play, shuffle_set

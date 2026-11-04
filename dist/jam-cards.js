@@ -1543,18 +1543,19 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .dl.on .dl-mk{background:var(--ochre)}
 .dl-s i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 /* ET66: the brown body in both modes, raised keys, a green LCD; ET66 yellow ring; olive / signal / yellow keys */
-.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;color:#f2efe8}
+.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;--kp-on:#e8b12a;color:#f2efe8}
 .kp-disp{border-radius:6px}
 .kp-cap{box-shadow:0 2px 0 #241f19}
 .kp-key:disabled > .kp-cap{box-shadow:none;border-color:#a8a398;color:#f2efe8}
-.kp-key[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
-.kp-key[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-key[data-accent=green]:not(.on),.kp-act[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
+.kp-key[data-accent=ochre]:not(.on),.kp-act[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-act > .kp-cap{box-shadow:0 2px 0 #241f19}
 .kp-key.on::after{inset:-4px;border-width:3px}
 /* T3: the grille on panel 2, the dark LCD, round keys with the signal on play, a hairline-ringed ribbed wheel */
 .rd-gr{border-radius:12px}
 .rd-lcd{border-color:transparent;border-radius:6px}
 .rd-k.main{background:var(--ochre);color:var(--on-fg)}
-.rd-k.main:disabled{background:var(--slab2);color:var(--dim)}
+.rd .bk .shuf.on > .face,.rd .bk .fav.on > .face{background:#e8b12a;color:var(--on-fg)} /* ET66 yellow, as jam-speaker */
 .rd-wh{box-shadow:inset 0 0 0 1px var(--line);color:var(--line)}
 .rd-wh line{stroke-width:2.4}
 .rd-wh .rd-vn{box-shadow:0 0 0 1px var(--line)}
@@ -2024,6 +2025,8 @@ ${PAIRS}
 :host([data-fx]) .host > .paper[data-cut=card] > .face,:host([data-fx]) .host > .paper[data-cut=hero] > .face,:host([data-fx]) .host > .paper.btn > .face{
   background:linear-gradient(140deg,color-mix(in oklch,var(--acc) 30%,var(--nw-plane)),color-mix(in oklch,var(--nw-t2) 22%,var(--nw-plane)));
   box-shadow:var(--jam-elev-1,none)}
+/* An offline jam-dial is the plain plane: no room tint, no lit gradient. */
+.host > .paper.dl.dead[data-cut] > .face,:host([data-fx]) .host > .paper.dl.dead[data-cut] > .face{background:var(--slab)}
 /* Tilt: ±0.6° per plane under fx (the face turns, not the paper, so the confetti stays under every plane; not kiosk cards,
    not in sheets, not with reduced motion). */
 :host([data-fx]) .host > .paper[data-cut=card]:not(.kiosk) > .face,:host([data-fx]) .host > .paper[data-cut=hero] > .face,
@@ -4245,14 +4248,16 @@ register("jam-house", JamHouse, "Jam House", "House strip: inside and outside te
     button.* | input_button.*), name? (default the friendly name), accent? (key colour: a hue or room alias), data? (extra
     service data), tap_action? (instead of the entity's own call; a key without entity needs name + tap_action)}],
     current_entity? (input_select / select naming the active scene), all_on? / all_off? (Lovelace actions: adds an
-    "All on" key in green and an "All off" key in ochre after the keys), accent? (the active ring; default ochre)}
+    "All on" key in green and an "All off" key in ochre, side by side in a wide bar under the keys), accent? (the active ring; default ochre)}
    After the Braun look-cards mockup (ET66 scene pad): a dark body (the look's ink, a step lighter so it stands off a dark
    page) with a small display on top (the room left, the active scene right, in the label style) and the keys as round
    calculator keys in a 3-column grid. A key without accent = a body key (ink mixed with 28 % of the ink text, ink text);
    with accent = that hue, nudged lighter / darker until the look's dark or light text reads 4.5:1 on it (resolved once the
    card is in the page, again on every render and look switch). Active key (as jam-scenes: the listed scene / script
-   activated last, or the current_entity option when that changed later): a 3px ring around it in the card accent, aria-pressed,
-   and a one-shot stamp when it changes. A key whose entity is missing or unavailable = an outlined, disabled key.
+   activated last, or the current_entity option when that changed later) lights up: its face in --kp-on (default the card
+   accent, nudged to 4.5:1 like the others), a filled LED dot over its label (the other scene keys show the dot as a ring),
+   a 3px ring around it (--kp-ring), aria-pressed, and a one-shot stamp when it changes. Labels 16px. All on / all off sit
+   in a wide bottom bar (the ET66 "=" key, the look's key shape), so actions read apart from the scenes. A key whose entity is missing or unavailable = an outlined, disabled key.
    Tap: tap_action, else scene / script .turn_on {entity_id, ...data}, button / input_button .press. Real <button>s,
    >= 56px keys, focus ring outside the active ring; on the dark body a --focus that does not read 3:1 there becomes the ink
    text colour. No continuous animation. */
@@ -4285,16 +4290,24 @@ class JamKeypad extends JamBase {
       background:var(--kp-body,color-mix(in srgb,var(--ink) 88%,var(--ink-fg)));--kp-key:color-mix(in srgb,var(--ink) 72%,var(--ink-fg))}
     .kp-disp{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:8px 12px;
       background:var(--kp-disp,var(--ink));color:var(--kp-disp-fg,var(--ink-fg))}
-    .kp-room{font:500 15px/1.2 var(--body);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .kp-cur{font:var(--lbl-w) 13px/1.2 var(--body);letter-spacing:calc(.08em * var(--lbl-track));text-transform:uppercase;text-align:right;
+    .kp-room{font:500 16px/1.2 var(--body);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .kp-cur{font:var(--lbl-w) 14px/1.2 var(--body);letter-spacing:calc(.08em * var(--lbl-track));text-transform:uppercase;text-align:right;
       min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:60%}
     .kp-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;justify-items:center}
     .kp-key{position:relative;width:100%;max-width:96px;min-width:56px;aspect-ratio:1;border-radius:50%;color:var(--kf,var(--ink-fg))}
-    .kp-cap{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;padding:8px;background:var(--kc,var(--kp-key));
-      font:var(--key-w) 13px/1.15 var(--body);letter-spacing:calc(.04em * var(--key-track));text-transform:var(--key-case);text-align:center;overflow-wrap:anywhere}
+    .kp-cap{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px;
+      background:var(--kc,var(--kp-key));font:var(--key-w) 16px/1.12 var(--body);letter-spacing:calc(.04em * var(--key-track));text-transform:var(--key-case);text-align:center;overflow-wrap:anywhere}
     .kp-cap > span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
     .kp-key:disabled{cursor:default}
     .kp-key:disabled > .kp-cap{background:transparent;border:2px dashed var(--ink-dim);color:var(--ink-fg)}
+    /* the scene LED: a ring on every scene key, lit (filled) on the active one, whose whole face lights up too */
+    .kp-key[aria-pressed] > .kp-cap::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;box-sizing:border-box;border:1.5px solid currentColor}
+    .kp-key.on > .kp-cap::before{background:currentColor}
+    .kp-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:10px}
+    .kp-act{position:relative;height:56px;color:var(--kf,var(--ink-fg))}
+    .kp-act > .kp-cap{border-radius:var(--jam-radius-key,0px);clip-path:var(--jam-shape-key,polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%))}
+    .kp-act:not(:disabled):active > .kp-cap{transform:var(--press-from)}
+    .kp-act:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
     .kp-key.on::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid var(--kp-ring,var(--acc));pointer-events:none}
     .kp-key:focus-visible{outline:3px solid var(--focus);outline-offset:6px}
     .kp-key:not(:disabled):active > .kp-cap{transform:var(--press-from);animation:var(--jam-kf-print,jam-print) calc(60ms * var(--jam-motion,1) * var(--dur)) var(--jam-ease-2,steps(2,end)) forwards}
@@ -4331,37 +4344,43 @@ class JamKeypad extends JamBase {
     const c = this._config, h = this._hass;
     const {root, face} = this.paper("keypad", {cls: "kp"});
     b.append(root); // in the page first: accent keys resolve to rgb
-    const body = el("div", "kp-body"), disp = el("div", "kp-disp"), keys = el("div", "kp-keys");
+    const body = el("div", "kp-body"), disp = el("div", "kp-disp"), keys = el("div", "kp-keys"), bar = el("div", "kp-bar");
     const act = this._active(), title = c.title || "Scenes";
     const items = c.keys.map((k, i) => ({k, i, name: this._keyName(k)}));
-    if (c.all_on) items.push({k: {name: "All on", accent: "green", tap_action: c.all_on}, name: "All on"});
-    if (c.all_off) items.push({k: {name: "All off", accent: "ochre", tap_action: c.all_off}, name: "All off"});
+    // All on / all off: the wide bottom bar (the ET66 "=" key), so actions read apart from scenes.
+    if (c.all_on) items.push({k: {name: "All on", accent: "green", tap_action: c.all_on}, name: "All on", bar: true});
+    if (c.all_off) items.push({k: {name: "All off", accent: "ochre", tap_action: c.all_off}, name: "All off", bar: true});
     const curName = act.i >= 0 ? items[act.i].name : act.text || "";
     disp.append(el("span", "kp-room", title));
     if (curName) disp.append(el("span", "kp-cur", curName));
     disp.setAttribute("aria-label", curName ? `${title}: ${curName}` : title);
     keys.setAttribute("role", "group"); keys.setAttribute("aria-label", title);
     body.append(disp, keys);
+    if (items.some(it => it.bar)) { bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "All lights"); body.append(bar); }
     face.append(body);
     const tc = textColors(b);
     this._accWait = false;
     let activeBtn = null;
+    // A fill (CSS colour) as the key face with the look's dark / light text, nudged to 4.5:1.
+    const paint = (btn, css) => {
+      const rgb = resolveRgb(btn, css);
+      if (!rgb) { this._accWait = true; return; }
+      const r = jamMuReadable(rgb, tc); btn.style.setProperty("--kc", r.bg); btn.style.setProperty("--kf", r.fg);
+    };
     for (const it of items) {
       const k = it.k, s = k.entity ? stateObj(h, k.entity) : null, on = it.i != null && it.i === act.i;
-      const btn = el("button", "kp-key" + (on ? " on" : "")), cap = el("span", "kp-cap");
+      const btn = el("button", (it.bar ? "kp-act" : "kp-key") + (on ? " on" : "")), cap = el("span", "kp-cap");
       btn.type = "button"; cap.append(el("span", null, it.name)); btn.append(cap);
+      (it.bar ? bar : keys).append(btn);
       if (k.entity && !k.tap_action && (!s || s.state === "unavailable")) { btn.disabled = true; btn.setAttribute("aria-label", `${it.name} (unavailable)`); }
       if (it.i != null && k.entity && /^(scene|script)\./.test(k.entity)) btn.setAttribute("aria-pressed", String(on));
       const av = accentVar(k.accent);
       if (av) btn.dataset.accent = accentName(k.accent); // a look pack may recolour a hue's keys
-      if (av && !btn.disabled) {
-        const rgb = resolveRgb(b, av);
-        if (rgb) { const r = jamMuReadable(rgb, tc); btn.style.setProperty("--kc", r.bg); btn.style.setProperty("--kf", r.fg); }
-        else this._accWait = true;
-      }
+      // The active key lights up: its face in --kp-on (default the card accent; Braun: ET66 yellow), whatever its own colour.
+      if (on && !btn.disabled) paint(btn, "var(--kp-on,var(--acc))");
+      else if (av && !btn.disabled) paint(btn, av);
       btn.onclick = () => this._press(btn, k);
       if (on) activeBtn = btn;
-      keys.append(btn);
     }
     // Focus ring on the dark body: the look's --focus when it reads 3:1 there, else the ink text colour.
     const bodyRgb = jamCssRgb(getComputedStyle(body).backgroundColor), foc = resolveRgb(b, "var(--focus)");
@@ -5568,7 +5587,7 @@ register("jam-light", JamLight, "Jam Light", "Light card in the light's own colo
    {type: custom:jam-dial, entity (light.*, groups too), name?, kicker? (sub line; default: a group's "K of N on", else the
     entity's area), accent? (the dial mark; default ochre), show_swatches? (true), whites?: [{name, kelvin}] (as jam-light),
     colors?: [{name?, rgb_color}] (colour swatches; default: this user's saved colours (the jam-light pop-up's), else
-    Amber / Rose / Blue), hold_action? (default: the jam-light pop-up), plus jam-light's pop-up options (preset_entity,
+    Rose / Blue / Green), hold_action? (default: the jam-light pop-up), plus jam-light's pop-up options (preset_entity,
     timer_script, presets, show_brightness, show_color_temp, show_color, show_members)}
    After the Braun look-cards mockup (dial light): name + sub line, the power toggle top-right (core powerCorner: Poster's
    triangle, Braun's toggle), a dial: 7 tick marks, a 270 degree track with the brightness arc in the light's own colour
@@ -5580,11 +5599,13 @@ register("jam-light", JamLight, "Jam Light", "Light card in the light's own colo
    Home / End = 1 / 100; light.turn_on brightness_pct on release (from off too). A hold (500 ms without moving) on the dial,
    the cap or the name = hold_action, by default the jam-light pop-up (the class extends JamLight, so the pop-up, its user
    data, whites and drag-safe rendering are jam-light's own). The name is a button that opens the pop-up (keyboard path).
-   Non-dimming lights show a full / empty arc without the slider; unavailable lights show N/A with every control disabled.
+   Non-dimming lights show a full / empty ring without the slider, ticks or mark; the cap becomes a big push button.
+   Unavailable / missing lights say "Offline" on the cap (no sub line), every control disabled. Whites are half-disc
+   swatches (panel over the white's tint), colours full discs; a colour that nearly repeats an earlier swatch is left out.
    No continuous animation: the arc, number and mark are set once per value. Look polish (rounded arc ends, raised cap)
    lives in the look packs; the card itself only uses tokens. */
 const DIAL_SWEEP = 270, DIAL_R = 84;
-const DIAL_COLORS = [{name: "Amber", rgb_color: [255, 160, 64]}, {name: "Rose", rgb_color: [226, 101, 143]}, {name: "Blue", rgb_color: [74, 123, 224]}];
+const DIAL_COLORS = [{name: "Rose", rgb_color: [226, 101, 143]}, {name: "Blue", rgb_color: [74, 123, 224]}, {name: "Green", rgb_color: [92, 190, 110]}];
 /* This user's saved colours / whites for the swatches (frontend/get_user_data jam_colors + jam_whites), loaded once per page
    by the first dial, apart from jam-light's own load (which a pop-up does; once it has run, its fresher copy wins). */
 let DIAL_SAVED = null, DIAL_LOAD = null;
@@ -5635,7 +5656,14 @@ class JamDial extends JamLight {
     .dl:not(.on) .dl-mk{background:var(--dim)}
     .dl-sw{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
     .dl-s{width:44px;height:44px;display:grid;place-items:center;border-radius:50%}
-    .dl-s i{display:block;width:24px;height:24px;border-radius:50%;background:var(--sc);box-shadow:inset 0 0 0 1px var(--line)}
+    .dl-s i{position:relative;display:block;width:24px;height:24px;border-radius:50%;background:var(--sc);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+    /* a white = a half disc: the panel above, the white's tint below, under a ring in the text colour (reads as "white", not a hue) */
+    .dl-s.w i{background:var(--slab);box-shadow:inset 0 0 0 1.5px var(--fg)}
+    .dl-s.w i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:var(--sc);border-top:1.5px solid var(--fg)}
+    /* on / off only: no scale, no mark; the cap becomes a big push button */
+    .dl.pb .dl-tk,.dl.pb .dl-mk{display:none}
+    .dl.pb .dl-cap{inset:12%}
+    .dl.pb .dl-v .label{font-size:18px}
     .dl-s[aria-pressed=true] i{outline:2px solid var(--fg);outline-offset:3px}
     .pw{z-index:2}`; }
   getCardSize() { return 5; }
@@ -5676,7 +5704,7 @@ class JamDial extends JamLight {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), name = this._name();
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", dims = !dead && lightDims(s);
-    const {root, face} = this.paper(c.entity, {cls: "dl " + (dead ? "dead" : on ? "on" : "off")});
+    const {root, face} = this.paper(c.entity, {cls: "dl " + (dead ? "dead" : on ? "on" : "off") + (dead || dims ? "" : " pb")});
     b.append(root); // in the page first: the accent and the face colour resolve to rgb
     // Arc colour: the light's colour (group: lit members' average) at full value, nudged only under 1.6:1 on the card face.
     const rgb = dead ? null : this._faceRgb(s);
@@ -5692,7 +5720,7 @@ class JamDial extends JamLight {
       this._tapHold(nm, () => this._openSheet());
     }
     top.append(nm);
-    const sub = dead ? (s ? "Unavailable" : "Missing") : this._dialSub(s);
+    const sub = dead ? "" : this._dialSub(s); // offline: one word, on the cap
     if (sub) top.append(el("div", "dl-sub", sub));
     face.append(top);
     // Dial: ticks, track, arc (pathLength 100 + dasharray = the level), cap with the %, rim mark.
@@ -5712,7 +5740,7 @@ class JamDial extends JamLight {
     dial.append(ring, cap);
     const show = (v, isOn) => {
       val.textContent = "";
-      if (dead) val.append(el("span", "label", "N/A"));
+      if (dead) val.append(el("span", "label", "Offline"));
       else if (isOn && !dims) val.append(el("span", "label", "On"));
       else if (isOn) val.append(document.createTextNode(String(v)), el("small", null, "%"));
       else val.append(el("span", "label", "Off"));
@@ -5760,7 +5788,7 @@ class JamDial extends JamLight {
       const lo = Math.round(a.min_color_temp_kelvin || 2000), hi = Math.round(a.max_color_temp_kelvin || 6500);
       for (const w of this._whiteList()) {
         const k = Math.round(clampN(w.kelvin, lo, hi));
-        list.push({label: `${w.name}, ${k} K`, rgb: kelvinToRgb(k), data: {color_temp_kelvin: k},
+        list.push({label: `${w.name}, ${k} K`, rgb: kelvinToRgb(k), white: true, data: {color_temp_kelvin: k},
           cur: on && a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60});
       }
     }
@@ -5772,6 +5800,7 @@ class JamDial extends JamLight {
       cols.forEach((x, i) => {
         const rgb = x && Array.isArray(x.rgb_color) ? x.rgb_color.slice(0, 3).map(Number) : null;
         if (!rgb || rgb.some(v => !(v >= 0 && v <= 255))) return;
+        if (list.some(y => rgbDist(fullRgb(y.rgb), fullRgb(rgb)) < 48)) return; // no near-duplicate (an amber next to a warm white)
         list.push({label: x.name ? String(x.name) : `Colour ${i + 1}`, rgb, data: {rgb_color: rgb}, cur: !!now && rgbDist(now, fullRgb(rgb)) < 30});
       });
     }
@@ -5779,7 +5808,7 @@ class JamDial extends JamLight {
     const row = el("div", "dl-sw");
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Whites and colours");
     for (const x of list.slice(0, 8)) {
-      const b = el("button", "dl-s"), dot = el("i");
+      const b = el("button", "dl-s" + (x.white ? " w" : "")), dot = el("i");
       b.type = "button"; b.setAttribute("aria-label", x.label); b.setAttribute("aria-pressed", String(x.cur));
       dot.style.setProperty("--sc", rgbCss(x.rgb)); dot.setAttribute("aria-hidden", "true");
       b.append(dot);
@@ -9199,11 +9228,12 @@ register("jam-speaker", JamSpeaker, "Jam Speaker", "Music Assistant speaker: art
    {type: custom:jam-radio, entity (media_player, a Music Assistant player), name? (room; default the friendly name),
     accent? (default violet = music), speakers?, pinned?, show_shuffle? (true), show_favorite? (true), favorite_entity?,
     config_entry_id? (all as jam-speaker: the panel B and its Speakers view, the Favourite button)}
-   After the Braun look-cards mockup (T3 speaker): a dot grille on the left (aria-hidden; 72px wide on cards up to 400px, hidden under
-   300px), and on the right: the kicker ("Room · source" with the source dot, as jam-speaker) with Shuffle / Favourite (as
+   After the Braun look-cards mockup (T3 speaker): a dot grille as the full-height left column (aria-hidden; 96px, 72px on
+   cards up to 400px, hidden under 300px), and on the right: the kicker ("Room · source" with the source dot, as jam-speaker) with Shuffle / Favourite (as
    jam-speaker: shuffle_set, the MA favourite button), a small dark display (the look's ink) with the title and the artist
    (idle: the room and "Last played: ..."; offline: Offline) that is a button: tap = jam-speaker's panel B (library,
-   speakers), then the round keys Prev / Play-Pause (accent) / Next and the ribbed volume wheel with the volume number on it.
+   speakers), then the round 44px keys Prev / Play-Pause (accent fill only while playing) / Next (dashed outlines when
+   offline) and the 84px ribbed volume wheel (76px on narrow cards) with the volume number (16px) on it.
    The wheel is a real slider (role=slider 0-100): roll it with a finger or the mouse (vertical drag, up = louder; or
    sideways), the mouse wheel (sent after 300 ms), arrows +/-5, PageUp / PageDown +/-10, Home / End; media_player.volume_set
    on release. The ribs turn with the volume (set once per value, no animation). The class extends JamSpeaker: favourite
@@ -9218,14 +9248,14 @@ class JamRadio extends JamSpeaker {
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
   css() { return JAM_MU_BASE_CSS + `
     .host{container-type:inline-size}
-    .rd > .face{display:grid;grid-template-columns:minmax(72px,110px) minmax(0,1fr);gap:14px;--p-t:14px;--p-r:14px;--p-b:14px;--p-l:14px}
-    .rd-gr{position:relative;align-self:start;aspect-ratio:11/12;background:var(--slab2);color:var(--fg);overflow:hidden;border-radius:var(--jam-radius-poster,0px);
+    .rd > .face{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;--p-t:14px;--p-r:14px;--p-b:14px;--p-l:14px}
+    .rd-gr{position:relative;align-self:stretch;min-height:120px;background:var(--slab2);color:var(--fg);overflow:hidden;border-radius:var(--jam-radius-poster,0px);
       clip-path:var(--jam-shape-poster,polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%))}
-    .rd-gr svg{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);display:block}
+    .rd-gr svg{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);display:block}
     .rd.off .rd-gr{color:var(--dim)}
     .rd-r{display:grid;gap:8px;align-content:start;min-width:0}
     .rd-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
-    .rd .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 11px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .rd .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 12px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
     .rd .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--dim))}
     .rd .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .rd .bk{display:flex;gap:6px;flex:none}
@@ -9239,20 +9269,21 @@ class JamRadio extends JamSpeaker {
     .rd-lcd b{font:var(--disp-w) calc(22px * var(--disp-scale))/calc(1.05 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);
       letter-spacing:var(--jam-display-track,.005em);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
     .rd-lcd small{font:500 13px/1.25 var(--body);color:var(--rd-lcd-dim,var(--ink-dim));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rd-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-    .rd-k{display:grid;place-items:center;width:48px;height:44px;border-radius:999px;background:var(--slab2);color:var(--fg);--ic:20px}
-    .rd-k.main{width:56px;background:var(--acc);color:var(--acc-fg)}
-    .rd-k:disabled{cursor:default;color:var(--dim)} .rd-k.main:disabled{background:var(--slab2)}
+    .rd-ctl{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+    .rd-k{display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--slab2);color:var(--fg);--ic:20px;flex:none}
+    .rd-k[data-key=play_pause]{width:52px}
+    .rd-k.main{background:var(--acc);color:var(--acc-fg)}
+    .rd-k:disabled{cursor:default;background:transparent;color:var(--dim);border:1.5px dashed var(--line)}
     .rd-k:not(:disabled):active .ico{transform:var(--press-from)}
-    .rd-wh{position:relative;width:52px;height:52px;border-radius:50%;margin-left:auto;background:var(--slab2);color:var(--dim);touch-action:none;flex:none}
+    .rd-wh{position:relative;width:84px;height:84px;border-radius:50%;margin-left:auto;background:var(--slab2);color:var(--dim);touch-action:none;flex:none}
     .rd-wh[role=slider]{cursor:ns-resize}
     .rd-wh[role=slider]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .rd-wh svg{position:absolute;inset:0;width:100%;height:100%;display:block}
     .rd-wh line{stroke:currentColor;stroke-width:1.6}
-    .rd-wh .rd-vn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 3px;border-radius:13px;
-      display:grid;place-items:center;background:var(--slab);color:var(--fg);font:500 12px/1 var(--body);font-variant-numeric:tabular-nums}
+    .rd-wh .rd-vn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:38px;height:38px;padding:0 4px;border-radius:19px;
+      display:grid;place-items:center;background:var(--slab);color:var(--fg);font:600 16px/1 var(--body);font-variant-numeric:tabular-nums}
     .rd-wh[aria-disabled=true]{color:var(--line)}
-    @container (max-width:400px){.rd > .face{grid-template-columns:72px minmax(0,1fr)}}
+    @container (max-width:400px){.rd > .face{grid-template-columns:72px minmax(0,1fr)} .rd-wh{width:76px;height:76px}}
     @container (max-width:300px){.rd > .face{grid-template-columns:minmax(0,1fr)} .rd-gr{display:none}}`; }
   /* A hass update mid-roll would rebuild the wheel under the finger: render once the roll ends. */
   _render(force) {
@@ -9279,16 +9310,15 @@ class JamRadio extends JamSpeaker {
     face.append(this._grille(), this._right(s, a, off, idle, room));
     b.append(root);
   }
-  /* T3 dot grille: an 8 x 9 field of dots (static SVG), aria-hidden. */
+  /* T3 dot grille: a field of dots filling the whole left column (an SVG pattern, 10px pitch), aria-hidden. */
   _grille() {
     const g = el("div", "rd-gr"), NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+    const mk = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
     g.setAttribute("aria-hidden", "true");
-    svg.setAttribute("viewBox", "0 0 80 90"); svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    for (let y = 0; y < 9; y++) for (let x = 0; x < 8; x++) {
-      const d = document.createElementNS(NS, "circle");
-      d.setAttribute("cx", 5 + x * 10); d.setAttribute("cy", 5 + y * 10); d.setAttribute("r", "2.3"); d.setAttribute("fill", "currentColor");
-      svg.append(d);
-    }
+    const pat = mk("pattern", {id: "rd-dots", width: "10", height: "10", patternUnits: "userSpaceOnUse", x: "0", y: "0"});
+    pat.append(mk("circle", {cx: "5", cy: "5", r: "2.3", fill: "currentColor"}));
+    const defs = mk("defs", {}); defs.append(pat);
+    svg.append(defs, mk("rect", {width: "100%", height: "100%", fill: "url(#rd-dots)"}));
     g.append(svg);
     return g;
   }
@@ -9318,7 +9348,7 @@ class JamRadio extends JamSpeaker {
       return b;
     };
     ctl.append(key("prev", "Previous track", "prev", "", "media_previous_track"),
-      key(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", "main", "media_play_pause"),
+      key(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", playing ? "main" : "", "media_play_pause"), // filled only while playing
       key("next", "Next track", "next", "", "media_next_track"), this._wheel(s, off, room));
     r.append(hd, lcd, ctl);
     return r;

@@ -320,18 +320,19 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .dl.on .dl-mk{background:var(--ochre)}
 .dl-s i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 /* ET66: the brown body in both modes, raised keys, a green LCD; ET66 yellow ring; olive / signal / yellow keys */
-.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;color:#f2efe8}
+.kp-body{--kp-body:#3a332b;--kp-key:#5b5248;--kp-disp:#1f2a1d;--kp-disp-fg:#b9e08a;--kp-ring:#e8b12a;--kp-on:#e8b12a;color:#f2efe8}
 .kp-disp{border-radius:6px}
 .kp-cap{box-shadow:0 2px 0 #241f19}
 .kp-key:disabled > .kp-cap{box-shadow:none;border-color:#a8a398;color:#f2efe8}
-.kp-key[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
-.kp-key[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-key[data-accent=green]:not(.on),.kp-act[data-accent=green]{--kc:#6f8f3a!important;--kf:#161616!important}
+.kp-key[data-accent=ochre]:not(.on),.kp-act[data-accent=ochre]{--kc:#f07d1e!important;--kf:#161616!important}
+.kp-act > .kp-cap{box-shadow:0 2px 0 #241f19}
 .kp-key.on::after{inset:-4px;border-width:3px}
 /* T3: the grille on panel 2, the dark LCD, round keys with the signal on play, a hairline-ringed ribbed wheel */
 .rd-gr{border-radius:12px}
 .rd-lcd{border-color:transparent;border-radius:6px}
 .rd-k.main{background:var(--ochre);color:var(--on-fg)}
-.rd-k.main:disabled{background:var(--slab2);color:var(--dim)}
+.rd .bk .shuf.on > .face,.rd .bk .fav.on > .face{background:#e8b12a;color:var(--on-fg)} /* ET66 yellow, as jam-speaker */
 .rd-wh{box-shadow:inset 0 0 0 1px var(--line);color:var(--line)}
 .rd-wh line{stroke-width:2.4}
 .rd-wh .rd-vn{box-shadow:0 0 0 1px var(--line)}

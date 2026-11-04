@@ -2,7 +2,7 @@
    {type: custom:jam-dial, entity (light.*, groups too), name?, kicker? (sub line; default: a group's "K of N on", else the
     entity's area), accent? (the dial mark; default ochre), show_swatches? (true), whites?: [{name, kelvin}] (as jam-light),
     colors?: [{name?, rgb_color}] (colour swatches; default: this user's saved colours (the jam-light pop-up's), else
-    Amber / Rose / Blue), hold_action? (default: the jam-light pop-up), plus jam-light's pop-up options (preset_entity,
+    Rose / Blue / Green), hold_action? (default: the jam-light pop-up), plus jam-light's pop-up options (preset_entity,
     timer_script, presets, show_brightness, show_color_temp, show_color, show_members)}
    After the Braun look-cards mockup (dial light): name + sub line, the power toggle top-right (core powerCorner: Poster's
    triangle, Braun's toggle), a dial: 7 tick marks, a 270 degree track with the brightness arc in the light's own colour
@@ -14,11 +14,13 @@
    Home / End = 1 / 100; light.turn_on brightness_pct on release (from off too). A hold (500 ms without moving) on the dial,
    the cap or the name = hold_action, by default the jam-light pop-up (the class extends JamLight, so the pop-up, its user
    data, whites and drag-safe rendering are jam-light's own). The name is a button that opens the pop-up (keyboard path).
-   Non-dimming lights show a full / empty arc without the slider; unavailable lights show N/A with every control disabled.
+   Non-dimming lights show a full / empty ring without the slider, ticks or mark; the cap becomes a big push button.
+   Unavailable / missing lights say "Offline" on the cap (no sub line), every control disabled. Whites are half-disc
+   swatches (panel over the white's tint), colours full discs; a colour that nearly repeats an earlier swatch is left out.
    No continuous animation: the arc, number and mark are set once per value. Look polish (rounded arc ends, raised cap)
    lives in the look packs; the card itself only uses tokens. */
 const DIAL_SWEEP = 270, DIAL_R = 84;
-const DIAL_COLORS = [{name: "Amber", rgb_color: [255, 160, 64]}, {name: "Rose", rgb_color: [226, 101, 143]}, {name: "Blue", rgb_color: [74, 123, 224]}];
+const DIAL_COLORS = [{name: "Rose", rgb_color: [226, 101, 143]}, {name: "Blue", rgb_color: [74, 123, 224]}, {name: "Green", rgb_color: [92, 190, 110]}];
 /* This user's saved colours / whites for the swatches (frontend/get_user_data jam_colors + jam_whites), loaded once per page
    by the first dial, apart from jam-light's own load (which a pop-up does; once it has run, its fresher copy wins). */
 let DIAL_SAVED = null, DIAL_LOAD = null;
@@ -69,7 +71,14 @@ class JamDial extends JamLight {
     .dl:not(.on) .dl-mk{background:var(--dim)}
     .dl-sw{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
     .dl-s{width:44px;height:44px;display:grid;place-items:center;border-radius:50%}
-    .dl-s i{display:block;width:24px;height:24px;border-radius:50%;background:var(--sc);box-shadow:inset 0 0 0 1px var(--line)}
+    .dl-s i{position:relative;display:block;width:24px;height:24px;border-radius:50%;background:var(--sc);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+    /* a white = a half disc: the panel above, the white's tint below, under a ring in the text colour (reads as "white", not a hue) */
+    .dl-s.w i{background:var(--slab);box-shadow:inset 0 0 0 1.5px var(--fg)}
+    .dl-s.w i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:var(--sc);border-top:1.5px solid var(--fg)}
+    /* on / off only: no scale, no mark; the cap becomes a big push button */
+    .dl.pb .dl-tk,.dl.pb .dl-mk{display:none}
+    .dl.pb .dl-cap{inset:12%}
+    .dl.pb .dl-v .label{font-size:18px}
     .dl-s[aria-pressed=true] i{outline:2px solid var(--fg);outline-offset:3px}
     .pw{z-index:2}`; }
   getCardSize() { return 5; }
@@ -110,7 +119,7 @@ class JamDial extends JamLight {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity), name = this._name();
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", dims = !dead && lightDims(s);
-    const {root, face} = this.paper(c.entity, {cls: "dl " + (dead ? "dead" : on ? "on" : "off")});
+    const {root, face} = this.paper(c.entity, {cls: "dl " + (dead ? "dead" : on ? "on" : "off") + (dead || dims ? "" : " pb")});
     b.append(root); // in the page first: the accent and the face colour resolve to rgb
     // Arc colour: the light's colour (group: lit members' average) at full value, nudged only under 1.6:1 on the card face.
     const rgb = dead ? null : this._faceRgb(s);
@@ -126,7 +135,7 @@ class JamDial extends JamLight {
       this._tapHold(nm, () => this._openSheet());
     }
     top.append(nm);
-    const sub = dead ? (s ? "Unavailable" : "Missing") : this._dialSub(s);
+    const sub = dead ? "" : this._dialSub(s); // offline: one word, on the cap
     if (sub) top.append(el("div", "dl-sub", sub));
     face.append(top);
     // Dial: ticks, track, arc (pathLength 100 + dasharray = the level), cap with the %, rim mark.
@@ -146,7 +155,7 @@ class JamDial extends JamLight {
     dial.append(ring, cap);
     const show = (v, isOn) => {
       val.textContent = "";
-      if (dead) val.append(el("span", "label", "N/A"));
+      if (dead) val.append(el("span", "label", "Offline"));
       else if (isOn && !dims) val.append(el("span", "label", "On"));
       else if (isOn) val.append(document.createTextNode(String(v)), el("small", null, "%"));
       else val.append(el("span", "label", "Off"));
@@ -194,7 +203,7 @@ class JamDial extends JamLight {
       const lo = Math.round(a.min_color_temp_kelvin || 2000), hi = Math.round(a.max_color_temp_kelvin || 6500);
       for (const w of this._whiteList()) {
         const k = Math.round(clampN(w.kelvin, lo, hi));
-        list.push({label: `${w.name}, ${k} K`, rgb: kelvinToRgb(k), data: {color_temp_kelvin: k},
+        list.push({label: `${w.name}, ${k} K`, rgb: kelvinToRgb(k), white: true, data: {color_temp_kelvin: k},
           cur: on && a.color_mode === "color_temp" && Math.abs((a.color_temp_kelvin || 0) - k) < 60});
       }
     }
@@ -206,6 +215,7 @@ class JamDial extends JamLight {
       cols.forEach((x, i) => {
         const rgb = x && Array.isArray(x.rgb_color) ? x.rgb_color.slice(0, 3).map(Number) : null;
         if (!rgb || rgb.some(v => !(v >= 0 && v <= 255))) return;
+        if (list.some(y => rgbDist(fullRgb(y.rgb), fullRgb(rgb)) < 48)) return; // no near-duplicate (an amber next to a warm white)
         list.push({label: x.name ? String(x.name) : `Colour ${i + 1}`, rgb, data: {rgb_color: rgb}, cur: !!now && rgbDist(now, fullRgb(rgb)) < 30});
       });
     }
@@ -213,7 +223,7 @@ class JamDial extends JamLight {
     const row = el("div", "dl-sw");
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Whites and colours");
     for (const x of list.slice(0, 8)) {
-      const b = el("button", "dl-s"), dot = el("i");
+      const b = el("button", "dl-s" + (x.white ? " w" : "")), dot = el("i");
       b.type = "button"; b.setAttribute("aria-label", x.label); b.setAttribute("aria-pressed", String(x.cur));
       dot.style.setProperty("--sc", rgbCss(x.rgb)); dot.setAttribute("aria-hidden", "true");
       b.append(dot);

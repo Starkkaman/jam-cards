@@ -2,11 +2,12 @@
    {type: custom:jam-radio, entity (media_player, a Music Assistant player), name? (room; default the friendly name),
     accent? (default violet = music), speakers?, pinned?, show_shuffle? (true), show_favorite? (true), favorite_entity?,
     config_entry_id? (all as jam-speaker: the panel B and its Speakers view, the Favourite button)}
-   After the Braun look-cards mockup (T3 speaker): a dot grille on the left (aria-hidden; 72px wide on cards up to 400px, hidden under
-   300px), and on the right: the kicker ("Room · source" with the source dot, as jam-speaker) with Shuffle / Favourite (as
+   After the Braun look-cards mockup (T3 speaker): a dot grille as the full-height left column (aria-hidden; 96px, 72px on
+   cards up to 400px, hidden under 300px), and on the right: the kicker ("Room · source" with the source dot, as jam-speaker) with Shuffle / Favourite (as
    jam-speaker: shuffle_set, the MA favourite button), a small dark display (the look's ink) with the title and the artist
    (idle: the room and "Last played: ..."; offline: Offline) that is a button: tap = jam-speaker's panel B (library,
-   speakers), then the round keys Prev / Play-Pause (accent) / Next and the ribbed volume wheel with the volume number on it.
+   speakers), then the round 44px keys Prev / Play-Pause (accent fill only while playing) / Next (dashed outlines when
+   offline) and the 84px ribbed volume wheel (76px on narrow cards) with the volume number (16px) on it.
    The wheel is a real slider (role=slider 0-100): roll it with a finger or the mouse (vertical drag, up = louder; or
    sideways), the mouse wheel (sent after 300 ms), arrows +/-5, PageUp / PageDown +/-10, Home / End; media_player.volume_set
    on release. The ribs turn with the volume (set once per value, no animation). The class extends JamSpeaker: favourite
@@ -21,14 +22,14 @@ class JamRadio extends JamSpeaker {
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
   css() { return JAM_MU_BASE_CSS + `
     .host{container-type:inline-size}
-    .rd > .face{display:grid;grid-template-columns:minmax(72px,110px) minmax(0,1fr);gap:14px;--p-t:14px;--p-r:14px;--p-b:14px;--p-l:14px}
-    .rd-gr{position:relative;align-self:start;aspect-ratio:11/12;background:var(--slab2);color:var(--fg);overflow:hidden;border-radius:var(--jam-radius-poster,0px);
+    .rd > .face{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;--p-t:14px;--p-r:14px;--p-b:14px;--p-l:14px}
+    .rd-gr{position:relative;align-self:stretch;min-height:120px;background:var(--slab2);color:var(--fg);overflow:hidden;border-radius:var(--jam-radius-poster,0px);
       clip-path:var(--jam-shape-poster,polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%))}
-    .rd-gr svg{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);display:block}
+    .rd-gr svg{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);display:block}
     .rd.off .rd-gr{color:var(--dim)}
     .rd-r{display:grid;gap:8px;align-content:start;min-width:0}
     .rd-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
-    .rd .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 11px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
+    .rd .kk{display:flex;gap:8px;align-items:center;min-width:0;font:var(--lbl-w) 12px/1.15 var(--body);letter-spacing:calc(.14em * var(--lbl-track));text-transform:var(--lbl-case);color:var(--dim)}
     .rd .kk i{flex:none;width:10px;height:10px;background:var(--b,var(--dim))}
     .rd .kk span{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .rd .bk{display:flex;gap:6px;flex:none}
@@ -42,20 +43,21 @@ class JamRadio extends JamSpeaker {
     .rd-lcd b{font:var(--disp-w) calc(22px * var(--disp-scale))/calc(1.05 * var(--disp-lead)) var(--display);text-transform:var(--disp-case);
       letter-spacing:var(--jam-display-track,.005em);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
     .rd-lcd small{font:500 13px/1.25 var(--body);color:var(--rd-lcd-dim,var(--ink-dim));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rd-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-    .rd-k{display:grid;place-items:center;width:48px;height:44px;border-radius:999px;background:var(--slab2);color:var(--fg);--ic:20px}
-    .rd-k.main{width:56px;background:var(--acc);color:var(--acc-fg)}
-    .rd-k:disabled{cursor:default;color:var(--dim)} .rd-k.main:disabled{background:var(--slab2)}
+    .rd-ctl{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+    .rd-k{display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--slab2);color:var(--fg);--ic:20px;flex:none}
+    .rd-k[data-key=play_pause]{width:52px}
+    .rd-k.main{background:var(--acc);color:var(--acc-fg)}
+    .rd-k:disabled{cursor:default;background:transparent;color:var(--dim);border:1.5px dashed var(--line)}
     .rd-k:not(:disabled):active .ico{transform:var(--press-from)}
-    .rd-wh{position:relative;width:52px;height:52px;border-radius:50%;margin-left:auto;background:var(--slab2);color:var(--dim);touch-action:none;flex:none}
+    .rd-wh{position:relative;width:84px;height:84px;border-radius:50%;margin-left:auto;background:var(--slab2);color:var(--dim);touch-action:none;flex:none}
     .rd-wh[role=slider]{cursor:ns-resize}
     .rd-wh[role=slider]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .rd-wh svg{position:absolute;inset:0;width:100%;height:100%;display:block}
     .rd-wh line{stroke:currentColor;stroke-width:1.6}
-    .rd-wh .rd-vn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 3px;border-radius:13px;
-      display:grid;place-items:center;background:var(--slab);color:var(--fg);font:500 12px/1 var(--body);font-variant-numeric:tabular-nums}
+    .rd-wh .rd-vn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:38px;height:38px;padding:0 4px;border-radius:19px;
+      display:grid;place-items:center;background:var(--slab);color:var(--fg);font:600 16px/1 var(--body);font-variant-numeric:tabular-nums}
     .rd-wh[aria-disabled=true]{color:var(--line)}
-    @container (max-width:400px){.rd > .face{grid-template-columns:72px minmax(0,1fr)}}
+    @container (max-width:400px){.rd > .face{grid-template-columns:72px minmax(0,1fr)} .rd-wh{width:76px;height:76px}}
     @container (max-width:300px){.rd > .face{grid-template-columns:minmax(0,1fr)} .rd-gr{display:none}}`; }
   /* A hass update mid-roll would rebuild the wheel under the finger: render once the roll ends. */
   _render(force) {
@@ -82,16 +84,15 @@ class JamRadio extends JamSpeaker {
     face.append(this._grille(), this._right(s, a, off, idle, room));
     b.append(root);
   }
-  /* T3 dot grille: an 8 x 9 field of dots (static SVG), aria-hidden. */
+  /* T3 dot grille: a field of dots filling the whole left column (an SVG pattern, 10px pitch), aria-hidden. */
   _grille() {
     const g = el("div", "rd-gr"), NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+    const mk = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
     g.setAttribute("aria-hidden", "true");
-    svg.setAttribute("viewBox", "0 0 80 90"); svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    for (let y = 0; y < 9; y++) for (let x = 0; x < 8; x++) {
-      const d = document.createElementNS(NS, "circle");
-      d.setAttribute("cx", 5 + x * 10); d.setAttribute("cy", 5 + y * 10); d.setAttribute("r", "2.3"); d.setAttribute("fill", "currentColor");
-      svg.append(d);
-    }
+    const pat = mk("pattern", {id: "rd-dots", width: "10", height: "10", patternUnits: "userSpaceOnUse", x: "0", y: "0"});
+    pat.append(mk("circle", {cx: "5", cy: "5", r: "2.3", fill: "currentColor"}));
+    const defs = mk("defs", {}); defs.append(pat);
+    svg.append(defs, mk("rect", {width: "100%", height: "100%", fill: "url(#rd-dots)"}));
     g.append(svg);
     return g;
   }
@@ -121,7 +122,7 @@ class JamRadio extends JamSpeaker {
       return b;
     };
     ctl.append(key("prev", "Previous track", "prev", "", "media_previous_track"),
-      key(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", "main", "media_play_pause"),
+      key(playing ? "pause" : "play", playing ? "Pause" : "Play", "play_pause", playing ? "main" : "", "media_play_pause"), // filled only while playing
       key("next", "Next track", "next", "", "media_next_track"), this._wheel(s, off, room));
     r.append(hd, lcd, ctl);
     return r;

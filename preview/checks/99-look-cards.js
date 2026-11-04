@@ -30,7 +30,8 @@ module.exports = async (page, check, {callsNow}) => {
     return {role: ring.getAttribute("role"), now: ring.getAttribute("aria-valuenow"), text: ring.getAttribute("aria-valuetext"), label: ring.getAttribute("aria-label"),
       tab: ring.tabIndex, cap: cap.textContent, pressed: cap.getAttribute("aria-pressed"), capDis: cap.disabled, capSz: sz(cap),
       arc: getComputedStyle(arc).stroke, dash: arc.getAttribute("stroke-dasharray"), arcShown: getComputedStyle(arc).display !== "none",
-      sw: [...r.querySelectorAll(".dl-s")].map(b => ({l: b.getAttribute("aria-label"), p: b.getAttribute("aria-pressed"), sz: sz(b)})),
+      sw: [...r.querySelectorAll(".dl-s")].map(b => ({l: b.getAttribute("aria-label"), p: b.getAttribute("aria-pressed"), sz: sz(b), w: b.classList.contains("w")})),
+      ticks: [...r.querySelectorAll(".dl-tk")].filter(t => getComputedStyle(t).display !== "none").length, mark: getComputedStyle(r.querySelector(".dl-mk")).display !== "none",
       pw: !!r.querySelector("button.pw"), name: (r.querySelector(".dl-name") || {}).localName, sub: (r.querySelector(".dl-sub") || {}).textContent,
       cut: r.querySelector(".paper").dataset.cut};
   });
@@ -39,11 +40,12 @@ module.exports = async (page, check, {callsNow}) => {
     `jam-dial: the dial is a slider (role, aria-valuenow 75 = brightness 191, label), the cap shows 75% and is a pressed toggle (${JSON.stringify(d).slice(0, 160)})`);
   check(d.arc === "rgb(255, 160, 64)" && d.dash === "75 100" && d.arcShown, `jam-dial: arc in the light's colour (${d.arc}), 75 of 100 of the sweep (${d.dash})`);
   check(d.sub === "2 of 2 on" && d.name === "button" && d.pw && d.cut === "card", `jam-dial: group sub line "${d.sub}", the name is a button, power corner, card cut`);
-  // Colours: this user's saved colours once loaded (the 30-light checks saved some), else Amber / Rose / Blue.
+  // Colours: this user's saved colours once loaded (the 30-light checks saved some), else Rose / Blue / Green; near-duplicates left out.
   const cols = d.sw.slice(2).map(s => s.l).join("|");
-  check(d.sw.length >= 5 && d.sw[0].l === "Cozy, 2200 K" && d.sw[1].l === "Clean, 4000 K" && (cols === "Amber|Rose|Blue" || /^Your colour 1(\|Your colour \d)*$/.test(cols)) &&
-    d.sw.filter(s => s.p === "true").length === 1 && d.sw.every(s => s.sz[0] >= 44 && s.sz[1] >= 44) && d.capSz[0] >= 44,
-    `jam-dial: swatches = the two whites + the colours (saved or default), the current colour pressed, 44px targets (${d.sw.map(s => s.l + ":" + s.p).join(", ")})`);
+  check(d.sw.length >= 4 && d.sw[0].l === "Cozy, 2200 K" && d.sw[1].l === "Clean, 4000 K" && d.sw[0].w && d.sw[1].w && !d.sw[2].w &&
+    (cols === "Rose|Blue|Green" || /^Your colour \d(\|Your colour \d)*$/.test(cols)) &&
+    d.sw.filter(s => s.p === "true").length <= 1 && d.sw.every(s => s.sz[0] >= 44 && s.sz[1] >= 44) && d.capSz[0] >= 44 && d.ticks === 7 && d.mark,
+    `jam-dial: swatches = two half-disc whites + the colour discs (saved or default), at most one pressed, 44px targets; 7 ticks + mark (${d.sw.map(s => s.l + ":" + s.p).join(", ")})`);
   // Keyboard: arrows / End on the slider.
   await reset();
   await dial(D).locator(".dl-ring").focus();
@@ -122,31 +124,38 @@ module.exports = async (page, check, {callsNow}) => {
   c = await calls();
   check(c.length === 1 && c[0].service === "turn_on" && c[0].data.brightness_pct === 5, `jam-dial off: ArrowUp turns it on at 5 % (${JSON.stringify(c.map(x => x.data))})`);
   d = await dInfo("light.lc_plug");
-  check(d.role === null && d.tab === -1 && d.cap === "On" && d.pressed === "true" && d.sw.length === 0 && d.dash === "100 100",
-    `jam-dial on/off light: no slider, "On", full arc, show_swatches: false (${JSON.stringify(d).slice(0, 160)})`);
+  check(d.role === null && d.tab === -1 && d.cap === "On" && d.pressed === "true" && d.sw.length === 0 && d.dash === "100 100" && d.ticks === 0 && !d.mark && d.capSz[0] >= 150,
+    `jam-dial on/off light: no slider / ticks / mark, a big push button cap "On" (${d.capSz}), full ring, show_swatches: false`);
   d = await dInfo("light.lc_hall");
-  check(d.role === null && d.capDis && d.cap === "N/A" && d.sw.length === 0 && d.name === "h3" && d.sub === "Unavailable",
-    `jam-dial unavailable: N/A, cap disabled, no slider / swatches / pop-up button (${JSON.stringify(d).slice(0, 160)})`);
+  check(d.role === null && d.capDis && d.cap === "Offline" && d.sw.length === 0 && d.name === "h3" && d.sub === undefined,
+    `jam-dial unavailable: "Offline" on the cap only, cap disabled, no slider / swatches / pop-up button (${JSON.stringify(d).slice(0, 160)})`);
 
   // ---------- jam-keypad ----------
   const kInfo = t => kp(t).evaluate(e => {
     const r = e.shadowRoot, keys = [...r.querySelectorAll(".kp-key")];
     return {room: r.querySelector(".kp-room").textContent, cur: (r.querySelector(".kp-cur") || {}).textContent || "",
+      fs: parseFloat(getComputedStyle(r.querySelector(".kp-cap")).fontSize),
+      bar: [...r.querySelectorAll(".kp-bar .kp-act")].map(k => ({n: k.textContent, w: Math.round(k.getBoundingClientRect().width), h: Math.round(k.getBoundingClientRect().height),
+        bg: getComputedStyle(k.querySelector(".kp-cap")).backgroundColor, fg: getComputedStyle(k.querySelector(".kp-cap")).color})),
+      keyW: keys.length ? Math.round(keys[0].getBoundingClientRect().width) : 0,
       keys: keys.map(k => ({n: k.textContent, on: k.classList.contains("on"), p: k.getAttribute("aria-pressed"), dis: k.disabled, stamp: k.classList.contains("jam-stamp"),
         w: Math.round(k.getBoundingClientRect().width), h: Math.round(k.getBoundingClientRect().height),
         bg: getComputedStyle(k.querySelector(".kp-cap")).backgroundColor, fg: getComputedStyle(k.querySelector(".kp-cap")).color, ring: getComputedStyle(k, "::after").content})),
       body: getComputedStyle(r.querySelector(".kp-body")).backgroundColor};
   });
   let k = await kInfo("Living room");
-  check(k.room === "Living room" && k.cur === "Movie time" && k.keys.length === 9 && k.keys.filter(x => x.on).map(x => x.n).join() === "Movie time" &&
-    k.keys[1].p === "true" && k.keys[0].p === "false" && k.keys[7].n === "All on" && k.keys[8].n === "All off" && k.keys[7].p === null,
-    `jam-keypad: display "Living room" / "${k.cur}", 7 keys + All on / All off, Movie time active + aria-pressed (${k.keys.map(x => x.n + (x.on ? "*" : "")).join(", ")})`);
+  check(k.room === "Living room" && k.cur === "Movie time" && k.keys.length === 7 && k.keys.filter(x => x.on).map(x => x.n).join() === "Movie time" &&
+    k.keys[1].p === "true" && k.keys[0].p === "false" && k.bar.map(x => x.n).join() === "All on,All off" && k.bar.every(x => x.h >= 56 && x.w > k.keyW),
+    `jam-keypad: display "Living room" / "${k.cur}", 7 round keys, All on / All off in the wide bottom bar, Movie time active + aria-pressed (${k.keys.map(x => x.n + (x.on ? "*" : "")).join(", ")})`);
+  const offBg = k.keys.find(x => !x.on && x.n === "Normal").bg, lit = k.keys.find(x => x.on);
+  check(lit.bg !== offBg && k.fs >= 16 && k.bar[1].w >= 1.5 * k.keyW && k.bar[1].h < k.keyW,
+    `jam-keypad: the active key lights up (${lit.bg} vs ${offBg}), 16px labels (${k.fs}), All off is a wide bar key, not a round scene key like Night (${k.bar[1].w}x${k.bar[1].h} vs ${k.keyW})`);
   check(k.keys.every(x => x.w >= 56 && x.h >= 56 && Math.abs(x.w - x.h) <= 1), `jam-keypad: round keys >= 56px (${k.keys.map(x => x.w).join(",")})`);
   const lumOf = s => { const m = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
   const cr = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
   const k2 = await kInfo("Hall");
-  const low = [...k.keys, ...k2.keys].filter(x => !x.dis && cr(x.bg, x.fg) < 4.5);
-  check(!low.length, `jam-keypad: every key's text reads >= 4.5:1 on its fill (accent keys nudged): ${[...k.keys, ...k2.keys].filter(x => !x.dis).map(x => x.n + " " + cr(x.bg, x.fg).toFixed(1)).join(", ")}`);
+  const all = [...k.keys, ...k.bar, ...k2.keys].filter(x => !x.dis), low = all.filter(x => cr(x.bg, x.fg) < 4.5);
+  check(!low.length, `jam-keypad: every key's text reads >= 4.5:1 on its fill (accent + lit keys nudged): ${all.map(x => x.n + " " + cr(x.bg, x.fg).toFixed(1)).join(", ")}`);
   // current_entity changes later -> Vibes, with a one-shot stamp.
   await push("jam-keypad", "input_select.lc_scene", {state: "Vibes", last_changed: new Date().toISOString()});
   k = await kInfo("Living room");
@@ -158,8 +167,8 @@ module.exports = async (page, check, {callsNow}) => {
   await reset();
   await kp("Living room").locator(".kp-key").nth(0).click();
   await kp("Living room").locator(".kp-key").nth(5).click();
-  await kp("Living room").locator(".kp-key").nth(7).click();
-  await kp("Living room").locator(".kp-key").nth(8).click();
+  await kp("Living room").locator(".kp-act").nth(0).click();
+  await kp("Living room").locator(".kp-act").nth(1).click();
   c = await calls();
   check(c.length === 4 && c[0].domain === "scene" && c[0].service === "turn_on" && c[0].data.entity_id === "scene.lc_normal" &&
     c[1].domain === "script" && c[1].service === "turn_on" && c[1].data.entity_id === "script.lc_read" &&
@@ -179,7 +188,9 @@ module.exports = async (page, check, {callsNow}) => {
   const rInfo = id => radio(id).evaluate(e => {
     const r = e.shadowRoot, w = r.querySelector(".rd-wh"), sz = n => { const b = n.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; };
     return {kick: r.querySelector(".kk").textContent, title: r.querySelector(".rd-lcd b").textContent, sub: (r.querySelector(".rd-lcd small") || {}).textContent,
-      keys: [...r.querySelectorAll(".rd-k")].map(k => k.dataset.key + (k.disabled ? "-" : "") + ":" + sz(k).join("x")),
+      keys: [...r.querySelectorAll(".rd-k")].map(k => k.dataset.key + (k.disabled ? "-" : "") + (k.classList.contains("main") ? "*" : "") + ":" + sz(k).join("x")),
+      vnFs: parseFloat(getComputedStyle(r.querySelector(".rd-vn")).fontSize), kkFs: parseFloat(getComputedStyle(r.querySelector(".kk")).fontSize),
+      grH: Math.round(r.querySelector(".rd-gr").getBoundingClientRect().height), faceH: Math.round(r.querySelector(".rd > .face").getBoundingClientRect().height),
       bk: [...r.querySelectorAll(".bk button")].map(k => k.dataset.key + ":" + k.getAttribute("aria-pressed") + (k.disabled ? "-" : "")),
       role: w.getAttribute("role"), now: w.getAttribute("aria-valuenow"), wlabel: w.getAttribute("aria-label"), wdis: w.getAttribute("aria-disabled"), vn: w.textContent, wsz: sz(w),
       grille: getComputedStyle(r.querySelector(".rd-gr")).display, lcdSz: sz(r.querySelector(".rd-lcd"))};
@@ -187,9 +198,9 @@ module.exports = async (page, check, {callsNow}) => {
   let rd = await rInfo(RK);
   check(rd.kick === "Kitchen · Spotify" && rd.title === "Lobby" && rd.sub === "AERwave" && rd.grille !== "none" && rd.lcdSz[1] >= 44,
     `jam-radio: kicker "${rd.kick}", display Lobby / AERwave, grille shown`);
-  check(rd.keys.join() === "prev:48x44,play_pause:56x44,next:48x44" && rd.role === "slider" && rd.now === "36" && rd.vn === "36" && rd.wlabel === "Kitchen volume" &&
-    rd.wsz[0] >= 44 && rd.bk.join() === "shuffle:false,favorite:false",
-    `jam-radio: round keys (${rd.keys}), volume wheel slider 36 (${rd.wsz}), shuffle + favourite (${rd.bk})`);
+  check(rd.keys.join() === "prev:44x44,play_pause*:52x44,next:44x44" && rd.role === "slider" && rd.now === "36" && rd.vn === "36" && rd.wlabel === "Kitchen volume" &&
+    rd.wsz[0] >= 76 && rd.wsz[0] <= 88 && rd.vnFs >= 16 && rd.kkFs >= 12 && rd.grH >= rd.faceH - 30 && rd.bk.join() === "shuffle:false,favorite:false",
+    `jam-radio: round keys, play filled while playing (${rd.keys}), wheel ${rd.wsz} with a ${rd.vnFs}px number, ${rd.kkFs}px kicker, full-height grille (${rd.grH}/${rd.faceH}), shuffle + favourite (${rd.bk})`);
   await reset();
   await radio(RK).locator('.rd-k[data-key="play_pause"]').click();
   await radio(RK).locator('.rd-k[data-key="prev"]').click();
@@ -223,7 +234,7 @@ module.exports = async (page, check, {callsNow}) => {
   await closeSheet();
   rd = await rInfo("media_player.lc_den");
   check(rd.title === "Den" && /^Last played: Teardrop/.test(rd.sub) && rd.bk.join() === "shuffle:true" && rd.keys[1].startsWith("play_pause:"),
-    `jam-radio idle: room + "Last played", shuffle on (${rd.bk})`);
+    `jam-radio idle: room + "Last played", play not filled (${rd.keys[1]}), shuffle on (${rd.bk})`);
   rd = await rInfo("media_player.lc_garage");
   check(rd.title === "Garage" && rd.sub === "Offline" && rd.keys.every(x => x.includes("-:")) && rd.role === null && rd.wdis === "true" && rd.vn === "—",
     `jam-radio offline: keys and wheel disabled (${rd.keys}; wheel ${rd.wdis})`);
