@@ -7,13 +7,14 @@ import stress from "./looks/stress.mjs";
 import braun from "./looks/braun.mjs";
 import olympia from "./looks/olympia.mjs";
 import transit from "./looks/transit.mjs";
+import grid from "./looks/grid.mjs";
 import pulsar from "./looks/pulsar.mjs";
 
 export {TOKENS, RUNTIME_TOKENS, HA_KEYS, haValue};
 /* Every look, Poster first (it is the default and the cards' fallback). A look with `harness: true` (stress) exists only
    for preview/shoot.js, one with `draft: true` (none since R10: braun and olympia are designed) only for the preview and the
    harness: both get a preview/looks.css block but no theme file. */
-export const LOOKS = [poster, stress, braun, olympia, transit, pulsar];
+export const LOOKS = [poster, stress, braun, olympia, transit, grid, pulsar];
 /* Looks the harness shoots by default (preview/shoot.js LOOKS): the real ones, Poster first; stress has its own runs. */
 export const SHOT_LOOKS = LOOKS.filter(l => !l.harness).map(l => l.id);
 export const POSTER = poster;
@@ -67,6 +68,10 @@ export function looksCss() {
       // HA's page text (theme aliases text / text-dim): a look whose cards differ from the page (Transit) reads them for
       // text that sits on the page itself (jam-heading, the kiosk home).
       decl.push("--primary-text-color:" + haValue("{text}", mode), "--secondary-text-color:" + haValue("{text-dim}", mode));
+      // A look whose lovelace-background is more than the ground (Grid: the page grid) also sets --lovelace-background;
+      // preview/index.html paints it on a fixed layer behind the view (HA's hui-view-background).
+      const lb = haValue("{lovelace-bg}", mode);
+      if (lb !== haValue("{ground}", mode)) decl.push("--lovelace-background:" + lb);
       out.push(`${sel}${m === "light" ? ".light" : ""}{\n  ${decl.join(";\n  ")};\n}`);
     }
   }

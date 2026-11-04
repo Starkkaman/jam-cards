@@ -13,6 +13,7 @@ export const HA_ALIASES = {
   "chrome-dim": "{jam-dim}",
   "chrome-accent": "{jam-ochre}", // selected sidebar item
   "header-rule": "4px solid {primary}", // app header bottom border
+  "lovelace-bg": "{ground}",    // lovelace-background: a CSS background value (Grid: the 1px page grid over the ground)
   yellow: "{jam-ochre}",        // HA yellow-color / amber-color (a look without a yellow hue token)
   cyan: "{jam-teal}",           // HA cyan-color
   // Native HA surfaces (Transit, R10): a look whose cards differ from HA's own cards and page (black signs on a white page)
@@ -40,7 +41,7 @@ export const HA_KEYS = [
   ["text-accent-color", "{text}"],
   ["primary-background-color", "{ground}"],
   ["secondary-background-color", "{ground2}"],
-  ["lovelace-background", "{ground}"],
+  ["lovelace-background", "{lovelace-bg}"],
   ["card-background-color", "{card}"],
   ["ha-card-background", "{card}"],
   ["ha-dialog-surface-background", "{card}"],

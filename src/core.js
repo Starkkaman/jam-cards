@@ -808,12 +808,26 @@ function jamSheet(css) {
 function jamStyle(root, css, look) {
   const pack = lookPack(look), parts = [BASE_CSS, css || "", pack ? pack.css : ""].filter(Boolean);
   root._jamStyle = {css: css || "", look: look || "poster"};
-  if (JAM_ADOPT) { root.adoptedStyleSheets = parts.map(jamSheet); return; }
-  let st = [...root.children].find(e => e.localName === "style" && e.hasAttribute("data-jam-style"));
-  if (!st) { st = document.createElement("style"); st.dataset.jamStyle = ""; }
-  const text = parts.join("\n");
-  if (st.textContent !== text) st.textContent = text;
-  if (root.firstChild !== st) root.prepend(st);
+  if (JAM_ADOPT) root.adoptedStyleSheets = parts.map(jamSheet);
+  else {
+    let st = [...root.children].find(e => e.localName === "style" && e.hasAttribute("data-jam-style"));
+    if (!st) { st = document.createElement("style"); st.dataset.jamStyle = ""; }
+    const text = parts.join("\n");
+    if (st.textContent !== text) st.textContent = text;
+    if (root.firstChild !== st) root.prepend(st);
+  }
+  if (pack || root._jamUndo) jamDecorate(root, look); // after the sheets: the pack's decorator reads its own CSS
+}
+/* Root decorator motif "numerals" (Grid): a look pack may define it as fn(root) -> cleanup | null. jamStyle calls it with
+   every shadow root it styles for that look (cards, open sheets, jam-popup, jam-kiosk, the screensaver layer), so the pack
+   can redraw parts of the DOM the cards write (Grid: big numbers as cell numerals, the text kept for assistive tech); the
+   cleanup runs when the root is styled again or for another look. Poster (and a pack without it): nothing is called. */
+defineMotif("numerals", () => null);
+function jamDecorate(root, look) {
+  const undo = root._jamUndo;
+  if (undo) { root._jamUndo = null; try { undo(); } catch (e) { console.error("jam-cards: numerals cleanup", e); } }
+  const pack = lookPack(look);
+  if (pack && typeof pack.motifs.numerals === "function") root._jamUndo = motif("numerals", look, root) || null;
 }
 /* Re-skins a root styled by jamStyle for another look (only when its pack sheet changes). */
 function jamRestyle(root, look) {
