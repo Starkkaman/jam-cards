@@ -44,15 +44,16 @@ class JamHouse extends JamBase {
     if (a && Array.isArray(a.lights)) return a.lights.filter(x => typeof x === "string");
     return h && h.states ? Object.keys(h.states).filter(id => id.startsWith("light.")) : [];
   }
-  /* Attention items [{text, tap}] (opt-in); empty when all is well. */
+  /* Attention items [{text, tap, door?}] (opt-in); empty when all is well. door = the lock item (the chip row then leaves
+     out its own door chip, so the door is not shown twice). */
   _attention() {
     const c = this._config, h = this._hass, out = [];
     if (!c.attention) return out;
     if (c.lock_entity) {
       const s = stateObj(h, c.lock_entity), st = s ? String(s.state) : "unavailable";
-      if (!s || UNAVAILABLE.has(st)) out.push({text: "Door " + OFFLINE.toLowerCase(), tap: n => moreInfo(n, c.lock_entity)});
-      else if (st === "unlocked" || st === "open") out.push({text: `Door ${st} · lock`, tap: n => jamCall(n, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door")});
-      else if (lockAlert(s)) out.push({text: `Door ${st}`, tap: n => moreInfo(n, c.lock_entity)});
+      if (!s || UNAVAILABLE.has(st)) out.push({door: true, text: "Door " + OFFLINE.toLowerCase(), tap: n => moreInfo(n, c.lock_entity)});
+      else if (st === "unlocked" || st === "open") out.push({door: true, text: `Door ${st} · lock`, tap: n => jamCall(n, this._hass, "lock", "lock", {entity_id: c.lock_entity}, "run", "Couldn't lock the door")});
+      else if (lockAlert(s)) out.push({door: true, text: `Door ${st}`, tap: n => moreInfo(n, c.lock_entity)});
     }
     const dead = this._attLights().filter(id => { const s = stateObj(h, id); return !!s && s.state === "unavailable"; });
     if (dead.length) out.push({text: `${dead.length} ${dead.length === 1 ? "light" : "lights"} ${OFFLINE.toLowerCase()}`, tap: n => moreInfo(n, dead[0])});
@@ -129,9 +130,10 @@ class JamHouse extends JamBase {
     outBox.append(ot);
     const outAq = this._aq(c.outside_aq); if (outAq) outBox.append(outAq);
 
-    // Chips: door, people at home, matching alerts.
+    // Chips: door (unless the attention strip already carries it), people at home, matching alerts.
+    const att = this._attention();
     const chips = el("div", "chips");
-    if (c.lock_entity) {
+    if (c.lock_entity && !att.some(it => it.door)) {
       const ls = stateObj(h, c.lock_entity), st = ls ? ls.state : "unavailable";
       let chip;
       if (st === "unlocked" || st === "open") {
@@ -168,7 +170,6 @@ class JamHouse extends JamBase {
       chips.append(chip);
     }
 
-    const att = this._attention();
     if (att.length) {
       const strip = el("div", "att"); strip.dataset.role = "attention";
       strip.setAttribute("role", "group"); strip.setAttribute("aria-label", "Needs attention");

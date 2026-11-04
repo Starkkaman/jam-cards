@@ -397,9 +397,10 @@ module.exports = async (page, check) => {
       const A = window.__au, cfg = {type: "custom:jam-house", inside_entity: "sensor.serenity_cpuload", outside_entity: "weather.bungalo_weather", lock_entity: "lock.au_door",
         inside_aq: "sensor.au_aq", attention: {lights: ["light.au_lamp", "light.au_floor"]}};
       const h = A.mount("jam-house", cfg), items = () => [...h.shadowRoot.querySelectorAll('[data-role="attention"] button')].map(b => b.textContent);
-      const out = {calm: items()};
+      const door = () => [...h.shadowRoot.querySelectorAll('[data-role="door"]')].map(b => b.textContent).join();
+      const out = {calm: items(), doorCalm: door()};
       A.set("lock.au_door", "unlocked"); A.set("light.au_floor", "unavailable"); A.set("sensor.au_aq", "poor"); h.hass = A.hass();
-      out.bad = items();
+      out.bad = items(); out.doorBad = door();
       const strip = h.shadowRoot.querySelector('[data-role="attention"]');
       out.first = strip.parentNode.firstElementChild === strip; out.keyH = Math.round(strip.querySelector("button").getBoundingClientRect().height);
       window.__calls.length = 0; strip.querySelector("button").click(); out.call = window.__calls.map(c => `${c.domain}.${c.service}`).join(",");
@@ -408,6 +409,8 @@ module.exports = async (page, check) => {
     });
     check(ha.calm.length === 0 && ha.bad.join(" | ") === "Door unlocked · lock | 1 light offline | Air poor inside" && ha.first && ha.keyH >= 44 && ha.call === "lock.lock",
       `jam-house attention: none while all is well; "${ha.bad.join(" | ")}" at the top, ${ha.keyH}px keys, door tap = ${ha.call}`);
+    check(ha.doorCalm === "Door locked" && ha.doorBad === "",
+      `jam-house attention: the door chip shows while all is well (${ha.doorCalm}) and steps aside while the strip carries the lock (${ha.doorBad || "none"})`);
   }
   {
     // jam-speaker compact_idle: one row while idle, the full card while playing / paused
@@ -421,5 +424,43 @@ module.exports = async (page, check) => {
     });
     check(sp.idle.row && !sp.idle.poster && sp.idle.h <= 110 && sp.idle.sub === "Last played: Saturn · The Olympians" && !sp.paused.row && sp.paused.poster,
       `jam-speaker compact_idle: idle = one ${sp.idle.h}px row ("${sp.idle.sub}"), paused = the full poster card`);
+  }
+  {
+    // jam-kiosk dock_state: fill reads at a glance in EVERY look (release 0.10 review): the on block's face (its background
+    // composited over what is behind it, or a background image) differs from the off block's. Pulsar is the one look that
+    // keeps every block an outline (on = a 2px --fg outline + --fg state, off = the 1px line): there the ring weight differs.
+    const looks = await page.evaluate(() => Object.keys(window.jamPreviewLookThemes || {}));
+    const OUTLINE_LOOKS = new Set(["pulsar"]);
+    for (const look of looks) for (const mode of ["dark", "light"]) {
+      const p = await lookPage(page, look, mode, 1024, 768);
+      const d = await p.evaluate(async cfg => {
+        const A = window.__au, wrap = document.createElement("div"); wrap.style.cssText = "padding:8px 16px 16px"; document.body.append(wrap);
+        A.set("media_player.au_speaker", "idle");
+        const k = A.mount("jam-kiosk", {...cfg, attention: undefined, now_band: false}, wrap);
+        await new Promise(r => setTimeout(r, 400));
+        const parse = c => { const m = String(c).match(/[\d.]+/g) || [0, 0, 0, 0]; return [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]]; };
+        const over = (f, b) => [0, 1, 2].map(i => f[i] * f[3] + b[i] * (1 - f[3])).concat(1);
+        const probe = document.createElement("i"); document.body.append(probe);
+        const srgb = c => { probe.style.color = ""; probe.style.color = c; return getComputedStyle(probe).color; };
+        const face = e => { // effective background colour: composite every translucent layer up to the page
+          const layers = [];
+          for (let x = e; x; x = x.parentElement || (x.parentNode && x.parentNode.host) || null) {
+            const c = parse(srgb(getComputedStyle(x).backgroundColor)); layers.push(c); if (c[3] >= 1) break;
+          }
+          let acc = parse(srgb(getComputedStyle(document.body).backgroundColor)); acc[3] = 1;
+          for (const c of layers.reverse()) acc = over(c, acc);
+          return acc.slice(0, 3).map(Math.round).join(",");
+        };
+        const ring = e => Math.max(0, ...[...getComputedStyle(e).boxShadow.matchAll(/(-?[\d.]+)px inset/g)].map(m => +m[1]));
+        const blks = [...k.shadowRoot.querySelectorAll(".blk")];
+        const on = blks.find(b => b.classList.contains("on")), off = blks.find(b => b.classList.contains("out") && b.dataset.state === "off");
+        const out = on && off ? {on: face(on), off: face(off), onImg: getComputedStyle(on).backgroundImage !== "none", offImg: getComputedStyle(off).backgroundImage !== "none",
+          onRing: ring(on), offRing: ring(off)} : null;
+        probe.remove(); wrap.remove(); return out;
+      }, KIOSK);
+      const ok = !!d && (d.on !== d.off || d.onImg !== d.offImg || (OUTLINE_LOOKS.has(look) && d.onRing > d.offRing));
+      check(ok, `jam-kiosk dock_state fill ${look} ${mode}: on vs off at a glance (on ${d && d.on}${d && d.onImg ? " + image" : ""} ring ${d && d.onRing}px, off ${d && d.off}${d && d.offImg ? " + image" : ""} ring ${d && d.offRing}px)`);
+      await p.close();
+    }
   }
 };

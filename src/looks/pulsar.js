@@ -372,6 +372,11 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 .blk > .pcode i{width:10px;height:10px}
 .blk > .pcode i.ck{margin-left:6px}
 .blk:active{box-shadow:inset 0 0 0 1px var(--fg)}
+/* dock_state: fill (opt-in): core's 4px ring would make the OFF block the heaviest on Pulsar's 1px outlines; off = the plain 1px
+   outline, on = a 2px --fg outline with its state in --fg, so the lit block reads as the lit one. */
+.k.dfill .blk.out,.host.light .k.dfill .blk.out{box-shadow:inset 0 0 0 1px var(--line)}
+.k.dfill .blk.on{box-shadow:inset 0 0 0 2px var(--fg)}
+.k.dfill .blk.on .st{color:var(--fg)}
 .blk:focus-visible{outline:2px solid var(--focus);outline-offset:-6px}
 .lk{--lk-bg:transparent;--lk-gl:var(--fg);--lk-tx:var(--fg)}
 .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}

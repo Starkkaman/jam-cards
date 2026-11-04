@@ -246,6 +246,9 @@
 /* dock_state: fill (opt-in): a block that is on is the white plate (Transit's "active"), off blocks keep the sign under a ring */
 :host(jam-kiosk) .k.dfill .blk.on{background:var(--jam-fg,#fff);color:var(--on-fg);--fg:var(--on-fg)}
 :host(jam-kiosk) .k.dfill .blk.on .st{color:var(--on-fg)}
+/* dock_state: fill, light mode: an off (outlined) block keeps the sign's muted grey for its state line (core's page dim
+   was 3.09:1 there). */
+:host(jam-kiosk) .host.light .k.dfill .blk.out .st{color:var(--jam-dim,#9d9d9d)}
 :host(jam-kiosk) .blk.counted .nm[data-tr]::before{width:28px;height:28px;font-size:17px;margin-right:8px} /* room for the count */
 :host(jam-kiosk) .blk .nm[data-tr]::before{--tr-bc:var(--bc,var(--acc));width:32px;height:32px;font-size:19px;margin-right:12px}
 :host(jam-kiosk) .blk.none .nm[data-tr]::before{--tr-bc:var(--jam-art-8);color:#000}

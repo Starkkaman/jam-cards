@@ -105,6 +105,7 @@ button.chip{min-width:44px} /* its 44px hit area (::after) stays inside a narrow
 :host(jam-kiosk) .host .blk.none{--bc:var(--jam-art-4);--bf:var(--on-fg)}
 :host(jam-kiosk) .host .blk.none:nth-child(even){--bc:var(--jam-art-2)}
 :host(jam-kiosk) .host .blk.none .st{color:var(--on-fg)}
+:host(jam-kiosk) .host .k.dfill .blk.none.out .st{color:var(--dim)} /* dock_state: fill: an outlined "none" block is on the page, not on its fill (navy on navy was 1:1 in dark) */
 :host(jam-kiosk) .lk .disc{border-radius:0}
 /* locked = quiet: a 2px ring in the text colour on no fill (core --lk-bg transparent) */
 :host(jam-kiosk) .lk .disc{box-shadow:inset 0 0 0 2px var(--lk-ring)}

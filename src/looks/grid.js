@@ -357,6 +357,13 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--fg)}
 :host(jam-kiosk) .host .blk:active{background:var(--ochre);color:var(--on-fg);box-shadow:none}
 :host(jam-kiosk) .host .blk:active .st{color:var(--on-fg)}
 :host(jam-kiosk) .blk:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* dock_state: fill (opt-in): the outlined squares above would draw an on block like every other one; on = filled with the
+   text colour (white in dark, ink in light) with inverted text, an alert block (a lock that is unlocked) = the signal fill;
+   off and action keep core's outline. */
+:host(jam-kiosk) .k.dfill .blk.on{background:var(--fg);color:var(--slab);box-shadow:none}
+:host(jam-kiosk) .k.dfill .blk.on .st{color:var(--slab)}
+:host(jam-kiosk) .k.dfill .blk.alert{background:var(--ochre);color:var(--on-fg);box-shadow:none}
+:host(jam-kiosk) .k.dfill .blk.alert .st{color:var(--on-fg)}
 :host(jam-kiosk) .lk .disc{border-radius:0}
 :host(jam-kiosk) .lk{--lk-bg:var(--slab);--lk-gl:var(--fg)}
 :host(jam-kiosk) .host.light .lk:not(.alert):not(.off){--lk-gl:var(--fg)}
