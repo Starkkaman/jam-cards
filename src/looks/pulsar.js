@@ -386,7 +386,7 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 .sh.pband{background:none;color:var(--sfg);--pface:var(--ink);left:6vw;right:6vw;width:auto;height:30vh}
 .sh.pband svg{width:100%;height:100%}
 .l0 .pband,.l4 .pband,.l5 .pband{top:7vh} .l1 .pband,.l2 .pband,.l3 .pband{bottom:6vh}
-.l3 .pband{height:24vh}
+.l2 .pband,.l3 .pband{height:24vh}
 .tchip{background:transparent;color:var(--sfg);box-shadow:inset 0 0 0 1px var(--sdim)}
 .tchip small{color:var(--sdim)}
 .np .th{background:var(--ink);box-shadow:inset 0 0 0 1px var(--sdim)}
