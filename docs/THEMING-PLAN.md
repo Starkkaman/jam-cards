@@ -642,3 +642,21 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   look's kiosk home, kiosk sheets and screensaver layouts. Not automated yet (reviewed by hand with contrast.js, 0
   findings in both modes): the jam-light pop-up (group, WLED), jam-tv Source / Remote sheets, jam-speaker panel B, the
   screensaver photos view; behaviour checks still run on Poster only (R9 note).
+- **R10 New Wave (done, 2026-11-03, branch look-newwave).** Brief docs/looks/NEWWAVE.md (decisions and deviations under
+  "Built"), rules in DESIGN.md "New Wave rules". `tokens/looks/newwave.mjs`: theme "Jam New Wave"
+  (`../jam-theme/themes/jamboard-newwave.yaml`, jam-theme branch look-newwave), the first look with `jam-fx: 1`; Archivo
+  700 mixed case x .7, Silkscreen numerals (`jam-num-font`, x .6), every shape `none` + 2px radii, `jam-elev-1` = white
+  edge + soft shadow, card-mod pixel tabs. Pack `src/looks/newwave.js` + Silkscreen 400 / 700 in dist/fonts (OFL): room-tinted
+  planes (OKLCH mix; under fx translucent gradients, shadow, ±0.6° face tilt, tilt on press, blurred sheets), pixel labels,
+  pixel segment strips, ink-block active keys with a room-colour offset, stickers for alerts, terminal bands, lit lights as
+  bright planes in their colour, seeded confetti half under each plane, kiosk pixel clock + tinted dock planes, screensaver
+  with confetti, a sticker for now playing and (fx) a light field that follows the time of day; motifs empty (pixel bars),
+  idleArt (confetti still life), powerGlyph, flash (none), screensaver (four confetti shapes).
+  Shared-code hooks (additive, Poster pixel-identical): core `jamSeedAttr` (JamBase.setConfig sets `data-jam-seed` 0..11 on
+  the host from the card's entity / config: CSS-only seeding, HA wraps every card so position cannot seed); jam-screensaver
+  writes `--jam-ss-day` (0..1, local time of day) on its overlay in `_texts()` when it changes (once a minute). Harness:
+  `JAM_FX=0` runs the non-Poster looks with `?fx=0` (preview/index.html sets `--jam-fx: 0` on the root, as a kiosk card's
+  `fx: false`), shots in `shots/<look>/fx-off/`, contact sheet skipped; contrast is only measurable flat (preview/contrast.js
+  skips gradients), so a look with fx must pass both runs. 96-packs knows the newwave pack (Archivo + 2 Silkscreen faces).
+  Silkscreen's unicode-range leaves out ° (falls back to monospace). Not done: the kiosks' dashboard YAML (`fx: false` on
+  jam-kiosk / jam-screensaver) is the user's step (HA read-only for workers).

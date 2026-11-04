@@ -8,7 +8,7 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
 the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03; both built in R10, see "Braun
-rules" and "Olympia rules"); the global switch will be a Look
+rules" and "Olympia rules"), then New Wave ("New Wave rules"); the global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
 own section and may replace them).
@@ -116,6 +116,44 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
   band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
   stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
+
+## New Wave rules (the New Wave look, theme "Jam New Wave"; brief docs/looks/NEWWAVE.md)
+After April Greiman (Design Quarterly #133, 1986) with a touch of Memphis. The only look with translucency, soft shadows
+and gradients, all behind the effects switch (universal rule "Effects only under `data-fx`"): the theme sets `jam-fx: 1`,
+and a card's `fx: false` (the kiosks' setting: jam-kiosk, jam-screensaver; their sheets and layer follow) turns them off.
+- Tokens (`tokens/looks/newwave.mjs`): page #fbf8ff / #140f2e (HA ground alias), the plane `--slab` #ffffff / #2a2060
+  (opaque: the fx-off face and the colour the translucent plane is mixed from), `--slab2` / `--slab3` lavender planes for
+  keys and tracks, ink #1b1640 / #f3efff text (`jam-ink` stays the dark ink: veil, plates); room hues = the strong ends of
+  the brief's pastel pairs (ochre peach #ffa64d, teal #3fcfbf, blue #5f98ff, pink #ff6fae, violet #9d82ff, green #42d39a;
+  lighter in dark), text on them is ink (`--on-fg`, >= 5.4:1); red fill #ff4f78 (the brief's #e0244f is 3.9:1 under ink),
+  alert text #a8123c / #ff9db4; the terminal = `jam-band` (#1b1640 with #d8ffe9 text; dark #07051f / #b9ffd9); the
+  confetti / idle-art palette `jam-art-1..8` with art-6 = sticker yellow #fff05a / #ffe94a and art-8 = ok sticker mint;
+  `jam-elev-1` = the plane's white edge + soft shadow (used under fx only). Archivo 700 mixed case at .7, tight (-.02em);
+  numerals Silkscreen (`jam-num-font`, x .6); every shape token `none`, radius 2px on every kind; smooth quick-out motion,
+  stamps = a 1.04 pop, no washes / wipes / spiral flash.
+- Pack (`src/looks/newwave.js`): every card / hero / jam-button face is a plane tinted by its room (`--acc` mixed into the
+  plane in OKLCH, 22%; with a 1px `--line` edge); under fx a translucent gradient (accent -> its partner hue: peach ->
+  yellow, mint <-> aqua, lavender <-> blue, pink -> lilac) with `jam-elev-1`, and the face turns ±0.6° (seeded; not
+  kiosk cards, not in sheets, not with reduced motion). Small labels (`.label`, kickers, subs, tile names, states, legends)
+  in Silkscreen pixel caps; Silkscreen leaves out the degree sign (its unicode-range), which falls back to the monospace
+  stack. Keys are white planes with an edge; an active key / tab / scene / jam-button is an ink block (`--fg` face,
+  `--slab` text) with a hard 3px offset shadow in the room colour; alert keys / chips / counts are stickers (yellow, ink
+  text, red offset shadow), "home" chips mint. Strips are pixel segment bars (6px on, 2px off) with a 6px ink knob on
+  sliders. Power corner = a 30px square top-right (off: plane with an ink ring; on: ink block, room / light colour shadow).
+  jam-light on = a bright plane in the light's own colour (48% into the page white in both modes, gradient to 16% under
+  fx), ink text (`--on-fg`), the % in pixels, a pixel brightness bar; no label plates. Confetti: one seeded shape per card
+  (triangle, squiggle, ring, dot grid; 26px) half under the plane at a side edge (`.paper::before`, z-index -1 inside the
+  `.host` stacking context), seeded by the host's `data-jam-seed` (core, from the card's entity): it shows in the gap or
+  margin beside the card and never over its content. Bands (jam-tv / jam-speaker text, music dock, error strip) are the
+  terminal. Sheets: under fx a translucent plane with a 14px backdrop blur. Kiosk: the big pixel clock (x .8), a pixel dash
+  rule, dock blocks as tinted planes (no tilt, no confetti), the lock an ink square. Screensaver: the page ground, the pixel
+  clock, four confetti shapes in the layout's places, the now-playing block as a sticker (yellow, a hard offset in the text
+  colour; turned 2° under fx); under fx a soft light field drifts with the time of day (`--jam-ss-day` from jam-screensaver: position
+  along a sun path and hue per minute, a one-shot 55 s transform transition, no infinite animation; static field with fx
+  off). Focus ring: the universal 3px `--focus` ring (ink in light, sticker yellow in dark). Tilt on press under fx (perspective rotateX / rotateY).
+- Contrast is measured on the opaque fx-off faces (preview/contrast.js skips gradients): run the harness with
+  `JAM_FX=0` too. Under fx the plane mixes stay in the same lightness band (light: white-based pastel; dark: the plane
+  mixed with the page) and the drifting light is mixed into `--slab` first, so it stays dim behind light text.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,

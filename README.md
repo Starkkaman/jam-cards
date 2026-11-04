@@ -610,7 +610,10 @@ Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun**
 anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
 [docs/DESIGN.md](docs/DESIGN.md) "Braun rules") and **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
 ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
-rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"). Pick a look in the theme picker; JamBoard is Poster.
+rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules") and **Jam New Wave** (after April Greiman with a touch of
+Memphis: translucent planes tinted per room, confetti, Silkscreen pixel numbers and labels, sticker-yellow alerts; its
+effects are on by default, set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets; rules in
+[docs/DESIGN.md](docs/DESIGN.md) "New Wave rules"). Pick a look in the theme picker; JamBoard is Poster.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while
 the look is active; if they cannot load, the look's fallback fonts are used. `--jam-fx: 1` in a look's theme turns on its

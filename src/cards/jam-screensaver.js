@@ -592,6 +592,9 @@ class JamScreensaver extends JamBase {
   _texts() {
     const h = this._hass, c = this._config, d = new Date(), f = jamWxTime(h);
     this._tsig = this._textSig();
+    /* Time of day (R10, New Wave's drifting light): 0..1 over the local day, on the overlay; only written when it changes. */
+    const day = ((d.getHours() * 60 + d.getMinutes()) / 1440).toFixed(4);
+    if (this._ov && this._ov.style.getPropertyValue("--jam-ss-day") !== day) this._ov.style.setProperty("--jam-ss-day", day);
     const lang = (h && h.locale && h.locale.language) || (h && h.language) || undefined;
     const mm = String(d.getMinutes()).padStart(2, "0");
     const setTime = node => {

@@ -32,10 +32,15 @@ async function fixedPage(browser, url, viewport) {
   await p.evaluate(() => document.fonts.ready);
   return p;
 }
+/* JAM_FX=0: every non-Poster look runs with the effects switch off (?fx=0, as the kiosks' `fx: false`), so a look whose
+   theme sets jam-fx: 1 (New Wave) is checked flat as well; its shots go to shots/<look>/fx-off/ and the contact sheet is
+   skipped (it shows the theme's own fx state). Poster has no effects and runs unchanged. */
+const FX_OFF = process.env.JAM_FX === "0";
 /* Query string of a look + mode page; Poster is the page's own default (no look parameter). */
-const lookQuery = (look, mode) => `?mode=${mode}${look === "poster" ? "" : "&look=" + look}`;
-/* Shot folder of a look: preview/shots/ for Poster (as before R9, so its pixel baselines keep their names), else shots/<look>/. */
-const shotDir = look => { const d = path.join(__dirname, "shots", ...(look === "poster" ? [] : [look])); fs.mkdirSync(d, {recursive: true}); return d; };
+const lookQuery = (look, mode) => `?mode=${mode}${look === "poster" ? "" : "&look=" + look + (FX_OFF ? "&fx=0" : "")}`;
+/* Shot folder of a look: preview/shots/ for Poster (as before R9, so its pixel baselines keep their names), else shots/<look>/
+   (shots/<look>/fx-off/ under JAM_FX=0). */
+const shotDir = look => { const d = path.join(__dirname, "shots", ...(look === "poster" ? [] : FX_OFF ? [look, "fx-off"] : [look])); fs.mkdirSync(d, {recursive: true}); return d; };
 /* <shot dir of look>/{mode}-{width}.png (full page). */
 async function fixedShot(browser, base, look, mode, width) {
   const p = await fixedPage(browser, base + lookQuery(look, mode), {width, height: 900});
@@ -368,7 +373,8 @@ const server = http.createServer((req, res) => {
     // Review views of every non-Poster look (preview/views.js): its sheets, panel B, kiosk sheets and screensaver in both
     // modes (shots/<look>/views/), each with a controls-present check. JAM_NO_VIEWS=1 skips them.
     if (!process.env.JAM_NO_VIEWS) for (const look of LOOKS.filter(l => l !== "poster")) await require("./views.js")(browser, base, check, {look, dir: shotDir(look)});
-    if (!process.env.JAM_NO_CONTACT) {
+    if (FX_OFF) console.log("INFO JAM_FX=0: contact sheet skipped (it shows each look's theme fx state)");
+    else if (!process.env.JAM_NO_CONTACT) {
       const n = await contactSheet(browser, base, LOOKS);
       check(n > 10, `contact sheet preview/shots/looks.html: ${n} items x ${LOOKS.length} looks (${LOOKS.join(", ")})`);
     }
