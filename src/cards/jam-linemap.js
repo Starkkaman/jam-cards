@@ -2,7 +2,10 @@
    {type: custom:jam-linemap, title?, accent? (title rule), lines: [{name, color? (hue or room alias; default: ochre, teal,
     blue, pink, violet, green by position), path? (navigation path: tap the line name), stations: [entity ids]}]}
    Every room is a line in its colour (8px track, 45-degree chamfers, a 90-degree terminal tick); every entity is a station
-   along it, in the order given: filled disc = on, hollow = off, dashed ring = unavailable. A line longer than a row turns
+   along it, in the order given: a 20px filled disc = on (name 600), a 12px hollow one = off (name --dim), a dashed ring =
+   unavailable / missing ("Offline", a missing entity named from its object id), a tick across the track = a sensor (its
+   value under the name). A line with on / off stations and nothing on is out of service (dashed, faded track; "Out of
+   service" in place of the count). A lit interchange's core takes the line colour. A line longer than a row turns
    back on the next row (boustrophedon, a 45 / 90 / 45 U-turn in the side gutter). An entity on two or more lines is an
    interchange: a bigger ring on each line, its name followed by small bullets of the other lines. The line name starts
    the track with a route bullet (the line colour with its first letter; the letter in the look's dark or light text,
@@ -53,6 +56,10 @@ function jamFocusBack(card, ref) {
   const n = all.find(x => ref.l < 0 || [...card.shadowRoot.querySelectorAll(".ln")].indexOf(x.closest(".ln")) === ref.l) || all[0];
   if (n) { n.tabIndex = 0; n.focus({preventScroll: true}); }
 }
+/* A station that shows a value (a sensor, any numeric state) is a tick on the track, not an on / off station. */
+function lmTick(id, s) { const d = id.split(".")[0]; return d === "sensor" || d === "input_number" || d === "number" || (s.state !== "" && isFinite(Number(s.state))); }
+/* A missing entity's name from its object id ("light.porch_lamp" -> "Porch lamp"), never the raw id. */
+function lmPretty(id) { const t = String(id).split(".").pop().replace(/_/g, " ").trim(); return t ? t[0].toUpperCase() + t.slice(1) : "Offline"; }
 function lmSvg(tag, attrs) { const e = document.createElementNS(LM_NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 
 class JamLinemap extends JamBase {
@@ -79,18 +86,25 @@ class JamLinemap extends JamBase {
       line-height:calc(1 * var(--disp-lead));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .lh .ct{flex:none;font:500 .78rem/1.2 var(--body);color:var(--dim);font-variant-numeric:tabular-nums}
     .st{position:absolute;display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:${LM_DOT + 16}px 4px 0;text-align:center;color:var(--fg)}
-    .dot{position:absolute;left:50%;top:${LM_DOT - 9}px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--slab);box-shadow:inset 0 0 0 3px var(--fg)}
-    .st.on .dot{background:var(--fg)}
-    .st.na .dot{background:var(--slab);box-shadow:none;border:3px dashed var(--dim)}
-    .st.ix .dot{top:${LM_DOT - 13}px;width:26px;height:26px;margin-left:-13px;box-shadow:inset 0 0 0 4px var(--fg)}
-    .st.ix.on .dot{box-shadow:inset 0 0 0 4px var(--fg),inset 0 0 0 7px var(--slab)}
-    .sn{font:600 .78rem/1.25 var(--body);overflow-wrap:anywhere;
+    /* stations: on = 20px filled, off = 12px hollow, unavailable = dashed ring, interchange = 26px ring (lit: line-colour core),
+       a sensor = a tick across the track (a value, not an off station) */
+    .dot{--d:12px;position:absolute;left:50%;top:calc(${LM_DOT}px - var(--d) / 2);width:var(--d);height:var(--d);margin-left:calc(var(--d) / -2);
+      border-radius:50%;background:var(--slab);box-shadow:inset 0 0 0 2.5px var(--fg)}
+    .st.on .dot{--d:20px;background:var(--fg);box-shadow:none}
+    .st.na .dot{--d:16px;background:var(--slab);box-shadow:none;border:2.5px dashed var(--dim)}
+    .st.ix .dot{--d:26px;box-shadow:inset 0 0 0 4px var(--fg)}
+    .st.ix.on .dot{background:var(--lc);box-shadow:inset 0 0 0 4px var(--fg)}
+    .st.tk .dot{--d:20px;width:5px;margin-left:-2.5px;border-radius:0;background:var(--fg);box-shadow:none}
+    .sn{font:500 .78rem/1.25 var(--body);color:var(--dim);overflow-wrap:anywhere;
       display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+    .st.on .sn,.st.tk .sn{font-weight:600;color:var(--fg)}
     .sn .lb{vertical-align:-3px;margin-left:3px}
     .sv{font:500 .72rem/1.2 var(--body);color:var(--dim);white-space:nowrap;overflow:hidden;
       text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-    .st.na .sn,.st.na .sv{color:var(--dim)}
-    .st:not(:disabled):hover .dot{box-shadow:inset 0 0 0 3px var(--fg),0 0 0 3px var(--line)}
+    .st.tk .sv{color:var(--fg);font-weight:600}
+    .st:not(:disabled):hover .dot{outline:3px solid var(--line);outline-offset:2px}
+    /* a line with nothing on is out of service: the track dashed and faded (text keeps its colour) */
+    .ln.oos .trk path{stroke-dasharray:10 7;opacity:.35}
     ${JAM_BULLET_CSS}`; }
   connectedCallback() {
     super.connectedCallback();
@@ -122,24 +136,28 @@ class JamLinemap extends JamBase {
       ln.append(trk);
       const tog = l.stations.filter(id => { const s = stateObj(h, id); return s && toggleable(id) && (s.state === "on" || s.state === "off"); });
       const on = tog.filter(id => h.states[id].state === "on").length;
+      const lit = l.stations.some(id => { const s = stateObj(h, id); return s && !UNAVAILABLE.has(s.state) && !lmTick(id, s) && tone(s) === "on"; });
+      const oos = tog.length > 0 && !lit;
+      if (oos) ln.classList.add("oos");
+      const count = !tog.length ? "" : oos ? "Out of service" : `${on} of ${tog.length} on`;
       const head = el(l.path ? "button" : "div", l.path ? "lh hit" : "lh"); // .hit: a 44px touch target over the 36px row
       head.append(jamBullet(jamInitial(l.name), l.hue), el("span", "nm", l.name));
-      if (tog.length) head.append(el("span", "ct", `${on} of ${tog.length} on`));
+      if (count) head.append(el("span", "ct", count));
       if (l.path) {
-        head.setAttribute("aria-label", `${l.name}${tog.length ? `, ${on} of ${tog.length} on` : ""}, open`);
+        head.setAttribute("aria-label", `${l.name}${count ? ", " + count : ""}, open`);
         head.onclick = () => navigate(l.path);
       }
       ln.append(head);
       const sts = l.stations.map(id => {
-        const s = stateObj(h, id), name = friendly(h, id), na = !s || UNAVAILABLE.has(s.state);
-        const flip = !na && toggleable(id) && (s.state === "on" || s.state === "off");
-        const isOn = !na && tone(s) === "on", others = linesOf.get(id).filter(j => j !== i);
-        const st = el("button", "st" + (isOn ? " on" : "") + (na ? " na" : "") + (others.length ? " ix" : ""));
+        const s = stateObj(h, id), na = !s || UNAVAILABLE.has(s.state), name = s ? friendly(h, id) : lmPretty(id);
+        const flip = !na && toggleable(id) && (s.state === "on" || s.state === "off"), tick = !na && !flip && lmTick(id, s);
+        const isOn = !na && !tick && tone(s) === "on", others = linesOf.get(id).filter(j => j !== i);
+        const st = el("button", "st" + (isOn ? " on" : "") + (na ? " na" : "") + (tick ? " tk" : "") + (others.length ? " ix" : ""));
         st.dataset.entity = id; st.dataset.jamName = name;
         const dot = el("span", "dot"), sn = el("span", "sn", name);
         for (const j of others) sn.append(jamBullet(jamInitial(lines[j].name), lines[j].hue, "sm"));
         st.append(dot, sn);
-        const val = na ? (s ? fmtState(h, s) : "Missing") : flip ? "" : fmtState(h, s);
+        const val = na ? "Offline" : flip ? "" : fmtState(h, s);
         if (val) st.append(el("span", "sv", val));
         const via = others.length ? `, change for ${others.map(j => lines[j].name).join(", ")}` : "";
         if (flip) {
@@ -147,7 +165,7 @@ class JamLinemap extends JamBase {
           st.setAttribute("aria-label", `${name}${via}`);
           st.onclick = () => jamCall(st, this._hass, "homeassistant", "toggle", {entity_id: id}, "toggle", `Couldn't toggle ${name}`);
         } else {
-          st.setAttribute("aria-label", `${name}, ${val || "unknown"}${via}`);
+          st.setAttribute("aria-label", `${name}, ${val}${via}`);
           st.onclick = () => moreInfo(this, id);
         }
         ln.append(st);

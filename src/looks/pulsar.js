@@ -402,9 +402,10 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 :host(jam-linemap){--lm-w:3px}
 :host(jam-ridge){--rg-w:1px}
 :host(jam-matrix) .cell,:host(jam-matrix) .cell.na{background:none;box-shadow:inset 0 0 0 1px var(--line)}
-:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:none;box-shadow:inset 0 0 0 1px var(--acc),inset 0 0 0 6px var(--slab),inset 0 0 0 999px var(--acc)}
+:host(jam-matrix) .cell.on,:host(jam-matrix) .cell.alert{background:var(--acc);box-shadow:inset 0 0 0 1px var(--acc),inset 0 0 0 6px var(--slab)}
 :host(jam-matrix) .cell.alert{--acc:var(--red)}
-:host(jam-matrix) .cell:hover{box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell:hover,:host(jam-matrix) .cell.sel{box-shadow:inset 0 0 0 1px var(--fg)}
+:host(jam-matrix) .cell.on:hover,:host(jam-matrix) .cell.on.sel{box-shadow:inset 0 0 0 1px var(--fg),inset 0 0 0 6px var(--slab)}
 :host(jam-sticker) .sk.sk{--sk:var(--slab);box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-sticker) .sk.alert{box-shadow:inset 0 0 0 1px var(--red)}
 :host(jam-sticker) .sk.alert .ttl{color:var(--alert-text)}

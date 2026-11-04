@@ -368,7 +368,7 @@ const JAM_EDITORS = {
   "jam-arrivals": {
     schema: [jeText("title"), JE_ACCENT,
       jeList("alerts", [jeEnt("entity", null, {required: true}), jeText("state"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"}),
-        jeText("message")], {label: "entity", desc: "message"}),
+        jeText("message"), jeSel("severity", ["alert", "warn"])], {label: "entity", desc: "message"}),
       jeEnts("media", "media_player"), jeEnts("calendars", "calendar"),
       jeGrid(jeNum("events", {min: 1, max: 20}, {default: 4}), jeNum("hours", {min: 1}, {default: 48}), jeNum("refresh_minutes", {min: 1}, {default: 15})),
       jeEnts("entities")],
@@ -385,7 +385,7 @@ const JAM_EDITORS = {
     stub: (h, e) => { const ids = jePickN(h, e, jeTemp, 4); return {title: "Temperatures", entities: ids.length ? ids : ["sensor.jam"]}; },
   },
   "jam-sticker": {
-    schema: [jeText("title"), {name: "text", selector: {text: {multiline: true}}}, jeSel("severity", ["info", "warn", "alert"], {default: "warn"}),
+    schema: [jeText("title"), {name: "text", selector: {text: {multiline: true}}}, jeSel("severity", ["info", "warn", "alert"], {default: "info"}),
       jeList("conditions", [jeSel("condition", ["state", "numeric_state"]), jeEnt("entity", null, {required: true}), jeText("state"),
         jeText("state_not"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"})], {label: "entity", desc: "state"}, {required: true}),
       jeMore("Key", [jeEnt("entity"), jeText("action_name"), JE_ACTION("tap_action")])],

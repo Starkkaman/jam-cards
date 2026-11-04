@@ -1,18 +1,33 @@
 /* ---------- jam-arrivals: an arrivals board (designed for the Transit look, drawn in every look) ----------
    {type: custom:jam-arrivals, title? ("Arrivals"), accent? (default route colour),
-    alerts?: [{entity, state? (string | list), above?, below?, message?}] (a "Service change" row while the condition holds;
-      no state / above / below = while the entity is on or in a problem state),
+    alerts?: [{entity, state? (string | list), above?, below?, message?, severity?: alert | warn}] (a row while the condition
+      holds; no state / above / below = while the entity is on or in a problem state; severity default: alert when the
+      entity's tone() is alert, else warn),
     media?: [media_player ids] (a "Now playing" row while one plays or is paused),
-    calendars?: [calendar ids | {entity, name?, accent?}] (the next `events` events within `hours`, merged and in time order),
-    events? (4), hours? (48), refresh_minutes? (15),
-    entities?: [ids | {entity, name?, accent?}] (one row each: the state is the status)}
-   Rows, top to bottom: service changes, now playing, upcoming events, entities. Each row: a route bullet (its accent with
-   the first letter of the row's line: the calendar's / entity's name, "M" for music), the destination (name) with a dim
-   detail line, the status at the right in tabular numerals (an event's time: "Now", "7:30 PM" today, "Tue 9:00", an
-   all-day event "Today" / "Tue"). Service change rows carry the alert tone mark (Transit: the yellow diamond). Row tap =
+    calendars?: [calendar ids | {entity, name?, accent?, bullet?}] (the next `events` events within `hours`, merged and in
+      time order), events? (4), hours? (48), refresh_minutes? (15),
+    entities?: [ids | {entity, name?, accent?, bullet?}] (one row each: the state is the status)}
+   Rows, top to bottom: alerts, service changes (warn), now playing, upcoming events, entities. Each row: a route bullet
+   (its accent with a letter: `bullet`, else the first letter of the line's name that no other line uses, "M" for music),
+   the destination (name) with a dim detail line, the status at the right in tabular numerals (an event's time: "Now",
+   "7:30 PM" today, "Tue 9:00", an all-day event "Today" / "Tue"). An alert row = a square mark in --ar-alert (red), "Now"
+   in the alert text colour, the entity and its state as the detail; a warn row = a diamond in --ar-warn (ochre; Transit:
+   the service-change yellow, its alert the MTA red), "Service change" as the detail. Row tap =
    more-info. Events: GET calendars/<id>?start&end (hass.callApi), refetched every refresh_minutes and when a calendar's
    state changes (at most once a minute); without callApi the calendar's own next event (state attributes) is used. */
 const AR_GAP = 60e3;
+/* One bullet letter per line ([bullet override, name]): the override (up to 2 characters), else the first letter or digit of
+   the name that no earlier line (nor `taken`, e.g. "M" for music) uses, else the first free letter A-Z. */
+function arLetters(lines, taken = []) {
+  const used = new Set(taken.map(x => x.toLocaleUpperCase()));
+  return lines.map(([own, name]) => {
+    let l = typeof own === "string" && own.trim() ? own.trim().slice(0, 2).toLocaleUpperCase() : "";
+    if (!l) l = [...String(name || "").matchAll(/[\p{L}\p{N}]/gu)].map(m => m[0].toLocaleUpperCase()).find(x => !used.has(x)) || "";
+    if (!l) l = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].find(x => !used.has(x)) || jamInitial(name);
+    used.add(l);
+    return l;
+  });
+}
 /* HA time format -> {loc, h12} (same rules as jam-alerts' jaTime). */
 function arTime(h) { return jaTime(h); }
 function arClock(h, d) {
@@ -130,14 +145,15 @@ class JamArrivals extends JamBase {
     .dd{font:500 .78rem/1.25 var(--body);color:var(--dim);overflow-wrap:anywhere}
     .stt{font-family:var(--num-font,var(--display));font-weight:var(--disp-w);text-transform:var(--disp-case);font-size:calc(1.3rem * var(--num-scale,var(--disp-scale)));
       line-height:calc(1 * var(--disp-lead));text-align:right;max-width:12ch;overflow-wrap:break-word}
-    .svc{grid-template-columns:28px minmax(0,1fr)}
-    .svc .tmk{width:20px;height:20px;margin:0 4px}
+    .sev{width:20px;height:20px;margin:0 4px;background:var(--ar-warn,var(--ochre));clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+    .alert .sev{background:var(--ar-alert,var(--red));clip-path:none}
     .svc .dn{font-weight:700}
+    .warn{grid-template-columns:28px minmax(0,1fr)}
     .none{color:var(--dim);font:500 .95rem/1.4 var(--body);padding:10px 0}
     ${JAM_BULLET_CSS}`; }
   _row(cls, letter, hue, name, detail, status, entity, label) {
     const r = el("button", "row " + cls);
-    if (letter !== null) r.append(jamBullet(letter, hue)); else { const m = el("span", "tmk t-alert"); m.setAttribute("aria-hidden", "true"); r.append(m); }
+    if (letter !== null) r.append(jamBullet(letter, hue)); else { const m = el("span", "sev"); m.setAttribute("aria-hidden", "true"); r.append(m); }
     const ds = el("span", "ds");
     ds.append(el("span", "dn", name));
     if (detail) ds.append(el("span", "dd", detail));
@@ -154,10 +170,14 @@ class JamArrivals extends JamBase {
     face.append(el("h2", "disp ttl", c.title || "Arrivals"));
     const list = el("div", "list");
     const add = r => list.append(r);
-    for (const a of c.alerts || []) if (this._alertOn(a)) {
-      const s = stateObj(h, a.entity), nm = friendly(h, a.entity);
-      const msg = a.message || `${nm}: ${fmtState(h, s)}`;
-      add(this._row("svc", null, null, msg, "Service change", null, a.entity, `Service change: ${msg}`));
+    const sev = a => a.severity === "alert" || a.severity === "warn" ? a.severity : tone(stateObj(h, a.entity)) === "alert" ? "alert" : "warn";
+    const on = (c.alerts || []).filter(a => this._alertOn(a));
+    for (const a of [...on.filter(a => sev(a) === "alert"), ...on.filter(a => sev(a) === "warn")]) {
+      const s = stateObj(h, a.entity), nm = friendly(h, a.entity), what = `${nm}: ${fmtState(h, s)}`, msg = a.message || what;
+      if (sev(a) === "alert") {
+        const st = el("span", "stt c-alert", "Now");
+        add(this._row("svc alert", null, null, msg, a.message ? what : null, st, a.entity, `Alert: ${msg}${a.message ? ", " + what : ""}, now`));
+      } else add(this._row("svc warn", null, null, msg, "Service change", null, a.entity, `Service change: ${msg}`));
     }
     for (const id of c.media || []) {
       const s = stateObj(h, id);
@@ -166,18 +186,20 @@ class JamArrivals extends JamBase {
       const st = el("span", "stt", s.state === "playing" ? "Now" : "Paused");
       add(this._row("np", "M", "var(--violet)", title, who, st, id, `Now playing: ${title}${who ? ", " + who : ""}, ${st.textContent}`));
     }
-    const cals = this._items("calendars");
+    const cals = this._items("calendars"), ents = this._items("entities");
+    const letters = arLetters([...cals.map(x => [x.bullet, x.name || friendly(h, x.entity)]), ...ents.map(x => [x.bullet, x.name || friendly(h, x.entity)])],
+      (c.media || []).length ? ["M"] : []);
     for (const ev of this._events()) {
       const cal = cals[ev.cal], cn = cal.name || friendly(h, cal.entity);
       const st = el("span", "stt num", arWhen(h, ev));
-      add(this._row("ev", jamInitial(cn), accentVar(cal.accent) || "var(--blue)", ev.title, cn, st, cal.entity, `${ev.title}, ${cn}, ${st.textContent}`));
+      add(this._row("ev", letters[ev.cal], accentVar(cal.accent) || "var(--blue)", ev.title, cn, st, cal.entity, `${ev.title}, ${cn}, ${st.textContent}`));
     }
-    for (const x of this._items("entities")) {
+    ents.forEach((x, i) => {
       const s = stateObj(h, x.entity), nm = x.name || friendly(h, x.entity), t = tone(s);
       const st = el("span", `stt num c-${t === "off" ? "dim" : t}`, s ? fmtState(h, s) : "—");
       if (s) keepUnit(st, s);
-      add(this._row("en", jamInitial(nm), accentVar(x.accent) || acc, nm, null, st, x.entity, `${nm}, ${st.textContent}`));
-    }
+      add(this._row("en", letters[cals.length + i], accentVar(x.accent) || acc, nm, null, st, x.entity, `${nm}, ${st.textContent}`));
+    });
     if (!list.children.length) list.append(el("div", "none", "Nothing due."));
     face.append(list);
     b.append(root);

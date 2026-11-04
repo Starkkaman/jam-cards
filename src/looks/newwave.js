@@ -229,6 +229,10 @@ button.chip::before{box-shadow:inset 0 0 0 1px var(--line)}
 :host(jam-sticker[data-jam-seed="1"]) .host.host,:host(jam-sticker[data-jam-seed="3"]) .host.host,:host(jam-sticker[data-jam-seed="5"]) .host.host,:host(jam-sticker[data-jam-seed="7"]) .host.host,:host(jam-sticker[data-jam-seed="9"]) .host.host,:host(jam-sticker[data-jam-seed="11"]) .host.host{--nw-rot:1.2deg}
 :host(jam-sticker) .act > .face{background:var(--slab);color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
 :host(jam-matrix) .cell.on{box-shadow:3px 3px 0 var(--fg)}
+/* arrivals times in the body face: Silkscreen below 16px blurs (a 4 reads as a 9) */
+:host(jam-arrivals) .stt{font:700 1rem/1.1 var(--body);letter-spacing:0}
+/* display type at -.02em closes up the word spaces of Archivo 700: open them again (every display site of the look) */
+.disp,.lh .nm{word-spacing:.12em}
 `;
 
   /* Screensaver motif: four confetti shapes (triangle, ring, dot grid, squiggle) in the layout's b1 / b2 / b3 / dk boxes

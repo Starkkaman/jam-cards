@@ -19,6 +19,7 @@ jamPreview.add({
     st("switch.mc_hall", "on", {friendly_name: "Hallway"}), st("switch.mc_kettle", "off", {friendly_name: "Kettle"}),
     st("switch.mc_coffee", "on", {friendly_name: "Coffee maker"}), st("fan.mc_fan", "on", {friendly_name: "Ceiling fan", percentage: 50}),
     st("media_player.mc_tv", "off", {friendly_name: "Living TV"}),
+    L(["mc_porch", "Porch light"], "off"), st("switch.mc_sprinkler", "off", {friendly_name: "Sprinkler"}),
     T("sensor.mc_living_temp", "Living temperature", "72.4"),
     st("binary_sensor.mc_leak", "on", {friendly_name: "Sink leak", device_class: "moisture"}),
     st("sensor.mc_battery", "12", {friendly_name: "Front door battery", unit_of_measurement: "%", device_class: "battery"}),
@@ -41,12 +42,13 @@ jamPreview.add({
       {type: "custom:jam-linemap", title: "House lines", lines: [
         {name: "Living", color: "living", path: "/lovelace/living", stations: ["light.mc_floor", "light.mc_sofa", "switch.mc_hall", "media_player.mc_tv", "sensor.mc_living_temp"]},
         {name: "Kitchen", color: "kitchen", path: "/lovelace/kitchen", stations: ["light.mc_ceiling", "light.mc_island", "light.mc_pendant", "switch.mc_kettle", "switch.mc_coffee", "light.mc_cabinet"]},
-        {name: "Bedroom", color: "master", stations: ["light.mc_bed", "light.mc_reading", "switch.mc_hall", "fan.mc_fan", "light.mc_gone"]},
+        {name: "Bedroom", color: "master", stations: ["light.mc_bed", "light.mc_reading", "switch.mc_hall", "fan.mc_fan", "light.attic_lamp"]},
+        {name: "Porch", color: "nerd", stations: ["light.mc_porch", "switch.mc_sprinkler"]},
       ]},
     ]],
     ["", [
       {type: "custom:jam-arrivals", title: "Arrivals",
-        alerts: [{entity: "binary_sensor.mc_leak", message: "Water under the sink"}, {entity: "sensor.mc_battery", below: 15, message: "Front door lock battery low"},
+        alerts: [{entity: "binary_sensor.mc_leak", message: "Water under the sink", severity: "alert"}, {entity: "sensor.mc_battery", below: 15, message: "Front door lock battery low"},
           {entity: "lock.mc_front", state: "unlocked", message: "Front door unlocked"}],
         media: ["media_player.mc_kitchen_speaker", "media_player.mc_tv"],
         calendars: [{entity: "calendar.mc_family", name: "Family", accent: "blue"}, {entity: "calendar.mc_school", name: "School", accent: "green"}], events: 4, hours: 72,
@@ -56,7 +58,7 @@ jamPreview.add({
       {type: "custom:jam-matrix", title: "Lights", entities: ["light.mc_floor", "light.mc_sofa", "light.mc_ceiling", "light.mc_island", "light.mc_pendant",
         "light.mc_cabinet", "light.mc_bed", "light.mc_reading", "switch.mc_hall", "switch.mc_kettle", "switch.mc_coffee", "binary_sensor.mc_leak"]},
       ["half", {type: "custom:jam-matrix", title: "Kitchen", accent: "kitchen", columns: 2, entities: ["light.mc_ceiling", "light.mc_island", "switch.mc_kettle"]}],
-      ["half", {type: "custom:jam-sticker", severity: "info", title: "Filter soon", text: "12% life left.", conditions: [{condition: "numeric_state", entity: "sensor.mc_filter", below: 20}]}],
+      ["half", {type: "custom:jam-sticker", severity: "warn", title: "Filter soon", text: "12% life left.", conditions: [{condition: "numeric_state", entity: "sensor.mc_filter", below: 20}]}],
     ]],
     ["wide", [
       {type: "custom:jam-ridge", title: "Temperatures", entities: [{entity: "sensor.mc_t_outside", name: "Outside"}, "sensor.mc_t_living", "sensor.mc_t_kitchen",
@@ -92,7 +94,7 @@ function events(id, t0) {
 const SHAPE = {
   "sensor.mc_t_outside": {now: 58.6, swing: 9, noise: .3}, "sensor.mc_t_living": {now: 72.4, swing: 1.6, noise: .12, lag: .08},
   "sensor.mc_t_kitchen": {now: 73.1, swing: 2.4, noise: .35, spikes: [.3, .77]}, "sensor.mc_t_bedroom": {now: 70.2, swing: 1.2, noise: .1, lag: -.1},
-  "sensor.mc_t_office": {now: 76.8, swing: 3.4, noise: .2, lag: .15}, "sensor.mc_humidity": {now: 44, swing: 6, noise: .8, lag: .3},
+  "sensor.mc_t_office": {now: 76.8, swing: 3.4, noise: .2, lag: .15, rise: 9}, /* climbs past its range in the last 36 min */ "sensor.mc_humidity": {now: 44, swing: 6, noise: .8, lag: .3},
   "sensor.mc_power": {now: 1240, power: true},
 };
 function history(id, t0, t1) {
@@ -106,7 +108,8 @@ function history(id, t0, t1) {
     if (cfg.power) v = 380 + r() * 120 + ((f > .28 && f < .34) || (f > .7 && f < .78) ? 1800 + r() * 600 : 0) + (f > .97 ? 800 : 0);
     else {
       walk = walk * .85 + (r() - .5) * cfg.noise * 2;
-      v = cfg.swing * Math.sin(2 * Math.PI * (f - .25 + (cfg.lag || 0))) + walk + (cfg.spikes || []).reduce((a, s) => a + 3 * Math.exp(-Math.pow((f - s) / .012, 2)), 0);
+      v = cfg.swing * Math.sin(2 * Math.PI * (f - .25 + (cfg.lag || 0))) + walk + (cfg.spikes || []).reduce((a, s) => a + 3 * Math.exp(-Math.pow((f - s) / .012, 2)), 0)
+        + (cfg.rise ? cfg.rise * Math.max(0, (f - .975) / .025) : 0);
     }
     rows.push({t, v});
   }

@@ -242,6 +242,11 @@
 .ov .sh.tline{bottom:0;height:1.2vh}
 .ov .np .kick::before{content:"M";display:inline-grid;vertical-align:middle;place-items:center;width:max(20px,2.8vh);height:max(20px,2.8vh);margin-right:1vh;border-radius:50%;
   background:var(--pink);color:#fff;font:700 max(11px,1.6vh)/1 var(--body);letter-spacing:0}
+/* ---------- look cards (2026-11-03): severity in MTA terms: alert = the red (white text), warn = the service-change yellow ---------- */
+:host(jam-arrivals){--ar-alert:#c8102e;--ar-warn:var(--red)}
+:host(jam-arrivals) .alert .stt{color:#ff5a4f}
+:host(jam-sticker) .sk.alert{--sk:#c8102e}
+:host(jam-sticker) .sk.warn{--sk:var(--red)}
 `;
 
   registerLook({
