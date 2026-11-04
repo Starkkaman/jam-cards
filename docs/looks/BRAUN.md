@@ -59,3 +59,15 @@ Smooth, never stepped: 160-220ms ease-out; toggle knob slides; press = scale .98
 Every card fixture, sheet, popup, both kiosk homes + sheets (1024×768, 961×601) and the screensaver render in Braun light
 and dark with: fit checks passing (no overflow), contrast ≥ 4.5:1, focus visible, hit areas ≥ 44px, controls all present.
 Contact sheet `preview/shots/looks.html` shows Braun next to Poster. Poster stays pixel-identical.
+
+## Revision 2026-11-03: more colour (user: "Braun is kinda boring")
+Keep the appliance, add the colour Braun actually used (ET66 calculator keys, the SK4/T3 era, Rams' coloured details):
+- Lights that are on get a **soft tint of the light's own colour** over the panel (mix ~18% light colour into the panel,
+  ~24% in dark), with the LED dot at full colour and the brightness strip in full colour. Off = plain panel.
+- **Coloured keys** like the ET66: primary = signal orange; secondary accent keys (shuffle/favourite on, active choice,
+  selected source) = ET66 yellow #e8b12a (ink text); "ok/on" toggles = olive green #6f8f3a (white text if ≥4.5:1, else ink).
+- **Room colour returns** as a 4px coloured rule on top of room headings and as the dock blocks' face tint (~15%) with a
+  solid room-colour knob/dot; the active dock block uses the solid room colour face.
+- Kiosk clock colon stays orange; add a thin coloured second-hand dot ring (static) in the room colour.
+- Speaker/TV text bands: panel with the album/app colour tint (~12%).
+- Still no gradients; tints are flat mixes. Contrast ≥ 4.5:1 everywhere.
