@@ -133,9 +133,9 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
           e.hass = h; wrap.append(e); document.body.append(wrap);
           await new Promise(r => setTimeout(r, 400)); await document.fonts.ready;
           const tiles = [...e.shadowRoot.querySelectorAll(".opt")];
-          return {look: e.dataset.look, tiles: tiles.length, on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(), sel: (h.selectedTheme || {}).theme};
+          return {look: e.dataset.look, tiles: tiles.length, want: Object.keys(window.jamPreviewLookThemes || {}).length + 1, on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(), sel: (h.selectedTheme || {}).theme};
         });
-        check(st.look === look && st.tiles === 8 && st.on === st.sel, `${T}: ${mode}/${width} jam-looks: data-look=${st.look}, ${st.tiles} tiles (the seven looks + system default), current ${st.on} marked`);
+        check(st.look === look && st.tiles === st.want && st.want >= 9 && st.on === st.sel, `${T}: ${mode}/${width} jam-looks: data-look=${st.look}, ${st.tiles} tiles (every look's theme + system default), current ${st.on} marked`);
         await ctlCheck(p, `${mode}/${width} jam-looks`, "#looks-view jam-looks");
         await ctCheck(p, `${mode}/${width} jam-looks`);
         await p.locator("#looks-view").screenshot({path: path.join(out, `looks-picker-${mode}-${width}.png`)});

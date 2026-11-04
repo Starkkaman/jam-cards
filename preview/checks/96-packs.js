@@ -4,14 +4,14 @@
 // fx gate (data-fx from --jam-fx; a card's `fx: false` forces it off) and a live look switch WITHOUT reload: every card,
 // an open sheet and the jam-screensaver layer adopt the new pack and come back to Poster. jam-kiosk re-measures when web
 // fonts finish loading. A test pack ("packtest") marks its sheet with custom properties only, so nothing visible changes.
-// Last: a jam-looks picker under each of the seven looks (its swatches fetch every look font, so it runs after the font
+// Last: a jam-looks picker under each of the eight looks (its swatches fetch every look font, so it runs after the font
 // checks). Runs on the dark/1280 preview page and leaves it as it was. No fixture.
 // Contract: module.exports = async (page, check, helpers) => {}.
 const THEME_OF = look => ({poster: "JamBoard", braun: "Jam Braun", olympia: "Jam Olympia", transit: "Jam Transit", grid: "Jam Grid",
-  pulsar: "Jam Pulsar", newwave: "Jam New Wave"})[look];
+  pulsar: "Jam Pulsar", newwave: "Jam New Wave", glass: "Jam Glass"})[look];
 // Default tiles: JamBoard, then every "Jam ..." theme by name, then the system default; each swatch in its look's display font.
-const PICK_TILES = "JamBoard|Jam Braun|Jam Grid|Jam New Wave|Jam Olympia|Jam Pulsar|Jam Transit|default";
-const PICK_FONTS = "Londrina Solid|Archivo|Hanken Grotesk|Archivo|Albert Sans|Archivo|Arimo";
+const PICK_TILES = "JamBoard|Jam Braun|Jam Glass|Jam Grid|Jam New Wave|Jam Olympia|Jam Pulsar|Jam Transit|default";
+const PICK_FONTS = "Londrina Solid|Archivo|Figtree|Hanken Grotesk|Archivo|Albert Sans|Archivo|Arimo";
 module.exports = async (page, check) => {
   const r = await page.evaluate(async () => {
     const J = window.JamCards, h = window.__hass, de = document.documentElement;
@@ -23,23 +23,24 @@ module.exports = async (page, check) => {
     // ---- registry + fonts ----
     out.looks = J.looks().filter(l => !/test$/.test(l)); // test packs of other checks (96-motifs) are left registered
     const braun = J.lookPack("braun"), oly = J.lookPack("olympia"), transit = J.lookPack("transit"), grid = J.lookPack("grid"), pul = J.lookPack("pulsar"),
-      nw = J.lookPack("newwave");
+      nw = J.lookPack("newwave"), gl = J.lookPack("glass");
     out.packs = !!braun && !!oly && !!transit && !!grid && !!pul && !!nw && braun.fonts[0].family === "Archivo" && oly.fonts[0].family === "Albert Sans" &&
       transit.fonts[0].family === "Arimo" && grid.fonts[0].family === "Hanken Grotesk" && pul.fonts[0].family === "Archivo" &&
-      nw.fonts.map(f => f.family).join() === "Archivo,Silkscreen,Silkscreen" && J.lookPack("poster") === null;
+      nw.fonts.map(f => f.family).join() === "Archivo,Silkscreen,Silkscreen" && !!gl && gl.fonts.map(f => f.family).join() === "Figtree" && J.lookPack("poster") === null;
     // Each pack declares its own faces (Pulsar and New Wave re-declare Braun's Archivo file): count the distinct families.
-    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
+    out.families = [...new Set([...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen|Figtree/.test(f.family)).map(f => f.family.replace(/"/g, "")))].length;
     const fs = document.head.querySelectorAll("style[data-jam-fonts]");
     out.fontStyles = fs.length;
     out.base = J.ASSET_BASE;
     const css = fs[0] ? fs[0].textContent : "";
-    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2", "arimo-var-latin.woff2", "silkscreen-400-latin.woff2", "silkscreen-700-latin.woff2"]
+    out.faces = ["archivo-var-latin.woff2", "albert-sans-var-latin.woff2", "arimo-var-latin.woff2", "silkscreen-400-latin.woff2", "silkscreen-700-latin.woff2", "figtree-var-latin.woff2"]
       .every(f => css.includes(`url("${J.ASSET_BASE}fonts/${f}")`)) &&
       /font-family:"Archivo";font-style:normal;font-weight:300 700;font-display:swap/.test(css) && /font-family:"Albert Sans";[^}]*font-weight:300 600/.test(css) &&
-      /font-family:"Arimo";[^}]*font-weight:400 700/.test(css) && /font-family:"Silkscreen";[^}]*font-weight:400;[^}]*unicode-range:U\+0000-00AF, U\+00B1-00FF/.test(css);
+      /font-family:"Arimo";[^}]*font-weight:400 700/.test(css) && /font-family:"Silkscreen";[^}]*font-weight:400;[^}]*unicode-range:U\+0000-00AF, U\+00B1-00FF/.test(css) &&
+      /font-family:"Figtree";[^}]*font-weight:300 700/.test(css);
     const fetched = () => performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2/.test(n)).map(n => n.replace(location.origin, ""));
     out.posterFetch = fetched();
-    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
+    out.declared = [...document.fonts].filter(f => /Archivo|Albert Sans|Arimo|Silkscreen|Figtree/.test(f.family)).map(f => f.family.replace(/"/g, "") + ":" + f.status);
     // ---- shared sheets under Poster ----
     const styled = top.filter(c => c.localName !== "jam-screensaver"); // its root holds a layer; the layer's root is styled (checked below)
     const sheets = styled.map(c => c.shadowRoot.adoptedStyleSheets || []);
@@ -107,7 +108,7 @@ module.exports = async (page, check) => {
     document.getElementById("view").append(pick);
     const names = window.jamPreviewLookThemes;
     out.picker = [];
-    for (const look of ["poster", "braun", "olympia", "transit", "grid", "pulsar", "newwave"]) {
+    for (const look of ["poster", "braun", "olympia", "transit", "grid", "pulsar", "newwave", "glass"]) {
       if (look === "poster") delete de.dataset.look; else de.dataset.look = look;
       pick.hass = {...h, themes: {...h.themes, darkMode: true}, selectedTheme: {theme: names[look]}};
       await tick(80); await document.fonts.ready; await tick(80);
@@ -116,9 +117,9 @@ module.exports = async (page, check) => {
       const ad = pick.shadowRoot.adoptedStyleSheets, pack = J.lookPack(look);
       out.picker.push({look, host: pick.dataset.look, tiles: tiles.map(t => t.dataset.theme || "default").join("|"),
         on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(),
-        fonts: tiles.slice(0, 7).map(ff).join("|"), // Loaded = a face of that family is loaded (Braun, Pulsar and New Wave each declare Archivo's file: the browser loads one
+        fonts: tiles.slice(0, 8).map(ff).join("|"), // Loaded = a face of that family is loaded (Braun, Pulsar and New Wave each declare Archivo's file: the browser loads one
         // of the equal faces and leaves the others unloaded, so document.fonts.check() would say false).
-        loaded: tiles.slice(0, 7).every(t => [...document.fonts].some(f => f.family.replace(/"/g, "") === ff(t) && f.status === "loaded")),
+        loaded: tiles.slice(0, 8).every(t => [...document.fonts].some(f => f.family.replace(/"/g, "") === ff(t) && f.status === "loaded")),
         sheet: pack && pack.css ? ad.length === 3 && ad[2].jamText === pack.css : ad.length === 2,
         label: getComputedStyle(tiles[0].querySelector(".nm")).fontFamily.split(",")[0].replace(/"/g, "")});
     }
@@ -127,9 +128,9 @@ module.exports = async (page, check) => {
     return out;
   });
   // Poster first, then every pack in the bundle (src/looks/ by name); other looks may be added next to these.
-  check(r.looks[0] === "poster" && ["braun", "olympia", "transit", "grid", "pulsar", "newwave"].every(l => r.looks.includes(l)) && r.packs,
-    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), transit (Arimo), grid (Hanken Grotesk), pulsar (Archivo), newwave (Archivo + Silkscreen 400 / 700), Poster has no pack`);
-  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 4 && r.declared.every(d => d.endsWith(":unloaded")),
+  check(r.looks[0] === "poster" && ["braun", "olympia", "transit", "grid", "pulsar", "newwave", "glass"].every(l => r.looks.includes(l)) && r.packs,
+    `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), transit (Arimo), grid (Hanken Grotesk), pulsar (Archivo), newwave (Archivo + Silkscreen 400 / 700), glass (Figtree), Poster has no pack`);
+  check(r.fontStyles === 1 && r.faces && r.posterFetch.length === 0 && r.families === 5 && r.declared.every(d => d.endsWith(":unloaded")),
     `fonts: one font style in head with the packs' URL @font-face on ${r.base}fonts/; under Poster declared but not fetched (${r.declared.join(", ")}; fetched ${JSON.stringify(r.posterFetch)})`);
   check(r.adopt && r.styleEls.length === 0, `shared stylesheets: every card adopts [BASE, own css], one BASE sheet for all, ${r.distinct} distinct sheets, no per-card <style>` +
     (r.styleEls.length ? " — " + r.styleEls.join(",") : ""));
@@ -146,7 +147,7 @@ module.exports = async (page, check) => {
   check(r.fits > 0, `jam-kiosk re-measures after the look's fonts load (${r.fits} fit passes)`);
   for (const p of r.picker)
     check(p.host === p.look && p.tiles === PICK_TILES && p.on === THEME_OF(p.look) && p.fonts === PICK_FONTS && p.loaded && p.sheet,
-      `jam-looks under ${p.look}: data-look (${p.host}) + pack sheet (${p.sheet}), tiles = the seven looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded ${p.loaded}), label in ${p.label}, ${p.on} marked`);
+      `jam-looks under ${p.look}: data-look (${p.host}) + pack sheet (${p.sheet}), tiles = the eight looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded ${p.loaded}), label in ${p.label}, ${p.on} marked`);
   check(r.back.hosts === "poster" && r.back.sheets && r.back.pop === "poster" && r.back.ov === "poster" && !r.back.fx && /Londrina/.test(r.back.ff),
     `back to Poster: hosts, sheet and screensaver poster, two sheets per card, no data-fx (${JSON.stringify(r.back)})`);
 };
