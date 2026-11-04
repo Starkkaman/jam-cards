@@ -8,7 +8,7 @@
    the light's colour over the panel (18% light, 24% dark via a style query on --jam-ink), ET66 yellow #e8b12a for the
    secondary accent keys (shuffle / favourite on, active tab / scene / choice, current source), olive #6f8f3a for on toggles
    and switch keys, room colour as a 4px rule on top of jam-heading and a 15% dock-block tint (pressed = solid), 12% accent /
-   album tint on the speaker / TV text bands. The pack sheet is adopted only while the look is active, so nothing here
+   tint on the speaker / TV text bands (the K1 side panel stays the plain panel). The pack sheet is adopted only while the look is active, so nothing here
    needs a look selector. Font: Archivo (SIL OFL 1.1, latin subset from Google Fonts, variable wght axis; declared 300-700:
    300 = the kiosk clock). */
 (() => {
@@ -250,7 +250,7 @@ button.chip.red::before,button.chip.home::before,button.chip.hot::before{backgro
 .sbar input{border:1px solid var(--line);border-radius:10px}
 .spk{border-top-width:1px}
 /* K1 (kiosk speaker): the side panel stays a quiet panel, not the sampled art colour */
-.side{--kfg:var(--fg)!important;--ktr:var(--slab2)!important;background:color-mix(in srgb,var(--kbg) 12%,var(--slab));color:var(--fg)} /* tint of the sampled art colour */
+.side{--kbg:var(--slab)!important;--kfg:var(--fg)!important;--ktr:var(--slab2)!important;background:var(--slab);color:var(--fg)} /* plain panel: a 12% tint of dark art reads grey */
 .kart{background:var(--slab2)}
 .kbk .ikey > .face{border:1px solid var(--line);background:var(--slab2);color:var(--fg)}
 .kbk .shuf.on > .face,.kbk .fav.on > .face{background:#e8b12a;color:var(--on-fg);border-color:#e8b12a}

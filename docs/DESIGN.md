@@ -108,8 +108,8 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   rows, jam-tile, speaker Join) with deep ink #161616 text (4.9:1; white 3.7:1 and `--ink` 4.1:1 fail). The primary key
   stays the orange signal. Room colour: jam-heading's rule is 4px, rounded, on top of the title; kiosk dock blocks are a 15%
   room tint (a `none` block stays the plain panel) with the solid room dot, pressed = solid room colour face in `--bf`.
-  Speaker / TV text bands (not when off) = a 12% `--acc` tint of the panel; the jam-speaker K1 side panel = a 12% tint of
-  the sampled art colour (`--kbg`). Kiosk clock: the colon stays orange; the dot ring is not built yet (placement open).
+  Speaker / TV text bands (not when off) = a 12% `--acc` tint of the panel; the jam-speaker K1 side panel stays the plain
+  panel (a tint of the sampled art colour read grey). Kiosk clock: the colon stays orange; no dot ring (dropped).
   Check: preview/checks/96-r10-braun-colour.js.
 
 ## Olympia rules (the Olympia look, theme "Jam Olympia"; brief docs/looks/OLYMPIA.md)

@@ -68,11 +68,11 @@ Keep the appliance, add the colour Braun actually used (ET66 calculator keys, th
   selected source) = ET66 yellow #e8b12a (ink text); "ok/on" toggles = olive green #6f8f3a (white text if ≥4.5:1, else ink).
 - **Room colour returns** as a 4px coloured rule on top of room headings and as the dock blocks' face tint (~15%) with a
   solid room-colour knob/dot; the active dock block uses the solid room colour face.
-- Kiosk clock colon stays orange; add a thin coloured second-hand dot ring (static) in the room colour.
+- Kiosk clock colon stays orange. (A coloured second-hand dot ring was dropped on review, 2026-11-03.)
 - Speaker/TV text bands: panel with the album/app colour tint (~12%).
 - Still no gradients; tints are flat mixes. Contrast ≥ 4.5:1 everywhere.
 
 Built 2026-11-03 (branch braun-colour; rules in docs/DESIGN.md "Braun rules", check preview/checks/96-r10-braun-colour.js).
-Notes: the regular speaker / TV cards know no album / app colour, so their bands take the card accent (`--acc`); only the
-jam-speaker kiosk panel (K1) tints with the sampled art colour. Olive keys carry deep ink #161616 text (neither white nor
-ink reaches 4.5:1). Not built: the kiosk clock dot ring (where it sits around the clock is not decided).
+Notes: the speaker / TV cards know no album / app colour, so their bands take the card accent (`--acc`); the jam-speaker
+kiosk panel (K1) stays the plain panel (a 12% tint of the sampled art colour read grey; decided on review). Olive keys
+carry deep ink #161616 text (neither white nor ink reaches 4.5:1). The kiosk clock dot ring was dropped.
