@@ -13,3 +13,66 @@ Current trend: neo-brutalism (Gumroad, Figma community, 2023-26). Loud, honest, 
   real colour); brightness = a fat bordered bar.
 - Kiosk: huge clock in 800, dock blocks as bordered coloured slabs with shadows, lock as a bordered circle.
 - Motion: snappy 120ms; reduced motion = none. Contrast: black text on every fill (all ≥ 7:1).
+
+## Built (R10, 2026-11-03, branch look-brutal)
+Theme "Jam Brutal" (`../jam-theme/themes/jamboard-brutal.yaml`, generated from `tokens/looks/brutal.mjs`) + the pack
+`src/looks/brutal.js` + Bricolage Grotesque in `dist/fonts/` (`bricolage-grotesque-var-latin.woff2`, Google Fonts latin
+subset, variable weight 200-800 and optical size 12-96, 77 KB; `OFL-BricolageGrotesque.txt`). Rules in docs/DESIGN.md
+"Brutal rules". Choices the brief left open, and where the build departs from it, so a reviewer can overrule them:
+- **Room fills on the existing hue tokens**: ochre = yellow (living, the default accent), teal = lime (kitchen; also the
+  calm / info tone), blue = cyan (master), pink, violet (music), green = orange (nerd); red #ff4d4d for alerts. The same
+  fills in both modes; `jam-on-fg` is #000 (black text on every fill: 6.4:1 on red, >= 7.7:1 on the room fills; #111 on
+  violet would be 6.9:1, under the brief's 7:1). Card text stays the brief's ink #111111.
+- **Borders are inset outlines** (3px, `outline-offset: -3px`), not CSS borders, so no card layout moves and the fit
+  checks see Poster's boxes; the shadow is a plain `box-shadow` (no clip-path anywhere in this look). Lines and shadows are
+  `jam-line` (#000 light, #f5f5f5 dark). HA's own UI keeps softer dividers (`hair` #d8d2bc / #4a4a4a) and gets 3px card
+  borders + the 6px hard shadow (`jam-elev-1`).
+- **Shadow sizes by role**: cards, the hero, sheets and posters 6px (the brief's `6px 6px 0`); a card drawn inside a card
+  4px; keys 6px, chip-size keys (pills, transport and option keys) 4px with a 2px press, so the shadow's far edge stays
+  put in both (6 = 4 + 2, 4 = 2 + 2); status pills (`.chip`) and the pill switch 2px.
+- **Radii**: 10px cards, keys, sheets, posters, tiles and option keys (multi-line keys read badly as pills); 999px for
+  chip-size keys, status pills, strips and the switch.
+- **Hero = a violet slab** with black text in both modes (an ink hero in light mode, or a white one in dark mode, swallows
+  its own black / white border and shadow).
+- **Tone stripes** (`.stripe`) are 9px: 3px of border, the tone colour, then a 3px inner line.
+- **Lit jam-light**: the face takes the light's colour snapped to the nearest room fill by hue (render hook `decorate`
+  writes `--bru-fill` on the card; near-white lights snap to yellow when warm, cyan when cool; red lights to orange / pink,
+  red stays for alerts); the real colour is a 12px bordered swatch before the sub line; the brightness is a 14px pill bar
+  with a black fill. The power corner is a 40x24 pill switch on every card (track white when off, the room fill when on;
+  on a lit light the track is white so it reads on its own colour).
+- **Labels**: Bricolage 700, mixed case, no tracking (no tracked capitals anywhere). Names and numbers 800 at x .8 (big
+  numerals x .92); the kiosk clock x 1.1 of Poster's size, -.035em.
+- **Kiosk**: dock blocks are full room fills with black text (the "All off" / "Air" blocks without accent stay white
+  slabs), 16px gaps and a 16px margin so the shadows show; pressed = down 4px. The lock is a white disc with a 3px border
+  and a hard shadow (alert = red, off = dashed).
+- **Screensaver**: the page ground, the clock in 800, Poster's three bars and disc as bordered slabs with hard shadows in
+  four fills (accent, pink, cyan, violet); the now-playing block and the photos time chip are white slabs.
+- **Motion**: `jam-dur` .6 (Poster's 200 ms motions take 120 ms), one snappy ease-out (no steps); keyframes `bru-drop` (a
+  card drops onto its shadow: view entrance), `bru-rise` (sheets), `bru-stamp` (press and release: scenes, kiosk dock /
+  lock), `bru-shake`, `bru-pop` (screensaver); no light wash, no spiral flash. Reduced motion: none (universal rule).
+- **Motifs**: empty = Poster's bars as bordered fill slabs, idleArt = three stacked bordered slabs (seeded), powerGlyph =
+  a 3px round stroke, flash = none.
+- **HA chrome**: paper header and sidebar with a 3px black rule, violet primary, 10px / 999px radii; with card-mod the view
+  tabs are bordered pills, the current one filled with its room colour and a 3px hard shadow.
+- **Review fixes (2026-11-04, independent design review "ship with fixes")**:
+  - one tactile grammar: whatever is on / active / picked stays DOWN (pressed 4px with the 2px shadow; chip-size keys 2px):
+    on keys and options, tabs, scenes, lit jam-button tiles, the picked light preset, an on switch, an on dock block;
+  - the play / pause key is filled (and down) only while its player plays: the `decorate` hook writes `data-bru-play` from
+    the key's label or glyph (the pack's `remoteGlyph` motif adds `data-g=<name>` to Poster's glyph markup);
+  - the volume rocker and the ⋯ key (NerveOS) are white slabs (⋯ reads "More" on the card-size key; the kiosk-size key keeps its 34px ⋯ for the 18px floor); power keys (jam-remote
+    power, jam-tv Turn on) are white slabs with a black glyph, red stays for real alerts;
+  - d-pad: white arms with a black arrow and the accent OK disc, bordered and shadowed by a `drop-shadow()` filter chain
+    on the key (no blur, follows the clip-path; 2px shadow while pressed), 8px gaps;
+  - jam-heading: the room colour is a bordered sticker behind the title (no long rule, which read as a slider); the kiosk's
+    accent bar is a short 16px sticker;
+  - pill switch: on = black track (the line colour) with a white knob, off = white track with a hollow outlined knob;
+  - screensaver now playing: >= 16px right padding, the title one line with an ellipsis;
+  - room for the shadow: every card (not jam-kiosk / jam-screensaver / jam-heading) keeps 6px on its right and bottom for
+    its own shadow, so neighbours never touch at HA's 8px gaps (phone widths too);
+  - jam-speaker K1 (kiosk Music sheet): a white side panel with bordered keys, the room fill while playing, a bordered
+    volume strip and progress bar, instead of the sampled art colour;
+  - jam-kiosk dock state: styled against `data-state="on|off|action"` on `.blk` (on = room fill, latched down; off = white
+    slab; action = outlined slab on the page ground); without the attribute the blocks keep their room fills. The
+    attribute comes from another branch; check 96-r10-brutal.js writes it as a stub until then;
+  - jam-dial / jam-keypad / jam-radio are not on main (only on branch cards-braun): no Brutal styles yet.
+- Shared-code hooks: none (the pack uses the existing `decorate` render hook and motif registry).

@@ -639,7 +639,7 @@ watch: [lock.front_door]
 
 ### jam-looks
 A look picker for **yourself**: one tile per installed look (JamBoard and every theme named "Jam ...": Jam Braun,
-Jam Grid, Jam New Wave, Jam Olympia, Jam Pulsar, Jam Transit), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
+Jam Brutal, Jam Grid, Jam New Wave, Jam Olympia, Jam Pulsar, Jam Transit), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
 current light / dark mode), plus **Use system default**. The current one is filled with the accent. A tap does exactly what
 Profile → Theme does: it sets the theme for the logged-in user (this browser, and Home Assistant 2026.10 also saves it to
 that user's profile, so their other browsers follow) and keeps their auto / light / dark choice. Other users, wall
@@ -683,10 +683,12 @@ or black page with a visible 24px grid, square faces with a 1px ink line, one or
 numbers built from grid cells that rebuild cell by cell when the value changes; screen readers still get the number; rules
 in [docs/DESIGN.md](docs/DESIGN.md) "Grid rules"), **Jam Pulsar** (after Peter Saville's Factory Records sleeves: a black
 field with thin rules, one warm accent, levels as Unknown Pleasures ridges, Blue Monday colour codes; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Pulsar rules") and **Jam New Wave** (after April Greiman with a touch of
+[docs/DESIGN.md](docs/DESIGN.md) "Pulsar rules"), **Jam New Wave** (after April Greiman with a touch of
 Memphis: translucent planes tinted per room, confetti, Silkscreen pixel numbers and labels, sticker-yellow alerts; its
 effects are on by default, set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "New Wave rules"). Pick a look in the theme picker; JamBoard is Poster. The
+[docs/DESIGN.md](docs/DESIGN.md) "New Wave rules") and **Jam Brutal** (neo-brutalism: white slabs with 3px black borders
+and hard offset shadows on a paper page, keys that go down when pressed, flat room fills with black text, pill switches,
+Bricolage Grotesque 800; rules in [docs/DESIGN.md](docs/DESIGN.md) "Brutal rules"). Pick a look in the theme picker; JamBoard is Poster. The
 [jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while

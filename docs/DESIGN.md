@@ -7,8 +7,9 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar and New Wave are the next looks (user, 2026-11-03;
-built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules" and "New Wave rules"); the
+the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar, New Wave and Brutal are the next looks (user, 2026-11-03;
+built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules", "New Wave rules" and
+"Brutal rules"); the
 global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
@@ -303,6 +304,38 @@ and a card's `fx: false` (the kiosks' setting: jam-kiosk, jam-screensaver; their
 - Contrast is measured on the opaque fx-off faces (preview/contrast.js skips gradients): run the harness with
   `JAM_FX=0` too. Under fx the plane mixes stay in the same lightness band (light: white-based pastel; dark: the plane
   mixed with the page) and the drifting light is mixed into `--slab` first, so it stays dim behind light text.
+
+## Brutal rules (the Brutal look, theme "Jam Brutal"; brief docs/looks/BRUTAL.md, decisions in its "Built" section)
+Neo-brutalism: loud, honest, tactile, very legible. Flat colour only (no gradients, blur or soft shadows); the one shadow
+is a hard offset in the line colour.
+- Tokens (`tokens/looks/brutal.mjs`): page #fffbea / #191919 (HA ground alias), card `--slab` #ffffff / #262626, off keys
+  and tracks `--slab2` (the paper #fffbea / #303030), keys in sheets `--slab3`; text #111111 / #f5f5f5, dim #4f4b40 /
+  #c2c2c2; `--line` = THE line (#000 / #f5f5f5: borders, shadows, rules); room fills in both modes: ochre yellow #ffde59
+  (living, default), teal lime #c6f432 (kitchen, calm), blue cyan #5ce1e6 (master), pink #ff7ad9, violet #a58bff (music),
+  green orange #ff9f43 (nerd), red #ff4d4d (alerts); `--on-fg` #000 on every fill; alert text #c4161c / #ff8080; hero
+  (`--paper`) violet with black text; bands ink with paper text. Bricolage Grotesque: names and numbers 800 mixed case
+  (x .8, numerals x .92, -.02em), labels and keys 700 mixed case, no tracking; body 500 / 400. Every shape token `none`,
+  radii 10px (cards, keys, sheets, hero, posters) and 999px (chip-size keys, pills); `jam-elev-1` = `6px 6px 0` line
+  (HA's own cards); press = `translate(4px,4px)`; `jam-dur` .6 with one snappy ease-out.
+- Pack (`src/looks/brutal.js`): every card, hero, sheet, poster, jam-button tile and key face is a slab: a 3px border in
+  the line colour, drawn as an inset outline (no layout change), and a hard shadow (6px; 4px for a card inside a card and
+  for chip-size keys; 2px for status pills and the switch). Pressing a key moves it down 4px (chip-size keys 2px) and its
+  shadow shrinks to 2px, so the far edge stays put. On / active = the face filled with the room colour (`--acc`), black
+  text; alert keys / chips / counts = red fill, black text. Tone stripes = 3px border, the tone colour, a 3px inner line.
+  Strips and sliders = fat bordered pills, the fill ends in a 3px line. Power corner = a 40x24 pill switch (3px border,
+  2px shadow; knob right + room fill when on, dashed when unavailable). jam-light on = the light's colour snapped to the
+  nearest room fill (render hook `decorate` -> `--bru-fill`), a 12px bordered swatch of the real colour, a 14px bordered
+  brightness bar with a black fill. jam-gauge wedges get 3px borders, the unfilled part paper. Kiosk: clock 800 at x 1.1,
+  dock blocks = room fills with borders and hard shadows (16px gaps and margin), lock = a bordered disc with a shadow.
+  Screensaver: the page ground, the 800 clock, the bars and disc as bordered fill slabs (accent, pink, cyan, violet), the
+  now-playing block and time chip as white slabs. Motifs: empty = bordered fill bars, idleArt = stacked bordered slabs,
+  powerGlyph = 3px stroke, flash = none.
+- Tactile grammar: on / active / picked = DOWN (4px, 2px shadow; chip-size keys 2px), so state reads by touch-memory as
+  well as colour; the play key is filled only while playing (`data-bru-play` from the `decorate` hook); rocker, ⋯ ("More")
+  and power keys are white slabs, red only for alerts. Pill switch: on = black track + white knob, off = white track +
+  hollow knob. jam-heading: a bordered room sticker behind the title, no rule. Cards keep 6px right / bottom for their own
+  shadow. jam-kiosk dock: `data-state` on = fill + down, off = white slab, action = outlined slab. K1 side panel = white.
+- Focus ring: the universal 3px `--focus` ring in blue (#2b45ff / #8c9bff), so it never reads as one more black border.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
