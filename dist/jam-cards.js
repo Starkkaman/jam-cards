@@ -180,6 +180,8 @@ ${SHAPE_CSS}
 const UNAVAILABLE = new Set(["unavailable", "unknown"]);
 const ON_STATES = new Set(["on", "playing", "open", "home", "heat", "cool", "heat_cool", "auto", "active", "cleaning"]);
 const ALERT_STATES = new Set(["problem", "unavailable", "jammed", "error", "triggered"]);
+/* binary_sensor device classes whose "on" means trouble: a wet leak sensor must never read as a lit lamp. */
+const ALERT_CLASSES = new Set(["problem", "moisture", "smoke", "gas", "carbon_monoxide", "safety", "tamper", "battery", "heat", "cold"]);
 /* State grammar (audit 2026-11-03, DESIGN "State grammar"): a lock is never "on". unlocked / open / jammed = alert,
    locked = off (quiet), locking / unlocking / opening = calm. A binary_sensor of device_class lock is on = unlocked. */
 const LOCK_ALERT = new Set(["unlocked", "open", "jammed"]);
@@ -234,7 +236,8 @@ function tone(s, overrides) {
     if (lockAlert(s) || st === "unlocked") return "alert";
     return st === "locked" || st === "off" ? "off" : "calm";
   }
-  if (s.attributes && s.attributes.device_class === "problem" && st === "on") return "alert";
+  // Safety / trouble sensors (design review 2026-11-04): on = alert, never the lit "on" of a lamp.
+  if (s.attributes && ALERT_CLASSES.has(s.attributes.device_class) && st === "on") return "alert";
   if (ON_STATES.has(st)) return "on";
   if (st === "off" || st === "closed" || st === "locked" || st === "idle" || st === "standby" || st === "paused") return "off";
   return "calm";
@@ -771,6 +774,11 @@ function jamLockSvg(closed) {
 /* State hook for look packs (state grammar contract): data-state on a card host = "on" | "off" | "offline" (jam-light,
    jam-button, jam-tile, jam-fan), written only when it changes (no DOM write on an unrelated hass update). */
 function jamState(node, st) { if (node && node.dataset && node.dataset.state !== st) node.dataset.state = st; }
+/* The one date line of the kiosk screens (jam-kiosk, jam-screensaver): "Wednesday · October 28" in the HA language. */
+function jamDateText(d, lang) {
+  try { return d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
+  catch (e) { return d.toDateString(); }
+}
 /* Air that asks for action (audit 2026-11-03): "Poor" or worse ("Unhealthy …", "Very poor", "Hazardous"; an AQI over 100). */
 function aqPoor(st) { const w = aqWord(st); return !!w && /poor|unhealthy|hazard|bad/i.test(w); }
 
@@ -1224,7 +1232,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, OFFLINE, isLock, lockAlert, jamState, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, vertigoSpiral, deepActive, openSheet,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, jamDateText, ALERT_CLASSES, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
@@ -2309,15 +2317,20 @@ const OLY_CSS = `
 .paper[data-cut=key] > .kf{border:var(--jam-border,0px none);border-top:var(--rule-h) solid var(--oly-top,var(--acc))}
 .stripe{border-left:var(--bord,0px none);--oly-top:${OLY_SILVER}}
 .stripe.s-on{--oly-top:var(--acc)} .stripe.s-alert{--oly-top:var(--red)} .stripe.s-calm{--oly-top:var(--teal)}
-/* Trouble has a form, not only a hue (audit 2026-11-03): a 45deg orange / face hatch. Orange is the alert's own colour
-   (living moved to yellow in the theme); text stays on a solid orange plate inside the hatch, so contrast holds.
+/* Trouble has a form, not only a hue (audit 2026-11-03, review 2026-11-04): a 45deg alert / face hatch round every alert
+   fill (the alert is its own vermilion, distinct from the yellow living and the orange lamps); text stays on a solid
+   plate inside the hatch, so contrast holds.
    Top stripes: the hatch drawn over the stripe (the border stays, transparent, for the box). */
-.host{--oly-hatch:repeating-linear-gradient(45deg,var(--red) 0 6px,var(--slab) 6px 11px)}
+.host,.ov,.pop{--oly-hatch:repeating-linear-gradient(45deg,var(--red) 0 6px,var(--slab) 6px 11px)}
 .paper[data-cut] > .face.stripe.s-alert,.paper[data-cut] > .face.unavail{border-top-color:transparent;background-image:var(--oly-hatch);background-size:100% var(--rule-h);
   background-repeat:no-repeat;background-origin:border-box;background-clip:border-box}
 button.chip.red::before,.chip.red:not(button),.cnt{border:4px solid transparent;
   background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
 :host(jam-kiosk) .lk.alert .disc{border:8px solid transparent;background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+/* the opt-in attention surfaces and alert dock blocks carry the hatch too */
+:host(jam-kiosk) .att,:host(jam-kiosk) .k.dfill .blk.alert,:host(jam-house) .att,.ov .al.loud{border:6px solid transparent;
+  background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+.key.alert > .face{border:4px solid transparent;background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
 .tmk.t-alert{background:var(--oly-hatch)}
 /* Offline (state grammar): the face stays, the top stripe is the hatch, the text dim; not "off" (silver stripe). */
 .paper[data-cut] > .face.unavail{background-color:var(--slab);border-style:solid;border-color:transparent;border-width:var(--rule-h) 0 0;
@@ -3110,6 +3123,7 @@ button.chip.red::before,button.chip.hot::before{box-shadow:inset 0 0 0 1px var(-
 /* dock_state: fill (opt-in): a block that is on is the white plate (Transit's "active"), off blocks keep the sign under a ring */
 :host(jam-kiosk) .k.dfill .blk.on{background:var(--jam-fg,#fff);color:var(--on-fg);--fg:var(--on-fg)}
 :host(jam-kiosk) .k.dfill .blk.on .st{color:var(--on-fg)}
+:host(jam-kiosk) .blk.counted .nm[data-tr]::before{width:28px;height:28px;font-size:17px;margin-right:8px} /* room for the count */
 :host(jam-kiosk) .blk .nm[data-tr]::before{--tr-bc:var(--bc,var(--acc));width:32px;height:32px;font-size:19px;margin-right:12px}
 :host(jam-kiosk) .blk.none .nm[data-tr]::before{--tr-bc:var(--jam-art-8);color:#000}
 /* ---------- screensaver: arrivals board ---------- */
@@ -4419,7 +4433,7 @@ register("jam-house", JamHouse, "Jam House", "House strip: inside and outside te
    Opt-in (audit 2026-11-03; all default off, so live dashboards keep today's look):
    dock_state?: "fill" -> a block is filled (its accent) only while one of its entities is on / playing (count_on > 0, or
     the state entity's tone is "on"), otherwise outlined in it (4px ring, --fg text); a lock block that is unlocked / open /
-    jammed fills in the alert red; action blocks (tap: action) are always outlined; a count_on block shows its count as a
+    jammed (or an alert-class sensor that is on: leak, smoke, gas, ...) fills in the alert red; action blocks (tap: action) are always outlined; a count_on block shows its count as a
     72px numeral (>= 64px) at its right edge and the suffix ("on") as its state.
    attention?: [{entity, state? | states?, text?, tap_action?}] -> while a condition is true, a top attention bar (alert red,
     ink text, 64px tall, display type) replaces the accent bar: "FRONT DOOR UNLOCKED · TAP TO LOCK" (text default: name +
@@ -4566,10 +4580,13 @@ class JamKioskHome extends JamBase {
     .k.dfill .blk.out .st,.host.light .k.dfill .blk.out .st{color:var(--dim)}
     .k.dfill .blk.alert{--bc:var(--red);--bf:var(--on-fg);background:var(--red);color:var(--on-fg)}
     .k.dfill .blk.alert .st{color:var(--on-fg)}
-    .blk .dn{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:var(--num-font);font-weight:var(--disp-w);
+    /* A counted block is a 2-column grid: name / state on the left (they keep what the count leaves), the numeral at the
+       right edge, so both fit at 1024 and 961 in every look (a look's name mark, e.g. Transit's bullet, included). */
+    .blk.counted{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-content:center;justify-items:start;padding:0 12px 0 18px}
+    .blk.counted > *{grid-column:1}
+    .blk .dn{grid-column:2;grid-row:1 / span 3;align-self:center;font-family:var(--num-font);font-weight:var(--disp-w);
       font-size:max(64px,calc(72px * var(--num-scale)));line-height:.8;letter-spacing:var(--jam-display-track,-.01em)}
-    .blk.counted{padding-right:14px}
-    .blk.counted .nm,.blk.counted .st{max-width:calc(100% - 52px)}
+    .blk:not(.counted) .dn{display:none}
     /* Attention bar (opt-in): replaces the accent bar while a condition is true; the lock steps down under it. */
     .k{--att-h:0px}
     .k.att-on{--att-h:76px}
@@ -4675,10 +4692,7 @@ class JamKioskHome extends JamBase {
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
     // Date line: "Tuesday · October 28" (shown uppercase in the display font), one line.
     const d = new Date(), lang = this._lang(), parts = [];
-    let day;
-    try { day = d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
-    catch (e) { day = d.toDateString(); }
-    set(this._day, day);
+    set(this._day, jamDateText(d, lang)); // core: the one date format of the kiosk screens
     // Facts line: "67° inside · 58% humidity · air excellent"; one nowrap span per part, so it wraps between parts (never
     // inside one, never an ellipsis); empty (hidden) without any value. Rebuilt only when the text changed.
     const num = id => { const s = stateObj(h, id); return s && String(s.state).trim() !== "" && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
@@ -4889,7 +4903,8 @@ class JamKioskHome extends JamBase {
     const s = spec.entity && stateObj(this._hass, spec.entity);
     if (!s) return "out";
     if (isLock(s)) return lockAlert(s) ? "alert" : "out";
-    return tone(s) === "on" ? "on" : "out";
+    const t = tone(s); // a wet leak / smoke sensor (alert classes) fills red, never the "on" fill (review 2026-11-04)
+    return t === "on" ? "on" : t === "alert" && !UNAVAILABLE.has(s.state) ? "alert" : "out";
   }
   /* ---- attention bar (opt-in) ---- */
   _attHits() {
@@ -8270,9 +8285,7 @@ class JamScreensaver extends JamBase {
       } else jamClockText(node, String(d.getHours()).padStart(2, "0"), mm);
     };
     setTime(this._time); setTime(this._ctime);
-    let date = "";
-    try { date = d.toLocaleDateString(lang, {weekday: "long", day: "numeric", month: "long"}); } catch (e) { date = d.toDateString(); }
-    this._date.textContent = date;
+    this._date.textContent = jamDateText(d, lang); // "Wednesday · October 28", the kiosk's format (core)
     /* Weather: condition word + temperature (temperature_entity wins over the weather entity's own). */
     this._wx.textContent = "";
     const w = stateObj(h, c.weather_entity), ts = stateObj(h, c.temperature_entity);

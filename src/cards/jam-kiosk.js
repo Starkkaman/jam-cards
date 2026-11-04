@@ -33,7 +33,7 @@
    Opt-in (audit 2026-11-03; all default off, so live dashboards keep today's look):
    dock_state?: "fill" -> a block is filled (its accent) only while one of its entities is on / playing (count_on > 0, or
     the state entity's tone is "on"), otherwise outlined in it (4px ring, --fg text); a lock block that is unlocked / open /
-    jammed fills in the alert red; action blocks (tap: action) are always outlined; a count_on block shows its count as a
+    jammed (or an alert-class sensor that is on: leak, smoke, gas, ...) fills in the alert red; action blocks (tap: action) are always outlined; a count_on block shows its count as a
     72px numeral (>= 64px) at its right edge and the suffix ("on") as its state.
    attention?: [{entity, state? | states?, text?, tap_action?}] -> while a condition is true, a top attention bar (alert red,
     ink text, 64px tall, display type) replaces the accent bar: "FRONT DOOR UNLOCKED · TAP TO LOCK" (text default: name +
@@ -180,10 +180,13 @@ class JamKioskHome extends JamBase {
     .k.dfill .blk.out .st,.host.light .k.dfill .blk.out .st{color:var(--dim)}
     .k.dfill .blk.alert{--bc:var(--red);--bf:var(--on-fg);background:var(--red);color:var(--on-fg)}
     .k.dfill .blk.alert .st{color:var(--on-fg)}
-    .blk .dn{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:var(--num-font);font-weight:var(--disp-w);
+    /* A counted block is a 2-column grid: name / state on the left (they keep what the count leaves), the numeral at the
+       right edge, so both fit at 1024 and 961 in every look (a look's name mark, e.g. Transit's bullet, included). */
+    .blk.counted{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-content:center;justify-items:start;padding:0 12px 0 18px}
+    .blk.counted > *{grid-column:1}
+    .blk .dn{grid-column:2;grid-row:1 / span 3;align-self:center;font-family:var(--num-font);font-weight:var(--disp-w);
       font-size:max(64px,calc(72px * var(--num-scale)));line-height:.8;letter-spacing:var(--jam-display-track,-.01em)}
-    .blk.counted{padding-right:14px}
-    .blk.counted .nm,.blk.counted .st{max-width:calc(100% - 52px)}
+    .blk:not(.counted) .dn{display:none}
     /* Attention bar (opt-in): replaces the accent bar while a condition is true; the lock steps down under it. */
     .k{--att-h:0px}
     .k.att-on{--att-h:76px}
@@ -289,10 +292,7 @@ class JamKioskHome extends JamBase {
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };
     // Date line: "Tuesday · October 28" (shown uppercase in the display font), one line.
     const d = new Date(), lang = this._lang(), parts = [];
-    let day;
-    try { day = d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
-    catch (e) { day = d.toDateString(); }
-    set(this._day, day);
+    set(this._day, jamDateText(d, lang)); // core: the one date format of the kiosk screens
     // Facts line: "67° inside · 58% humidity · air excellent"; one nowrap span per part, so it wraps between parts (never
     // inside one, never an ellipsis); empty (hidden) without any value. Rebuilt only when the text changed.
     const num = id => { const s = stateObj(h, id); return s && String(s.state).trim() !== "" && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
@@ -503,7 +503,8 @@ class JamKioskHome extends JamBase {
     const s = spec.entity && stateObj(this._hass, spec.entity);
     if (!s) return "out";
     if (isLock(s)) return lockAlert(s) ? "alert" : "out";
-    return tone(s) === "on" ? "on" : "out";
+    const t = tone(s); // a wet leak / smoke sensor (alert classes) fills red, never the "on" fill (review 2026-11-04)
+    return t === "on" ? "on" : t === "alert" && !UNAVAILABLE.has(s.state) ? "alert" : "out";
   }
   /* ---- attention bar (opt-in) ---- */
   _attHits() {

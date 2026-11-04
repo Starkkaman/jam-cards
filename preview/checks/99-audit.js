@@ -116,6 +116,28 @@ module.exports = async (page, check) => {
   check(locks.offline.door === "offline:Door offline" && locks.offline.doorBg === "dashed",
     `state grammar: an offline door chip is a dashed "Door offline", not the alert fill (${locks.offline.door}, ${locks.offline.doorBg})`);
 
+  // ---------- trouble sensors (review 2026-11-04): "on" = alert for every safety class, never a lit lamp ----------
+  const leak = await page.evaluate(() => {
+    const J = window.JamCards, A = window.__au, classes = ["problem", "moisture", "smoke", "gas", "carbon_monoxide", "safety", "tamper", "battery", "heat", "cold"];
+    const tones = classes.map(c => c + ":" + J.tone({entity_id: "binary_sensor.x", state: "on", attributes: {device_class: c}}) + "/" + J.tone({entity_id: "binary_sensor.x", state: "off", attributes: {device_class: c}}));
+    A.set("binary_sensor.au_leak", "on");
+    const box = document.createElement("div"); box.style.cssText = "position:absolute;left:0;top:0;width:420px"; document.body.append(box);
+    const id = "binary_sensor.au_leak";
+    const tile = A.mount("jam-tile", {type: "custom:jam-tile", entity: id}, box), head = A.mount("jam-heading", {type: "custom:jam-heading", title: "Leak", entities: [id]}, box);
+    const list = A.mount("jam-list", {type: "custom:jam-list", entities: [id]}, box), btn = A.mount("jam-button", {type: "custom:jam-button", entity: id, name: "Leak"}, box);
+    const hero = A.mount("jam-hero", {type: "custom:jam-hero", title: "H", chips: [{entity: id, name: "Leak"}]}, box);
+    const k = A.mount("jam-kiosk", {type: "custom:jam-kiosk", dock_state: "fill", dock: [{name: "Leak", state: {entity: id}, cards: []}, {name: "B", cards: []}]}, box);
+    const out = {tones, tile: tile.shadowRoot.querySelector(".face").className.match(/s-\w+/)[0], tileOn: tile.dataset.state,
+      head: (head.shadowRoot.querySelector("button.chip").className.match(/t-\w+/) || [""])[0],
+      list: (list.shadowRoot.querySelector(".v").className.match(/c-\w+/) || [""])[0], btn: btn.shadowRoot.querySelector(".kf").classList.contains("on"),
+      hero: !!hero.shadowRoot.querySelector(".chip.hot"), dock: k.shadowRoot.querySelector(".blk").className + " " + k.shadowRoot.querySelector(".blk").dataset.state};
+    A.set("binary_sensor.au_leak", "off"); box.remove();
+    return out;
+  });
+  check(leak.tones.every(t => /:alert\/off$/.test(t)), `trouble sensors: on = alert, off = off for every safety class (${leak.tones.join(" ")})`);
+  check(leak.tile === "s-alert" && leak.tileOn === "off" && leak.head === "t-alert" && leak.list === "c-alert" && !leak.btn && !leak.hero && /\balert\b/.test(leak.dock) && !/\bon\b/.test(leak.dock.replace(" off", "")),
+    `trouble sensors: a wet leak sensor is the alert, never the lit "on", in jam-tile / jam-heading / jam-list / jam-button / jam-hero / jam-kiosk dock (${JSON.stringify(leak)})`);
+
   // ---------- A2: unavailable = "Offline" + a broken form, everywhere ----------
   const off = await page.evaluate(() => {
     const A = window.__au, box = document.createElement("div"); box.style.cssText = "position:absolute;left:0;top:0;width:420px"; document.body.append(box);
@@ -268,12 +290,15 @@ module.exports = async (page, check) => {
         cnt: (b.querySelector(".dn") || {}).textContent || "", cntPx: b.querySelector(".dn") ? parseFloat(getComputedStyle(b.querySelector(".dn")).fontSize) : 0}));
       const band = r.querySelector(".band"), bt = r.querySelector(".band .bt"), clock = r.querySelector(".clock"), lk = r.querySelector(".lk"), now = r.querySelector(".now");
       const range = e => { const g = document.createRange(); g.selectNodeContents(e); const q = g.getBoundingClientRect(); return {l: q.left, t: q.top, r: q.right, b: q.bottom}; };
-      return {blocks, band: band && band.childElementCount ? {txt: bt.textContent, px: parseFloat(getComputedStyle(bt).fontSize),
+      const cut = [...r.querySelectorAll(".blk")].map(b => b.querySelector(".nm")).filter(n => n.scrollWidth > n.clientWidth + 1).map(n => n.textContent);
+      const dnHit = [...r.querySelectorAll(".blk.counted")].filter(b => { const a = b.querySelector(".nm").getBoundingClientRect(), d = b.querySelector(".dn").getBoundingClientRect(); return a.right > d.left; }).length;
+      return {cut, dnHit, blocks, band: band && band.childElementCount ? {txt: bt.textContent, px: parseFloat(getComputedStyle(bt).fontSize),
           over: [hit(range(bt), range(clock)) && "clock", hit(box(band), box(lk.querySelector(".disc"))) && "lock", hit(box(band), range(lk.querySelector(".lbl"))) && "lock label", hit(box(band), box(r.querySelector(".day"))) && "date"].filter(Boolean)} : null,
         now: now.dataset.source || "", scroll: document.scrollingElement.scrollHeight > innerHeight + 1};
     }, KIOSK);
     check(k0.blocks.map(b => b.cls).join(",") === "on,out,on,out,out" && k0.blocks.map(b => b.ds).join(",") === "on,off,on,off,action" && k0.blocks[0].cnt === "2" && k0.blocks[0].cntPx >= 64 && k0.blocks[1].bg === "rgba(0, 0, 0, 0)" && k0.blocks[4].bg === "rgba(0, 0, 0, 0)",
       `jam-kiosk dock_state fill ${tag}: Lights (2 on) and Music (playing) filled, TV off / Door locked / the action block outlined, count ${k0.blocks[0].cnt} at ${k0.blocks[0].cntPx}px (${k0.blocks.map(b => b.cls + ":" + b.bg).join(" ")})`);
+    check(k0.cut.length === 0 && k0.dnHit === 0, `jam-kiosk dock_state fill ${tag}: every block name fits, the count clear of it (cut: ${k0.cut.join(",") || "none"}, overlaps ${k0.dnHit})`);
     check(!!k0.band && k0.band.txt === "Saturn" && k0.band.px >= 64 && k0.band.over.length === 0 && k0.now === "weather:weather.bungalo_weather" && !k0.scroll,
       `jam-kiosk now_band ${tag}: "${k0.band && k0.band.txt}" at ${k0.band && k0.band.px}px in the top band, clear of clock / lock / date (${k0.band && k0.band.over.join(",")}), weather in the right block (${k0.now})`);
     if (w === 1024) await p.screenshot({path: path.join(OPT, `${look}-kiosk-fill-now-1024.png`)});
@@ -320,10 +345,11 @@ module.exports = async (page, check) => {
       const e = A.mount("jam-screensaver", cfg); window.__ss = e; e._show();
       await new Promise(r => setTimeout(r, 300));
       const o = e.overlay, P = o.querySelector(".poster .al"), S = o.querySelector(".sdock .al");
-      const quiet = {cls: P.className, txt: P.textContent};
+      const quiet = {cls: P.className, txt: P.textContent, date: o.querySelector(".poster .date").textContent};
       A.set("lock.au_door", "unlocked"); A.set("binary_sensor.au_leak", "on"); e.hass = A.hass();
       await new Promise(r => setTimeout(r, 100));
-      const loud = {cls: P.className, txt: P.textContent, bg: getComputedStyle(P).backgroundColor, red: A.col(o, "var(--red)"), px: parseFloat(getComputedStyle(P.querySelector(".at")).fontSize)};
+      const pcs = getComputedStyle(P), red = A.col(o, "var(--red)");
+      const loud = {cls: P.className, txt: P.textContent, bg: pcs.backgroundImage.includes(red) ? red : pcs.backgroundColor, red, px: parseFloat(getComputedStyle(P.querySelector(".at")).fontSize)}; // a hatched plate (Olympia) draws its fill as a gradient layer
       const p = o.querySelector(".poster"), bad = [];
       const rect = n => n.getBoundingClientRect(), hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       for (let n = 0; n < 6; n++) {
@@ -337,9 +363,10 @@ module.exports = async (page, check) => {
       o.dataset.view = "poster"; p.className = "poster l0 ";
       return {quiet, loud, bad, photo};
     }, SAVER);
+    check(ss.quiet.date === "Wednesday · October 28", `date format ${tag}: the screensaver writes the kiosk's date line ("${ss.quiet.date}")`);
     check(/\bquiet\b/.test(ss.quiet.cls) && ss.quiet.txt === "Front door · locked" && /\bloud\b/.test(ss.loud.cls) && ss.loud.txt === "Front door unlocked · Water leak" &&
       ss.loud.bg === ss.loud.red && ss.photo.shown && /\bloud\b/.test(ss.photo.cls) && ss.bad.length === 0,
-      `jam-screensaver lock + alerts ${tag}: quiet "${ss.quiet.txt}", loud "${ss.loud.txt}" on the alert fill at ${ss.loud.px}px, also on photos (${ss.photo.cls}), inside the screen and clear of the clock in all 6 layouts` +
+      `jam-screensaver lock + alerts ${tag} [${ss.loud.bg} / ${ss.loud.red}]: quiet "${ss.quiet.txt}", loud "${ss.loud.txt}" on the alert fill at ${ss.loud.px}px, also on photos (${ss.photo.cls}), inside the screen and clear of the clock in all 6 layouts` +
       (ss.bad.length ? " — " + ss.bad.join("; ") : ""));
     if (w === 1024) await p.screenshot({path: path.join(OPT, `${look}-screensaver-door-1024.png`)});
     await p.close();

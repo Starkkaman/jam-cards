@@ -155,6 +155,8 @@ ${SHAPE_CSS}
 const UNAVAILABLE = new Set(["unavailable", "unknown"]);
 const ON_STATES = new Set(["on", "playing", "open", "home", "heat", "cool", "heat_cool", "auto", "active", "cleaning"]);
 const ALERT_STATES = new Set(["problem", "unavailable", "jammed", "error", "triggered"]);
+/* binary_sensor device classes whose "on" means trouble: a wet leak sensor must never read as a lit lamp. */
+const ALERT_CLASSES = new Set(["problem", "moisture", "smoke", "gas", "carbon_monoxide", "safety", "tamper", "battery", "heat", "cold"]);
 /* State grammar (audit 2026-11-03, DESIGN "State grammar"): a lock is never "on". unlocked / open / jammed = alert,
    locked = off (quiet), locking / unlocking / opening = calm. A binary_sensor of device_class lock is on = unlocked. */
 const LOCK_ALERT = new Set(["unlocked", "open", "jammed"]);
@@ -209,7 +211,8 @@ function tone(s, overrides) {
     if (lockAlert(s) || st === "unlocked") return "alert";
     return st === "locked" || st === "off" ? "off" : "calm";
   }
-  if (s.attributes && s.attributes.device_class === "problem" && st === "on") return "alert";
+  // Safety / trouble sensors (design review 2026-11-04): on = alert, never the lit "on" of a lamp.
+  if (s.attributes && ALERT_CLASSES.has(s.attributes.device_class) && st === "on") return "alert";
   if (ON_STATES.has(st)) return "on";
   if (st === "off" || st === "closed" || st === "locked" || st === "idle" || st === "standby" || st === "paused") return "off";
   return "calm";
@@ -746,6 +749,11 @@ function jamLockSvg(closed) {
 /* State hook for look packs (state grammar contract): data-state on a card host = "on" | "off" | "offline" (jam-light,
    jam-button, jam-tile, jam-fan), written only when it changes (no DOM write on an unrelated hass update). */
 function jamState(node, st) { if (node && node.dataset && node.dataset.state !== st) node.dataset.state = st; }
+/* The one date line of the kiosk screens (jam-kiosk, jam-screensaver): "Wednesday · October 28" in the HA language. */
+function jamDateText(d, lang) {
+  try { return d.toLocaleDateString(lang, {weekday: "long"}) + " · " + d.toLocaleDateString(lang, {month: "long", day: "numeric"}); }
+  catch (e) { return d.toDateString(); }
+}
 /* Air that asks for action (audit 2026-11-03): "Poor" or worse ("Unhealthy …", "Very poor", "Hazardous"; an AQI over 100). */
 function aqPoor(st) { const w = aqWord(st); return !!w && /poor|unhealthy|hazard|bad/i.test(w); }
 
@@ -1199,7 +1207,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   VERSION, BASE_CSS, JamBase, ACCENTS, CUTS, accentName, accentVar, accentFg, setAccent, cutPath,
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, OFFLINE, isLock, lockAlert, jamState, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
-  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, vertigoSpiral, deepActive, openSheet,
+  kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, jamDateText, ALERT_CLASSES, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,

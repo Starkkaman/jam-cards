@@ -7,8 +7,9 @@
 //
 // Token mapping (the cards keep Poster's token names):
 //   - room hues map onto the spectrum: ochre (living, the default accent) = yellow, teal (kitchen) = green, blue (master)
-//     = blue, pink (marissa) = light blue, violet (music) = blue, green (nerd) = green, red (alerts) = orange: orange is the
-//     alert's own colour (audit 2026-11-03: living was the same #f08c33 as the alert), drawn with a hatch by the pack;
+//     = blue, pink (marissa) = light blue, violet (music) = blue, green (nerd) = green; red (alerts) = its own vermilion
+//     #f0503c (design review 2026-11-04: the alert was the same #f08c33 orange as living and warm lamps; navy text 4.7:1),
+//     always drawn with the orange / face hatch by the pack as a non-colour cue; alert TEXT #a8261a light / #ff8a73 dark;
 //   - ink = the dark "ink" of the look (navy): sheet veil, text plates, dark fixed surfaces; ink-fg = white. The page ground
 //     is the HA ground alias (#f4f6f7 light / the ink in dark), as Poster's light mode does;
 //   - band = the card face (the tv / speaker text sits on the card under its art, as in the approved mockup; keys on it
@@ -18,7 +19,7 @@
 //   - text on spectrum fills (on-fg) is the deep navy #10202b in both modes: neither white (3.4:1 / 3.1:1) nor #1f3b4d
 //     (3.4:1 / 3.7:1) reaches 4.5:1 on blue / green, #10202b does (4.8:1 / 5.3:1); so the primary key's text is navy too;
 //   - light dim is #52697a (brief #6b8291: 4.0:1 on white, 3.4:1 on face 2);
-//   - alert TEXT is a dark orange (#9a4700 light) / the orange itself (dark), fills stay the spectrum orange.
+//   - alert TEXT is a dark vermilion (#a8261a light, 6.0:1 on face 2) / a light one (#ff8a73 dark, 4.8:1 on slab3).
 const ALBERT = '"Albert Sans", "Helvetica Neue", Arial, sans-serif';
 const EASE = "cubic-bezier(.45,0,.55,1)"; // calm ease-in-out (brief: 200-260 ms ease-in-out)
 
@@ -28,13 +29,13 @@ export default {
   file: "jamboard-olympia.yaml",
   comment: [
     "Jam Olympia: after Otl Aicher's Munich 1972 design (a light ground, square faces with a hairline, thin lowercase",
-    "Albert Sans, the Munich spectrum as flat fields and stripes; no red: alerts are orange).",
+    "Albert Sans, the Munich spectrum as flat fields and stripes; alerts in their own vermilion, hatched).",
     "Pairs with the Jam Cards suite (https://github.com/Starkkaman/jam-cards), which reads the --jam-* variables below",
     "and loads Albert Sans from its dist/fonts/. Themes cannot load web fonts: without Jam Cards the stacks fall back",
     "to Helvetica/Arial.",
     "Light mode (primary) = #f4f6f7 ground, white faces, navy ink text; dark mode = #10202b ground, #172b38 faces.",
     "Room hues on the spectrum: jam-ochre (yellow) living, jam-teal (green) kitchen, jam-blue master, jam-pink (light blue)",
-    "marissa, jam-violet (blue) music, jam-green nerd; jam-red is orange, the alerts' own colour (hatched by Jam Cards).",
+    "marissa, jam-violet (blue) music, jam-green nerd; jam-red is a vermilion used only for alerts (hatched by Jam Cards).",
     "jam-on-fg = text on spectrum fills.",
     "jam-alert-text = alert TEXT, >= 4.5:1 on slab/slab2/slab3 in its mode.",
   ],
@@ -143,7 +144,7 @@ export default {
         "jam-ink": "#10202b", "jam-slab": "#172b38", "jam-slab2": "#223a49", "jam-slab3": "#263f4f",
         "jam-paper": "#8fc7e8", "jam-paper-fg": "#10202b", "jam-paper-dim": "#2a4c62",
         "jam-fg": "#e9f1f5", "jam-dim": "#93aab8", "jam-line": "#2c4655",
-        "jam-ochre": "#f6c445", "jam-red": "#f39a46", "jam-alert-text": "#f39a46", "jam-teal": "#34b56a", "jam-blue": "#4a9be0",
+        "jam-ochre": "#f6c445", "jam-red": "#f0503c", "jam-alert-text": "#ff8a73", "jam-teal": "#34b56a", "jam-blue": "#4a9be0",
         "jam-pink": "#8fc7e8", "jam-violet": "#4a9be0", "jam-green": "#34b56a", "jam-on-fg": "#10202b", "jam-shadow": "#0b1820",
         "jam-s1": "#4a9be0", "jam-s2": "#34b56a", "jam-s3": "#f39a46", "jam-s4": "#f6c445", "jam-s5": "#8fc7e8",
         "jam-ink-fg": "#e9f1f5", "jam-ink-dim": "#93aab8", "jam-ink-dim2": "#a9bcc8",
@@ -163,7 +164,7 @@ export default {
         "jam-ink": "#1f3b4d", "jam-slab": "#ffffff", "jam-slab2": "#e7edf0", "jam-slab3": "#dde5ea",
         "jam-paper": "#8fc7e8", "jam-paper-fg": "#1f3b4d", "jam-paper-dim": "#2a4c62",
         "jam-fg": "#1f3b4d", "jam-dim": "#52697a", "jam-line": "#d8e1e6",
-        "jam-ochre": "#f6c445", "jam-red": "#f08c33", "jam-alert-text": "#9a4700", "jam-teal": "#2aa65c", "jam-blue": "#3a8fd8",
+        "jam-ochre": "#f6c445", "jam-red": "#f0503c", "jam-alert-text": "#a8261a", "jam-teal": "#2aa65c", "jam-blue": "#3a8fd8",
         "jam-pink": "#8fc7e8", "jam-violet": "#3a8fd8", "jam-green": "#2aa65c", "jam-on-fg": "#10202b", "jam-shadow": "#c9d3d9",
         "jam-s1": "#3a8fd8", "jam-s2": "#2aa65c", "jam-s3": "#f08c33", "jam-s4": "#f6c445", "jam-s5": "#8fc7e8",
         "jam-ink-fg": "#ffffff", "jam-ink-dim": "#b9c9d3", "jam-ink-dim2": "#c6d4dc",

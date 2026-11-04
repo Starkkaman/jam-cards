@@ -655,9 +655,7 @@ class JamScreensaver extends JamBase {
       } else jamClockText(node, String(d.getHours()).padStart(2, "0"), mm);
     };
     setTime(this._time); setTime(this._ctime);
-    let date = "";
-    try { date = d.toLocaleDateString(lang, {weekday: "long", day: "numeric", month: "long"}); } catch (e) { date = d.toDateString(); }
-    this._date.textContent = date;
+    this._date.textContent = jamDateText(d, lang); // "Wednesday · October 28", the kiosk's format (core)
     /* Weather: condition word + temperature (temperature_entity wins over the weather entity's own). */
     this._wx.textContent = "";
     const w = stateObj(h, c.weather_entity), ts = stateObj(h, c.temperature_entity);

@@ -29,15 +29,20 @@ const OLY_CSS = `
 .paper[data-cut=key] > .kf{border:var(--jam-border,0px none);border-top:var(--rule-h) solid var(--oly-top,var(--acc))}
 .stripe{border-left:var(--bord,0px none);--oly-top:${OLY_SILVER}}
 .stripe.s-on{--oly-top:var(--acc)} .stripe.s-alert{--oly-top:var(--red)} .stripe.s-calm{--oly-top:var(--teal)}
-/* Trouble has a form, not only a hue (audit 2026-11-03): a 45deg orange / face hatch. Orange is the alert's own colour
-   (living moved to yellow in the theme); text stays on a solid orange plate inside the hatch, so contrast holds.
+/* Trouble has a form, not only a hue (audit 2026-11-03, review 2026-11-04): a 45deg alert / face hatch round every alert
+   fill (the alert is its own vermilion, distinct from the yellow living and the orange lamps); text stays on a solid
+   plate inside the hatch, so contrast holds.
    Top stripes: the hatch drawn over the stripe (the border stays, transparent, for the box). */
-.host{--oly-hatch:repeating-linear-gradient(45deg,var(--red) 0 6px,var(--slab) 6px 11px)}
+.host,.ov,.pop{--oly-hatch:repeating-linear-gradient(45deg,var(--red) 0 6px,var(--slab) 6px 11px)}
 .paper[data-cut] > .face.stripe.s-alert,.paper[data-cut] > .face.unavail{border-top-color:transparent;background-image:var(--oly-hatch);background-size:100% var(--rule-h);
   background-repeat:no-repeat;background-origin:border-box;background-clip:border-box}
 button.chip.red::before,.chip.red:not(button),.cnt{border:4px solid transparent;
   background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
 :host(jam-kiosk) .lk.alert .disc{border:8px solid transparent;background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+/* the opt-in attention surfaces and alert dock blocks carry the hatch too */
+:host(jam-kiosk) .att,:host(jam-kiosk) .k.dfill .blk.alert,:host(jam-house) .att,.ov .al.loud{border:6px solid transparent;
+  background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
+.key.alert > .face{border:4px solid transparent;background:linear-gradient(var(--red),var(--red)) padding-box,var(--oly-hatch) border-box}
 .tmk.t-alert{background:var(--oly-hatch)}
 /* Offline (state grammar): the face stays, the top stripe is the hatch, the text dim; not "off" (silver stripe). */
 .paper[data-cut] > .face.unavail{background-color:var(--slab);border-style:solid;border-color:transparent;border-width:var(--rule-h) 0 0;

@@ -73,6 +73,11 @@ One grammar for on / off / attention / offline, drawn by each look in its own wa
   alert fill), jam-heading / jam-list / jam-hero (tone), jam-alerts (alert text on the row), jam-house (red "Door unlocked ·
   lock" chip, plain "Door locked"), jam-kiosk lock button (locked = a quiet 4px `--fg` ring on no fill, glyph `--fg`;
   unlocked = the solid `--red` disc: the loudest thing on the poster), jam-kiosk `dock_state: fill` (a lock block fills red).
+- **Trouble sensors** (review 2026-11-04): a binary_sensor whose device_class is problem, moisture, smoke, gas,
+  carbon_monoxide, safety, tamper, battery, heat or cold (`JamCards.ALERT_CLASSES`) is **alert** while on, never the lit
+  "on" of a lamp, in every card (a jam-kiosk `dock_state: fill` block with such a state fills in the alert red).
+- **One date line on the kiosk screens**: jam-kiosk and jam-screensaver both write `jamDateText()` ("Wednesday · October
+  28" in the HA language).
 - **Offline**: an entity HA cannot reach (state `unavailable`, or missing) reads **"Offline"** (`JamCards.OFFLINE`; also
   `fmtState()`), never "N/A" / "Unavailable" / "unavailable", and takes a **broken form, never the off form**: the hook is
   `.face.unavail` (card / key faces: jam-light, jam-tile, jam-button, jam-fan, jam-media, jam-speaker compact), `.scene.offline`,
@@ -155,7 +160,7 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   #e7edf0 / #223a49 for keys and tracks; every shape token `none` (square, no cut corners); Albert Sans 400 lowercase at
   .87 (labels 400, keys 500, tracking x .15); `jam-rule-h` / `jam-stripe-w` 4px; calm motion (x1.15, ease-in-out, no
   stamps / washes / spiral flash). Room hues on the spectrum: ochre (living, default) = orange, teal (kitchen) = green,
-  blue = blue, pink (marissa) = light blue, violet (music) = blue, green = green, red (alerts) = orange: no red anywhere.
+  blue = blue, pink (marissa) = light blue, violet (music) = blue, green = green, red (alerts) = its own vermilion #f0503c (review 2026-11-04; was orange), always hatched.
 - Text on spectrum fills (`jam-on-fg`) is the deep navy #10202b in both modes (white and #1f3b4d stay under 4.5:1 on the
   blue / green); light dim #52697a and alert text #9a4700 are the contrast-safe values (brief: #6b8291 / orange).
 - Pack (`src/looks/olympia.js`): a 4px top stripe on every card face (room / tone colour; the Poster left tone stripe moves
@@ -165,11 +170,13 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
   band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
   stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
-- Audit 2026-11-03: orange is the alert's own colour. `jam-ochre` (living, the default accent) is the Munich yellow
-  #f6c445; `jam-red` stays orange and trouble has a form: a 45deg orange / face hatch (`--oly-hatch`) on alert top stripes
-  (`.stripe.s-alert`), offline faces' top stripes, alert chips and the jam-alerts count (a hatched frame round a solid orange
-  plate, so navy text keeps its contrast), the unlocked kiosk lock and alert tone marks. The kiosk lock when locked is a
-  quiet 2px ring.
+- Audit 2026-11-03 / review 2026-11-04: the alert has its own colour and a form. `jam-ochre` (living, the default
+  accent) is the Munich yellow #f6c445; `jam-red` is a vermilion #f0503c used only for alerts (navy text 4.7:1; alert
+  TEXT #a8261a light / #ff8a73 dark), distinct from the orange of warm lamps and the YouTube / Switch tiles. Trouble is
+  always hatched (non-colour cue): a 45deg alert / face hatch (`--oly-hatch`) on alert top stripes (`.stripe.s-alert`),
+  offline faces' top stripes, alert chips, alert keys and the jam-alerts count (a hatched frame round a solid plate, so
+  navy text keeps its contrast), the unlocked kiosk lock, alert tone marks, and the opt-in attention bar / strip, alert
+  dock blocks and the screensaver alert plate. The kiosk lock when locked is a quiet 2px ring.
 
 ## Transit rules (the Transit look, theme "Jam Transit"; brief docs/looks/TRANSIT.md)
 - Tokens (`tokens/looks/transit.mjs`): the cards are black signs with white text in **both** modes (`jam-slab` #000 light /
