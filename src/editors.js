@@ -45,11 +45,13 @@ const JE_LABELS = {
   show_members: "Pop-up: group members", member_bands: "Group member bands", speakers: "Speakers (grouping view)",
   show_shuffle: "Shuffle key", show_favorite: "Favourite key", favorite_entity: "Favourite button",
   config_entry_id: "Music Assistant entry", power_action: "Power corner action", poster_height: "Art height (px)",
+  looks: "Looks to show (theme names, subset and order)",
 };
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
   show_color_temp: "Default: when the light supports colour temperature.",
   show_color: "Default: when the light supports colour.",
+  looks: "Default: JamBoard and every installed theme named \"Jam ...\". Any installed theme name works.",
 };
 
 /* Every field of a schema with its selector, flattened through unnamed / flatten groups; a named group = one object field. */
@@ -195,6 +197,10 @@ const JAM_EDITORS = {
     stub: (h, e) => ({entity: jePick(h, e, (id, s) => jeDom("media_player")(id) &&
       ((h.entities && h.entities[id] && h.entities[id].platform === "music_assistant") || s.attributes.app_id === "music_assistant"), null) ||
       jePick(h, e, jeDom("media_player"), "media_player.jam")}),
+  },
+  "jam-looks": {
+    schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
+    stub: () => ({title: "Look"}),
   },
 };
 

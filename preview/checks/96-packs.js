@@ -4,8 +4,10 @@
 // fx gate (data-fx from --jam-fx; a card's `fx: false` forces it off) and a live look switch WITHOUT reload: every card,
 // an open sheet and the jam-screensaver layer adopt the new pack and come back to Poster. jam-kiosk re-measures when web
 // fonts finish loading. A test pack ("packtest") marks its sheet with custom properties only, so nothing visible changes.
-// Runs on the dark/1280 preview page and leaves it as it was. No fixture.
+// Last: a jam-looks picker under Poster, Braun and Olympia (its swatches fetch every look font, so it runs after the font
+// checks). Runs on the dark/1280 preview page and leaves it as it was. No fixture.
 // Contract: module.exports = async (page, check, helpers) => {}.
+const THEME_OF = look => ({poster: "JamBoard", braun: "Jam Braun", olympia: "Jam Olympia"})[look];
 module.exports = async (page, check) => {
   const r = await page.evaluate(async () => {
     const J = window.JamCards, h = window.__hass, de = document.documentElement;
@@ -88,6 +90,27 @@ module.exports = async (page, check) => {
     try { await document.fonts.load('400 16px "Jam Missing"'); } catch (e) { err = String(e); }
     const face = [...document.fonts].find(f => f.family.replace(/"/g, "") === "Jam Missing");
     out.missing = {late: out.late, status: face ? face.status : "none", err};
+    // ---- jam-looks (look picker) under each built look: the card adopts the look, the tiles keep their own swatches
+    // (each in its look's font, fetched now: the Poster checks above are done), the page's pick is marked ----
+    const pick = document.createElement("jam-looks"); pick.setConfig({type: "custom:jam-looks", title: "Look"});
+    document.getElementById("view").append(pick);
+    const names = window.jamPreviewLookThemes;
+    out.picker = [];
+    for (const look of ["poster", "braun", "olympia"]) {
+      if (look === "poster") delete de.dataset.look; else de.dataset.look = look;
+      pick.hass = {...h, themes: {...h.themes, darkMode: true}, selectedTheme: {theme: names[look]}};
+      await tick(80); await document.fonts.ready; await tick(80);
+      const tiles = [...pick.shadowRoot.querySelectorAll(".opt")];
+      const ff = t => getComputedStyle(t.querySelector(".sw-face")).fontFamily.split(",")[0].replace(/"/g, "");
+      const ad = pick.shadowRoot.adoptedStyleSheets, pack = J.lookPack(look);
+      out.picker.push({look, host: pick.dataset.look, tiles: tiles.map(t => t.dataset.theme || "default").join("|"),
+        on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(),
+        fonts: tiles.slice(0, 3).map(ff).join("|"), loaded: tiles.slice(0, 3).every(t => document.fonts.check(`400 24px ${getComputedStyle(t.querySelector(".sw-face")).fontFamily}`)),
+        sheet: pack && pack.css ? ad.length === 3 && ad[2].jamText === pack.css : ad.length === 2,
+        label: getComputedStyle(tiles[0].querySelector(".nm")).fontFamily.split(",")[0].replace(/"/g, "")});
+    }
+    delete de.dataset.look; pick.remove();
+    h.themes = {...h.themes};
     return out;
   });
   check(r.looks.join() === "poster,braun,olympia" && r.packs, `look packs: JamCards.looks() = ${r.looks.join(", ")}; braun (Archivo), olympia (Albert Sans), Poster has no pack`);
@@ -106,6 +129,9 @@ module.exports = async (page, check) => {
   check(r.missing.late && r.missing.status === "error", // document.fonts.load() rejects for it; no page error, the text keeps its fallback face
     `a pack registered later adds its faces to the font style; a missing font file fails quietly (face ${r.missing.status}), the fallback stack draws`);
   check(r.fits > 0, `jam-kiosk re-measures after the look's fonts load (${r.fits} fit passes)`);
+  for (const p of r.picker)
+    check(p.host === p.look && p.tiles === "JamBoard|Jam Braun|Jam Olympia|default" && p.on === THEME_OF(p.look) && p.fonts === "Londrina Solid|Archivo|Albert Sans" && p.loaded && p.sheet,
+      `jam-looks under ${p.look}: data-look + pack sheet, tiles JamBoard / Braun / Olympia / system default, each swatch in its own look's font (${p.fonts}, loaded), label in ${p.label}, ${p.on} marked`);
   check(r.back.hosts === "poster" && r.back.sheets && r.back.pop === "poster" && r.back.ov === "poster" && !r.back.fx && /Londrina/.test(r.back.ff),
     `back to Poster: hosts, sheet and screensaver poster, two sheets per card, no data-fx (${JSON.stringify(r.back)})`);
 };

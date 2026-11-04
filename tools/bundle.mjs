@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Builds dist/jam-cards.js from src/ (plain concatenation inside ONE IIFE, no deps) and writes preview/fixtures/index.js.
 //   node tools/bundle.mjs          write dist/jam-cards.js + dist/fonts/OFL-<Poster fonts>.txt + preview/fixtures/index.js + preview/looks.css
+//                                  + preview/themes.js (the preview hass.themes.themes, for jam-looks)
 //   node tools/bundle.mjs --check  exit 1 if a generated file is stale (also the jam-theme YAML when ../jam-theme exists)
 // Order: src/header.js (opens the IIFE), generated fonts chunk (FONT_CSS), generated tokens chunk (TOKEN_CSS, JAM_TOKENS), src/core.js,
 // src/looks/*.js (look packs, by name: registerLook), src/cards/*.js (by name), src/editors.js (visual editor statics), src/footer.js (closes it).
@@ -14,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
-import {hostCss, looksCss, copyTokens} from "../tokens/index.mjs";
+import {hostCss, looksCss, copyTokens, themesJs} from "../tokens/index.mjs";
 import {staleThemes} from "./themes.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -52,7 +53,7 @@ const missing = list("src/looks").flatMap(f => [...read("src/looks/" + f).matchA
   .filter(f => !fs.existsSync(p("dist", "fonts", f)));
 if (missing.length) { console.error("MISSING look font(s) in dist/fonts/: " + missing.join(", ")); process.exit(1); }
 
-const out = {"dist/jam-cards.js": bundle, "preview/fixtures/index.js": fixIndex, "preview/looks.css": looksCss()};
+const out = {"dist/jam-cards.js": bundle, "preview/fixtures/index.js": fixIndex, "preview/looks.css": looksCss(), "preview/themes.js": themesJs()};
 for (const f of fs.readdirSync(p("fonts")).filter(f => /^OFL-.*\.txt$/.test(f))) out["dist/fonts/" + f] = read("fonts/" + f);
 if (process.argv.includes("--check")) {
   const stale = Object.entries(out).filter(([f, s]) => !fs.existsSync(p(f)) || read(f) !== s).map(([f]) => f)
@@ -62,5 +63,5 @@ if (process.argv.includes("--check")) {
 } else {
   fs.mkdirSync(p("dist", "fonts"), {recursive: true});
   for (const [f, s] of Object.entries(out)) fs.writeFileSync(p(f), s);
-  console.log(`wrote dist/jam-cards.js (${parts.length} parts) + preview/fixtures/index.js (${fixtures.length} fixtures) + preview/looks.css`);
+  console.log(`wrote dist/jam-cards.js (${parts.length} parts) + preview/fixtures/index.js (${fixtures.length} fixtures) + preview/looks.css + preview/themes.js`);
 }

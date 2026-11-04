@@ -5,7 +5,8 @@
 // Views (dark + light): popup-<mode>-390 (jam-popup bottom sheet), light-cards-<mode>-390, light-sheet-{group,wled,edit}-<mode>-390,
 // tv-remote-sheet-<mode>-390, tv-source-sheet-<mode>-390, watch-play-<mode>-390, speakers-<mode>-390 (the speaker section),
 // speaker-panel-{pinned,speakers}-<mode>-1280 (panel B), kiosk-sheet-{music,tv}-<mode>-{1024,961} (jam-kiosk sheets; fit.js
-// shoots the dark ones too), screensaver-{clock,photos}-<mode>-961.
+// shoots the dark ones too), screensaver-{clock,photos}-<mode>-961, looks-picker-<mode>-{390,1280} (jam-looks, every look's
+// swatch in its own font, this look picked).
 // Check per opened view ("controls present"): every visible button / [role=button] / [role=slider] in the open sheet (or the
 // page section) is at least 1px in both directions, inside the viewport horizontally, and its centre hits itself (not
 // covered by look CSS); the focus ring of the first control is a visible outline (or, for a Braun toggle, its pill's outline).
@@ -118,6 +119,26 @@ module.exports = async function lookViews(browser, base, check, {look, dir}) {
           return {own: vis(own), pill: vis(pill), w: own.outlineWidth + "/" + pill.outlineWidth};
         });
         check(ring.own || ring.pill, `${T}: ${mode} focus ring visible on a jam-light power toggle (${ring.w})`);
+      } finally { await ctx.close(); }
+    }
+    // ---- jam-looks (look picker): the full picker alone on the page, this look's theme picked, 390 + 1280 ----
+    for (const width of [390, 1280]) {
+      const {ctx, p} = await open(mode, {width, height: 844});
+      try {
+        const st = await p.evaluate(async () => {
+          document.getElementById("view").remove();
+          window.JamCards.motion = false; // a card mounted late on the fixed-clock page would sit in its entrance start frame
+          const h = window.__hass, wrap = document.createElement("div"); wrap.id = "looks-view"; wrap.style.cssText = "max-width:640px;padding:16px";
+          const e = document.createElement("jam-looks"); e.setConfig({type: "custom:jam-looks", title: "Look"});
+          e.hass = h; wrap.append(e); document.body.append(wrap);
+          await new Promise(r => setTimeout(r, 400)); await document.fonts.ready;
+          const tiles = [...e.shadowRoot.querySelectorAll(".opt")];
+          return {look: e.dataset.look, tiles: tiles.length, on: tiles.filter(t => t.getAttribute("aria-pressed") === "true").map(t => t.dataset.theme).join(), sel: (h.selectedTheme || {}).theme};
+        });
+        check(st.look === look && st.tiles === 4 && st.on === st.sel, `${T}: ${mode}/${width} jam-looks: data-look=${st.look}, ${st.tiles} tiles, current ${st.on} marked`);
+        await ctlCheck(p, `${mode}/${width} jam-looks`, "#looks-view jam-looks");
+        await ctCheck(p, `${mode}/${width} jam-looks`);
+        await p.locator("#looks-view").screenshot({path: path.join(out, `looks-picker-${mode}-${width}.png`)});
       } finally { await ctx.close(); }
     }
     // ---- 1280: panel B ----
