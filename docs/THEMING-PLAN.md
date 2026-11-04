@@ -737,6 +737,18 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   skips gradients), so a look with fx must pass both runs. 96-packs knows the newwave pack (Archivo + 2 Silkscreen faces).
   Silkscreen's unicode-range leaves out ° (falls back to monospace). Not done: the kiosks' dashboard YAML (`fx: false` on
   jam-kiosk / jam-screensaver) is the user's step (HA read-only for workers).
+- **R10 Brutal (done, 2026-11-03, branch look-brutal).** Brief docs/looks/BRUTAL.md (decisions and deviations under
+  "Built"), rules in DESIGN.md "Brutal rules". `tokens/looks/brutal.mjs`: theme "Jam Brutal"
+  (`../jam-theme/themes/jamboard-brutal.yaml`, jam-theme branch look-brutal); paper page, white cards, #000 lines (dark:
+  #191919 / #262626 / #f5f5f5), six flat room fills on the hue tokens with black text, a violet hero, Bricolage Grotesque
+  800 / 700 mixed case (x .8), every shape `none` + 10px / 999px radii, `jam-elev-1` = the hard `6px 6px 0` shadow, press
+  `translate(4px,4px)`, `jam-dur` .6 with a snappy ease-out and the pack's keyframes. Pack `src/looks/brutal.js` +
+  Bricolage Grotesque variable (wght 200-800, opsz 12-96, 77 KB) in dist/fonts (OFL): 3px inset-outline borders and hard
+  shadows on every slab (cards, hero, sheets, posters, tiles, keys), the shadow shrinking to 2px on press, pill switches
+  for the power corner, fat bordered strips, lit lights snapped to the nearest room fill through the existing `decorate`
+  render hook (+ a swatch of the real colour), bordered gauge wedges, kiosk fill slabs and bordered lock disc, a screensaver
+  of bordered fill slabs; motifs empty, idleArt, powerGlyph, flash (none), decorate. Shared-code hooks: none. Checks:
+  96-packs knows the brutal pack (Bricolage Grotesque) and the picker's nine tiles; views.js expects 9 jam-looks tiles.
 - **R10 merge + 0.9.0 (done, 2026-11-03).** editors-2, look-picker, braun-colour, look-pulsar, look-transit, look-grid and
   look-newwave merged into main (LOOKS: poster, braun, olympia, transit, grid, pulsar, newwave; stress stays harness-only).
   **Look hooks unified** (core.js "look hooks", DESIGN "Motifs" -> Look hooks): every R10 hook is a motif with a no-op
