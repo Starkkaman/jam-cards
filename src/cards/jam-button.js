@@ -84,6 +84,8 @@ class JamButton extends JamBase {
       const sq = el("span", "sq");
       sq.setAttribute("aria-hidden", "true");
       if (ic) sq.append(ic);
+      const code = motif("code", this, name); // a look's name code in the icon square (R10 hook; Poster: none)
+      if (code) { sq.append(code); sq.classList.add("coded"); }
       k.append(sq);
     } else if (ic) L.append(ic);
     if (name) L.append(el("div", "lbl", name));

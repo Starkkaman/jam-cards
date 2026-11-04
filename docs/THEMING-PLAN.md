@@ -673,3 +673,15 @@ follow the wall clock and the 87 kiosk sheets read Date.now for media progress, 
   look's kiosk home, kiosk sheets and screensaver layouts. Not automated yet (reviewed by hand with contrast.js, 0
   findings in both modes): the jam-light pop-up (group, WLED), jam-tv Source / Remote sheets, jam-speaker panel B, the
   screensaver photos view; behaviour checks still run on Poster only (R9 note).
+- **R10 Pulsar (done, 2026-11-03, branch look-pulsar).** Brief docs/looks/PULSAR.md (decisions and deviations under
+  "Built"), rules in DESIGN.md "Pulsar rules". `tokens/looks/pulsar.mjs`: theme "Jam Pulsar"
+  (`../jam-theme/themes/jamboard-pulsar.yaml`, jam-theme branch look-pulsar), dark primary (black field, #3d3d3d rules) +
+  light (cream, black rules), one warm accent for every hue and red, Archivo 300 + wide-tracked capitals, every shape
+  `none`, 1px rules, slow fades; pack `src/looks/pulsar.js` (outlines, ridge levels, ridge gauge / graph / idle art /
+  screensaver / kiosk band, 12-colour name codes). **Shared-code hooks** (additive; Poster pixel-identical vs main):
+  `--lv` (level 0..1) set next to the fill width in jam-slider, jam-media + jam-speaker volume, jam-gauge bar, jam-light
+  (card, pop-up bar, member tracks); new motifs with a null Poster version: `code` (core; asked by jam-heading,
+  jam-button, jam-kiosk; jam-kiosk `_lookChanged` rebuilds its shell when the look's code motif changes), `gauge`
+  (jam-gauge `_arc`) and `graph` (jam-graph `_draw`, returns per-series y scales for the crosshair marks). Checks:
+  96-packs knows the third pack (distinct font families instead of declared faces: Pulsar re-declares Archivo),
+  96-motifs drives the three new motifs through its test pack (code reaches jam-heading, jam-button and the kiosk dock).

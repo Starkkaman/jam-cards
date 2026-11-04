@@ -7,6 +7,7 @@
 const JG_TONE = {green: "teal", yellow: "ochre", red: "red"};
 const JG_SVG = "http://www.w3.org/2000/svg";
 function jgFmt(v) { return String(Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10); }
+defineMotif("gauge", () => null); // Poster: the card draws its wedges itself (see _arc)
 class JamGauge extends JamBase {
   validate(c) { if (!c.entity) throw new Error("jam-gauge: entity is required"); }
   watched() { return [this._config.entity]; }
@@ -50,6 +51,10 @@ class JamGauge extends JamBase {
     else node.setAttribute("aria-valuetext", "Unavailable");
   }
   _arc(face, m) {
+    /* R10 hook: a look may draw the whole meter (motif "gauge": Pulsar's ridge stack); Poster's returns null. */
+    const own = motif("gauge", this, m.ok ? (m.cv - m.min) / (m.max - m.min) : null, this._bands(m.min, m.max).find(b => m.ok && m.cv >= b.from && m.cv <= b.to) || null);
+    if (own) { const box = el("div"); box.style.width = "100%"; box.style.display = "flex"; box.style.justifyContent = "center";
+      this._meter(box, m); box.append(own); face.append(box); this._numeral(m, face); return; }
     const svg = document.createElementNS(JG_SVG, "svg");
     svg.setAttribute("viewBox", "-2 -2 204 104");
     const frac = v => (v - m.min) / (m.max - m.min);
@@ -97,6 +102,7 @@ class JamGauge extends JamBase {
       const band = this._bands(m.min, m.max).filter(x => m.cv >= x.from).pop();
       fill.style.background = `var(--${band ? band.col : "acc"})`;
       fill.style.width = ((m.cv - m.min) / (m.max - m.min)) * 100 + "%";
+      fill.style.setProperty("--lv", (m.cv - m.min) / (m.max - m.min)); // level 0..1 for a look's level motif (R10 hook)
       strip.append(fill);
     }
     track.append(strip); face.append(track);

@@ -7,8 +7,8 @@ v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with
 
 **Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
 and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun and Olympia are the next looks (user, 2026-11-03; both built in R10, see "Braun
-rules" and "Olympia rules"); the global switch will be a Look
+the cards' built-in fallback. Braun, Olympia and Pulsar are the next looks (user, 2026-11-03; built in R10, see "Braun
+rules", "Olympia rules" and "Pulsar rules"); the global switch will be a Look
 picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
 rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
 own section and may replace them).
@@ -128,6 +128,34 @@ hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
   face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
   band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
   stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
+
+## Pulsar rules (the Pulsar look, theme "Jam Pulsar"; brief docs/looks/PULSAR.md)
+- Tokens (`tokens/looks/pulsar.mjs`): dark is primary: black field (`jam-ink` = `jam-slab` = #000) with white text, a
+  #3d3d3d 1px rule (`jam-line`, `jam-border`) around every card and sheet face, dim #9a9a9a; light: cream #e7e2d2 field and
+  faces, black text and black 1px rules, dim #555. Near-black / darker-cream `jam-slab2` / `-3` only where a control is
+  not outlined. One warm accent for "on" and "needs attention": `jam-ochre`, every room hue and `jam-red` are #ffb070 dark /
+  #c25f28 light (black text on it, `jam-on-fg`); warm TEXT is `jam-alert-text` (#ffb070 / #7d3a0f). Archivo 300 for names
+  and values (mixed case, x.74, numerals x.86), labels and keys 400 uppercase with wide tracking (labels x2.1 ~ .34em, keys
+  x1); every shape token `none`; `jam-rule-h` / `jam-stripe-w` 1px; slow fades (x1.3, ease, `pulsar-fade`), no stamps,
+  washes or spiral flash. Graph series (`jam-s1`..`s5`) and idle-art colours come from the 12-colour wheel.
+- Pack (`src/looks/pulsar.js`): no fill boxes: keys, chips, tabs, scenes, source tiles, dock blocks and the light pop-up
+  whites are outlined with the rule; on / alert = warm outline + warm text; the primary key (play) has a text-colour
+  outline. Power corners are a 26px outlined square (on: warm). Remote d-pad arrows and the OK disc keep their geometry
+  (DESIGN geometry exceptions): arrows `--slab3`, the OK disc a 1px ring.
+- The pulse: a level (jam-slider, jam-media / jam-speaker volume, jam-gauge bar, jam-light card + pop-up + member
+  brightness) is a 1px baseline, lit in the text colour up to the value, with one Unknown Pleasures ridge at the value whose
+  height is the level (`--lv` 0..1 from the cards; two clip-path layers, no SVG). jam-gauge's arc is a stack of ridge
+  lines whose pulse height is the level (warm in the red band, dim when unavailable); jam-graph draws stacked ridgelines,
+  one per series in legend order, each on its own scale (one series keeps the y axis), front lines hide the ones behind.
+  All static: redrawn only when the value changes.
+- The colour code (Blue Monday): a name's first four letters on the 12-colour wheel (a..l / m..x -> 0..11, a digit d ->
+  d*7 mod 12) + a check square (the sum mod 12), 7px squares (9px headings, 10px kiosk dock), shown before room heading
+  titles, in jam-button's icon square (the icon is hidden) and on the kiosk dock blocks; a press lights it one square at a
+  time (stepped, 120 ms per square, one-shot). A light that is on shows an 8px square in its own colour before its name.
+- Motifs: empty = a small dim ridge stack, idleArt = an Unknown Pleasures field (seeded, the text colour on the face),
+  flash = none, powerGlyph = a 1.5px stroke, screensaver = a ridge band on the black field (placed per layout, clear of the
+  text block; thin 300 time, no warm text), kiosk = thin clock, the accent bar becomes a static ridge band (a CSS mask)
+  across the poster left of the lock disc.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
@@ -340,7 +368,11 @@ Every motif is drawn through the motif registry (R7): `JamCards.motif(name, ctx,
 version (`ctx` = the card, a node in it, a sheet's `.pop` or a look id; the look is the nearest `data-look`), else Poster's
 (`defineMotif`). Names: `empty` (Golden Arm bars), `idleArt`, `flash` (Vertigo spiral), `wxGlyph` (jam-weather glyph SVG),
 `remoteGlyph` (jam-remote / jam-tv glyph markup, static), `powerGlyph` (power corner), `screensaver` (the poster
-composition's shapes). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
+composition's shapes). R10 hooks where Poster draws nothing (its motif returns null and the card keeps its own drawing):
+`code` (name -> a small aria-hidden mark: jam-heading title, jam-button icon square, jam-kiosk dock blocks; jam-kiosk
+rebuilds its shell when the look's `code` motif changes), `gauge` (level 0..1 | null, band -> the whole jam-gauge arc
+meter) and `graph` (svg, data, geometry -> draws jam-graph's series itself and returns one y scale per series for the
+crosshair marks). Level fills also carry `--lv` (0..1) next to their width for a look's level CSS (Pulsar's ridges). A pack's motif runs with `this.poster` (the Poster function) so it can extend it; it returns fresh
 aria-hidden nodes and never entity text. A look switch re-renders the cards whose motifs change, the open sheet's spiral,
 jam-popup's spiral and the screensaver shapes. Poster's motifs:
 - **Cut-paper idle art** (round 3, jam-speaker idle poster / thumbs without a cover): a flat Jam-palette ground (ink, cream,

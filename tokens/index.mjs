@@ -6,12 +6,13 @@ import poster from "./looks/poster.mjs";
 import stress from "./looks/stress.mjs";
 import braun from "./looks/braun.mjs";
 import olympia from "./looks/olympia.mjs";
+import pulsar from "./looks/pulsar.mjs";
 
 export {TOKENS, RUNTIME_TOKENS, HA_KEYS, haValue};
 /* Every look, Poster first (it is the default and the cards' fallback). A look with `harness: true` (stress) exists only
    for preview/shoot.js, one with `draft: true` (none since R10: braun and olympia are designed) only for the preview and the
    harness: both get a preview/looks.css block but no theme file. */
-export const LOOKS = [poster, stress, braun, olympia];
+export const LOOKS = [poster, stress, braun, olympia, pulsar];
 /* Looks the harness shoots by default (preview/shoot.js LOOKS): the real ones, Poster first; stress has its own runs. */
 export const SHOT_LOOKS = LOOKS.filter(l => !l.harness).map(l => l.id);
 export const POSTER = poster;

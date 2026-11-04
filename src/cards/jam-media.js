@@ -330,8 +330,8 @@ class JamMedia extends JamSheetHost(JamBase) {
     let cur = Math.round((Number(a.volume_level) || 0) * 100);
     const val = el("div", "v num", off ? "—" : String(cur));
     row.append(mute, track, val);
-    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; val.textContent = String(cur); track.setAttribute("aria-valuenow", cur); };
-    fill.style.width = (off ? 0 : cur) + "%";
+    const show = v => { cur = Math.max(0, Math.min(100, Math.round(v))); fill.style.width = cur + "%"; fill.style.setProperty("--lv", cur / 100); val.textContent = String(cur); track.setAttribute("aria-valuenow", cur); };
+    fill.style.width = (off ? 0 : cur) + "%"; fill.style.setProperty("--lv", (off ? 0 : cur) / 100); // --lv: level 0..1 (R10 look hook)
     if (off) return row;
     track.tabIndex = 0; track.setAttribute("role", "slider"); track.setAttribute("aria-label", "Volume");
     track.setAttribute("aria-valuemin", 0); track.setAttribute("aria-valuemax", 100); track.setAttribute("aria-valuenow", cur);

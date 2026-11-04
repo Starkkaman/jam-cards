@@ -24,6 +24,7 @@ function jamGraphSvg(tag, attrs, cls) {
   for (const k in attrs || {}) e.setAttribute(k, attrs[k]);
   return e;
 }
+defineMotif("graph", () => null); // Poster: the cards draw line / step / bars themselves (see _draw)
 class JamGraph extends JamBase {
   constructor() { super(); this._tok = 0; this._last = 0; this._lastQ = null; this._data = null; this._hover = null; }
   /* Never throws: a broken config renders as an in-card error (one bad card must not break a dashboard). */
@@ -317,7 +318,11 @@ class JamGraph extends JamBase {
       svg.append(t);
     }
     const n = d.series.length;
-    d.series.forEach((pts, i) => {
+    /* R10 hook: a look may draw the series itself (motif "graph": Pulsar's stacked ridge lines); it returns one y scale per
+       series for the crosshair marks. Poster's motif returns null and the series are drawn here. */
+    const own = motif("graph", this, svg, d, g);
+    g.ys = own || null;
+    if (!own) d.series.forEach((pts, i) => {
       const col = `var(--s${i + 1})`;
       if (g.style === "bars") {
         const gp = jamGraphSvg("g", {fill: col, "data-n": pts.length}, "bars");
@@ -375,7 +380,7 @@ class JamGraph extends JamBase {
       const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`);
       tip.append(sq, el("span", "", this._name(e)), el("span", "v num", v === null ? "—" : `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}`));
       if (v === null) marks[i].setAttribute("visibility", "hidden");
-      else { marks[i].removeAttribute("visibility"); marks[i].setAttribute("x", xx - 4); marks[i].setAttribute("y", Math.round(g.y(v)) - 4); }
+      else { marks[i].removeAttribute("visibility"); marks[i].setAttribute("x", xx - 4); marks[i].setAttribute("y", Math.round((g.ys ? g.ys[i] : g.y)(v)) - 4); }
     });
     this._xh.setAttribute("visibility", "visible");
     tip.hidden = false;
