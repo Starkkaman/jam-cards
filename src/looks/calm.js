@@ -358,7 +358,7 @@
       // a near-white lamp on the paper groove (Clean / Daylight by day) gets a hairline round its fill, so the level still reads
       const lr = lampRgb(s) || CREAM, gr = parseRgb(getComputedStyle(b).getPropertyValue("--jam-groove").trim());
       const pale = !!gr && contrastRatio(lr, gr) < 1.1;
-      pb.append(fader({card, orient: "v", value: pct, lit: on, color: col, pale, label: `${name} brightness`, cls: kio ? "" : "quiet",
+      pb.append(fader({card, orient: "v", value: pct, lit: on, color: col, pale, label: `${name} brightness`, cls: kio ? "" : "quiet", capText: v => (v ? String(v) : ""),
         live: v => card._setPct(c.entity, v), commit: v => card._setPct(c.entity, v)}));
     } else pb.classList.add(C("solo"));
     root.append(pb);
