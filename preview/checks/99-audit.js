@@ -431,7 +431,11 @@ module.exports = async (page, check) => {
     // keeps every block an outline (on = a 2px --fg outline + --fg state, off = the 1px line): there the ring weight differs.
     const looks = await page.evaluate(() => Object.keys(window.jamPreviewLookThemes || {}));
     const OUTLINE_LOOKS = new Set(["pulsar"]);
+    // A look that draws the kiosk itself (Jam Calm, the whole-card render hook) has its own minimal dock (plain keys, a Pause
+    // while playing; the door above it carries the alert) and leaves dock_state alone: checked by preview/checks/99-calm.js.
+    const own = new Set(await page.evaluate(ls => ls.filter(l => { const p = window.JamCards.lookPack(l); return !!(p && p.motifs && p.motifs.render); }), looks));
     for (const look of looks) for (const mode of ["dark", "light"]) {
+      if (own.has(look)) { console.log(`INFO jam-kiosk dock_state ${look} ${mode}: skipped (the look draws its own kiosk)`); continue; }
       const p = await lookPage(page, look, mode, 1024, 768);
       const d = await p.evaluate(async cfg => {
         const A = window.__au, wrap = document.createElement("div"); wrap.style.cssText = "padding:8px 16px 16px"; document.body.append(wrap);

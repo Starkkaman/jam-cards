@@ -2663,7 +2663,7 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
     const ot = out && !dead(out) ? (wx ? out.attributes.temperature : out.state) : null;
     Rt.append(lab("Outside"));
     const ob = ce("div", "big num", ot == null || !isFinite(Number(ot)) ? "—" : Math.round(Number(ot)) + "°");
-    if (wx && out && !dead(out)) ob.append(ce("span", "w", " " + lc(conditionWord(out.state))));
+    if (wx && out && !dead(out)) ob.append(ce("span", "w", " " + lc(conditionWord(out.state)).replace(/ night$/, "")));
     asButton(ob, () => moreInfo(card, c.outside_entity));
     Rt.append(ob);
     tp.append(L, Rt); root.append(tp);
@@ -3076,7 +3076,7 @@ button.chip::before{outline:2px solid var(--bru-k);outline-offset:-2px;box-shado
     const wx = (c.now || []).find(x => x.type === "weather"), ws = wx && stateObj(h, wx.entity);
     if (ws && !dead(ws)) {
       const tt = wx.temperature_entity && num(wx.temperature_entity) != null ? num(wx.temperature_entity) : Math.round(Number(ws.attributes.temperature));
-      facts.push(`${tt}° ${lc(conditionWord(ws.state))}`);
+      facts.push(`${tt}° ${lc(conditionWord(ws.state)).replace(/ night$/, "")}`);
       const hi = K.hi; if (hi) facts.push(hi);
     }
     if (facts.length) clk.append(ce("div", "f", facts.join(" · ")));
