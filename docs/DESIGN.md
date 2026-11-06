@@ -619,22 +619,31 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
   on, `--fg` when off, `--dim` when unavailable (disabled).
 - A jam-button with a power corner takes the `card` cut (bottom-right 14px) so its key cut does not clip the triangle.
 
-## Paddle (jam-light `switch: paddle`, opt-in, 2026-11-06; Jam Design pass 7 + Isaac's "give OFF its own clear marking")
+## Paddle (jam-light `switch: paddle`, opt-in, 2026-11-06; Jam Design pass 7, then Isaac: "I prefer the binary on off symbols to the words", "It should just look like it's rocking between on and off")
 The calm-look light switch, opt-in per card so every existing config keeps the power corner. The paddle replaces the
-corner: a real `<button class="paddle" data-key="power" aria-pressed>` ("<name> power"), two halves ON over OFF, on the
-right of the card (64px wide, 8px in; `size: kiosk` 96px, 12px in, 18px legends). The face stays the plain panel: no
-colour flood, no wash, no label plates, no member bands (the sub line says "2 of 3 on"); the brightness number and strip
-stay while on; off, the number slot is empty (the paddle says OFF once); offline keeps "Offline" there. Root classes `pon` / `poff` (not `on` / `off`, so no pack's lit-face rule applies) and `data-pd="day|night"` (light /
-dark `--slab`, for a pack); the host keeps `data-state`.
-State is shape + word, never colour alone:
-| State | ON half | OFF half | Rim |
-|---|---|---|---|
-| On, light mode (light `--slab`) | solid `--fg` block, legend in the light's colour (the look's light text when that is < 4.5:1 on `--fg`), a 5px band of the light's colour at its foot (8px kiosk) | plain, OFF `--dim` | `--fg` |
-| On, dark mode | solid block in the light's colour, legend `textOn()` | plain, OFF `--dim` | the light's colour |
-| Off | plain, ON `--dim` | **marked**: a 2px `--fg` frame inside the half (3px kiosk), a hollow ring (IEC 60417 "off" sign) before OFF, OFF in `--fg` | `--line` |
-| Offline | no legends, transparent, disabled | | 1.5px dashed `--dim` |
-Solid block = on, hollow frame + ring = off, dashed = offline: three shapes, each with its word. Radius = `--jam-radius-poster`
-(Poster: square). No transition (the change is a cut in every look). Check: preview/checks/96-paddle.js.
+corner with **one rocker** in two positions: a real `<button class="paddle" data-key="power" aria-pressed>` on the right of
+the card (64px wide, 8px in, 18px symbols; `size: kiosk` 96px, 12px in, 34px symbols with a ~4.5px stroke for 3 m). Its
+halves carry the IEC 60417 symbols drawn as SVG (24-unit viewBox, flat ends, `--fg` on both halves in every state): a
+bar (5007) on top, a circle (5008) below. **ON = the top (I) half pressed in, OFF = the bottom (O) half pressed in**: the
+same object flipped, mirror images of each other. No visible words on the paddle; the words stay for assistive tech and
+hover (`aria-label "<name> power, On|Off|Offline"`, `title` On / Off / Offline) and on the card (the number slot says "Off"
+or "Offline"). The face stays the plain panel: no colour flood, wash, label plates or member bands (the sub line says "2 of
+3 on"); the brightness number and strip stay while on. Root classes `pon` / `poff` (not `on` / `off`, so no pack's lit-face
+rule applies) and `data-pd="day|night"`; the host keeps `data-state`.
+Flat tones only (no gradients, blur or shadows), worked out per look and mode by `_paddle()`: base = the card face
+(`--slab`), lift = `--fg` mixed into it (sRGB) until it stands >= 3.2:1 off the face, the least mix that does.
+| Part | Light mode | Dark mode |
+|---|---|---|
+| Pressed half (flatter, darker) | lift | base |
+| Raised half (catches light) | base | lift |
+| Shading edge: the raised half's pivot side, 3px (kiosk 4px) | halfway between the two | same |
+| Rim 1.5px + split hairline | lift | lift |
+| Lamp colour | only while on: a 3px band (kiosk 5px) along the pressed I half's outer edge | same |
+| Offline | the same rocker, nothing pressed, transparent halves, dashed `--dim` rim and split, `--dim` symbols, disabled | same |
+The two halves are >= 3:1 apart, so which half is pressed reads from across the room; the symbols are >= 3:1 on either
+half. Motion: a real on/off change rocks the paddle once (`jam-pd-rock-on|off`: rotateX towards the new pressed half and back
+to flat, transform only, `calc(150ms * var(--dur))`, `--jam-ease-3`; `oneShot`), none with `prefers-reduced-motion` or
+`JamCards.motion = false`. Radius = `--jam-radius-poster` (Poster: square). Check: preview/checks/96-paddle.js.
 
 ## Motion (0.3.5, playful but one-shot)
 Every motion is a single stepped cut (`steps()`), ≤ 300 ms, animating transform / clip-path / opacity only; nothing loops,
