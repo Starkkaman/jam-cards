@@ -405,19 +405,24 @@ class JamTv extends JamSheetHost(JamBase) {
       r.style.setProperty("--rk", "var(--violet)");
       pane.append(r);
     }
-    const tabs = [];
+    const seg = this._tabs();
+    if (seg) pane.append(seg);
+    return pane;
+  }
+  /* Remote / Source tabs (outlined keys with glyphs). Also on the off pane (2026-11-06, Isaac: "remote popup should be
+     selectable even with the TV off"): the remote's power key turns the TV on. */
+  _tabs() {
+    const c = this._config, tabs = [];
     if (this._remoteCfg().entity) tabs.push(["remote", "remote", c.remote_title || "Remote", () => this._openRemote()]);
     if (this._sources.length || this._homeRun()) tabs.push(["source", "source", c.source_label || "Source", () => this._openSources()]);
-    if (tabs.length) {
-      const seg = el("div", "seg");
-      for (const [id, g, label, run] of tabs) {
-        const k = this._key(label, id, "ol tab", run);
-        k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g, "", this));
-        seg.append(k);
-      }
-      pane.append(seg);
+    if (!tabs.length) return null;
+    const seg = el("div", "seg");
+    for (const [id, g, label, run] of tabs) {
+      const k = this._key(label, id, "ol tab", run);
+      k.setAttribute("aria-haspopup", "dialog"); k.firstChild.prepend(jamGlyph(g, "", this));
+      seg.append(k);
     }
-    return pane;
+    return seg;
   }
   /* Off / unavailable: big Turn on key + quick source tiles. */
   _offPane() {
@@ -430,6 +435,9 @@ class JamTv extends JamSheetHost(JamBase) {
       for (const l of this._sources) g.append(this._tile(l, false, false, true));
       pane.append(g);
     }
+    // The Remote (and Source) tabs stay while the TV is off: the remote's power key wakes it (2026-11-06).
+    const seg = this._tabs();
+    if (seg) pane.append(seg);
     return pane;
   }
   render(b) {

@@ -157,10 +157,12 @@ module.exports = async (page, check, {callsNow}) => {
   check(og.pw === RED && og.pwc === INK, `jam-tv: power is red with an ink glyph when off (${og.pw} / ${og.pwc})`);
   const offKeys = await offc.locator(".pane").evaluate(p => ({turn: [...p.querySelectorAll(".turnon")].map(b => ({t: b.textContent.trim(), bg: getComputedStyle(b.firstChild).backgroundColor,
     svg: !!b.querySelector("svg"), h: Math.round(b.getBoundingClientRect().height)})), tiles: [...p.querySelectorAll(".src .tile")].map(t => t.dataset.app + (t.classList.contains("cur") ? "*" : "")),
-    other: p.querySelectorAll(".keys, .rock, .seg").length}));
+    other: p.querySelectorAll(".keys, .rock").length, tabs: [...p.querySelectorAll(".seg .key")].map(k => k.dataset.key + (k.disabled ? ":disabled" : ""))}));
   check(offKeys.turn.length === 1 && offKeys.turn[0].t === "Turn on" && offKeys.turn[0].bg === RED && offKeys.turn[0].svg && offKeys.turn[0].h >= 56,
     `jam-tv: off -> big red Turn on key with a power glyph (${JSON.stringify(offKeys.turn[0])})`);
-  check(offKeys.tiles.length === 6 && !offKeys.tiles.some(x => x.endsWith("*")) && offKeys.other === 0, `jam-tv: off -> quick source tiles (${offKeys.tiles}), nothing marked, no transport / rocker / tabs`);
+  check(offKeys.tiles.length === 6 && !offKeys.tiles.some(x => x.endsWith("*")) && offKeys.other === 0, `jam-tv: off -> quick source tiles (${offKeys.tiles}), nothing marked, no transport / rocker`);
+  // 2026-11-06 (Isaac: "remote popup should be selectable even with the TV off"): the Remote and Source tabs stay on the off card.
+  check(offKeys.tabs.join() === "remote,source", `jam-tv: off -> the Remote and Source tabs stay, enabled (${offKeys.tabs.join(", ")})`);
   await reset(); await offc.locator(".turnon").click();
   c = await callsNow();
   check(c.length === 1 && c[0].domain === "remote" && c[0].service === "toggle", "jam-tv: Turn on runs the power action (remote.toggle)");
