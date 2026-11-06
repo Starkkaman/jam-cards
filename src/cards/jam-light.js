@@ -7,7 +7,17 @@
     (extra chips in the pop-up), show_brightness?, show_color_temp? (the whites), show_color? (hue strip + your colours),
     show_members? (default true), member_bands?: "full" (default) | "corner" (group cards), tap_action? (default: open the
     pop-up), hold_action? (default: open the pop-up), size?: "kiosk" (audit 2026-11-03, opt-in: a 150px card for kiosk
-    sheets: 36px name, 18px sub line, 52px %, 64px power corner, 14px strip; nothing under 18px)}
+    sheets: 36px name, 18px sub line, 52px %, 64px power corner, 14px strip; nothing under 18px), switch?: "corner" (default)
+    | "paddle" (2026-11-06, opt-in, Jam Design pass 7: the ON/OFF paddle instead of the power corner, see "Paddle" below)}
+   Paddle (switch: paddle): the face stays the panel (no colour flood, no wash, no member bands: the sub line says "2 of 3
+   on"); a two-half <button class="paddle" aria-pressed> on the right is the state and the power toggle. ON = the ON half
+   is a solid block and the rim takes its colour: in light mode (a light --slab) the block is --fg with the ON legend in
+   the light's colour (light text when that is under 4.5:1 on --fg) over a 5px band of it (8px kiosk); in dark mode the
+   block is the light's colour with textOn() text. OFF = the OFF half carries its own mark: a 2px --fg frame inside it
+   (3px kiosk), a hollow ring (the IEC 60417 "off" sign) and OFF in --fg; the ON legend is --dim. Offline = a dashed
+   --dim rim, no legends, disabled. Root classes pon / poff instead of on / off, so no look pack's lit-face rules apply;
+   the host keeps data-state. The brightness number and strip stay while on (strip in the light's colour, on a --slab2
+   track); off, the number slot stays empty (the paddle says OFF); offline still reads "Offline" there.
    Card (ROUND3 "Lights", 96px tall, grid rows auto): when on the face is the light's hue at full value (rgb_color scaled so
    the max channel is 255; kelvin -> rgb in color_temp mode; else the accent, resolved to rgb); text ink or paper, whichever
    contrasts more (textOn); when neither reaches 4.5:1 the name and the number sit on ink label plates. Name 24px display,
@@ -157,6 +167,7 @@ class JamLight extends JamBase {
     if (c.whites != null && !Array.isArray(c.whites)) throw new Error("jam-light: whites must be a list of {name, kelvin}");
     if (c.preset_entity != null && !/^(input_)?select\./.test(c.preset_entity)) throw new Error("jam-light: preset_entity must be a select");
     if (c.member_bands != null && c.member_bands !== "full" && c.member_bands !== "corner") throw new Error('jam-light: member_bands must be "full" or "corner"');
+    if (c.switch != null && c.switch !== "corner" && c.switch !== "paddle") throw new Error('jam-light: switch must be "corner" or "paddle"');
   }
   watched() {
     const c = this._config, s = stateObj(this._hass, c.entity);
@@ -257,6 +268,34 @@ class JamLight extends JamBase {
     .lc.kiosk .pct small{font-size:max(18px,calc(26px * var(--num-scale)))}
     .lc.kiosk .bs{height:14px}
     .lc.kiosk .bands{bottom:14px}
+    /* switch: paddle (opt-in). Layout rules are .lc.pdl-scoped so they win over a pack's .lc rules (tap padding, strip
+       position, Braun's toggle gap). --pdw = paddle width, --pdi = its inset from the face edge. */
+    .lc.pdl{--pdw:64px;--pdi:8px}
+    .lc.pdl .tap{padding-right:calc(var(--pdw) + var(--pdi) * 2)}
+    .lc.pdl .top::before{content:none}
+    .lc.pdl .bs{right:calc(var(--pdw) + var(--pdi) * 2)}
+    .lc.pdl.pon .bs{display:block;background:var(--slab2)}
+    .lc.pdl.pon .bs i{background:var(--lc)}
+    .paddle{position:absolute;top:var(--pdi);right:var(--pdi);bottom:var(--pdi);width:var(--pdw);z-index:2;box-sizing:border-box;display:grid;
+      grid-template-rows:1fr 1fr;overflow:hidden;background:var(--slab);border:1.5px solid var(--line);border-radius:var(--jam-radius-poster,0px);
+      font:var(--lbl-w) 12px/1 var(--body);--pd-track:calc(.16em * var(--lbl-track));letter-spacing:var(--pd-track);text-transform:uppercase;color:var(--dim)}
+    /* padding-left = the tracking, so the legends centre (letter-spacing also follows the last letter) */
+    .paddle i{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;padding-left:var(--pd-track);font-style:normal;min-width:0;white-space:nowrap}
+    .paddle .pd-off{border-top:1px solid var(--line)}
+    /* ON: the ON half is the solid block (--pd-on, set per mode by render) and the rim + split take its colour. */
+    .paddle[aria-pressed=true]{border-color:var(--pd-on)}
+    .paddle[aria-pressed=true] .pd-on{background:var(--pd-on);color:var(--pd-on-fg);box-shadow:inset 0 calc(var(--pd-band,0px) * -1) 0 var(--lc)}
+    .paddle[aria-pressed=true] .pd-off{border-top-color:var(--pd-on)}
+    /* OFF: its own mark. A frame inside the OFF half, a hollow ring and the word, all in --fg. */
+    .paddle[aria-pressed=false] .pd-off{color:var(--fg)}
+    .paddle[aria-pressed=false] .pd-off::after{content:"";position:absolute;inset:var(--pd-fi,4px);border:var(--pd-fw,2px) solid var(--fg);
+      border-radius:max(0px,calc(var(--jam-radius-poster,0px) - var(--pd-fi,4px)));pointer-events:none}
+    .paddle[aria-pressed=false] .pd-off::before{content:"";flex:none;box-sizing:border-box;width:.86em;height:.86em;border:var(--pd-fw,2px) solid currentColor;border-radius:50%}
+    .paddle:disabled{cursor:default;background:transparent;border:1.5px dashed var(--dim)}
+    .paddle:disabled i{visibility:hidden}
+    .paddle:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+    .lc.kiosk.pdl{--pdw:96px;--pdi:12px}
+    .lc.kiosk .paddle{font-size:18px;--pd-fi:6px;--pd-fw:3px}
     @supports selector(:has(a)){
       .tap:focus-visible{outline:none}
       .lc:has(.tap:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
@@ -280,7 +319,9 @@ class JamLight extends JamBase {
   render(b) {
     const c = this._config, h = this._hass, s = stateObj(h, c.entity);
     const dead = !s || UNAVAILABLE.has(s.state), on = !!s && s.state === "on", pct = lightPct(s), name = this._name();
-    const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? "on" : "off") + (c.size === "kiosk" ? " kiosk" : ""), face: dead ? "unavail" : ""});
+    // switch: paddle (opt-in): root classes pon / poff, so the looks' lit-face rules (.lc.on) never paint the face.
+    const pdl = c.switch === "paddle", [ON, OFF] = pdl ? ["pon", "poff"] : ["on", "off"];
+    const {root, face} = this.paper(c.entity, {cls: "lc " + (dead ? "dead" : on ? ON : OFF) + (c.size === "kiosk" ? " kiosk" : "") + (pdl ? " pdl" : ""), face: dead ? "unavail" : ""});
     b.append(root); // in the page first, so an accent face can be resolved to rgb
     jamState(this, dead ? "offline" : on ? "on" : "off");
     // Face colour: computed for the off state too, so a drag preview from off shows the light's colour.
@@ -293,7 +334,7 @@ class JamLight extends JamBase {
       fill = rgbCss(rgb);
       root.style.setProperty("--lc", fill); root.style.setProperty("--lc-fg", t.fg);
       root.style.setProperty("--lc-mid", rgbCss(shade(rgb, 1))); root.style.setProperty("--lc-deep", rgbCss(shade(rgb, 2)));
-      if (t.plate) root.classList.add("plate");
+      if (t.plate && !pdl) root.classList.add("plate");
       // Look hook (R10): the light's colour as text on the plain card face when it reads (>= 4.5:1), else the text colour.
       // Poster never reads it; a look whose on-face stays the card face (Olympia) colours the big number with it.
       let slab = null; try { slab = parseRgb(getComputedStyle(b).getPropertyValue("--slab").trim()); } catch (e) { /* not in a page */ }
@@ -304,7 +345,7 @@ class JamLight extends JamBase {
     // card in 3 steps (a slab cover retreats to the right), or wipes out in 2 (the old colour retreats to the left).
     const was = this._prevOn, wasFill = this._prevFill;
     this._prevOn = dead ? null : on; this._prevFill = fill;
-    if (was != null && !dead && was !== on && motionOn()) {
+    if (was != null && !dead && was !== on && motionOn() && !pdl) { // the paddle face never changes colour: no wash
       const w = el("div", "jam-wash " + (on ? "in" : "out"));
       w.setAttribute("aria-hidden", "true"); w.style.background = on ? "var(--slab)" : wasFill;
       face.append(w);
@@ -316,14 +357,17 @@ class JamLight extends JamBase {
     const sub = this._sub(s, true); if (sub) top.append(el("div", "sub", sub));
     const num = el("div", "pct num");
     const bs = el("div", "bs"), bi = el("i"); bs.append(bi); bs.setAttribute("aria-hidden", "true");
+    let pad = null; // the paddle (switch: paddle), created below; show() keeps its state in step with a drag preview
     const show = (v, isOn) => {
       num.textContent = "";
+      if (pad && !dead) pad.setAttribute("aria-pressed", isOn ? "true" : "false");
       if (dead) num.append(el("small", null, s ? OFFLINE : "Missing"));
       else if (isOn) num.append(document.createTextNode(String(v)), el("small", null, "%"));
-      else num.append(el("small", null, "Off"));
+      else if (!pad) num.append(el("small", null, "Off")); // the paddle already says OFF (say it once)
       bi.style.width = (isOn ? v : 0) + "%"; bi.style.setProperty("--lv", (isOn ? v : 0) / 100); // level 0..1 (R10 look hook)
       tap.setAttribute("aria-label", `${name}: ${dead ? "offline" : isOn ? v + "%" : "off"}`);
     };
+    if (pdl) pad = this._paddle(b, root, {name, dead, rgb, tc});
     show(pct, on);
     tap.append(top, num);
     tap.tabIndex = dead ? -1 : 0; tap.setAttribute("role", "button");
@@ -332,7 +376,7 @@ class JamLight extends JamBase {
     face.append(tap, bs);
     // Group member bands (ROUND3): one vertical band per member, off members slab2.
     const ids = this._memberIds(s), full = (c.member_bands || "full") === "full";
-    if (ids.length && !dead) {
+    if (ids.length && !dead && !pdl) {
       const bands = el("div", "bands " + (full ? "full" : "corner")); bands.setAttribute("aria-hidden", "true");
       for (const id of ids) {
         const m = stateObj(h, id), mo = !!m && m.state === "on", mc = mo ? fullRgb(lightRgb(m)) || rgb : null;
@@ -343,9 +387,32 @@ class JamLight extends JamBase {
     }
     let [pbg, pfg] = cornerColors(on ? corner : null, null, tc);
     if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
-    face.append(powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
-    if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s)});
+    face.append(pad || powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
+    if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s), cls: [ON, OFF]});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();
+  }
+  /* The ON/OFF paddle (switch: paddle): a real <button aria-pressed>, the power toggle. Colours per mode: a light --slab
+     (light mode) = an --fg block with the light's colour as legend (when >= 4.5:1 on --fg, else the look's light text)
+     over a band of it; a dark --slab = a block in the light's colour with textOn() text. The OFF marking is CSS only. */
+  _paddle(b, root, {name, dead, rgb, tc}) {
+    const kiosk = this._config.size === "kiosk", cs = getComputedStyle(b);
+    const rgbOf = n => parseRgb(cs.getPropertyValue(n).trim()) || resolveRgb(b, `var(${n})`);
+    const slab = rgbOf("--slab"), day = !!slab && luminance(slab) > .35;
+    let blk = "var(--fg)", ink = tc.lightCss, band = (kiosk ? 8 : 5) + "px";
+    if (day) { const fg = rgbOf("--fg"); if (rgb && fg && contrastRatio(rgb, fg) >= 4.5) ink = rgbCss(rgb); }
+    else if (rgb) { blk = rgbCss(rgb); ink = textOn(rgb, tc).fg; band = "0px"; }
+    else { blk = "var(--acc)"; ink = "var(--acc-fg)"; band = "0px"; }
+    root.style.setProperty("--pd-on", blk); root.style.setProperty("--pd-on-fg", ink); root.style.setProperty("--pd-band", band);
+    root.dataset.pd = day ? "day" : "night";
+    const pad = el("button", "paddle"); pad.type = "button";
+    pad.dataset.key = "power"; pad.disabled = !!dead;
+    pad.setAttribute("aria-label", name + " power");
+    const a = el("i", "pd-on", "ON"), o = el("i", "pd-off", "OFF");
+    a.setAttribute("aria-hidden", "true"); o.setAttribute("aria-hidden", "true");
+    pad.append(a, o);
+    pad.addEventListener("click", e => { e.stopPropagation(); this._power(); });
+    pad.addEventListener("pointerdown", e => e.stopPropagation()); // never the card's own gestures (print, hold, drag)
+    return pad;
   }
   _tap() {
     if (this._config.tap_action) runAction(this, this._hass, this._config.tap_action, this._config.entity);
@@ -364,8 +431,9 @@ class JamLight extends JamBase {
     const c = this._config;
     let p = null; // current press: {x, y, mode: press|drag|scroll, held, v, timer}
     // A drag preview already shows the colour: the state update that follows must not wash it in again.
-    const preview = v => { root.classList.add("on"); root.classList.remove("off"); st0.show(v, true); this._prevOn = true; };
-    const revert = () => { root.classList.toggle("on", st0.on); root.classList.toggle("off", !st0.on); st0.show(st0.pct, st0.on); this._prevOn = st0.on; };
+    const [ON, OFF] = st0.cls || ["on", "off"];
+    const preview = v => { root.classList.add(ON); root.classList.remove(OFF); st0.show(v, true); this._prevOn = true; };
+    const revert = () => { root.classList.toggle(ON, st0.on); root.classList.toggle(OFF, !st0.on); st0.show(st0.pct, st0.on); this._prevOn = st0.on; };
     const unpress = () => root.classList.remove("pressing");
     tap.addEventListener("contextmenu", e => e.preventDefault());
     tap.addEventListener("pointerdown", e => {

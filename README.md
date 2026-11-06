@@ -259,6 +259,7 @@ entity: light.living_room
 | `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
 | `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
 | `size` | `kiosk` (opt-in): a 150 px block for kiosk sheets — 36 px name, 18 px sub line, 52 px number, 64 px power corner, nothing under 18 px. Two to a row (`columns: 2` on the jam-kiosk block) gives the big-light sheet |
+| `switch` | `corner` (default: the power corner) or `paddle` (opt-in): an ON/OFF paddle on the right instead of the corner, and the face stays the plain panel. On = the ON half is a solid block (light mode: text colour with the light's colour in the legend and a band; dark mode: the light's own colour) and the rim takes its colour. Off = the OFF half is marked with a frame, a hollow ring and OFF in the text colour. Offline = a dashed rim. Group member bands are left out (the sub line says "2 of 3 on") |
 
 A light Home Assistant cannot reach reads "Offline" on a hollow card with a dashed edge (each look draws its own broken form).
 

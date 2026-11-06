@@ -619,6 +619,23 @@ State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = li
   on, `--fg` when off, `--dim` when unavailable (disabled).
 - A jam-button with a power corner takes the `card` cut (bottom-right 14px) so its key cut does not clip the triangle.
 
+## Paddle (jam-light `switch: paddle`, opt-in, 2026-11-06; Jam Design pass 7 + Isaac's "give OFF its own clear marking")
+The calm-look light switch, opt-in per card so every existing config keeps the power corner. The paddle replaces the
+corner: a real `<button class="paddle" data-key="power" aria-pressed>` ("<name> power"), two halves ON over OFF, on the
+right of the card (64px wide, 8px in; `size: kiosk` 96px, 12px in, 18px legends). The face stays the plain panel: no
+colour flood, no wash, no label plates, no member bands (the sub line says "2 of 3 on"); the brightness number and strip
+stay while on; off, the number slot is empty (the paddle says OFF once); offline keeps "Offline" there. Root classes `pon` / `poff` (not `on` / `off`, so no pack's lit-face rule applies) and `data-pd="day|night"` (light /
+dark `--slab`, for a pack); the host keeps `data-state`.
+State is shape + word, never colour alone:
+| State | ON half | OFF half | Rim |
+|---|---|---|---|
+| On, light mode (light `--slab`) | solid `--fg` block, legend in the light's colour (the look's light text when that is < 4.5:1 on `--fg`), a 5px band of the light's colour at its foot (8px kiosk) | plain, OFF `--dim` | `--fg` |
+| On, dark mode | solid block in the light's colour, legend `textOn()` | plain, OFF `--dim` | the light's colour |
+| Off | plain, ON `--dim` | **marked**: a 2px `--fg` frame inside the half (3px kiosk), a hollow ring (IEC 60417 "off" sign) before OFF, OFF in `--fg` | `--line` |
+| Offline | no legends, transparent, disabled | | 1.5px dashed `--dim` |
+Solid block = on, hollow frame + ring = off, dashed = offline: three shapes, each with its word. Radius = `--jam-radius-poster`
+(Poster: square). No transition (the change is a cut in every look). Check: preview/checks/96-paddle.js.
+
 ## Motion (0.3.5, playful but one-shot)
 Every motion is a single stepped cut (`steps()`), ≤ 300 ms, animating transform / clip-path / opacity only; nothing loops,
 nothing runs per frame. Classes are added by JS once and never on a plain hass update; `oneShot()` removes them on
