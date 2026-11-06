@@ -13,14 +13,18 @@ import newwave from "./looks/newwave.mjs";
 import brutal from "./looks/brutal.mjs";
 import glass from "./looks/glass.mjs";
 import girard from "./looks/girard.mjs";
+import calm from "./looks/calm.mjs";
 
 export {TOKENS, RUNTIME_TOKENS, HA_KEYS, haValue};
 /* Every look, Poster first (it is the default and the cards' fallback). A look with `harness: true` (stress) exists only
    for preview/shoot.js, one with `draft: true` (none since R10: braun and olympia are designed) only for the preview and the
    harness: both get a preview/looks.css block but no theme file. */
-export const LOOKS = [poster, stress, braun, olympia, transit, grid, pulsar, newwave, brutal, glass, girard];
-/* Looks the harness shoots by default (preview/shoot.js LOOKS): the real ones, Poster first; stress has its own runs. */
-export const SHOT_LOOKS = LOOKS.filter(l => !l.harness).map(l => l.id);
+export const LOOKS = [poster, stress, braun, olympia, transit, grid, pulsar, newwave, brutal, glass, girard, calm];
+/* Looks the harness shoots by default (preview/shoot.js LOOKS): the real ones, Poster first; stress has its own runs. A look
+   with `layouts: true` (Calm, 2026-11-06) draws the cards it knows in layouts of its own (the whole-card render hook), so
+   shoot.js / fit.js / views.js, which measure the cards' own DOM, do not apply to it: preview/checks/99-calm.js checks it on
+   the preview page and ../jam-home's labs runner (preview/labs.js: fit, overflow, contrast, 44px, no scroll) checks its labs. */
+export const SHOT_LOOKS = LOOKS.filter(l => !l.harness && !l.layouts).map(l => l.id);
 export const POSTER = poster;
 
 const MODES = ["dark", "light"];

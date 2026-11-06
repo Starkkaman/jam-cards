@@ -10,8 +10,8 @@
 const THEME_OF = look => ({poster: "JamBoard", braun: "Jam Braun", olympia: "Jam Olympia", transit: "Jam Transit", grid: "Jam Grid",
   pulsar: "Jam Pulsar", newwave: "Jam New Wave", brutal: "Jam Brutal", glass: "Jam Glass", girard: "Jam Girard"})[look];
 // Default tiles: JamBoard, then every "Jam ..." theme by name, then the system default; each swatch in its look's display font.
-const PICK_TILES = "JamBoard|Jam Braun|Jam Brutal|Jam Girard|Jam Glass|Jam Grid|Jam New Wave|Jam Olympia|Jam Pulsar|Jam Transit|default";
-const PICK_FONTS = "Londrina Solid|Archivo|Bricolage Grotesque|Fraunces|Figtree|Hanken Grotesk|Archivo|Albert Sans|Archivo|Arimo";
+const PICK_TILES = "JamBoard|Jam Braun|Jam Brutal|Jam Calm|Jam Girard|Jam Glass|Jam Grid|Jam New Wave|Jam Olympia|Jam Pulsar|Jam Transit|default";
+const PICK_FONTS = "Londrina Solid|Archivo|Bricolage Grotesque|Jost|Fraunces|Figtree|Hanken Grotesk|Archivo|Albert Sans|Archivo|Arimo";
 module.exports = async (page, check) => {
   const r = await page.evaluate(async () => {
     const J = window.JamCards, h = window.__hass, de = document.documentElement;
@@ -148,7 +148,7 @@ module.exports = async (page, check) => {
   check(r.fits > 0, `jam-kiosk re-measures after the look's fonts load (${r.fits} fit passes)`);
   for (const p of r.picker)
     check(p.host === p.look && p.tiles === PICK_TILES && p.on === THEME_OF(p.look) && p.fonts === PICK_FONTS && p.loaded && p.sheet,
-      `jam-looks under ${p.look}: data-look (${p.host}) + pack sheet (${p.sheet}), tiles = the ten looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded ${p.loaded}), label in ${p.label}, ${p.on} marked`);
+      `jam-looks under ${p.look}: data-look (${p.host}) + pack sheet (${p.sheet}), tiles = the eleven looks + system default (${p.tiles}), each swatch in its own look's font (${p.fonts}, loaded ${p.loaded}), label in ${p.label}, ${p.on} marked`);
   check(r.back.hosts === "poster" && r.back.sheets && r.back.pop === "poster" && r.back.ov === "poster" && !r.back.fx && /Londrina/.test(r.back.ff),
     `back to Poster: hosts, sheet and screensaver poster, two sheets per card, no data-fx (${JSON.stringify(r.back)})`);
 };

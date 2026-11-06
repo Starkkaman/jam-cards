@@ -257,7 +257,7 @@ const JAM_EDITORS = {
   },
   "jam-light": {
     schema: [jeEnt("entity", "light", {required: true}), jeGrid(jeText("name"), {name: "icon", selector: {icon: {}}, context: {icon_entity: "entity"}}),
-      jeText("kicker"), JE_ACCENT, jeSel("switch", ["corner", "paddle"], {default: "corner"}),
+      jeText("kicker"), JE_ACCENT, jeSel("switch", ["corner", "paddle", "toggle"], {default: "corner"}),
       jeMore("Pop-up", [jeGrid(jeBool("show_brightness", true), jeBool("show_members", true), jeBool("show_color_temp"), jeBool("show_color")),
         jeEnt("preset_entity", ["select", "input_select"]), jeEnt("timer_script", "script"),
         jeSel("member_bands", ["full", "corner"], {default: "full"})]),

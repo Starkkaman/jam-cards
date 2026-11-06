@@ -8,7 +8,11 @@
     show_members? (default true), member_bands?: "full" (default) | "corner" (group cards), tap_action? (default: open the
     pop-up), hold_action? (default: open the pop-up), size?: "kiosk" (audit 2026-11-03, opt-in: a 150px card for kiosk
     sheets: 36px name, 18px sub line, 52px %, 64px power corner, 14px strip; nothing under 18px), switch?: "corner" (default)
-    | "paddle" (2026-11-06, opt-in, Jam Design pass 7: the ON/OFF paddle instead of the power corner, see "Paddle" below)}
+    | "paddle" (2026-11-06, opt-in, Jam Design pass 7: the ON/OFF paddle instead of the power corner, see "Paddle" below)
+    | "toggle" (2026-11-06, opt-in: the small channel-reveal switch, core jamSwitch, top-right instead of the corner; its
+    accent is the plug / power kind, switch_accent? overrides), glyph? (Jam Calm: the lamp drawing on the name row —
+    floor | table | strip | pendant | bulb | string | lantern; default from the name), automations? ([automation ids]: Jam
+    Calm's light pop-up lists them with small switches)}
    Paddle (switch: paddle; Isaac 2026-11-06: "I prefer the binary on off symbols to the words", "It should just look like
    it's rocking between on and off"): the face stays the panel (no colour flood, no wash, no member bands: the sub line
    says "2 of 3 on"); on the right, one rocker <button class="paddle" aria-pressed>, the state and the power toggle, with
@@ -170,7 +174,7 @@ class JamLight extends JamBase {
     if (c.whites != null && !Array.isArray(c.whites)) throw new Error("jam-light: whites must be a list of {name, kelvin}");
     if (c.preset_entity != null && !/^(input_)?select\./.test(c.preset_entity)) throw new Error("jam-light: preset_entity must be a select");
     if (c.member_bands != null && c.member_bands !== "full" && c.member_bands !== "corner") throw new Error('jam-light: member_bands must be "full" or "corner"');
-    if (c.switch != null && c.switch !== "corner" && c.switch !== "paddle") throw new Error('jam-light: switch must be "corner" or "paddle"');
+    if (c.switch != null && !["corner", "paddle", "toggle"].includes(c.switch)) throw new Error('jam-light: switch must be "corner", "paddle" or "toggle"');
   }
   watched() {
     const c = this._config, s = stateObj(this._hass, c.entity);
@@ -308,6 +312,11 @@ class JamLight extends JamBase {
     @keyframes jam-pd-rock-off{0%{transform:perspective(240px) rotateX(9deg)}55%{transform:perspective(240px) rotateX(-9deg)}100%{transform:none}}
     .paddle.rock-on{animation:jam-pd-rock-on calc(150ms * var(--dur,1)) var(--jam-ease-3,steps(3,end))}
     .paddle.rock-off{animation:jam-pd-rock-off calc(150ms * var(--dur,1)) var(--jam-ease-3,steps(3,end))}
+    /* switch: toggle (opt-in): the small switch top-right, the name and number keep clear of it. */
+    .lc.tgl .tap{padding-right:72px}
+    .lc.tgl > .face > .jsw{position:absolute;top:12px;right:12px;z-index:2}
+    .lc.kiosk.tgl .tap{padding-right:100px}
+    .lc.kiosk.tgl > .face > .jsw{top:18px;right:18px;--w:66px;--h:40px;--p:4px}
     .lc.kiosk.pdl{--pdw:96px;--pdi:12px}
     .lc.kiosk .paddle{--pd-sym:34px;--pd-sw:3.2;--pd-ew:4px;--pd-band:5px} /* kiosk: a 34px symbol, ~4.5px stroke (read at 3 m) */
     @supports selector(:has(a)){
@@ -402,7 +411,11 @@ class JamLight extends JamBase {
     }
     let [pbg, pfg] = cornerColors(on ? corner : null, null, tc);
     if (on && ids.length && full) { pbg = "var(--ink)"; pfg = "var(--ink-fg)"; } // V2: ink corner on top of the bands
-    face.append(pad || powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
+    // switch: toggle (2026-11-06, opt-in): the small channel-reveal switch (core jamSwitch) top-right instead of the corner.
+    if (c.switch === "toggle") {
+      root.classList.add("tgl");
+      face.append(jamSwitch({on, label: `${name} power`, kind: "plug", accent: c.switch_accent, offline: dead, onToggle: () => this._power()}));
+    } else face.append(pad || powerCorner({name, on, disabled: dead, bg: pbg, fg: pfg, onClick: () => this._power(), ctx: this}));
     if (rock && pad) oneShot(pad, on ? "rock-on" : "rock-off");
     if (!dead) this._gestures(tap, root, {on, pct, show, dims: lightDims(s), cls: [ON, OFF]});
     if (this._sheet && this._sheet.isOpen()) this._fillSheet();

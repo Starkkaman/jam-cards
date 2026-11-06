@@ -122,6 +122,28 @@ ${SHAPE_CSS}
 .strip{position:absolute;inset:5px 0;background:var(--slab2)}
 .fill{position:absolute;inset:0 auto 0 0;background:var(--acc);clip-path:var(--jam-shape-strip-end,polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%))}
 .track:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+/* Small switch (2026-11-06, Jam Design pass 7 "channel-reveal switch"; jamSwitch): a pill channel, plain dark when off;
+   on, the thumb slides right and the accent (--swa, by kind) is revealed in the channel from the left edge. Flat, no glow,
+   180 ms on the settle curve (transform + clip-path); instant with JamCards.motion = false or prefers-reduced-motion.
+   44px hit area (::before). Disabled = a hollow channel; offline ([data-un]) = a dashed outline with a centred dash. */
+.jsw{position:relative;flex:none;--w:46px;--h:28px;--p:3px;width:var(--w);height:var(--h);border-radius:999px;padding:0;
+  background:var(--jam-switch-off,var(--slab2));box-shadow:inset 0 0 0 1px var(--jam-switch-rim,var(--line));--swd:calc(180ms * var(--jam-motion,1))}
+.jsw::before{content:"";position:absolute;inset:-8px -6px}
+.jsw .rv{position:absolute;inset:0;border-radius:inherit;background:var(--swa,var(--blue));clip-path:inset(0 100% 0 0 round 999px);transition:clip-path var(--swd) cubic-bezier(.16,1,.3,1)}
+.jsw[aria-checked=true] .rv{clip-path:inset(0 0 0 0 round 999px)}
+.jsw .th{position:absolute;top:var(--p);left:var(--p);width:calc(var(--h) - 2 * var(--p));height:calc(var(--h) - 2 * var(--p));border-radius:50%;
+  background:var(--jam-switch-thumb,var(--fg));transition:transform var(--swd) cubic-bezier(.16,1,.3,1)}
+.jsw[aria-checked=true] .th{transform:translateX(calc(var(--w) - var(--h)))}
+.jsw:active .th{transform:scale(.86)}
+.jsw[aria-checked=true]:active .th{transform:translateX(calc(var(--w) - var(--h))) scale(.86)}
+.jsw:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.jsw:disabled{cursor:default;background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.jsw:disabled .rv{display:none} .jsw:disabled .th{background:var(--line)}
+.jsw[data-un]{background:transparent;box-shadow:none;outline:1.5px dashed var(--dim);outline-offset:-1.5px}
+.jsw[data-un] .rv,.jsw[data-un] .th{display:none}
+.jsw[data-un]::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:2px;margin:-1px 0 0 -6px;background:var(--dim);border-radius:1px}
+.jsw.big{--w:66px;--h:40px;--p:4px}
+@media (prefers-reduced-motion:reduce){.jsw .rv,.jsw .th{transition:none}}
 /* Golden Arm bars motif (empty-state placeholder): straight bars. */
 .arm{display:flex;align-items:flex-end;gap:6px;height:44px}
 .arm span{background:var(--acc)}
@@ -414,6 +436,52 @@ function setAccent(node, a) {
   return true;
 }
 
+/* ---------- small switch (2026-11-06, Jam Design pass 7) ---------- */
+/* The channel-reveal switch for anything plainly on / off and instant (plugs, fans, automations, settings; never lights by
+   default, destructive actions, slow actions or 3+ choices). Accent by kind (Isaac: "colour by kind, with a per-device
+   override"): plug = power / plugs (blue), climate = air / climate (teal), auto = automations (violet), set = settings
+   (steel). The look's theme sets them (--jam-switch-<kind>); `accent` (an accent name, room alias or a CSS colour)
+   overrides. Never the control orange or ok / warn / alert. */
+const JAM_SWITCH_KINDS = Object.freeze({plug: "var(--jam-switch-plug,var(--blue))", climate: "var(--jam-switch-climate,var(--teal))",
+  auto: "var(--jam-switch-auto,var(--violet))", set: "var(--jam-switch-set,var(--dim))"});
+/* A kind for an entity: fan / climate / humidifier / air purifier = climate, automation = auto, input_boolean = set, else plug. */
+function jamSwitchKind(id, kind) {
+  if (kind && JAM_SWITCH_KINDS[kind]) return kind;
+  const d = String(id || "").split(".")[0];
+  return d === "fan" || d === "climate" || d === "humidifier" ? "climate" : d === "automation" ? "auto" : d === "input_boolean" ? "set" : "plug";
+}
+/* An accent override for the switch: an accent name / room alias (var(--x)) or a plain CSS colour; null otherwise. */
+function jamSwitchAccent(a) {
+  if (!a) return null;
+  const v = accentVar(a);
+  if (v) return v;
+  const t = String(a).trim();
+  return /^(#[0-9a-f]{3,8}|rgba?\(|hsla?\(|var\(--)/i.test(t) ? t : null;
+}
+/* <button class="jsw" role="switch" aria-checked>: {on, label, kind?, accent?, big?, disabled?, offline?, onToggle(next)}.
+   A tap flips it at once (the reveal plays) and calls onToggle; the card's next render shows the real state. */
+function jamSwitch(o) {
+  const b = el("button", "jsw" + (o.big ? " big" : ""));
+  b.type = "button"; b.setAttribute("role", "switch"); b.setAttribute("aria-checked", String(!!o.on));
+  if (o.label) b.setAttribute("aria-label", o.label);
+  b.dataset.kind = JAM_SWITCH_KINDS[o.kind] ? o.kind : "plug";
+  b.style.setProperty("--swa", jamSwitchAccent(o.accent) || JAM_SWITCH_KINDS[b.dataset.kind]);
+  const rv = el("i", "rv"), th = el("i", "th");
+  rv.setAttribute("aria-hidden", "true"); th.setAttribute("aria-hidden", "true");
+  b.append(rv, th);
+  if (o.offline) { b.dataset.un = "1"; b.setAttribute("aria-disabled", "true"); b.disabled = true; }
+  else if (o.disabled) b.disabled = true;
+  b.addEventListener("pointerdown", e => e.stopPropagation()); // never the card's own gestures
+  b.addEventListener("click", e => {
+    e.stopPropagation();
+    if (b.disabled) return;
+    const next = b.getAttribute("aria-checked") !== "true";
+    b.setAttribute("aria-checked", String(next));
+    if (typeof o.onToggle === "function") o.onToggle(next);
+  });
+  return b;
+}
+
 /* ---------- edge system (DESIGN "Edge system") ---------- */
 /* CUTS (the Poster cut per kind) is defined above BASE_CSS, which builds the [data-cut] shape rules from it. */
 /* CSS polygon() (5 points) for a rectangle with one corner ("tl"|"tr"|"br"|"bl") cut by a size px diagonal. */
@@ -550,6 +618,11 @@ defineMotif("gauge", () => null);
 defineMotif("graph", () => null);
 defineMotif("decorate", () => {});
 defineMotif("decorateRoot", () => null);
+/* Whole-card hook (2026-11-06, Jam Calm): render(card, body) -> true when the look drew the card body itself (a look whose
+   drawings are layouts of their own, not a skin over the card's DOM); false = the card renders as usual. Asked by
+   JamBase._render (and jam-kiosk's _render) before the body is cleared, so a look may also keep the body as it is (a
+   drag in progress) and draw later. Poster: false, so every other look renders exactly as before. */
+defineMotif("render", () => false);
 /* The render hook on a rendered card (its _body). */
 function lookDecorate(card) { motif("decorate", card, card._body, card); }
 /* The root hook: undo the last decoration of root, then decorate it for look (only when the look's pack has one). */
@@ -1190,6 +1263,7 @@ class JamBase extends HTMLElement {
     }
     if (!this._hass) return;
     this._renderLook = this.dataset.look || "poster";
+    if (motif("render", this, this, this._body)) { lookDecorate(this); return; } // a look drew the card (whole-card hook)
     this._body.textContent = "";
     this.render(this._body);
     lookDecorate(this);
@@ -1211,6 +1285,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
+  jamSwitch, jamSwitchKind,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];
 /* Every card file ends with register(tag, Class, name, description). */

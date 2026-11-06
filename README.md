@@ -96,6 +96,7 @@ kicker: Downstairs
 | `accent` | Rule colour (see Colours) |
 | `entities` | List of entity ids shown as state chips |
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
+| `size` | Jam Calm: `small` = a group label over a hairline ("Watch and listen") instead of the room head |
 
 ### jam-hero
 Paper slab with a cut corner: a big title (fixed or from an entity), meta line and chips.
@@ -131,6 +132,7 @@ entity: switch.coffee_machine
 | `tones` | Map of state → `on` / `alert` / `calm` / `off` |
 | `show_last_changed` | Show when the state last changed |
 | `tap_action`, `hold_action`, `double_tap_action` | Actions |
+| `kind`, `glyph` | Jam Calm: an on / off entity is a switched-device card with the small switch; `kind` sets its accent (`plug`, `climate`, `auto`, `set`; default by domain), `accent` overrides it; `glyph` = `tree`, `fan`, `plug`, `drop`, `air`, `auto` (default from the name) |
 
 ### jam-choice
 A `select` / `input_select` as option chips; the selected one fills with the accent.
@@ -177,6 +179,7 @@ entity: media_player.kitchen
 | `size` | `kiosk` (0.6.0, wins over `compact`): fullscreen-sheet layout for jam-kiosk — large square art, big title, sub line, 64 px keys (transport with a media_player, ⋯ with `more`); fills the sheet height |
 | `more` | `{title, kicker, cards}`: ⋯ key opening a sheet with these cards (they get this card's hass) |
 | `title_entity`, `state_entity`, `picture_entity`, `sub_entities` | Players without a media_player (e.g. a PC): title from an entity state, on/off tone, art from `entity_picture`, sub line of `id` or `{entity, name}`; `entity` is optional then. A title state of `Nothing` / `None` / `Idle` (0.6.1) shows as "Idle" |
+| `sleep_action`, `wake_action` | Jam Calm: the PC row's Sleep / Wake key (`compact`, or `size: kiosk` with a `title_entity`) |
 | `accent` | Art block, play key, volume fill, active chips |
 
 ### jam-button
@@ -259,7 +262,10 @@ entity: light.living_room
 | `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
 | `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
 | `size` | `kiosk` (opt-in): a 150 px block for kiosk sheets — 36 px name, 18 px sub line, 52 px number, 64 px power corner, nothing under 18 px. Two to a row (`columns: 2` on the jam-kiosk block) gives the big-light sheet |
-| `switch` | `corner` (default: the power corner) or `paddle` (opt-in): one rocker on the right instead of the corner, with the IEC symbols (a bar on top, a circle below) and no words on it; the face stays the plain panel. On = the top half pressed in, off = the bottom half pressed in: the same rocker flipped, the pressed half the flatter, darker tone. The lamp's colour shows only as a thin band on the pressed top half while on. A change rocks it once (none without motion). Offline = the same rocker with a dashed rim and dim symbols. The state words are in its label and title and on the card. Group member bands are left out (the sub line says "2 of 3 on") |
+| `switch` | `corner` (default: the power corner), `toggle` (opt-in: the small channel-reveal switch top-right; plug / power blue, `switch_accent` overrides) or `paddle` (opt-in): one rocker on the right instead of the corner, with the IEC symbols (a bar on top, a circle below) and no words on it; the face stays the plain panel. On = the top half pressed in, off = the bottom half pressed in: the same rocker flipped, the pressed half the flatter, darker tone. The lamp's colour shows only as a thin band on the pressed top half while on. A change rocks it once (none without motion). Offline = the same rocker with a dashed rim and dim symbols. The state words are in its label and title and on the card. Group member bands are left out (the sub line says "2 of 3 on") |
+| `switch_accent` | With `switch: toggle`: the small switch's accent (an accent name, room alias or CSS colour) |
+| `glyph` | Jam Calm: the lamp drawn on the name row (`floor`, `table`, `strip`, `pendant`, `bulb`, `string`, `lantern`; default from the name) |
+| `automations` | Jam Calm: `[automation ids]` or `{entity, name?, accent?}` listed in the light pop-up, each with a small switch (violet: the automations kind) |
 
 A light Home Assistant cannot reach reads "Offline" on a hollow card with a dashed edge (each look draws its own broken form).
 
@@ -354,7 +360,7 @@ Remote opens a sheet with a jam-remote in a TV group (teal: d-pad, Back / Home /
 red power) and a Stereo group (violet: rocker, inputs, violet power), with a keyboard key in the header. Source opens its
 own sheet: **Inputs** (2-up) and **Apps** (3-up) big colour tiles with a glyph, the one on screen outlined with an
 "On now" stamp, then a **Home screen** tile. When the TV is off the card shows "TV off", a big **Turn on** key and quick
-source tiles.
+source tiles, and the Remote and Source tabs stay (2026-11-06: the remote's power key turns the TV on).
 ```yaml
 type: custom:jam-tv
 media_player: media_player.living_room_tv
@@ -393,6 +399,7 @@ stereo:
 | `stereo` | `{power_action, inputs: [{name, tap_action, match}], volume_up_action, volume_down_action, mute_action, input_entity, title, accent}`: Stereo group of the Remote sheet (violet; hidden without it; `input_entity` state fills the matching input) |
 | `remote_card`, `remote_title` | jam-remote config merged over the default (TV + Stereo `sections`; set `rows`, `layout` or `sections` to replace them; `commands.home` / `actions.home` also drive the Home screen tile); Remote tab + sheet title (default "Remote") |
 | `size` | `kiosk` (0.6.0): fullscreen-sheet layout for jam-kiosk — 64-80 px transport keys, rocker and tabs at their own height, the poster takes the rest (art keeps over half of it; kicker + time on one line over a 30-44 px title); off: Turn on + quick tiles; fills the sheet height, nothing under 18 px |
+| `room`, `volume_entity`, `volume_label` | Jam Calm: the pop-up's room label; a `number` / `input_number` / media_player whose level the volume fader shows and sets (without one, and with step actions, the card keeps − / Mute / + keys: an IR stereo has no level); the volume label in the pop-ups (default "Stereo volume") |
 | `accent` | Poster, progress strip, Play key (see Colours); the Remote sheet's TV group is always teal, Stereo violet |
 
 ### jam-speaker
@@ -442,6 +449,7 @@ sensor: sensor.air_purifier_air_quality
 | `speeds` | Percent steps (default from `percentage_step`) |
 | `presets` | Preset modes to show (default the fan's; `false` or `[]` hides the chips) |
 | `sensor`, `extra_sensor` | `id` or `{entity, name}` shown in the label |
+| `switch_accent` | Jam Calm: the power switch's accent (default the air / climate teal) |
 | `accent` | Power glyph when on, active speed and preset |
 | `size` | `kiosk` (opt-in): 36 px name, 18 px label, 64 px speed / preset keys with 18 px text, 64 px power corner |
 
@@ -460,7 +468,8 @@ people: [person.alex, person.sam]
 | `inside_entity` | Temperature sensor (required) |
 | `outside_entity` | weather or sensor (required) |
 | `lock_entity` | Door lock chip |
-| `people` | person ids; those at home show as chips with their first name |
+| `people` | person ids; those at home show as chips with their first name (Jam Calm: everyone, a colour tag with the initial, "· out" when away; items may be `{entity, name?, color?}`) |
+| `humidity_entity` | Jam Calm: the inside humidity printed small after the inside temperature |
 | `full_names` | `true`: chips show the full name |
 | `alerts` | `{entity, state, name}`: red chip while the entity is in `state` (or on/open/problem) |
 | `title`, `kicker` | Title (default the HA location name) and label |
@@ -622,6 +631,8 @@ dock:
 | `attention` | Opt-in list `{entity, state or states, text, tap_action}`: while one is true, a 64 px red bar replaces the accent bar ("FRONT DOOR UNLOCKED · TAP TO LOCK"; default condition: unlocked / open / jammed / problem / offline). Tap: `tap_action`, else `lock.lock` for a lock, else more-info |
 | `now_band` | `true` (opt-in): the first active media `now` source moves into the empty top band (64 px title), left of the lock; the right block then shows the weather. While the attention bar shows, the band steps aside |
 | `sheet_heading` | `false` (opt-in, also per block): sheets leave out their top-level jam-heading cards (the sheet title already names the room) |
+| `title` | Jam Calm: the room name printed top-left of the kiosk home (default the lock's area) |
+| `rows` | Jam Calm, per block: cards per row of its sheet, e.g. `[1, 4, [3, 2]]` (a list = the cards' widths); rows of lights, switches or `size: kiosk` players take the height left, nothing scrolls. Also per block: `title` (sheet title, default the block name), `glyph` (`lights`, `tv`, `music`, `all off`, `pc`, `air`) and `confirm_title` (an action block's confirmation pop-up) |
 | `state` | `{count_on: [ids], suffix: on}` → "3 on" / "All off"; `{entity, attribute, app_entity}` → the entity's state in words (media player: title while playing / paused, else the app from `app_entity`, else On / Idle, Off when off; lock: "Door locked" / "Door unlocked"; air-quality sensor: Good / Moderate / … or its own word); `{text}` |
 
 The clock follows the Home Assistant profile's time format (12 h with a small AM/PM, or 24 h). The card sizes itself from
@@ -964,7 +975,13 @@ jam-screensaver for weak kiosk tablets; rules in [docs/DESIGN.md](docs/DESIGN.md
 Alexander Girard's textiles: a cream-white page, cards edged or framed with a woven pattern per room, saturated vermilion /
 mustard / cobalt / pink / magenta / turquoise fills, pill keys, sun / heart / eye / bird / diamond motifs, a sun power key,
 a kiosk in the room's own colour, Fraunces and Work Sans; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Girard rules"). Pick a look in the theme picker; JamBoard is Poster. The
+[docs/DESIGN.md](docs/DESIGN.md) "Girard rules") and **Jam Calm** (Jam Design's calm-instrument look, pass 6 + 7: Callsheet
+paper by day and navy by night, Jost words with IBM Plex Mono labels and numbers, flat panels with hairline edges and soft
+corners, no shadows; one orange per screen for the thing to do now, red for alert; lights get a rocker (or `switch:
+toggle`, the small channel-reveal switch) beside a vertical brightness fader, other on / off devices the small switch with
+its accent by kind; the kiosk is a clock, the door and three keys whose sheets never scroll. Calm draws the cards it knows
+in layouts of its own; rules in [docs/DESIGN.md](docs/DESIGN.md) "Calm rules"; IBM Plex Mono ships as IBM's own files with
+its licence in `dist/fonts/OFL-IBMPlexMono.txt`). Pick a look in the theme picker; JamBoard is Poster. The
 [jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
 A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
 also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while

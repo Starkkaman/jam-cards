@@ -440,6 +440,48 @@ saturated: no warm-clay / terracotta palette, no gradients, no shadows; the fram
   three shapes are hidden (node count kept). The now-playing block keeps Poster's layout.
 - Remote d-pad arrows, the OK disc and the gauge keep their geometry (DESIGN geometry exceptions).
 
+## Calm rules (the Calm look, theme "Jam Calm"; Jam Design pass 6 + 7, `jam-design/mockups/pass7/home-assistant.html`, HANDOFF.md 2026-11-06)
+The calm-instrument look Isaac approved ("This design looks much better!"; "Try to replicate their cards as faithfully as you
+can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
+- **Whole-card layouts.** Calm is the one look that draws cards in layouts of its own: the `render` look hook (core,
+  `defineMotif("render")`, Poster = false) lets `src/looks/calm.js` draw jam-light, jam-tile / jam-button on an on / off
+  entity, jam-button action cards, jam-fan, jam-scenes, jam-house, jam-heading, jam-tv, jam-speaker, jam-media (the PC row)
+  and jam-kiosk exactly as the mockup does; every other card renders as usual under the pack CSS. Calm's DOM classes carry a
+  `c-` prefix (the cards' own sheets stay adopted next to the pack). The card objects keep their state, calls and
+  pop-up plumbing; Calm only draws. Because shoot.js measures the cards' own DOM, `layouts: true` keeps Calm out of its
+  look matrix; `preview/checks/99-calm.js` and jam-home's labs runner check it.
+- **Tokens** (`tokens/looks/calm.mjs`): Callsheet paper / navy as drawn in the Jam Home mockup: ground #efebe2 / #10141d
+  (`jam-ground`), panel #f9f7f2 / #161c28, keys #f1ece2 / #1d2433, pressed #e3dbcb / #0a0e15, hairline #d6cfbf / #2a3244,
+  inner rule #e7e1d4 / #1c2230, ink #19202e / #ece5d3, dim #5b606d / #a29d8f; orange #ec7c22 / #f08a2c = the one action;
+  alert #ff5a48 (text #b3261b / #ff8a7a); ok #7bd651, lit power symbol #3c8a28 / #7bd651; walnut #6b4428 (the kiosk rule).
+  New optional registry tokens (other looks unchanged): jam-ground, jam-hair, jam-groove, jam-cap, jam-win(-off, -rim),
+  jam-readout(-off), jam-dot, jam-ok, jam-warn(-text), jam-switch-off / -thumb / -rim and the four switch kinds.
+- **Type**: Jost 500 for words (17px card names, 26px room, 21px media titles), Jost 300 for big numerals (40px inside
+  temperature, the 200 / 150px kiosk clock), IBM Plex Mono 500 12px tracked .12-.16em for state words and labels (15px on
+  kiosks). IBM Plex Mono = IBM's own Latin1 woff2 files, unmodified (the OFL reserves "Plex" for modified versions).
+- **Surfaces**: cards are panels with a 1px hairline and 16px corners, keys 12px, sheets 22px, pills 999px; no shadows,
+  bevels, glow or gradients. The remote (round 5) is the one drawn object, kept on purpose.
+- **Lights**: name row (lamp drawing whose shade takes the lamp's colour, name, state word, ›) over the rocker (branch
+  paddle-off: I / O, mirrored pressed halves, a thin lamp-colour band) or, with `switch: toggle`, POWER + the small switch,
+  beside a vertical fader in the lamp's colour. Lamp colours are pulled towards cream until they stand >= .15 (OKLab) from
+  the control orange; whites use the mockup's white swatches. Offline = a dashed hollow card, "Can't be reached since …".
+- **Faders**: flat groove + hairline, fill in the lamp's colour (cream for volume), flat cap with a 1.5px ink rim; the number
+  shows on the cap while dragging (always on kiosks). Drag anywhere (the cap jumps to the finger), keys ±5 / Page ±10 /
+  Home / End. The value shows at once; the entity follows at most every 300 ms while dragging and once more on release;
+  keys send one call 250 ms after a burst; a state update never redraws a card under the finger (it waits for the release).
+- **Small switch** (core `jamSwitch`, `.jsw`): pill channel, plain dark off; on, the thumb slides and the kind's accent is
+  revealed (plug blue, climate teal, automation violet, setting steel; `accent` overrides); 180 ms on the settle curve,
+  instant with JamCards.motion = false or reduced motion; disabled = hollow, offline = dashed with a dash.
+- **One orange per screen**: Pause where something plays (a card is drawn as if alone on its screen), the Lock key by day
+  while someone is home (amber ▲ "Unlocked"); after dark or with nobody home the door is alert: red word and the solid red
+  key, no orange. The kiosk gives the door's key precedence over a dock Pause.
+- **Kiosk**: walnut rule, room label, the door (word + round window), the clock, the date, one weather line, three keys
+  (glyph, name, word; a Pause key while playing). Sheets cover the screen (eyebrow, title, Close ×) and never scroll: a
+  block's `rows` lays its cards out; jam-tv / jam-speaker `size: kiosk` are two-column sheets of their own. Pop-ups are
+  centred (light: two columns; remote: 600px). The kiosk measures HA's view padding and keeps the mockup's 44 / 40px insets.
+- **Remote while the TV is off** (every look, 2026-11-06): jam-tv's off card keeps Remote (and Source); the remote's power key
+  turns the TV on.
+
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
 scope: per mode or theme-wide, optional or not); `tokens/looks/poster.mjs` holds the Poster values; `tokens/ha.mjs`

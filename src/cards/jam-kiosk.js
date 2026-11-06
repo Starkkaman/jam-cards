@@ -218,6 +218,10 @@ class JamKioskHome extends JamBase {
   /* Built once per config; hass updates only rewrite texts that changed. */
   _render(force) {
     if (!this._config) return;
+    // Whole-card look hook (2026-11-06, Jam Calm): a look that draws the kiosk itself owns the shadow root until the
+    // card is shown in another look again (then the shell is rebuilt).
+    if (this._hass && motif("render", this, this, force)) { this._own = true; this._shellLook = this.dataset.look || "poster"; lookDecorate(this); return; }
+    if (this._own) { this._own = false; force = true; }
     if (force || !this._k) this._shell();
     if (this._hass) { this._update(); lookDecorate(this); }
   }
@@ -283,6 +287,7 @@ class JamKioskHome extends JamBase {
     if (this._kh) k.style.setProperty("--kh", this._kh + "px");
   }
   _update() {
+    if (this._own) { this._render(false); return; } // a look draws the kiosk (whole-card hook): it updates itself
     this._clock();
     // Light mode: hass.themes.darkMode (set by HA), else the OS scheme. "none" dock blocks are solid ink in light mode.
     const th = this._hass.themes, dark = th && typeof th.darkMode === "boolean" ? th.darkMode
@@ -377,7 +382,8 @@ class JamKioskHome extends JamBase {
      decorate itself (_render). */
   _lookChanged(look) {
     const code = l => { const p = lookPack(l); return p ? p.motifs.code : undefined; };
-    if (this._k && code(this._shellLook) !== code(look)) this._render(true);
+    const draw = l => { const p = lookPack(l); return p ? p.motifs.render : undefined; }; // whole-card hook (Jam Calm)
+    if (this._k && (code(this._shellLook) !== code(look) || draw(this._shellLook) !== draw(look))) this._render(true);
     else if (this._hass && this._k) lookDecorate(this);
   }
   /* Height: from the card's top to the bottom of the viewport, minus the view's bottom padding (16px); one correction
