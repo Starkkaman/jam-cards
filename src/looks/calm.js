@@ -22,7 +22,7 @@
   const MONO = '"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace';
   /* Calm's own class names carry a "c-" prefix in the DOM and the CSS (the cards' own sheets stay adopted next to the pack,
      and their .k / .dock / .lc / .src ... must never reach a Calm node). C("a b") -> "c-a c-b"; ce = el with C. */
-  const CM_NAMES = new Set("afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
+  const CM_NAMES = new Set("pale afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
   const C = s => String(s).split(/\s+/).filter(Boolean).map(n => (CM_NAMES.has(n) ? "c-" + n : n)).join(" ");
   const ce = (tag, cls, text) => el(tag, cls ? C(cls) : cls, text);
   const cmark = m => String(m).replace(/class="([^"]+)"/g, (x, k) => `class="${C(k)}"`);
@@ -187,7 +187,7 @@
          disabled}. The card's _cmDrag flag holds its redraws while the pointer is down. */
   function fader(o) {
     const v0 = Math.max(0, Math.min(100, Math.round(Number(o.value) || 0)));
-    const f = ce("div", (o.orient === "v" ? "vf" : "hf") + (o.cls ? " " + o.cls : "") + (o.lit ? " lit" : ""));
+    const f = ce("div", (o.orient === "v" ? "vf" : "hf") + (o.cls ? " " + o.cls : "") + (o.lit ? " lit" : "") + (o.pale ? " pale" : ""));
     const fl = ce("i", "fl"), cp = ce("i", "cp"), b = ce("b", "num");
     cp.append(b); f.append(fl, cp);
     if (o.color) f.style.setProperty("--lc", o.color);
@@ -223,7 +223,6 @@
       e.stopPropagation(); e.preventDefault();
       try { f.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
       f.dataset.drag = "1"; if (o.card) o.card._cmDrag = true;
-      try { f.focus({preventScroll: true}); } catch (err) { /* ignore */ }
       show(at(e)); throttle();
     });
     f.addEventListener("pointermove", e => { if (!f.dataset.drag) return; show(at(e)); throttle(); });
@@ -356,7 +355,10 @@
     } else ctl = rocker(card, b, {name, on, color: col, onToggle: power});
     pb.append(ctl);
     if (lightDims(s)) {
-      pb.append(fader({card, orient: "v", value: pct, lit: on, color: col, label: `${name} brightness`, cls: kio ? "" : "quiet",
+      // a near-white lamp on the paper groove (Clean / Daylight by day) gets a hairline round its fill, so the level still reads
+      const lr = lampRgb(s) || CREAM, gr = parseRgb(getComputedStyle(b).getPropertyValue("--jam-groove").trim());
+      const pale = !!gr && contrastRatio(lr, gr) < 1.1;
+      pb.append(fader({card, orient: "v", value: pct, lit: on, color: col, pale, label: `${name} brightness`, cls: kio ? "" : "quiet",
         live: v => card._setPct(c.entity, v), commit: v => card._setPct(c.entity, v)}));
     } else pb.classList.add(C("solo"));
     root.append(pb);
@@ -1260,6 +1262,7 @@
 .c-vf::before,.c-hf::before{content:"";position:absolute;inset:-4px}
 .c-vf .c-fl{position:absolute;left:3px;right:3px;bottom:3px;height:calc((100% - 6px) * var(--vn));border-radius:7px;background:var(--lc,var(--ccream));opacity:0;transition:opacity 200ms}
 .c-vf.c-lit .c-fl{opacity:1}
+.c-vf.c-pale .c-fl{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cink) 28%,transparent)}
 .c-vf .c-cp{position:absolute;left:-1px;right:-1px;height:18px;bottom:calc((100% - 18px) * var(--vn));border-radius:6px;background:var(--ccap);border:1.5px solid var(--cink);display:grid;place-items:center;font-style:normal}
 .c-vf .c-cp b{font:600 12px var(--cmono);color:#19202e;opacity:0}
 .c-vf[data-drag] .c-cp b,.c-kio .c-vf .c-cp b{opacity:1}
