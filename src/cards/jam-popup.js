@@ -84,7 +84,7 @@ class JamPopup extends JamBase {
     this._flashLook = look;
   }
   connectedCallback() {
-    queueLook(this);
+    lookWatch(this);
     window.addEventListener("location-changed", this._onLoc);
     window.addEventListener("hashchange", this._onLoc);
     window.addEventListener("popstate", this._onLoc);

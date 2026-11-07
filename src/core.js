@@ -986,19 +986,29 @@ function jamRestyle(root, look) {
    look pack's sheet, re-renders a card whose motifs change (R7) and calls the card's _lookChanged(look); every card in the
    batch then gets _themeRefresh() (body layers re-copy the tokens: a dark / light switch keeps the look id). Open sheets
    are refreshed first, so cards inside them read the new tokens. */
-const LOOK_Q = {cards: new Set(), pending: false};
-function queueLook(card) {
-  LOOK_Q.cards.add(card);
+/* soft (the timed re-checks of lookWatch): a card whose theme signature (look, fx and a few key tokens, themeSig) is the
+   one its last batch saw is left alone, so a re-check that finds nothing new writes nothing. */
+const LOOK_Q = {cards: new Map(), pending: false};
+const LOOK_SIG_TOKENS = ["--jam-ink", "--jam-slab", "--jam-paper", "--jam-fg", "--jam-accent", "--jam-display"];
+function themeSig(node, look, fx) {
+  let cs;
+  try { cs = getComputedStyle(node); } catch (e) { return look + "|" + fx; }
+  return look + "|" + fx + "|" + LOOK_SIG_TOKENS.map(t => cs.getPropertyValue(t).trim()).join("|");
+}
+function queueLook(card, soft = false) {
+  LOOK_Q.cards.set(card, soft && LOOK_Q.cards.get(card) !== false); // a hard request in the same batch wins
   if (LOOK_Q.pending) return;
   LOOK_Q.pending = true;
   Promise.resolve().then(() => {
     LOOK_Q.pending = false;
     for (const s of SHEET_STACK.slice()) s._refresh();
-    const cards = [...LOOK_Q.cards].filter(c => c.isConnected);
+    const queued = [...LOOK_Q.cards].filter(([c]) => c.isConnected), cards = queued.map(([c]) => c);
     LOOK_Q.cards.clear();
-    const looks = cards.map(lookOf), fx = cards.map(fxOf);
+    const looks = cards.map(lookOf), fx = cards.map(fxOf), sigs = cards.map((c, i) => themeSig(c, looks[i], fx[i]));
     cards.forEach((c, i) => {
       const look = looks[i];
+      if (queued[i][1] && c._jamThemeSig === sigs[i]) return;
+      c._jamThemeSig = sigs[i];
       setFx(c, fx[i]);
       if (c.dataset.look !== look) {
         c.dataset.look = look;
@@ -1009,6 +1019,62 @@ function queueLook(card) {
       if (typeof c._themeRefresh === "function") c._themeRefresh();
     });
   });
+}
+/* Late themes (0.11.0-calm.1): HA applies a view's pinned theme (applyThemesOnElement: inline --jam-* custom properties on
+   hui-view) after the view's cards are created and connected, and without a new hass.themes, so the look read on connect
+   (Poster) stuck: the tokens inherit (CSS-only looks recovered), the JS hooks (motifs, Calm's whole-card render) did not.
+   lookWatch(card) runs on every connect (JamBase.connectedCallback and the cards with their own) besides queueLook:
+   - one shared MutationObserver watches the style attribute of the card's flat-tree ancestors (across shadow roots, an open
+     sheet's holder included); a change of their --jam-* declarations re-reads the look of every connected card (hard);
+   - the cards connected within 50 ms of each other are re-read once more after 50 ms, 250 ms and 1 s (soft, see queueLook:
+     a theme that lands some other way, e.g. a stylesheet, within a second). No per-card timers; nothing is written when
+     nothing changed. lookUnwatch(card) on disconnect releases them (97-robust lifecycle: a detached card holds nothing). */
+const LOOK_W = {cards: new Set(), mo: null, wave: null, waves: new Set()};
+const jamDecls = s => (s ? String(s).match(/--jam-[\w-]+\s*:[^;]*/g) || [] : []).join(";");
+function flatParent(n) {
+  if (n.assignedSlot) return n.assignedSlot;
+  const p = n.parentNode;
+  return p && p.nodeType === 11 ? p.host || null : p;
+}
+function lookWatch(card) {
+  queueLook(card);
+  LOOK_W.cards.add(card);
+  if (typeof MutationObserver === "function") {
+    if (!LOOK_W.mo) LOOK_W.mo = new MutationObserver(recs => {
+      const seen = new Set();
+      for (const r of recs) {
+        if (seen.has(r.target)) continue;
+        seen.add(r.target); // its first record holds the oldest value
+        if (jamDecls(r.oldValue) !== jamDecls(r.target.getAttribute("style"))) { for (const c of LOOK_W.cards) queueLook(c); return; }
+      }
+    });
+    for (let n = flatParent(card); n && n.nodeType === 1; n = flatParent(n))
+      LOOK_W.mo.observe(n, {attributes: true, attributeFilter: ["style"], attributeOldValue: true});
+  }
+  // The wave: one pending timer at a time (50 ms, then 200 + 750 ms = re-checks at 50 ms, 250 ms and 1 s).
+  let w = LOOK_W.wave;
+  if (!w) {
+    const steps = [50, 200, 750];
+    w = LOOK_W.wave = {cards: new Set(), t: null};
+    LOOK_W.waves.add(w);
+    const next = () => {
+      w.t = null;
+      if (LOOK_W.wave === w) LOOK_W.wave = null;
+      for (const c of w.cards) if (c.isConnected) queueLook(c, true);
+      if (steps.length) w.t = setTimeout(next, steps.shift()); else { LOOK_W.waves.delete(w); w.cards.clear(); }
+    };
+    w.t = setTimeout(next, steps.shift());
+  }
+  w.cards.add(card);
+}
+/* On disconnect: a wave left without cards stops its timer; with no card connected the observer lets go of every node. */
+function lookUnwatch(card) {
+  LOOK_W.cards.delete(card);
+  for (const w of LOOK_W.waves) if (w.cards.delete(card) && !w.cards.size) {
+    clearTimeout(w.t); w.t = null; LOOK_W.waves.delete(w);
+    if (LOOK_W.wave === w) LOOK_W.wave = null;
+  }
+  if (!LOOK_W.cards.size && LOOK_W.mo) LOOK_W.mo.disconnect();
 }
 /* Copies every --jam-* token (JAM_TOKENS) from `from` onto a body layer's holder; writes only what changed. */
 function copyTokens(from, holder) {
@@ -1225,11 +1291,11 @@ class JamBase extends HTMLElement {
     if (changed && this.isConnected) queueLook(this);
     return changed;
   }
-  /* Subclasses with their own connectedCallback call super.connectedCallback() (or queueLook(this) when they skip it). */
-  connectedCallback() { queueLook(this); enterView(this); this._watchFonts(true); }
+  /* Subclasses with their own connectedCallback call super.connectedCallback() (or lookWatch(this) when they skip it). */
+  connectedCallback() { lookWatch(this); enterView(this); this._watchFonts(true); }
   /* Subclasses that hold timers, observers, window/document listeners or body-appended nodes release them here (and call
      super); HA detaches and re-attaches cards on view switches, so connectedCallback re-arms them. */
-  disconnectedCallback() { this._watchFonts(false); }
+  disconnectedCallback() { lookUnwatch(this); this._watchFonts(false); }
   /* A card with _fontsLoaded() (text measured in JS: jam-kiosk) re-measures when web fonts finish loading: a look's URL
      fonts arrive after the first layout (font-display: swap), also on a live look switch. */
   _watchFonts(on) {

@@ -373,7 +373,7 @@ class JamScreensaver extends JamBase {
   }
   get hass() { return this._hass; }
   connectedCallback() {
-    queueLook(this);
+    lookWatch(this);
     if (!this._preview) this._attach();
   }
   /* Page listeners, idle timer, kiosk chrome and the motion switch (connected and not a preview). */
