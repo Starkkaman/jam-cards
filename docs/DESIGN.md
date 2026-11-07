@@ -478,7 +478,10 @@ can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
 - **Kiosk**: walnut rule, room label, the door (word + round window), the clock, the date, one weather line, three keys
   (glyph, name, word; a Pause key while playing). Sheets cover the screen (eyebrow, title, Close ×) and never scroll: a
   block's `rows` lays its cards out; jam-tv / jam-speaker `size: kiosk` are two-column sheets of their own. Pop-ups are
-  centred (light: two columns; remote: 600px). The kiosk measures HA's view padding and keeps the mockup's 44 / 40px insets.
+  centred (light: two columns; remote: 600px). A pack never puts `container-type` (or a transform / contain) on a bare `:host`: the pack is
+  adopted on the body-attached sheet holder too, and Safari / WKWebView <= 18 turns a query container into the containing
+  block of the fixed pop-up (0.11.0-calm.2: every pop-up opened below the iPad's screen); openSheet pins the holder's
+  containment / transform properties inline since then, `preview/checks/99-calm-popups.js` guards it. The kiosk measures HA's view padding and keeps the mockup's 44 / 40px insets.
 - **Remote while the TV is off** (every look, 2026-11-06): jam-tv's off card keeps Remote (and Source); the remote's power key
   turns the TV on.
 

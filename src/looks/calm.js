@@ -1301,7 +1301,11 @@
 .c-scn{display:flex;gap:8px;flex-wrap:wrap}
 .c-scn .c-k{border-radius:999px;padding:8px 16px}
 @container (max-width:420px){.c-scn{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.c-scn .c-k{border-radius:12px;padding:6px 4px;font-size:14px;line-height:1.1}}
-:host{container-type:inline-size}
+/* The scenes row's query container is the jam-scenes host only (0.11.0-calm.2): a bare :host also matched every Calm-styled
+   root's host, the body-attached pop-up / kiosk sheet holder and screensaver layer included, and Safari / WKWebView up to
+   18.x (the iPad kiosk, iPadOS 17) still gives a query container layout containment, so the holder (0px tall, at the end
+   of <body>) became the containing block of the fixed .pop: every pop-up opened below the screen. */
+:host(jam-scenes){container-type:inline-size}
 /* house strip */
 .c-hs{padding:14px 16px;display:grid;gap:12px}
 .c-hs .c-tp{display:flex;justify-content:space-between;gap:12px;align-items:flex-end}

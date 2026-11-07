@@ -1162,6 +1162,12 @@ const SHEET_STACK = [];
    Returns {root, pop, face, body, close(), isOpen()}; fill `body` (textContent only for entity data). */
 function openSheet(opts = {}) {
   const o = opts, holder = el("div", "jam-sheet-host"), sr = holder.attachShadow({mode: "open"});
+  // The holder must never be a containing block for the fixed .pop (0.11.0-calm.2): it is a 0px-tall block at the end of
+  // <body>, so .pop would shrink to it, below the screen. A look pack's :host rules apply to it (Calm's query container did:
+  // Safari / WKWebView <= 18 gives container-type layout containment), so these properties are pinned to their initial
+  // values inline, which no :host rule can override. Initial values: nothing renders differently.
+  holder.style.cssText = "contain:none;container-type:normal;content-visibility:visible;transform:none;translate:none;rotate:none;scale:none;" +
+    "perspective:none;filter:none;backdrop-filter:none;-webkit-backdrop-filter:none;will-change:auto";
   if (o.from) copyTokens(o.from, holder); // a failed read leaves the dark palette fallbacks
   const pop = el("div", "pop" + (o.fullscreen ? " full" : "") + (o.cls ? " " + o.cls : ""));
   if (o.accent) { pop.style.setProperty("--acc", o.accent); pop.style.setProperty("--acc-fg", o.accentFg || "var(--on-fg)"); }
