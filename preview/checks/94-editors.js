@@ -18,11 +18,7 @@ const path = require("path");
 const PHASE1 = ["jam-heading", "jam-hero", "jam-tile", "jam-choice", "jam-slider", "jam-button", "jam-gauge", "jam-fan",
   "jam-weather", "jam-graph", "jam-alerts", "jam-light", "jam-speaker",
   "jam-media", "jam-house", "jam-screensaver", // phase 1b
-  "jam-list", "jam-panel", "jam-tabs", "jam-scenes", "jam-tv", // phase 2 (object lists; jam-tv: main keys + sources)
-  "jam-looks", // look picker
-  "jam-dial", "jam-keypad", "jam-radio", // look cards (2026-11-03)
-  "jam-pictogram", "jam-programme", "jam-results", // Olympia look cards
-  "jam-linemap", "jam-arrivals", "jam-matrix", "jam-ridge", "jam-sticker"]; // look cards (2026-11-03, Transit / Grid / Pulsar / New Wave)
+  "jam-list", "jam-panel", "jam-tabs", "jam-scenes", "jam-tv"]; // phase 2 (object lists; jam-tv: main keys + sources). 1.0.0: jam-looks and the look cards are gone
 const SELECTORS = new Set(["entity", "text", "number", "boolean", "select", "icon", "ui_action", "ui_color", "config_entry", "object", "color_rgb"]);
 
 /* README "### jam-x" section -> the backticked option names of its table's first column (+ rows: option -> its table row). */
@@ -88,7 +84,7 @@ module.exports = async (page, check) => {
             el.setConfig(cfg); s.set = true;
             // jam-looks draws each look's swatch in that look's font: here only the Poster theme, so the Poster page
             // fetches no look-pack font before 96-packs checks exactly that.
-            el.hass = e.type !== "jam-looks" ? window.__hass : {...window.__hass, themes: {...window.__hass.themes, themes: {JamBoard: window.__hass.themes.themes.JamBoard}}};
+            el.hass = window.__hass;
             box.append(el); await tick(60);
             s.rendered = !!el.shadowRoot && (el.shadowRoot.querySelectorAll("*").length > 2 || !!el.layer); // screensaver: style + layer
             s.overlay = !!document.querySelector("body > .jam-sheet, body > .pop");
@@ -234,7 +230,7 @@ module.exports = async (page, check) => {
 
   const {keys: docs, rows} = readmeKeys();
   const withForm = r.cards.map(c => c.tag).sort();
-  check(JSON.stringify(withForm) === JSON.stringify([...PHASE1].sort()), `editors: getConfigForm on the ${PHASE1.length} phase 1 / 1b / 2 cards + jam-looks (${withForm.join(", ")})`);
+  check(JSON.stringify(withForm) === JSON.stringify([...PHASE1].sort()), `editors: getConfigForm on the ${PHASE1.length} phase 1 / 1b / 2 cards (${withForm.join(", ")})`);
   for (const c of r.cards) {
     if (c.err) { check(false, `editors ${c.tag}: getConfigForm threw ${c.err}`); continue; }
     const undoc = c.names.filter(n => !(docs[c.tag] && docs[c.tag].has(n)));
@@ -257,7 +253,7 @@ module.exports = async (page, check) => {
     check(!!e.name && !!e.description && e.doc === "https://github.com/Starkkaman/jam-cards#" + e.type && readmeTags.has(anchor) && e.preview === e.stub,
       `editors customCards ${e.type}: name, description, documentationURL, preview=${e.preview}`);
   }
-  check(r.entries.length === 36, `editors: 36 jam customCards entries (${r.entries.length})`);
+  check(r.entries.length === 24 && !r.entries.some(e => e.type === "jam-looks"), `editors: 24 jam customCards entries, the retired jam-looks not offered (${r.entries.length})`);
   for (const [tag, f] of Object.entries(r.fixtures)) {
     console.log(`INFO editors fixtures ${tag}: ${f.ok} fit the form, ${f.yaml.length} go to YAML${f.yaml.length ? " (" + [...new Set(f.yaml)].join(" | ") + ")" : ""}`);
     if (f.lists) check(!f.uncovered.length && !f.trip.length, `editors ${tag}: ${f.lists} object lists in fitting fixture / README configs round-trip, every item key is a field` +

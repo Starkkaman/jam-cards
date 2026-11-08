@@ -118,7 +118,8 @@ module.exports = async (page, check) => {
   for (const [w, h] of [[1024, 768], [961, 601]]) {
     await page.setViewportSize({width: w, height: h}); await page.waitForTimeout(250);
     const o = await overlap();
-    const want = w === 1024 ? 44 : 34;
+    const scale = await page.evaluate(() => parseFloat(getComputedStyle(window.__np.overlay).getPropertyValue("--disp-scale")) || 1); // Hi-Fi .72
+    const want = (w === 1024 ? 44 : 34) * scale;
     check(o.out.length === 0 && Math.abs(o.title - want) <= 2, `now (poster ${w}x${h}): block clear of clock / date / weather in all 6 layouts, title ${o.title}px, cover ${Math.round(o.thumb)}px` +
       (o.out.length ? " — " + o.out.join("; ") : "") + " " + JSON.stringify(o.sizes));
     await page.evaluate(() => { const p = window.__np.overlay.querySelector(".poster"); p.className = "poster l0 "; });
@@ -140,7 +141,8 @@ module.exports = async (page, check) => {
   for (const [w, h] of [[1024, 768], [961, 601]]) {
     await page.setViewportSize({width: w, height: h}); await page.waitForTimeout(250);
     const o = await overlap();
-    const want = w === 1024 ? 34 : 27;
+    const scale = await page.evaluate(() => parseFloat(getComputedStyle(window.__np.overlay).getPropertyValue("--disp-scale")) || 1);
+    const want = (w === 1024 ? 34 : 27) * scale;
     check(o.out.length === 0 && Math.abs(o.title - want) <= 2 && Math.abs(o.thumb - (w === 1024 ? 88 : 69)) <= 2,
       `now (photos ${w}x${h}): solid ink label clear of the time chip, inside the screen, title ${o.title}px, cover ${Math.round(o.thumb)}px` + (o.out.length ? " — " + o.out.join("; ") : ""));
     await page.screenshot({path: path.join(SHOTS, `screensaver-now-photos-${w}.png`)});

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Writes the Home Assistant theme YAML of every look from the token source (tokens/) into the jam-theme repo.
-//   node tools/themes.mjs                 write ../jam-theme/themes/<look file>.yaml
+// Writes the Home Assistant theme YAML of the Hi-Fi look from the token source (tokens/) into the jam-theme repo.
+//   node tools/themes.mjs                 write ../jam-theme/themes/jamboard.yaml (theme "Hi-Fi"; JAM_THEME_DIR=<dir> = another
+//                                         themes folder, e.g. a jam-theme worktree's)
 //   node tools/themes.mjs --check         exit 1 if a file is stale (tools/bundle.mjs --check runs this too)
 //   node tools/themes.mjs --out <dir>     another themes folder
 // Order per file: header comment, the theme name, chrome keys + theme-level --jam-* tokens, card-mod view tabs, then per
@@ -11,7 +12,7 @@ import {fileURLToPath} from "node:url";
 import {TOKENS, LOOKS, HA_KEYS, haValue} from "../tokens/index.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const THEME_DIR = path.join(ROOT, "..", "jam-theme", "themes");
+export const THEME_DIR = process.env.JAM_THEME_DIR ? path.resolve(process.env.JAM_THEME_DIR) : path.join(ROOT, "..", "jam-theme", "themes");
 
 const q = v => (String(v).includes('"') ? `'${String(v).replace(/'/g, "''")}'` : `"${v}"`);
 

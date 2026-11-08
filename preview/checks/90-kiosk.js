@@ -23,7 +23,7 @@ module.exports = async (page, check, {callsNow}) => {
   // ---- huge kiosk clock on jam-weather ----
   const wx = await page.locator("#view jam-weather").filter({has: page.locator(".cs-huge")}).first().evaluate(e => {
     const t = e.shadowRoot.querySelector(".cs-huge .time");
-    const f = e.shadowRoot.querySelector(".cs-huge"), fc = getComputedStyle(f), w = f.clientWidth - parseFloat(fc.paddingLeft) - parseFloat(fc.paddingRight), want = Math.min(192, Math.max(70.4, .24 * w));
+    const f = e.shadowRoot.querySelector(".cs-huge"), fc = getComputedStyle(f), w = f.clientWidth - parseFloat(fc.paddingLeft) - parseFloat(fc.paddingRight), want = Math.min(192, Math.max(70.4, .24 * w)) * (parseFloat(getComputedStyle(t).getPropertyValue("--num-scale")) || 1); // Hi-Fi: num-scale .8
     return {fs: parseFloat(getComputedStyle(t).fontSize), want, txt: t.textContent};
   }).catch(() => null);
   check(wx && Math.abs(wx.fs - wx.want) < 1 && /^\d{1,2}:\d{2}/.test(wx.txt), `jam-weather clock_size huge: big minute clock (${wx && wx.fs}px, "${wx && wx.txt}")`);

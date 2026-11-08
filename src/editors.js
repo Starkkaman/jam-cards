@@ -90,7 +90,7 @@ const JE_LABELS = {
   conditions: "Show while (all hold)", condition: "Condition", state_not: "State is not", action_name: "Key name",
 };
 /* Per card labels where a shared key means something else (jam-house `alerts` = alert chips). */
-const JE_TAG_LABELS = {"jam-arrivals": {alerts: "Service changes"}};
+const JE_TAG_LABELS = {};
 const JE_HELP = {
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
   show_color_temp: "Default: when the light supports colour temperature.",
@@ -358,101 +358,6 @@ const JAM_EDITORS = {
     stub: (h, e) => { const r = jePick(h, e, jeDom("remote"), null);
       return {media_player: jePick(h, e, (id, s) => jeDom("media_player")(id) && s.attributes.device_class === "tv", null) ||
         jePick(h, e, jeDom("media_player"), "media_player.jam"), ...(r ? {remote: r} : {})}; },
-  },
-  /* ---- look cards (Olympia): jam-pictogram, jam-programme, jam-results. Bare ids in facts / items go to YAML. ---- */
-  "jam-pictogram": {
-    schema: [jeGrid(jeText("name"), jeSel("pictogram", Object.keys(JP_GLYPHS), {default: "home"})), jeEnt("entity"), JE_ACCENT,
-      jeList("facts", [jeEnt("entity"), jeEnts("entities"), jeText("name"), jeText("attribute"), jeText("unit")], {label: "name", desc: "entity"}),
-      jeList("rules", [jeEnt("entity", null, {required: true}), jeTexts("state"), jeSel("pictogram", Object.keys(JP_GLYPHS), {required: true})],
-        {label: "entity", desc: "pictogram"}),
-      jeActions()],
-    stub: (h, e) => { const l = jePick(h, e, (id, s) => jeDom("light")(id) && Array.isArray(s.attributes.entity_id), null) || jePick(h, e, jeDom("light"), null);
-      const t = jePick(h, e, jeTemp, null);
-      return {name: "Living room", pictogram: "sofa-tv", facts: [...(l ? [{entity: l}] : []), ...(t ? [{entity: t, name: "inside"}] : [])]}; },
-  },
-  "jam-programme": {
-    schema: [jeText("title"), jeGrid(jeText("from"), jeText("to")),
-      jeList("lanes", [jeEnt("entity"), jeText("name"), {name: "color", selector: JE_ACCENT.selector}, jeTexts("state"),
-        jeList("ranges", [jeText("from", {required: true}), jeText("to", {required: true}), jeText("label")], {label: "label", desc: "from"})],
-        {label: "name", desc: "entity"}, {required: true}),
-      jeNum("refresh_minutes", {min: 1}, {default: 10}), JE_ACCENT],
-    stub: (h, e) => { const ids = jePickN(h, e, jeDom("schedule", "calendar", "input_boolean"), 3);
-      return {title: "Today", lanes: ids.length ? ids.map(entity => ({entity})) : [{name: "Evening", ranges: [{from: "18:00", to: "22:00"}]}]}; },
-  },
-  "jam-results": {
-    schema: [jeList("items", [jeEnt("entity", null, {required: true}), jeText("name"), {name: "color", selector: JE_ACCENT.selector},
-      jeText("unit"), jeText("attribute"), jeNum("decimals", {min: 0, max: 6}),
-      jeList("thresholds", [jeNum("above", {step: "any"}), jeNum("below", {step: "any"}), {name: "color", selector: JE_ACCENT.selector, required: true},
-        jeText("word")], {label: "color", desc: "word"}),
-      JE_ACTION("tap_action")], {label: "entity", desc: "name"}, {required: true}),
-      jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
-    stub: (h, e) => { const ids = jePickN(h, e, jeNumeric, 3); return {items: (ids.length ? ids : ["sensor.jam"]).map(entity => ({entity}))}; },
-  },
-  "jam-looks": {
-    schema: [jeText("title"), {name: "looks", selector: {text: {multiple: true}}}, JE_ACCENT],
-    stub: () => ({title: "Look"}),
-  },
-  /* ---- look cards (designed for Braun, render in every look) ---- */
-  "jam-dial": {
-    schema: [jeEnt("entity", "light", {required: true}), jeGrid(jeText("name"), jeText("kicker")), JE_ACCENT, jeBool("show_swatches", true),
-      jeMore("Swatches", [jeList("whites", [jeText("name"), jeNum("kelvin", {min: 1000, max: 10000, step: 50})], {label: "name", desc: "kelvin"}),
-        jeList("colors", [jeText("name"), {name: "rgb_color", selector: {color_rgb: {}}, required: true}], {label: "name"})]),
-      jeMore("Pop-up", [jeGrid(jeBool("show_brightness", true), jeBool("show_members", true), jeBool("show_color_temp"), jeBool("show_color")),
-        jeEnt("preset_entity", ["select", "input_select"]), jeEnt("timer_script", "script")]),
-      jeActions(["hold_action"])],
-    stub: (h, e) => ({entity: jePick(h, e, (id, s) => jeDom("light")(id) && (s.attributes.supported_color_modes || []).some(m => m !== "onoff"), null) ||
-      jePick(h, e, jeDom("light"), "light.jam")}),
-  },
-  "jam-keypad": {
-    schema: [jeText("title"),
-      jeList("keys", [jeEnt("entity", KP_DOMAINS), jeText("name"), {name: "accent", selector: JE_ACCENT.selector}, jeYaml("data"), JE_ACTION("tap_action")],
-        {label: "name", desc: "entity"}, {required: true}),
-      jeEnt("current_entity", ["input_select", "select"]), jeMore("All on / all off", [JE_ACTION("all_on"), JE_ACTION("all_off")]), JE_ACCENT],
-    stub: (h, e) => { const ids = jePickN(h, e, jeDom("scene"), 6);
-      return {title: "Scenes", keys: (ids.length ? ids : jePickN(h, e, jeDom("script"), 3).concat(["scene.jam"]).slice(0, 3)).map(entity => ({entity}))}; },
-  },
-  "jam-radio": {
-    schema: [jeEnt("entity", "media_player", {required: true}), jeText("name"), JE_ACCENT,
-      jeGrid(jeBool("show_shuffle", true), jeBool("show_favorite", true)), jeEnts("speakers", "media_player"),
-      jeList("pinned", [jeText("uri", {required: true}), jeText("name"), jeText("image"), jeText("media_type")], {label: "name", desc: "uri"}),
-      jeMore("Advanced", [jeEnt("favorite_entity", "button"), {name: "config_entry_id", selector: {config_entry: {integration: "music_assistant"}}}])],
-    stub: (h, e) => JAM_EDITORS["jam-speaker"].stub(h, e),
-  },
-  /* ---- look cards (2026-11-03, night plan §3): jam-linemap (Transit), jam-arrivals (Transit), jam-matrix (Grid), jam-ridge
-     (Pulsar), jam-sticker (New Wave). Bare ids in an object list (arrivals calendars / entities as {entity, name}) go to YAML. ---- */
-  "jam-linemap": {
-    schema: [jeText("title"), JE_ACCENT,
-      jeList("lines", [jeText("name", {required: true}), {name: "color", selector: JE_ACCENT.selector}, jeText("path"),
-        jeEnts("stations", null, {required: true})], {label: "name", desc: "path"}, {required: true})],
-    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light", "switch"), 4);
-      return {title: "House lines", lines: [{name: "Living", color: "living", stations: ids.length ? ids : ["light.jam"]}]}; },
-  },
-  "jam-arrivals": {
-    schema: [jeText("title"), JE_ACCENT,
-      jeList("alerts", [jeEnt("entity", null, {required: true}), jeText("state"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"}),
-        jeText("message"), jeSel("severity", ["alert", "warn"])], {label: "entity", desc: "message"}),
-      jeEnts("media", "media_player"), jeEnts("calendars", "calendar"),
-      jeGrid(jeNum("events", {min: 1, max: 20}, {default: 4}), jeNum("hours", {min: 1}, {default: 48}), jeNum("refresh_minutes", {min: 1}, {default: 15})),
-      jeEnts("entities")],
-    stub: (h, e) => { const cal = jePickN(h, e, jeDom("calendar"), 1), ents = jePickN(h, e, jeDom("sensor", "lock", "binary_sensor"), 2);
-      return {title: "Arrivals", ...(cal.length ? {calendars: cal} : {}), entities: ents.length ? ents : ["sun.sun"]}; },
-  },
-  "jam-matrix": {
-    schema: [jeText("title"), jeEnts("entities", null, {required: true}), jeNum("columns", {min: 1, max: 12}), JE_ACCENT],
-    stub: (h, e) => { const ids = jePickN(h, e, jeDom("light"), 8); return {title: "Lights", entities: ids.length ? ids : ["light.jam"]}; },
-  },
-  "jam-ridge": {
-    schema: [jeText("title"), jeEnts("entities", JE_NUMERIC, {required: true}),
-      jeGrid(jeNum("hours_to_show", {min: 1}, {default: 24}), jeNum("refresh_minutes", {min: 1}, {default: 5})), JE_ACCENT],
-    stub: (h, e) => { const ids = jePickN(h, e, jeTemp, 4); return {title: "Temperatures", entities: ids.length ? ids : ["sensor.jam"]}; },
-  },
-  "jam-sticker": {
-    schema: [jeText("title"), {name: "text", selector: {text: {multiline: true}}}, jeSel("severity", ["info", "warn", "alert"], {default: "info"}),
-      jeList("conditions", [jeSel("condition", ["state", "numeric_state"]), jeEnt("entity", null, {required: true}), jeText("state"),
-        jeText("state_not"), jeNum("above", {step: "any"}), jeNum("below", {step: "any"})], {label: "entity", desc: "state"}, {required: true}),
-      jeMore("Key", [jeEnt("entity"), jeText("action_name"), JE_ACTION("tap_action")])],
-    stub: (h, e) => { const id = jePick(h, e, jeDom("binary_sensor", "input_boolean", "switch"), "input_boolean.jam");
-      return {title: "Heads up", text: "Shows while the condition holds.", conditions: [{condition: "state", entity: id, state: "on"}]}; },
   },
 };
 

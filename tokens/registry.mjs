@@ -1,8 +1,8 @@
 // The token registry: every --jam-* custom property the cards read, in theme order. Single source for
-//   - BASE_CSS :host (short name -> var(--jam-name, <Poster dark value>)), generated into jam-cards.js by tools/bundle.mjs;
+//   - BASE_CSS :host (short name -> var(--jam-name, <Hi-Fi Night value>); theme-scope tokens fixed), generated into jam-cards.js by tools/bundle.mjs;
 //   - the theme YAML (tools/themes.mjs: "mode" tokens per light/dark mode, "theme" tokens at the theme's top level);
 //   - preview/looks.css (the preview's stand-in for the theme).
-// Values live in the looks (tokens/looks/<id>.mjs); the Poster look's dark mode is the cards' fallback.
+// Values live in the looks (tokens/looks/hifi.mjs, the one look since 1.0.0); its dark mode is the cards' fallback.
 // Fields: name (theme key = CSS name without "--"), css (short name inside the cards, "" = none), scope ("mode" = per
 // light/dark mode, "theme" = both modes), note (one line, shown in docs/DESIGN.md's token reference), optional (a look
 // may leave it out; the cards then use `fallback`, or for tokens without a short name the fallback written at each use).
@@ -149,7 +149,7 @@ export const TOKENS = [
   {name: "jam-fx", css: "", scope: "theme", optional: true, note: "effects switch, 0 or 1: 1 sets data-fx on cards, sheets and the screensaver layer, so a look pack's gradients / translucency / scanlines apply (unset = 0; a card's `fx: false` forces 0)"},
   {name: "jam-elev-1", css: "", scope: "mode", optional: true, note: "box-shadow of card, sheet and hero faces (a look pack applies it; only with a shape of none, because clip-path clips shadows; unset = none)"},
   // ---- identity (R1) ----
-  {name: "jam-look", css: "", scope: "theme", note: "look id (poster, braun, ...): cards set data-look=<id> on their host, sheets and the screensaver layer"},
+  {name: "jam-look", css: "", scope: "theme", note: "look id (hifi since 1.0.0, fixed on every card): cards set data-look=<id> on their host, sheets and the screensaver layer; the page theme's value decides data-jam-builtin (not hifi / calm = the built-in Night palette)"},
 ];
 /* Runtime tokens: set by cards or users, not by a theme, but copied onto body layers (sheets, screensaver) like the rest. */
 export const RUNTIME_TOKENS = ["jam-accent", "jam-spotify"];

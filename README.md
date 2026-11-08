@@ -1,20 +1,41 @@
 # Jam Cards
 
-Saul Bass inspired Lovelace cards for Home Assistant, poster style: flat colour blocks on an ink ground, straight edges
-with one cut corner, one accent colour per card (per room), heavy uppercase display type.
+Lovelace cards for Home Assistant in one look, **Hi-Fi**: calm instruments (Jam Design pass 6 + 7). Callsheet paper by day
+and navy by night, Jost for words and IBM Plex Mono for small labels and numbers, flat panels with a hairline edge and soft
+corners, no shadows or glow. Orange is the one thing to do now (at most one per screen), red is alert, and state is colour +
+shape + word. Lights get a rocker (or the small switch) beside a vertical brightness fader; everything else that is plainly
+on / off gets the small channel-reveal switch, its accent by kind; the kiosk is a clock, the door and three keys whose
+sheets never scroll.
 
-![Dark mode](preview/shots/dark-1280.png)
-![Light mode](preview/shots/light-1280.png)
+![Night](preview/shots/dark-1280.png)
+![Day](preview/shots/light-1280.png)
 
 ## Install
 1. HACS → Custom repositories → `Starkkaman/jam-cards`, category **Dashboard** → Download. The resource is added for you.
-2. For the palette, also install the [JamBoard theme](https://github.com/Starkkaman/jam-theme) (HACS category **Theme**)
-   and select it. It sets the `--jam-*` colours per light/dark mode; without it the cards fall back to the dark "ink" palette.
+2. For the Day and Night palettes, also install the [Hi-Fi theme](https://github.com/Starkkaman/jam-theme) (HACS category
+   **Theme**, the repo `jam-theme`) and select **Hi-Fi** (profile, or `frontend.set_theme` with `name: Hi-Fi`, once for
+   light and once with `mode: dark`). Without it the cards draw Hi-Fi Night from their own values.
 
-Thirty-three cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
+**1.0.0: Hi-Fi is the only look.** The Jam Calm look of 0.11 is now built in as **Hi-Fi** (look id `hifi`) and is the
+default. Every other look was removed: Poster (the old default and the "JamBoard" theme), Braun, Olympia, Transit, Grid,
+Pulsar, New Wave, Brutal, Glass and Girard, with their fonts (Londrina Solid, Archivo, Albert Sans, Arimo, Hanken Grotesk,
+Silkscreen, Bricolage Grotesque, Figtree, Fraunces, Work Sans), so there is nothing to pick: the jam-looks picker card is
+retired (a dashboard that still holds `custom:jam-looks` shows one quiet line saying it can be removed). The eleven look cards
+made for other looks were removed too: jam-dial, jam-keypad, jam-radio, jam-pictogram, jam-programme, jam-results,
+jam-linemap, jam-arrivals, jam-matrix, jam-ridge and jam-sticker (Home Assistant shows its "Custom element doesn't exist"
+card where one is still configured). The cards draw Hi-Fi under any theme: the theme-level values (type, shapes, motion) are
+fixed in the cards, and a card under no Hi-Fi theme (Home Assistant's default theme, or an old Jam theme file still in
+`config/themes/`) draws the built-in Night palette. With the Hi-Fi theme selected the cards follow its Day and Night
+palettes. Update [jam-theme](https://github.com/Starkkaman/jam-theme) as well: `themes/jamboard.yaml` (the file HACS
+installs) now holds the theme **Hi-Fi** instead of JamBoard; select **Hi-Fi** after `frontend.reload_themes`.
+Cards Hi-Fi draws in layouts of its own: jam-light, jam-tile / jam-button on switches and actions, jam-fan (the purifier),
+jam-scenes, jam-house, jam-heading, jam-tv (TV card + TV / Source / Remote pop-ups), jam-speaker, jam-media `compact` (the PC
+row) and jam-kiosk. Every other card keeps its own layout in the Hi-Fi skin (Plex Mono labels, flat keys with a hairline,
+grooves like the faders, no cut corners, the default accent is the ink instead of a room colour).
+
+Twenty-two cards have a visual editor and a live preview in the card picker: jam-heading, jam-hero, jam-tile, jam-choice,
 jam-slider, jam-button, jam-gauge, jam-fan, jam-weather, jam-graph, jam-alerts, jam-light, jam-speaker, jam-media,
-jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes, jam-tv (main options and sources), jam-looks and the look cards (jam-dial, jam-keypad, jam-radio, jam-pictogram,
-jam-programme, jam-results, jam-linemap, jam-arrivals, jam-matrix, jam-ridge, jam-sticker). List options
+jam-house, jam-screensaver, jam-list, jam-panel, jam-tabs, jam-scenes and jam-tv (main options and sources). List options
 such as hero chips, list rows, panel rows, tabs, scenes, house alerts, light whites / presets, speaker pins, screensaver
 `now` and TV sources are edited as a list of items (Home Assistant 2026.10 or newer). Options the form does not show
 (tile tones, fan speeds / presets, jam-media `sources` / `more`, TV `stereo` / `remote_card`, screensaver `kiosk` ...)
@@ -22,57 +43,24 @@ stay YAML and are kept when you edit the form; a config the form cannot show (a 
 items, a bare uri among pins) opens in the YAML editor instead. jam-remote, jam-kiosk and jam-popup are YAML only (the
 tables below). The screensaver stays inert in the picker and while the dashboard is in edit mode. Unknown or unavailable
 entities render as unavailable instead of throwing.
-Fonts (OFL): Londrina Solid and Jost (the default look) are embedded in `jam-cards.js` (latin subset); the other looks'
-fonts are files in `fonts/` next to it, loaded only while that look is active. Licences are in `dist/fonts/`. Nothing is
-fetched from outside Home Assistant (the screensaver's `images.index` is whatever URL you configure).
+Fonts (OFL): Jost 400-600 is embedded in `jam-cards.js` (latin subset); IBM Plex Mono (IBM's own Latin1 files, unmodified)
+and a Jost 300 face are files in `fonts/` next to it. Licences are in `dist/fonts/`. Nothing is fetched from outside Home
+Assistant (the screensaver's `images.index` is whatever URL you configure).
 
-**0.10.0: state grammar, opt-in attention, eleven look cards, three more looks.** One state grammar in every look: on is the
-strongest fill the look owns, off is quiet, a lock is never "on" (unlocked / open / jammed are alerts, locked is quiet),
-trouble sensors (problem, moisture, smoke, gas, CO, safety, tamper, battery, heat, cold) are alerts while on, and an
-unreachable entity reads **Offline** on a broken form; jam-kiosk and jam-screensaver share one date line. Labels are at
-least 12 px and chips 13 px everywhere. New opt-ins (all off by default, so live dashboards keep their look): jam-kiosk
-`dock_state: fill`, `attention`, `now_band` and `sheet_heading: false`; `size: kiosk` on jam-light, jam-scenes and jam-fan;
-jam-speaker `compact_idle`; jam-screensaver `lock_entity` and `alerts`; jam-house `attention`. Eleven look cards, each
-made for one look and at home in every look: after Braun objects [jam-dial](#jam-dial), [jam-keypad](#jam-keypad) and
-[jam-radio](#jam-radio); for Olympia [jam-pictogram](#jam-pictogram), [jam-programme](#jam-programme) and
-[jam-results](#jam-results); for Transit [jam-linemap](#jam-linemap) and [jam-arrivals](#jam-arrivals); for Grid
-[jam-matrix](#jam-matrix); for Pulsar [jam-ridge](#jam-ridge); for New Wave [jam-sticker](#jam-sticker). Three more looks:
-**Jam Brutal** (neo-brutalism: bordered white slabs, hard shadows, keys that go down), **Jam Glass** (liquid glass + bento
-over a soft colour field; set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets) and **Jam Girard**
-(Alexander Girard's textiles: woven room patterns, saturated fills, sun / heart / eye / bird motifs). Update the
-[jam-theme](https://github.com/Starkkaman/jam-theme) repo too. For look packs: jam-kiosk dock blocks carry
-`data-state="on|off|action"` (plus `data-alert`), and jam-light / jam-button / jam-tile / jam-fan hosts carry
-`data-state="on|off|offline"`.
-
-**0.9.0: four more looks.** **Jam Transit** (Vignelli's subway signs: black signs, route bullets, yellow alerts), **Jam
-Grid** (Crouwel's New Alphabet: a page grid, one signal colour, big numbers built from grid cells), **Jam Pulsar**
-(Factory Records: a black field with thin rules, ridge-line levels, colour codes) and **Jam New Wave** (April Greiman:
-tinted translucent planes, confetti, pixel type; set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets).
-Update the [jam-theme](https://github.com/Starkkaman/jam-theme) repo too, then pick a look in your profile. **Jam
-Braun** has more colour (lit lights tinted in their own colour, the ET66 yellow and olive keys, room-coloured heading
-rules, tinted dock blocks and bands). New [jam-looks](#jam-looks) card: a per-user look picker with a live swatch per
-look (it sets your own theme, like Profile → Theme). Visual editors now cover 21 cards (plus jam-looks), list options
-included (Home Assistant 2026.10 or newer).
-
-**0.8.0: looks.** Two new looks next to Poster, Braun and Olympia: install or update the
-[jam-theme](https://github.com/Starkkaman/jam-theme) repo and switch with Home Assistant's theme picker (profile, or
-`frontend.set_theme`): **Jam Braun** or **Jam Olympia** (JamBoard = Poster). Also visual editors for 13 cards, a short
-error strip on the card for failed taps (instead of Home Assistant's raw error), and `dist/` packaging (below).
-
-**Upgrading from 0.7.x (files moved to `dist/`).** The repository now ships `dist/jam-cards.js` plus `dist/fonts/`; HACS
+**Upgrading from 0.7.x (files moved to `dist/`).** The repository ships `dist/jam-cards.js` plus `dist/fonts/`; HACS
 downloads the whole `dist/` folder into the same place as before, so the dashboard resource stays
-`/hacsfiles/jam-cards/jam-cards.js` and nothing needs changing: update in HACS and reload the browser. The look fonts are then
-served from `/hacsfiles/jam-cards/fonts/`. Manual installs: copy the whole `dist/` folder (not only `jam-cards.js`) to
-`www/jam-cards/` and keep the resource `/local/jam-cards/jam-cards.js`; if the fonts are missing, the looks fall back to
-system fonts and nothing else breaks.
+`/hacsfiles/jam-cards/jam-cards.js`: update in HACS and reload the browser. Manual installs: copy the whole `dist/` folder
+(not only `jam-cards.js`) to `www/jam-cards/` and keep the resource `/local/jam-cards/jam-cards.js`; if the fonts are
+missing, the labels fall back to the system monospace and nothing else breaks.
 
 ## Colours
-Every card takes `accent:` — `ochre` (default), `teal`, `blue`, `pink`, `violet`, `green`, `red`, or a room alias:
-`living` (ochre), `kitchen` (teal), `master` (blue), `marissa` (pink), `music` (violet), `nerd` (green), `alert` (red).
-Anything that is on or selected fills with the accent (ink text); idle controls stay neutral. Red is meant for alerts:
-unavailable states, jammed locks and power keys are always red. Cards inside a `jam-popup` follow the pop-up's accent
-unless they set their own; inside pop-ups and sheets their surfaces move one step up (card face `--jam-slab2`, inner
-keys `--jam-slab3`) so they stand out from the sheet. Status colours: accent = on/active, red = alert/unavailable, teal = calm/informational, line = off.
+Every card takes `accent:` — `ochre`, `teal`, `blue`, `pink`, `violet`, `green`, `red`, or a room alias: `living` (walnut),
+`kitchen` (teal), `master` (blue), `marissa` (pink), `music` (violet), `nerd` (green), `alert` (red), or `ink` / `paper`.
+In Hi-Fi an accent is quiet: without one, a card's on-state and fills use the ink (pressed keys are deeper paper with an ink
+edge, never a colour fill), so set `accent` only where a colour carries meaning. On the small switch (switches, plugs, the
+purifier) `accent` overrides the colour by kind (plugs / power blue, air / climate teal, automations violet, settings
+steel). Orange is kept for the one thing to do now (Lock by day, Pause where something plays, the remote's OK) and red for
+alerts (solid red keys with dark text). Inside pop-ups and sheets the cards sit on the page ground.
 
 ## Actions
 Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` accept standard Lovelace action objects:
@@ -80,7 +68,7 @@ Cards that list `tap_action`, `hold_action` (500 ms) or `double_tap_action` acce
 (`perform_action`, `data`, `target`) and `none`. Add `confirmation: true` or `confirmation: {text: ...}` to ask first.
 
 ## Cards
-36 cards (look cards, at home in every look: jam-dial, jam-keypad and jam-radio are drawn after Braun objects; jam-pictogram, jam-programme and jam-results were made for Olympia; jam-linemap and jam-arrivals for Transit, jam-matrix for Grid, jam-ridge for Pulsar and jam-sticker for New Wave). Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
+24 cards. Every card takes `accent`. The full option list of each card is in the header comment of `src/cards/jam-*.js`.
 
 ### jam-heading
 Section label with a big title over a 5px accent rule.
@@ -354,7 +342,9 @@ The `keyboard` key opens a small sheet: a text field with Send (`send_command` `
 Enter (`ENTER`), as universal-remote-card's Android TV keyboard. Volume and d-pad keys repeat while held.
 
 ### jam-tv
-Smart TV (Android TV media_player + remote), round 3: an artwork poster (power in its corner) with the title on a solid
+Smart TV (Android TV media_player + remote). Hi-Fi draws a TV card (name row with the state words, title, transport, volume
+steps, Remote and Source keys) and its TV / Source pop-up and the round 5 remote (with a Stereo group from `stereo`). The
+earlier round 3 layout, which the card still draws only if Hi-Fi's drawing fails: an artwork poster (power in its corner) with the title on a solid
 ink band, Prev / big Play-Pause / Next, a violet volume rocker (− | Mute | +) and outlined **Remote** and **Source** tabs.
 Remote opens a sheet with a jam-remote in a TV group (teal: d-pad, Back / Home / Menu / Settings, Rewind / Play / Forward,
 red power) and a Stereo group (violet: rocker, inputs, violet power), with a keyboard key in the header. Source opens its
@@ -511,8 +501,8 @@ scenes:
 | `accent` | Active scene fill |
 
 ### jam-screensaver
-Takes no space on the dashboard; after inactivity covers the screen with a Poster clock + weather word or a photo
-slideshow. Built for weak kiosk tablets (minute timer, no animation loops).
+Takes no space on the dashboard; after inactivity covers the screen with a calm night clock (Jost 300 on the navy, the date,
+the weather words; the "poster" view of the options below) or a photo slideshow. Built for weak kiosk tablets (minute timer, no animation loops).
 ```yaml
 type: custom:jam-screensaver
 idle_seconds: 120
@@ -585,7 +575,10 @@ card is on only (it stays hidden while you switch views there, and comes back wh
 Way out: press and hold the top-left corner (48 × 48 px) for 2 seconds; the sidebar and header return until the page is reloaded.
 
 ### jam-kiosk
-The kiosk home screen (0.5.0, "Poster + dock"): fills the whole view with a huge clock, the date under it in the
+The kiosk home screen. Hi-Fi draws it as the Jam Design pass 7 kiosk: a walnut rule, the room and the door (name, state
+word, status light) at the top, a big Jost 300 clock with the date and one facts line, and three keys along the bottom whose
+full-screen sheets never scroll (per block `rows`, `title`, `glyph`, below). The options below come from the earlier
+"Poster + dock" layout (0.5.0), which the card still draws only if Hi-Fi's drawing fails: it fills the whole view with a huge clock, the date under it in the
 display font (0.6.1: its own line), a facts line (inside temperature, humidity, air quality; left out without values), a
 "now" line (what is playing, else the weather outside) and a dock of 2-5 flat colour blocks along the bottom. Built to be
 read from across the room: nothing under 18 px, one room colour (the bar at the top) plus the dock blocks, no chips.
@@ -668,337 +661,34 @@ watch: [lock.front_door]
 | `show_unavailable_count` | Default true |
 | `title`, `accent` | Title (default "Automations & alerts") and accent |
 
-### jam-looks
-A look picker for **yourself**: one tile per installed look (JamBoard and every theme named "Jam ...": Jam Braun,
-Jam Brutal, Jam Girard, Jam Glass, Jam Grid, Jam New Wave, Jam Olympia, Jam Pulsar, Jam Transit), each with a small live swatch of that look (its ground, face, text in its display font and four hues, in the
-current light / dark mode), plus **Use system default**. The current one is filled with the accent. A tap does exactly what
-Profile → Theme does: it sets the theme for the logged-in user (this browser, and Home Assistant 2026.10 also saves it to
-that user's profile, so their other browsers follow) and keeps their auto / light / dark choice. Other users, wall
-tablets on another account and the backend default theme are not touched; no helper or automation is needed. The swatches
-load each look's font files once (from `fonts/` next to `jam-cards.js`).
-```yaml
-type: custom:jam-looks
-title: Look
-```
-| Option | Description |
-|---|---|
-| `title` | Label above the tiles (default "Look") |
-| `looks` | Theme names to show, in this order (default: JamBoard, then every "Jam ..." theme by name); any installed theme works |
-| `accent` | Fill of the current tile |
-
-### jam-dial
-A light as a rotary dial (designed for the Braun look, at home in every look): the brightness is an arc in the light's own
-colour around a centre cap with the %. Drag around the dial (or tap a point on it), roll the mouse wheel or use the arrow
-keys to dim; tap the centre to switch the light on or off; the power toggle sits top-right. Under the dial: your two
-whites (half discs) and your colours (full discs), the current one ringed. A light that only switches gets a big push
-button instead of the scale; an unavailable one says Offline. Hold the dial, the centre or the name (or tap the name) for
-the full jam-light pop-up. Works with any light, groups included (the arc shows the lit members' colour, "2 of 3 on").
-```yaml
-type: custom:jam-dial
-entity: light.living_room
-colors:
-  - {name: Rose, rgb_color: [226, 101, 143]}
-  - {name: Blue, rgb_color: [74, 123, 224]}
-```
-| Option | Description |
-|---|---|
-| `entity` | light (required; groups too) |
-| `name` | Name (default the friendly name) |
-| `kicker` | Line under the name (default: a group's "K of N on", else the light's area); also the pop-up kicker |
-| `show_swatches` | Row of white / colour swatches (default true) |
-| `whites` | Two `{name, kelvin}` whites, as jam-light (default Cozy 2200 K / Clean 4000 K; your edited whites from the pop-up win) |
-| `colors` | Colour swatches `{name, rgb_color}` (default: your saved colours from the pop-up, else Rose / Blue / Green; a colour that nearly repeats an earlier swatch is left out) |
-| `hold_action` | Action on hold (default: the jam-light pop-up) |
-| `show_brightness`, `show_color_temp`, `show_color`, `show_members`, `preset_entity`, `timer_script`, `presets` | The pop-up's options, as jam-light |
-| `accent` | Mark on the dial (default ochre) |
-
-### jam-keypad
-Scenes, scripts and buttons as round calculator keys on a dark body (the ET66 calculator in the Braun look), three to a
-row, with a small display on top: the room and the active scene. The active key lights up (its face in the accent, ET66
-yellow in Braun, a lit dot and a ring: the scene activated last, or the `current_entity` option when that changed later,
-as jam-scenes). Each key can have its own colour; **All on** / **All off** with your own actions sit in a wide bar under
-the keys.
-```yaml
-type: custom:jam-keypad
-title: Living room
-current_entity: input_select.light_scenes
-keys:
-  - {entity: scene.normal}
-  - {entity: scene.movie_time}
-  - {entity: scene.night, accent: ochre}
-  - {name: Tea, accent: pink, tap_action: {action: perform-action, perform_action: script.turn_on, target: {entity_id: script.kettle}}}
-all_on: {action: perform-action, perform_action: light.turn_on, target: {area_id: living_room}}
-all_off: {action: perform-action, perform_action: light.turn_off, target: {area_id: living_room}}
-```
-| Option | Description |
-|---|---|
-| `title` | Room in the display (default "Scenes") |
-| `keys` | `{entity, name, accent, data, tap_action}`: a scene / script / button / input_button (scene and script = turn_on with `data`, buttons = press), or any key with a name and a `tap_action` (required) |
-| `current_entity` | input_select / select naming the active scene |
-| `all_on` | Action of an "All on" key (green) in the bar under the keys |
-| `all_off` | Action of an "All off" key (ochre) in the bar under the keys |
-| `accent` | The lit active key and its ring (default ochre) |
-
-### jam-radio
-A Music Assistant speaker as a pocket radio (the T3 in the Braun look): a dot grille down the left, a small dark display
-with the title and artist (tap it for the **library panel**, as jam-speaker), round Prev / Play / Next keys (Play filled
-while it plays) and a big ribbed volume wheel you roll with a finger (or the mouse wheel / arrow keys). Shuffle and Favourite sit by the "Room · source" line, as on
-jam-speaker.
-```yaml
-type: custom:jam-radio
-entity: media_player.kitchen
-name: Kitchen
-```
-| Option | Description |
-|---|---|
-| `entity` | media_player (required; a Music Assistant player) |
-| `name` | Room name (default the player's name) |
-| `show_shuffle` | Shuffle key (default true; hidden when the player cannot shuffle) |
-| `show_favorite` | Favourite key (default true), as jam-speaker |
-| `favorite_entity` | The Music Assistant "Favorite current song" button (default: found on the player's device); `false` = no key |
-| `speakers` | media_player ids for the panel's Speakers view, as jam-speaker |
-| `pinned` | Pinned items `{uri, name, image, media_type}` for the panel, as jam-speaker |
-| `config_entry_id` | Music Assistant config entry for the library calls (default: found automatically) |
-| `accent` | Play key while playing (default violet) |
-
-### jam-pictogram
-A room tile in the manner of Otl Aicher's 1972 pictograms (made for the Olympia look, works in every look): a field with a
-pictogram drawn from 45° and 90° strokes, the room name and 2-4 facts (2 on a half-width tile). While the room is on (a rule
-matches, `entity` is on, a counted entity is on or a player plays) the field is the card's accent; off it is a plain field
-under an accent strip; with its entities missing it is dashed and says Offline. A rule can swap the pictogram while
-something is on (TV playing → the watching figure, with the word on the field). Tap = `tap_action` (e.g. navigate to the room),
-default more-info of `entity`; without `entity` or actions the tile is not a control.
-```yaml
-type: custom:jam-pictogram
-name: Living room
-pictogram: sofa-tv
-accent: living
-rules: [{entity: media_player.living_room_tv, state: playing, pictogram: watch}]
-facts:
-  - {entity: light.living_room, name: lights on}
-  - {entity: media_player.living_room_tv, name: tv}
-  - {entity: sensor.living_room_temperature, name: inside}
-tap_action: {action: navigate, navigation_path: /jam-home/living}
-```
-| Option | Description |
-|---|---|
-| `name` | Room name (default: the entity's name, else "Room") |
-| `pictogram` | `home` (default), `sofa-tv`, `watch`, `cook`, `sleep`, `music`, `work-desk`, `bath`, `play`, `car`, `garden` (aliases `tv`, `work`, `garage`) |
-| `entity` | Entity for the default tap (more-info) |
-| `rules` | List of `{entity, state, pictogram}`: the first rule whose entity is in `state` (a state or a list; default an on state such as on / playing) shows its pictogram |
-| `facts` | Up to 4 entity ids or `{entity, entities, name, attribute, unit}`: a value (temperatures as 66°), a media player's app or title, the members of a group that are on (`entity` = a light group), or how many of `entities` are on |
-| `tap_action`, `hold_action`, `double_tap_action` | Actions |
-
-### jam-programme
-The day as a games programme sheet (made for the Olympia look, works in every look): one timeline for today with a lane per
-schedule, calendar, on / off entity or fixed range, a line for now with its time and the hours under it. Under the title:
-what is on now and what is next; tap a band for its times and event there (Esc or another tap goes back). Past bands fade
-toward the track, the current one stands out.
-```yaml
-type: custom:jam-programme
-title: Programme
-lanes:
-  - {entity: schedule.screens_off, color: blue}
-  - {entity: input_boolean.work_mode, name: Work, color: green}
-  - {entity: calendar.family}
-  - {name: Briefs, ranges: [{from: "07:00", to: "07:20", label: Morning brief}]}
-```
-| Option | Description |
-|---|---|
-| `title` | Title (default "Today"); the date is shown beside it |
-| `from`, `to` | The window, HH:MM (default 00:00 to 24:00) |
-| `lanes` | 1-8 lanes `{entity, name, color, state, ranges}`: a `schedule.*` shows its blocks for today (a YAML schedule: its history), a `calendar.*` today's events, any other entity its on periods today from the recorder (`state` = which states count as on); `ranges` = fixed bands `{from, to, label}` (to before from runs past midnight); `color` = an accent name (default: the room accent of the entity's area, matched by its name: living, kitchen, master, marissa, music, nerd / office; else blue, teal, ochre, pink, violet, green in order) |
-| `refresh_minutes` | Refetch interval (default 10; also when a lane entity changes, at most once a minute, and at midnight) |
-
-Data: `schedule/list` + `config/entity_registry/get` (schedule blocks), `call_service` `calendar.get_events` with
-`return_response` (events) and `history/history_during_period` (on periods), all over the frontend's websocket.
-
-### jam-results
-A results board (made for the Olympia look, works in every look): big numbers on flat colour squares, one square per sensor. A
-square is neutral until you give it a colour or a threshold it passes.
-```yaml
-type: custom:jam-results
-items:
-  - {entity: sensor.inside_temperature, name: inside, color: pink}
-  - {entity: sensor.energy_today, name: energy today}
-  - {entity: sensor.office_co2, name: CO2, thresholds: [{above: 1000, color: red}, {below: 600, color: green, word: good}]}
-```
-| Option | Description |
-|---|---|
-| `items` | 1-12 entity ids or `{entity, name, color, unit, attribute, decimals, thresholds, tap_action}`; `thresholds` = a list of `{above, below, color, word}`: the first one the value passes sets the square's colour and shows its `word` (default "high" above, "low" below) on an inverted label plate; `color` = an accent name; with neither the square is neutral (face colour, text colour numerals); a missing sensor shows its name and "Offline" |
-| `columns` | Fixed number of columns (default: as many squares of at least 112px as fit) |
-
-### jam-linemap
-The house as a subway map (made for the Transit look, drawn in every look): every room is a coloured line, every entity a
-station on it. A big filled dot = on, a small hollow one = off, a dashed ring = offline, a tick across the track = a sensor
-with its value; a line with nothing on is out of service (dashed); a long line turns back on the next row. An entity on
-two lines is an interchange (a bigger ring, filled with the line colour when on, with the other line's bullet after its
-name). Tap a station to toggle it (or open its details), tap a line's name to open its room.
-```yaml
-type: custom:jam-linemap
-title: House lines
-lines:
-  - name: Living
-    color: living
-    path: /lovelace/living
-    stations: [light.floor_lamp, light.sofa, switch.hallway, sensor.living_temperature]
-  - name: Kitchen
-    color: kitchen
-    stations: [light.ceiling, light.island, switch.hallway]
-```
-| Option | Description |
-|---|---|
-| `lines` | The lines, in order: `name`, `color` (a hue or room alias; default ochre, teal, blue, pink, violet, green by position), `path` (tap the name to go there), `stations` (entity ids, in order) |
-| `title`, `accent` | Title and the colour of its rule |
-
-### jam-arrivals
-An arrivals board (made for the Transit look): alerts and service changes first, then what is playing, the next calendar
-events and entity states, each row with a route bullet (every line its own letter) and the status on the right ("Now",
-"7:30 PM", "Tue 9:00", "Tomorrow").
-```yaml
-type: custom:jam-arrivals
-alerts:
-  - entity: binary_sensor.sink_leak
-    message: Water under the sink
-  - entity: sensor.front_door_battery
-    below: 15
-media: [media_player.kitchen]
-calendars: [calendar.family]
-events: 4
-entities: [sensor.washer, lock.front_door]
-```
-| Option | Description |
-|---|---|
-| `alerts` | Rows while a condition holds: `entity` with `state` (one or a list), `above` / `below`, or nothing (= while on or in a problem state); `message` (default "name: state"); `severity` `alert` (red mark, "Now", the sensor as detail; first) or `warn` (a "Service change"; default: alert when the entity is in a problem state) |
-| `media` | Media players shown as "Now playing" while they play or are paused |
-| `calendars` | Calendar ids (or `{entity, name, accent, bullet}`): their next events, merged in time order |
-| `events`, `hours` | How many events (default 4) within how many hours (default 48) |
-| `refresh_minutes` | How often the calendars are read again (default 15) |
-| `entities` | Rows whose state is the status (ids or `{entity, name, accent, bullet}`); `bullet` sets the letter, else the first letter of the name that no other line uses |
-| `title`, `accent` | Title (default "Arrivals") and the default bullet colour |
-
-### jam-matrix
-A toggle matrix (made for the Grid look): one square per entity, filled while on; squares of 64px or more show their name.
-Hover or focus a square to read it in the caption (at rest the caption lists what is on); on a touch screen the first tap
-selects a square and names it, the second one toggles it. The count of what is on sits in the header as a big numeral
-(cell numerals in the Grid look). Arrow keys move between squares.
-```yaml
-type: custom:jam-matrix
-title: Lights
-entities: [light.floor_lamp, light.sofa, light.ceiling, light.island]
-```
-| Option | Description |
-|---|---|
-| `entities` | Entity ids (or `{entity, name}`); on / off entities toggle, others open their details |
-| `columns` | Squares per row (default: the count, 3 to 6; at most 4 on a phone) |
-| `title`, `accent` | Title (default "Matrix") and the fill of a square that is on |
-
-### jam-ridge
-Stacked ridgelines of the recorder history of 1–8 sensors (made for the Pulsar look): one calm line per sensor, each on
-its own scale so the shape of the day reads, the current value on the right. The one sensor that has left its range of
-the day is drawn in the accent; an offline one is dashed. Static; tap a row for its details.
-```yaml
-type: custom:jam-ridge
-title: Temperatures
-entities: [sensor.outside_temperature, sensor.living_room_temperature, sensor.bedroom_temperature]
-```
-| Option | Description |
-|---|---|
-| `entities` | 1–8 entity ids or `{entity, name}` |
-| `hours_to_show` | Window (default 24) |
-| `refresh_minutes` | Default 5 |
-| `title`, `accent` | Title (default "History") and the colour of its rule |
-
-### jam-sticker
-A sticker note that is only there while its conditions hold (made for the New Wave look): alerts, reminders, a key to act
-on them. Info, warn and alert stickers have their own colours (an alert has a mark, a bigger title and comes first); in New
-Wave they are tilted stickers with a hard shadow.
-```yaml
-type: custom:jam-sticker
-title: Dishwasher is done
-text: Unload it before dinner.
-conditions:
-  - entity: sensor.dishwasher
-    state: done
-action_name: Mark emptied
-tap_action:
-  action: perform-action
-  perform_action: input_boolean.turn_on
-  target: {entity_id: input_boolean.dishwasher_emptied}
-```
-| Option | Description |
-|---|---|
-| `conditions` | All must hold, like HA's visibility conditions: `condition` (`state` / `numeric_state`, optional), `entity`, `state` / `state_not` (one or a list), `above` / `below`; an item with only an entity holds while it is on |
-| `title`, `text` | The note |
-| `severity` | `info` (default), `warn` or `alert` |
-| `action_name`, `tap_action` | A key on the sticker (default name "Open") and what it does |
-| `entity` | The entity a `more-info` key opens |
-| `accent` | Not used (the severity sets the colour) |
-
 ## Design rules
-The default look, Poster: flat colour, no gradients, no blur, no shadows, no rounded corners, uppercase display type, straight
-edges with one cut corner. Motion is one-shot and stepped like cut paper (view entrance, press print, light colour wipe,
-scene/source stamp, sheet stagger, kiosk dock stamp); `prefers-reduced-motion` or `JamCards.motion = false` turns it off.
-The full rules (universal ones and the Poster look's own) are in [docs/DESIGN.md](docs/DESIGN.md).
+Hi-Fi (calm instruments): flat panels with a 1px hairline and soft corners (16px cards, 12px keys, 22px sheets, 999px
+pills), no gradients, no shadows, no glow; Jost 500 words in mixed case, Jost 300 for big numerals, IBM Plex Mono 500 for
+small labels (uppercase, wide tracking); at most one orange per screen; red only for alerts; state = colour + shape + word
+(Offline = a dashed outline and the word, never "N/A"). Motion is short and settles (transforms and opacity, 150-220 ms
+on `cubic-bezier(.16,1,.3,1)`); `prefers-reduced-motion` or `JamCards.motion = false` makes it instant. Labels are at least
+12 px, kiosk text at least 15 px, every control at least 44 px. The full rules are in [docs/DESIGN.md](docs/DESIGN.md).
 
-State grammar (2026-11-03 audit, every look): on = the strongest fill the look owns, off = quiet; a lock is never "on":
-unlocked / open / jammed use the alert tone and locked is quiet; an entity Home Assistant cannot reach reads **Offline**
-(never "N/A" or "unavailable") on a broken form (Poster: a hollow card with a dashed edge). Labels are at least 12 px,
-chips 13 px, scene keys and graph legend hits 44 px. Details: DESIGN.md "State grammar".
-
-## Theme tokens and looks
-The cards read `--jam-*` theme variables: colours per light/dark mode (surfaces, hues, series, the fixed ink bands and label
-plates, `--jam-focus`), the font stacks, `--jam-look` and, optionally, shapes (`--jam-shape-<kind>`: a whole `clip-path`
-value per surface kind, `--jam-radius-<kind>`). Without a theme they fall back to the Poster dark palette and cuts. The
-list with every default is in [docs/DESIGN.md](docs/DESIGN.md) "Token reference". Each card host carries
-`data-look=<id>` from `--jam-look` (`poster` by default), and a theme or dark-mode switch re-renders the cards at once.
-Looks are extra themes next to JamBoard (from the jam-theme repo): **Jam Braun** (after Dieter Rams: warm-white or
-anthracite panels with a hairline and a soft shadow, one orange signal, toggle switches, LED dots, Archivo; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Braun rules"), **Jam Olympia** (after Otl Aicher's Munich 1972 design: a light
-ground with white faces, the Munich spectrum as flat stripes and fields, no red, square corners, lowercase Albert Sans;
-rules in [docs/DESIGN.md](docs/DESIGN.md) "Olympia rules"), **Jam Transit** (after Vignelli's New York subway signage:
-every card a black sign under a double rule, round MTA route bullets with letters, Arimo, yellow "service change" for
-alerts; rules in [docs/DESIGN.md](docs/DESIGN.md) "Transit rules"), **Jam Grid** (after Wim Crouwel's New Alphabet: a white
-or black page with a visible 24px grid, square faces with a 1px ink line, one orange-red signal, Hanken Grotesk, and big
-numbers built from grid cells that rebuild cell by cell when the value changes; screen readers still get the number; rules
-in [docs/DESIGN.md](docs/DESIGN.md) "Grid rules"), **Jam Pulsar** (after Peter Saville's Factory Records sleeves: a black
-field with thin rules, one warm accent, levels as Unknown Pleasures ridges, Blue Monday colour codes; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Pulsar rules"), **Jam New Wave** (after April Greiman with a touch of
-Memphis: translucent planes tinted per room, confetti, Silkscreen pixel numbers and labels, sticker-yellow alerts; its
-effects are on by default, set `fx: false` on jam-kiosk / jam-screensaver for weak kiosk tablets; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "New Wave rules"), **Jam Brutal** (neo-brutalism: white slabs with 3px black borders
-and hard offset shadows on a paper page, keys that go down when pressed, flat room fills with black text, pill switches,
-Bricolage Grotesque 800; rules in [docs/DESIGN.md](docs/DESIGN.md) "Brutal rules"), **Jam Glass** (liquid glass + bento:
-frosted panes over a soft teal / violet / amber colour field, Figtree with big light numbers, rounded bento shapes, lit
-lights glow from inside; dark first, with a light mode; its effects are on by default, set `fx: false` on jam-kiosk /
-jam-screensaver for weak kiosk tablets; rules in [docs/DESIGN.md](docs/DESIGN.md) "Glass rules") and **Jam Girard** (after
-Alexander Girard's textiles: a cream-white page, cards edged or framed with a woven pattern per room, saturated vermilion /
-mustard / cobalt / pink / magenta / turquoise fills, pill keys, sun / heart / eye / bird / diamond motifs, a sun power key,
-a kiosk in the room's own colour, Fraunces and Work Sans; rules in
-[docs/DESIGN.md](docs/DESIGN.md) "Girard rules") and **Jam Calm** (Jam Design's calm-instrument look, pass 6 + 7: Callsheet
-paper by day and navy by night, Jost words with IBM Plex Mono labels and numbers, flat panels with hairline edges and soft
-corners, no shadows; one orange per screen for the thing to do now, red for alert; lights get a rocker (or `switch:
-toggle`, the small channel-reveal switch) beside a vertical brightness fader, other on / off devices the small switch with
-its accent by kind; the kiosk is a clock, the door and three keys whose sheets never scroll. Calm draws the cards it knows
-in layouts of its own; rules in [docs/DESIGN.md](docs/DESIGN.md) "Calm rules"; IBM Plex Mono ships as IBM's own files with
-its licence in `dist/fonts/OFL-IBMPlexMono.txt`). Pick a look in the theme picker; JamBoard is Poster. The
-[jam-looks](#jam-looks) card puts that per-user picker on a dashboard, with a swatch per look.
-A look's theme sets `--jam-look: <id>` and the cards adopt that look's pack (its CSS and fonts) at once, without a reload,
-also in open pop-ups and the screensaver. A look's fonts are files next to `jam-cards.js` (`fonts/`, from `dist/fonts/`), loaded only while
-the look is active; if they cannot load, the look's fallback fonts are used. `--jam-fx: 1` in a look's theme turns on its
-effects; `fx: false` on a card (e.g. jam-kiosk or jam-screensaver on a slow wall tablet) keeps them off for that card.
-When jam-cards.js is not served from `/hacsfiles/jam-cards/` or the folder of its `<script>`, set
+## Theme tokens
+The cards read `--jam-*` theme variables: colours per light/dark mode (surfaces, hues, series, the ink bands, the
+calm-instrument parts such as `--jam-ground`, `--jam-groove`, `--jam-cap`, the small switch's kind accents). The theme-level
+tokens (font stacks, type, shapes, motion, `--jam-look: hifi`) are fixed in the cards since 1.0.0: one look, nothing to
+switch. Without the Hi-Fi theme (no theme, or an old Jam theme) each card carries `data-jam-builtin` and draws the Night
+palette from its own values; with it, the cards follow its Day and Night palettes, and a theme or dark-mode switch
+re-renders them at once (also in open pop-ups and the screensaver). The list with every default is in
+[docs/DESIGN.md](docs/DESIGN.md) "Token reference". Fonts load from `fonts/` next to `jam-cards.js` (`dist/fonts/`): when
+jam-cards.js is not served from `/hacsfiles/jam-cards/` or the folder of its `<script>`, set
 `window.JamCardsConfig = {assetBase: "/local/jam-cards/"}` before it loads.
 
 ## Develop
 Source lives in `src/`; `dist/jam-cards.js` is generated by `node tools/bundle.mjs`. `pw-node preview/shoot.js` renders
-`preview/index.html` (fake hass) in dark and light at 390 and 1280 px, writes `preview/shots/`, and checks the service
-calls of each control (exit 0 = pass). File map: [filemap.md](filemap.md).
-The theme tokens have one source, `tokens/`: `node tools/bundle.mjs` writes the cards' fallbacks and `preview/looks.css`
-from it, `node tools/themes.mjs` writes the JamBoard theme YAML into a [jam-theme](https://github.com/Starkkaman/jam-theme)
-clone next to this repo, and `node tools/bundle.mjs --check` fails while any generated file is stale. To prove a refactor
-changes no pixel: `JAM_BASELINE=<dir> JAM_BASELINE_WRITE=1 pw-node preview/shoot.js` on the commit before it, then
+`preview/index.html` (fake hass) in Night and Day at 390 and 1280 px, writes `preview/shots/` (plus the contact sheet
+`preview/shots/cards.html`), checks fonts, fit, edges and contrast, runs the behaviour checks in `preview/checks/` and the
+text-fit / kiosk harness `preview/fit.js` (exit 0 = pass). `preview/index.html?theme=none` shows the built-in palette.
+File map: [filemap.md](filemap.md).
+The theme tokens have one source, `tokens/` (`tokens/looks/hifi.mjs`): `node tools/bundle.mjs` writes the cards' built-in
+values and `preview/looks.css` from it, `node tools/themes.mjs` writes the Hi-Fi theme YAML (`themes/jamboard.yaml`) into a
+[jam-theme](https://github.com/Starkkaman/jam-theme) clone next to this repo (`JAM_THEME_DIR=<dir>/themes` for another
+checkout), and `node tools/bundle.mjs --check` fails while any generated file is stale. To prove a refactor changes no
+pixel: `JAM_BASELINE=<dir> JAM_BASELINE_WRITE=1 pw-node preview/shoot.js` on the commit before it, then
 `JAM_BASELINE=<dir> pw-node preview/shoot.js` after it (add `JAM_SHOTS=<dir>` for the fixed-clock screensaver set).
-Every look is checked too: `LOOKS=poster,braun pw-node preview/shoot.js` narrows the matrix (default: every look in
-`tokens/looks/`); other looks' shots go to `preview/shots/<look>/` and `preview/shots/looks.html` is a contact sheet with
-one row per preview card and one column per look.

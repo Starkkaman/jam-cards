@@ -1,52 +1,24 @@
 // Landing strip checks: jam-house door chip + people + air lines, jam-tabs current tab + navigate, jam-scenes call + active scene.
 module.exports = async (page, check, {callsNow}) => {
+  // jam-house in Hi-Fi (the pass 7 house strip): inside / outside, the door row (state word, Lock key while unlocked),
+  // the people at home by first name (away = "· out"); no air lines (the purifier says the air word).
   const house = page.locator("jam-house").first();
-  // People: only those home, as chips (amber is not_home).
-  const people = await house.locator("[data-role=person]").allTextContents();   // "Isaac Hulter" -> first name
-  check(JSON.stringify(people) === JSON.stringify(["Isaac", "Marissa", "Nick"]), `jam-house shows only people at home (${people.join(", ")})`);
-  check((await house.locator(".temp").textContent()) === "73.9°F" && (await house.locator(".otemp").textContent()) === "63°",
-    "jam-house shows inside 73.9°F and outside 63°");
-  check(/Outside · Clear night/.test(await house.locator(".out .label:not(.aq)").textContent()), "jam-house outside kicker names the condition");
-  // Door: unlocked -> red chip, tap calls lock.lock without a confirmation dialog.
+  const hs = await house.evaluate(e => { const r = e.shadowRoot;
+    return {people: [...r.querySelectorAll(".c-ppl > span:not(.c-away)")].map(x => x.textContent.replace(/^\S\s*/, "").trim()),
+      away: [...r.querySelectorAll(".c-ppl > span.c-away")].map(x => x.textContent), big: [...r.querySelectorAll(".c-big")].map(x => x.textContent),
+      word: (r.querySelector(".c-dw") || {}).textContent || "", aq: r.querySelectorAll("[data-role=aq]").length}; });
+  check(JSON.stringify(hs.people) === JSON.stringify(["Isaac", "Marissa", "Nick"]) && hs.away.every(t => /· out$/.test(t)), `jam-house: people at home by first name, away ones "· out" (${hs.people.join(", ")} | ${hs.away.join(", ")})`);
+  check(/^74°/.test(hs.big[0] || "") && /^63°/.test(hs.big[1] || "") && hs.aq === 0, `jam-house: inside 74° and outside 63° (${hs.big.join(" | ")}), no air lines`);
   let dialog = false; const onDialog = d => { dialog = true; d.dismiss(); };
   page.on("dialog", onDialog);
-  const door = house.locator("[data-role=door]");
-  check((await door.textContent()) === "Door unlocked · lock" && await door.evaluate(e => e.classList.contains("red")), "unlocked door chip is red 'Door unlocked · lock'");
-  await door.click();
+  check(/unlocked/i.test(hs.word), `jam-house: the door reads unlocked ("${hs.word}")`);
+  await house.locator(".c-dr button").first().click();
   page.off("dialog", onDialog);
-  check(!dialog && (await callsNow()).some(c => c.domain === "lock" && c.service === "lock" && c.data.entity_id === "lock.level_bolt_matter"),
-    "door chip tap calls lock.lock (no confirmation)");
+  check(!dialog && (await callsNow()).some(c => c.domain === "lock" && c.service === "lock" && c.data.entity_id === "lock.level_bolt_matter"), "jam-house: the Lock key calls lock.lock (no confirmation)");
   await page.evaluate(() => { const h = window.__hass; h.states["lock.level_bolt_matter"] = {...h.states["lock.level_bolt_matter"], state: "locked", last_updated: "z"};
     document.querySelectorAll("jam-house").forEach(t => t.hass = {...h}); });
-  check((await door.textContent()) === "Door locked" && !(await door.evaluate(e => e.classList.contains("red"))), "locked door chip reads 'Door locked' (slab)");
-  // full_names: true keeps the full friendly name.
-  const full = await page.evaluate(() => { const e = document.querySelector("jam-house"); const c = e._config;
-    e.setConfig({...c, full_names: true}); e.hass = {...window.__hass};
-    const t = [...e.shadowRoot.querySelectorAll("[data-role=person]")].map(x => x.textContent); e.setConfig(c); e.hass = {...window.__hass}; return t; });
-  check(full[0] === "Isaac Hulter", `jam-house full_names: true shows full names (${full.join(", ")})`);
-  // Air lines (0.3.5): words only. Word state capitalised, numeric = US AQI band word, extra ignored, no numbers; missing -> no line.
-  const aq = await house.evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.closest(".in") ? "in:" + x.textContent : "out:" + x.textContent));
-  check(JSON.stringify(aq) === JSON.stringify(["in:Air · Excellent", "out:Air · Good"]) && !aq.some(t => /\d/.test(t)),
-    `jam-house air lines under both temperatures, words only (${aq.join(" | ")})`);
-  const caq = await page.locator("jam-house").nth(1).evaluate(e => [...e.shadowRoot.querySelectorAll("[data-role=aq]")].map(x => x.textContent));
-  check(caq.length === 1 && caq[0] === "Air · Excellent", `compact jam-house: id-only inside_aq, missing outside_aq hidden (${caq.join(" | ")})`);
-  const bands = await page.evaluate(() => {
-    const h = window.__hass, keep = h.states["sensor.airnow_aqi"], e = document.querySelector("jam-house"), out = [];
-    for (const v of ["50", "51", "101", "150.4", "151", "201", "301", "unavailable"]) {
-      h.states["sensor.airnow_aqi"] = {...keep, state: v, last_updated: "b" + v}; e.hass = {...h};
-      const l = [...e.shadowRoot.querySelectorAll(".out [data-role=aq]")].map(x => x.textContent.replace("Air · ", ""));
-      out.push(l[0] || "hidden");
-    }
-    delete h.states["sensor.airnow_aqi"]; e.hass = {...h};
-    out.push(e.shadowRoot.querySelector(".out [data-role=aq]") ? "shown" : "hidden");
-    h.states["sensor.airnow_aqi"] = keep; e.hass = {...h};
-    return out;
-  });
-  check(bands.join(" | ") === "Good | Moderate | Unhealthy for sensitive | Unhealthy for sensitive | Unhealthy | Very unhealthy | Hazardous | hidden | hidden",
-    `jam-house AQI bands, unavailable / missing hidden (${bands.join(" | ")})`);
-  // Compact house: matching alert chip.
-  const alert = page.locator("jam-house").nth(1).locator("[data-role=alert]");
-  check(await alert.count() === 1 && (await alert.textContent()) === "Washer leak", "compact jam-house shows the matching alert chip");
+  const locked = await house.evaluate(e => ({word: (e.shadowRoot.querySelector(".c-dw") || {}).textContent || "", key: !!e.shadowRoot.querySelector(".c-dr button")}));
+  check(/^locked$/i.test(locked.word.trim()) && !locked.key, `jam-house: locked door reads locked, no key (${JSON.stringify(locked)})`);
 
   // Tabs: current from location.pathname; tap navigates (pushState + location-changed).
   const tabs = page.locator("jam-tabs").first();
@@ -59,12 +31,12 @@ module.exports = async (page, check, {callsNow}) => {
   const nav = await page.evaluate(() => ({path: location.pathname, n: window.__loc}));
   check(nav.path === "/jam-overview/kitchen" && nav.n === 1, `tab tap navigates + fires location-changed (${nav.path}, ${nav.n})`);
   check((await tabs.locator(".tab.on").textContent()) === "Kitchen" &&
-    (await tabs.locator(".tab.on").evaluate(e => getComputedStyle(e).backgroundColor)) === "rgb(34, 163, 154)", "current tab follows navigation, filled with its accent (kitchen = teal)");
+    (await tabs.locator(".tab.on").count()) === 1, "current tab follows navigation");
   await page.evaluate(p => { history.replaceState(null, "", p); window.dispatchEvent(new CustomEvent("location-changed")); }, start);
 
   // Scenes: active from input_select (case-insensitive), tap = scene.turn_on with data.
   const scenes = page.locator("jam-scenes").first();
-  check((await scenes.locator(".scene.on").textContent()) === "Movie Time", "input_select changed after every scene activation -> its option is active ('Movie Time')");
+  check((await scenes.locator('.c-k[aria-pressed="true"]').textContent()) === "Movie Time", "input_select changed after every scene activation -> its option is active ('Movie Time')");
   // Newest scene activation wins over a stale input_select; the select wins again once it changes later; live updates.
   const sceneSet = (id, patch) => page.evaluate(([id, patch]) => {
     const h = window.__hass, s = h.states[id];
@@ -73,24 +45,25 @@ module.exports = async (page, check, {callsNow}) => {
   }, [id, patch]);
   const keepSc = await page.evaluate(() => JSON.stringify(["input_select.light_scenes", "scene.vibes", "scene.spring_vibes"].map(id => window.__hass.states[id])));
   await sceneSet("input_select.light_scenes", {last_changed: "2026-10-26T00:25:02+00:00"});
-  check((await scenes.locator(".scene.on").textContent()) === "Movie Time", "stale input_select: newest scene state (movie_time 10-26 04:53) is active");
+  check((await scenes.locator('.c-k[aria-pressed="true"]').textContent()) === "Movie Time", "stale input_select: newest scene state (movie_time 10-26 04:53) is active");
   await sceneSet("scene.vibes", {state: "2026-10-27T20:58:37+00:00"});
-  check((await scenes.locator(".scene.on").allTextContents()).join() === "Vibes", "scene.vibes activated later -> Vibes is active (live)");
+  check((await scenes.locator('.c-k[aria-pressed="true"]').allTextContents()).join() === "Vibes", "scene.vibes activated later -> Vibes is active (live)");
   await sceneSet("scene.spring_vibes", {state: "2026-10-27T21:00:00+00:00", attributes: {friendly_name: "Spooky Vibes"}});
-  const spooky = await scenes.locator(".scene.on").allTextContents();
+  const spooky = await scenes.locator('.c-k[aria-pressed="true"]').allTextContents();
   check(spooky.join() === "Spooky Vibes", `button name = friendly_name, newest activation active (${spooky})`);
   await sceneSet("input_select.light_scenes", {state: "Normal", last_changed: "2026-10-27T21:05:00+00:00"});
-  check((await scenes.locator(".scene.on").allTextContents()).join() === "Normal", "input_select changed after the newest scene -> its option (Normal) is active");
+  check((await scenes.locator('.c-k[aria-pressed="true"]').allTextContents()).join() === "Normal", "input_select changed after the newest scene -> its option (Normal) is active");
   await page.evaluate(k => { const h = window.__hass; for (const s of JSON.parse(k)) h.states[s.entity_id] = {...s, last_updated: "r" + Math.random()};
     document.querySelectorAll("jam-scenes").forEach(e => e.hass = {...h}); }, keepSc);
-  await scenes.locator(".scene", {hasText: "Vibes"}).first().click();
+  await scenes.locator(".c-k", {hasText: "Vibes"}).first().click();
   check((await callsNow()).some(c => c.domain === "scene" && c.service === "turn_on" && c.data.entity_id === "scene.vibes" && c.data.transition === 2),
     "scene tap calls scene.turn_on with its data (transition 2)");
   // wrap: true -> keys wrap onto more rows, no sideways scroll.
   const wr = page.locator("jam-scenes").nth(1);
   await wr.evaluate(e => { e.style.display = "block"; e.style.width = "280px"; });
-  const wrap = await wr.locator(".scenes").evaluate(r => ({cls: r.classList.contains("wrap"), sw: r.scrollWidth, cw: r.clientWidth,
+  // Hi-Fi: the pills wrap (a 4-up grid in a narrow column) whatever `wrap` says
+  const wrap = await wr.locator(".c-scn").evaluate(r => ({sw: r.scrollWidth, cw: r.clientWidth,
     rows: new Set([...r.children].map(b => Math.round(b.getBoundingClientRect().top))).size}));
-  check(wrap.cls && wrap.sw <= wrap.cw + 1 && wrap.rows > 1, `jam-scenes wrap (280 px): more rows, no horizontal overflow (${wrap.sw}/${wrap.cw}, ${wrap.rows} rows)`);
+  check(wrap.sw <= wrap.cw + 1 && wrap.rows > 1, `jam-scenes at 280 px: more rows, no horizontal overflow (${wrap.sw}/${wrap.cw}, ${wrap.rows} rows)`);
   await wr.evaluate(e => { e.style.display = ""; e.style.width = ""; });
 };

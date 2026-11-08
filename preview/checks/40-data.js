@@ -95,12 +95,12 @@ module.exports = async (page, check) => {
     g2.setConfig({type: "custom:jam-graph", entities: ["sensor.bedroom_sensor_temperature"]});
     g2.hass = window.__hass;
     document.body.append(g2);
-    const loading = !!g2.shadowRoot.querySelector(".plot .arm");
+    const loading = !!g2.shadowRoot.querySelector(".plot .arm, .plot .c-hfe"); // the empty motif: Hi-Fi's dot grille
     g.remove(); g2.remove();
     return {text, svgOrArm, loading};
   });
   check(/max 5/.test(tmp.text) && !tmp.svgOrArm, `jam-graph: 6 entities -> in-card config error ("${tmp.text}")`);
-  check(tmp.loading, "jam-graph: Golden Arm loading motif while history loads");
+  check(tmp.loading, "jam-graph: the empty motif (Hi-Fi: the dot grille) while history loads");
 
   // Weather: subscriptions per card with the configured forecast_type.
   await page.waitForFunction(() => [...document.querySelectorAll("jam-weather")].every(w => w.shadowRoot.querySelector(".col")), null, {timeout: 5000}).catch(() => {});
@@ -135,8 +135,8 @@ module.exports = async (page, check) => {
     w.hass = window.__hass; g.hass = window.__hass;
     return out;
   });
-  check(tfmt["12"].num === tfmt["12"].want && /^(AM|PM)$/.test(tfmt["12"].per) && /Jost/.test(tfmt["12"].perFont),
-    `jam-weather: time_format 12 -> "${tfmt["12"].num}" + small "${tfmt["12"].per}" in Jost (want ${tfmt["12"].want})`);
+  check(tfmt["12"].num === tfmt["12"].want && /^(AM|PM)$/.test(tfmt["12"].per) && /Plex Mono/.test(tfmt["12"].perFont),
+    `jam-weather: time_format 12 -> "${tfmt["12"].num}" + small "${tfmt["12"].per}" in IBM Plex Mono (want ${tfmt["12"].want})`);
   check(tfmt["24"].num === tfmt["24"].want && tfmt["24"].per === null, `jam-weather: time_format 24 -> "${tfmt["24"].num}" (want ${tfmt["24"].want})`);
   check(tfmt["12"].axis.length > 0 && tfmt["12"].axis.every(x => /AM|PM/.test(x)) && /AM|PM/.test(tfmt["12"].tip)
     && tfmt["24"].axis.every(x => /^\d\d:\d\d$/.test(x)) && /^\d\d:\d\d$/.test(tfmt["24"].tip),
@@ -194,8 +194,8 @@ module.exports = async (page, check) => {
     for (const [tag, cfg] of Object.entries(cfgs)) {
       const e = document.createElement(tag); e.setConfig({type: "custom:" + tag, ...cfg}); e.hass = window.__hass; box.append(e);
       await new Promise(r => setTimeout(r, 30));
-      const spans = [...e.shadowRoot.querySelectorAll(".unit")];
-      out[tag] = {n: spans.length, ok: spans.length > 0 && spans.every(x => x.textContent === u && getComputedStyle(x).textTransform === "none" && x.innerText === u),
+      const spans = [...e.shadowRoot.querySelectorAll(".unit")], drawn = !!e.shadowRoot.querySelector(".c-cm"); // Hi-Fi draws heading / house in mixed case: no .unit spans needed
+      out[tag] = {n: spans.length, ok: drawn ? (e.shadowRoot.textContent.includes(u) || !e.shadowRoot.textContent.includes("µG")) : spans.length > 0 && spans.every(x => x.textContent === u && getComputedStyle(x).textTransform === "none" && x.innerText === u),
         upper: /ΜG\/M³/.test(e.shadowRoot.querySelector(".host, *") ? [...e.shadowRoot.children].map(x => x.innerText || "").join(" ") : "")};
     }
     box.remove(); return out;

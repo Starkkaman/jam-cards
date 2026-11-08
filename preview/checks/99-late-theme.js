@@ -1,15 +1,15 @@
-// Late view theme (0.11.0-calm.1, bug from lab-calm-home on HA 2026.11): HA applies a view's pinned theme
-// (applyThemesOnElement: inline --jam-* custom properties on hui-view) AFTER the view's cards are created and connected, and
-// that theme arrives without a new hass.themes. The cards read their look once on connect (Poster then), so a look that
-// draws with JS (motifs, Calm's whole-card render hook) stayed Poster while the CSS tokens (inherited) were Calm.
-// On scratch cards in a wrapper outside #view (the preview shots stay as they were), on the Poster page:
-//   - inline theme, late like HA (a frame + 300 ms after connect): the cards re-read their look and Calm draws them (.c-cm);
-//   - a theme change while connected (Calm -> Braun -> Calm, inline) and the theme removed (-> Poster, no Calm node left);
-//   - a theme that lands by a class + stylesheet rule (no style attribute to observe) within 1 s: the cards' timed re-checks
-//     after connect still pick it up;
-//   - a card inside an open sheet (openSheet from a card in the wrapper, as jam-kiosk / jam-popup do): the sheet re-copies
-//     the opener's late tokens and its card turns Calm too;
-//   - nothing is written by the re-checks when nothing changed (a settled wrapper's cards see 0 mutations over 1.2 s).
+// Late view theme (0.11.0-calm.1, bug from lab-calm-home on HA 2026.11; reworked for Jam Cards 1.0.0's one look): HA applies a
+// view's pinned theme (applyThemesOnElement: inline custom properties on hui-view) after the view's cards connected, and
+// that theme arrives without a new hass.themes. Since 1.0.0 every card draws Hi-Fi whatever the theme, so what a late theme
+// changes is the palette source: under no Hi-Fi theme (none, or a stale theme of a removed look) a card carries
+// data-jam-builtin and draws the built-in Hi-Fi Night values; under the Hi-Fi theme it follows the theme's values.
+// On scratch cards in a wrapper outside #view (the preview shots stay as they were), on the dark preview page:
+//   - cards connect under a stale theme (--jam-look: poster inline on the wrapper): built-in palette, Hi-Fi drawn (.c-cm);
+//   - the Hi-Fi theme inline, late like HA (a frame + 300 ms after connect; a marker slab #123456): the cards follow it;
+//   - a switch while connected (Hi-Fi -> stale braun -> Hi-Fi, inline) and the theme removed (the page's own theme);
+//   - nothing is written by the re-checks when nothing changed (a settled wrapper's cards see 0 mutations over 1.2 s);
+//   - a card in an open sheet opened from a card in the wrapper follows the opener's late theme;
+//   - a theme that lands by a class + stylesheet rule 150 ms after connect is picked up by the timed re-checks.
 // Contract: module.exports = async (page, check) => {}.
 module.exports = async (page, check) => {
   await page.evaluate(() => {
@@ -20,16 +20,15 @@ module.exports = async (page, check) => {
       "light.lt_a": st("light.lt_a", "on", {friendly_name: "Late lamp", brightness: 128, color_mode: "color_temp", color_temp_kelvin: 2700, supported_color_modes: ["color_temp"], min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6500}),
       "switch.lt_plug": st("switch.lt_plug", "off", {friendly_name: "Late plug"}),
     });
-    // The theme's declarations, as HA would set them (theme vars from looks.css' :root[data-look=<id>] rule).
-    const vars = id => {
-      const out = [];
-      for (const s of document.styleSheets) {
-        let rules; try { rules = s.cssRules; } catch (e) { continue; }
-        for (const r of rules) if (r.selectorText === `:root[data-look="${id}"]`) for (const p of r.style) if (p.startsWith("--")) out.push([p, r.style.getPropertyValue(p)]);
-      }
-      return out;
-    };
-    const T = window.__lt = {vars: {calm: vars("calm"), braun: vars("braun")}};
+    // The Hi-Fi theme's declarations, as HA would set them (looks.css' first :root rule = Night), with a marker slab; a stale
+    // theme = another look id with its own slab (what an old "Jam Braun" file still installed would set).
+    const hifi = [];
+    for (const s of document.styleSheets) {
+      let rules; try { rules = s.cssRules; } catch (e) { continue; }
+      const r = [...rules].find(x => x.selectorText === ":root");
+      if (r && !hifi.length) for (const p of r.style) if (p.startsWith("--")) hifi.push([p, p === "--jam-slab" ? "#123456" : r.style.getPropertyValue(p)]);
+    }
+    const T = window.__lt = {vars: {hifi, poster: [["--jam-look", "poster"], ["--jam-slab", "#1f1c19"]], braun: [["--jam-look", "braun"], ["--jam-slab", "#fafafa"]]}};
     // HA's applyThemesOnElement: removes the last theme's keys, sets the new ones one by one (style.setProperty).
     T.apply = (node, id) => {
       for (const p of node._ltKeys || []) node.style.removeProperty(p);
@@ -42,7 +41,7 @@ module.exports = async (page, check) => {
       b.style.cssText = "position:absolute;left:0;top:0;width:420px;display:grid;gap:8px;padding:8px;z-index:60";
       return b;
     };
-    T.state = cards => cards.map(c => `${c.localName}:${c.dataset.look || "-"}:${c.shadowRoot.querySelector(".c-cm") ? "calm-drawn" : "own"}`);
+    T.state = cards => cards.map(c => `${c.localName}:${c.hasAttribute("data-jam-builtin") ? "builtin" : "themed"}:${getComputedStyle(c).getPropertyValue("--jam-slab").trim()}:${c.shadowRoot.querySelector(".c-cm") ? "hifi-drawn" : "own"}`);
   });
   const state = sel => page.evaluate(sel => window.__lt.state(window.__lt[sel]), sel);
   // HA's timing: the view theme lands a frame + 300 ms later. Fired in the page and awaited from here (an evaluate awaiting
@@ -53,9 +52,10 @@ module.exports = async (page, check) => {
   };
   const wait = ms => page.waitForTimeout(ms);
 
-  // 1) inline theme on an ancestor, a frame + 300 ms after the cards connect (HA's view theme)
+  // 1) cards connect under a stale theme; the Hi-Fi theme lands inline on an ancestor a frame + 300 ms later (HA's view theme)
   await page.evaluate(() => {
     const T = window.__lt, view = T.view = T.box("lt-view"), sec = document.createElement("div"); // view > section > cards
+    T.apply(view, "poster");
     view.append(sec);
     T.cards = [T.mk(sec, "jam-light", {type: "custom:jam-light", entity: "light.lt_a"}),
       T.mk(sec, "jam-tile", {type: "custom:jam-tile", entity: "switch.lt_plug"}),
@@ -64,21 +64,22 @@ module.exports = async (page, check) => {
   });
   await wait(60);
   const before = await state("cards");
-  check(before.every(s => s.endsWith(":poster:own")), `late theme: cards connect under Poster (${before.join(", ")})`);
-  await late("calm");
+  check(before.every(s => /:builtin:#161c28:/.test(s)) && before.filter(s => s.endsWith(":hifi-drawn")).length >= 2,
+    `late theme: cards connect under a stale theme with the built-in Hi-Fi Night palette, Hi-Fi drawn (${before.join(", ")})`);
+  await late("hifi");
   await wait(150);
   let s = await state("cards");
-  check(s.every(x => x.endsWith(":calm:calm-drawn")), `late theme: a view theme applied a frame + 300 ms after connect turns the cards Calm (${s.join(", ")})`);
+  check(s.every(x => /:themed:#123456:/.test(x)), `late theme: the Hi-Fi theme applied a frame + 300 ms after connect is followed (${s.join(", ")})`);
 
   // 2) a look switch while connected (inline, no new hass), then the theme removed
   await page.evaluate(() => window.__lt.apply(window.__lt.view, "braun"));
   await wait(150);
   s = await state("cards");
-  check(s.every(x => x.endsWith(":braun:own")), `late theme: Calm -> Braun while connected re-reads the look, no Calm node left (${s.join(", ")})`);
-  await page.evaluate(() => window.__lt.apply(window.__lt.view, "calm"));
+  check(s.every(x => /:builtin:#161c28:/.test(x)), `late theme: Hi-Fi -> a stale Braun theme while connected: the built-in palette, never Braun's (${s.join(", ")})`);
+  await page.evaluate(() => window.__lt.apply(window.__lt.view, "hifi"));
   await wait(150);
   s = await state("cards");
-  check(s.every(x => x.endsWith(":calm:calm-drawn")), `late theme: Braun -> Calm while connected draws Calm again (${s.join(", ")})`);
+  check(s.every(x => /:themed:#123456:/.test(x)), `late theme: stale -> Hi-Fi while connected follows the theme again (${s.join(", ")})`);
 
   // 3) nothing written when nothing changed: a fresh connect wave (50 ms / 250 ms / 1 s re-checks) over settled cards
   const writes = await page.evaluate(async () => {
@@ -91,32 +92,33 @@ module.exports = async (page, check) => {
   });
   check(writes === 0, `late theme: the re-checks after a connect write nothing to settled cards (${writes} mutations in 1.2 s)`);
 
-  // 4) the theme removed -> Poster
+  // 4) the view theme removed -> the page's own (Hi-Fi) theme
   await page.evaluate(() => window.__lt.apply(window.__lt.view, null));
   await wait(150);
   s = await state("cards");
-  check(s.every(x => x.endsWith(":poster:own")), `late theme: the view theme removed -> Poster again (${s.join(", ")})`);
+  check(s.every(x => /:themed:#161c28:/.test(x)), `late theme: the view theme removed -> the page's Hi-Fi theme (${s.join(", ")})`);
 
   // 5) a card in an open sheet opened from a card in the view: the late theme reaches it too
   await page.evaluate(() => {
     const T = window.__lt;
+    T.apply(T.view, "poster");
     T.sheet = window.JamCards.openSheet({from: T.cards[0], title: "Late sheet", history: false});
     T.sheetCards = [T.mk(T.sheet.body, "jam-light", {type: "custom:jam-light", entity: "light.lt_a"})];
   });
   await wait(60);
   const sb = await state("sheetCards");
-  await late("calm");
+  await late("hifi");
   await wait(150);
   s = await state("sheetCards");
   const popLook = await page.evaluate(() => window.__lt.sheet.pop.dataset.look);
-  check(sb.every(x => x.endsWith(":poster:own")) && s.every(x => x.endsWith(":calm:calm-drawn")) && popLook === "calm",
+  check(sb.every(x => /:#161c28:hifi-drawn$/.test(x)) && s.every(x => /:#123456:hifi-drawn$/.test(x)) && popLook === "hifi",
     `late theme: a card in an open sheet follows the opener's late theme (${sb.join(", ")} -> ${s.join(", ")}; sheet ${popLook})`);
   await page.evaluate(() => { const T = window.__lt; T.sheet.close({silent: true}); T.view.remove(); });
 
   // 6) a theme that lands by a class + stylesheet rule (no style attribute changes) 150 ms after connect: timed re-checks
   await page.evaluate(() => {
     const T = window.__lt, st = T.style = document.createElement("style");
-    st.textContent = "#lt-view2.themed{" + T.vars.calm.map(([p, v]) => `${p}:${v}`).join(";") + "}";
+    st.textContent = "#lt-view2{--jam-look:poster}#lt-view2.themed{" + T.vars.hifi.map(([p, v]) => `${p}:${v}`).join(";") + "}";
     document.head.append(st);
     const view = T.view2 = T.box("lt-view2");
     T.cards2 = [T.mk(view, "jam-light", {type: "custom:jam-light", entity: "light.lt_a"}), T.mk(view, "jam-tile", {type: "custom:jam-tile", entity: "switch.lt_plug"})];
@@ -125,6 +127,6 @@ module.exports = async (page, check) => {
   });
   await wait(1300);
   s = await state("cards2");
-  check(s.every(x => x.endsWith(":calm:calm-drawn")), `late theme: a theme from a stylesheet rule 150 ms after connect is picked up by the re-checks (${s.join(", ")})`);
+  check(s.every(x => /:themed:#123456:/.test(x)), `late theme: a theme from a stylesheet rule 150 ms after connect is picked up by the re-checks (${s.join(", ")})`);
   await page.evaluate(() => { const T = window.__lt; T.view2.remove(); T.style.remove(); delete window.__lt; });
 };

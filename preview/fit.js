@@ -1,25 +1,22 @@
-// Text-fit harness for non-Poster looks (theming plan R3: "a stress look passes the fit / overflow checks"). Called by
-// preview/shoot.js after the Poster run: fitLooks(browser, base, check, {looks, dir, lookDir}) (R9: lookDir(id) = preview/shots/<id>/ for
-// the kiosk / screensaver shots of a real look; Poster scenarios run once and are compared with every look).
-// Every scenario runs twice, under Poster and under the look (?look=<id>, a preview/looks.css block), with the same steps,
-// and the look must not add an overflow that Poster does not have (Poster's own fit is asserted by shoot.js and the
-// checks). Measured per scenario, across every shadow root:
+// Text-fit harness (theming plan R3; since Jam Cards 1.0.0 for the one look, Hi-Fi). Called by preview/shoot.js:
+//   fitLooks(browser, base, check, {dir}) — every scenario runs once under Hi-Fi and must be clean (absolute, no comparison
+// with another look any more). Measured per scenario, across every shadow root:
 //  - face overflow: a .face (or a named kiosk container) whose content is wider / taller than its box;
 //  - text spill: an element with its own text, overflow visible, whose content is wider than its box (text running over
 //    its neighbours); clipped text (ellipsis, line clamps, overflow hidden) is a deliberate cut, not a spill;
-//  - kiosk floors: own-text elements under 18px on the kiosk screens (jam-kiosk home, kiosk sheets, screensaver);
-//  - page scroll on the fixed-viewport kiosk screens;
-//  - text over motif shapes on the screensaver layouts (audit 2026-11-03): absolute, in every look and in Poster.
+//  - kiosk floors: own-text elements under 15px on the kiosk screens (jam-kiosk home, kiosk sheets, screensaver; Hi-Fi's
+//    kiosk labels are Plex Mono 15px, the approved pass 6 / 7 kiosk);
+//  - page scroll on the fixed-viewport kiosk screens, a scrolling kiosk sheet body;
+//  - text contrast on the kiosk home, kiosk sheets and screensaver layouts (preview/contrast.js, >= 4.5:1, large 3:1).
 // Scenarios: the preview page (all fixtures; dark + light at 390 and 1280, plus "papers fit" like shoot.js), jam-kiosk home
-// (85 fixture) and the kiosk Music + TV sheets (87 fixtures) at 1024x768 and 961x601, the screensaver's 6 poster layouts
-// at 961x601 (text block inside the viewport); kiosk sheets and screensaver in both modes (R10). The look's kiosk home,
-// kiosk sheets and screensaver layouts must also pass text contrast (preview/contrast.js, >= 4.5:1, large >= 3:1).
-// With dir (JAM_SHOTS) it writes <dir>/look-<id>-*.png for review.
+// (85 fixture) and the kiosk Music + TV sheets (87 fixtures) at 1024x768 and 961x601, the screensaver's 6 layouts at 961x601
+// (text block inside the viewport), dark + light. With dir (JAM_SHOTS) it writes <dir>/fit-*.png for review.
 const path = require("path");
 
 /* In-page: overflow lists keyed by a stable DOM path (tag.firstClass:index from the document down, across shadow roots),
    so the Poster and look runs of one scenario can be compared. kiosk = also list text under 18px. */
 function measure(kiosk) {
+  const FLOOR = 15;
   const roots = [];
   const walk = r => { roots.push(r); for (const e of r.querySelectorAll("*")) if (e.shadowRoot) walk(e.shadowRoot); };
   walk(document);
@@ -35,7 +32,7 @@ function measure(kiosk) {
   };
   const say = e => `${e.localName}.${typeof e.className === "string" ? e.className.trim().replace(/\s+/g, ".") : ""} "${e.textContent.trim().slice(0, 24)}"`;
   const face = {}, spill = {}, small = {};
-  const CONTAINERS = ".face, .poster, .now, .left, .dock, .blk, .kmain, .pane, .ktxt, .know, .kbot, .side, .kb, .shelf, .kspk, .txt, .np";
+  const CONTAINERS = ".face, .poster, .now, .left, .dock, .blk, .kmain, .pane, .ktxt, .know, .kbot, .side, .kb, .shelf, .kspk, .txt, .np, .c-cw, .c-kt, .c-dock, .c-kh, .c-khome";
   for (const r of roots) for (const e of r.querySelectorAll("*")) {
     if (!e.getClientRects().length) continue;
     const cs = getComputedStyle(e);
@@ -45,33 +42,28 @@ function measure(kiosk) {
     if (!own) continue;
     if (cs.display !== "inline" && cs.display !== "contents" && cs.overflowX === "visible" && e.scrollWidth > e.clientWidth + 1)
       spill[key(e)] = `${say(e)} ${e.scrollWidth} > ${e.clientWidth}`;
-    if (kiosk && parseFloat(cs.fontSize) < 18) small[key(e)] = `${say(e)} ${cs.fontSize}`;
+    if (kiosk && parseFloat(cs.fontSize) < FLOOR) small[key(e)] = `${say(e)} ${cs.fontSize}`;
   }
   const se = document.scrollingElement;
   return {face, spill, small, scroll: se.scrollHeight > innerHeight + 1 || se.scrollWidth > innerWidth + 1 ? `${se.scrollWidth}x${se.scrollHeight}` : ""};
 }
 
-/* Look-only entries of one list (keys in the look run that the Poster run does not have). */
-const added = (look, poster) => Object.entries(look).filter(([k]) => !(k in poster)).map(([, v]) => v);
-
-/* lookDir(look) -> folder for that look's kiosk / screensaver shots (R9: preview/shots/<look>/), or null. */
-/* fitCheck(look) -> the check function for that look's fit results (shoot.js: INFO instead of FAIL for draft looks). */
-module.exports = async function fitLooks(browser, base, check, {looks, dir, lookDir = () => null, fitCheck = () => check}) {
+module.exports = async function fitLooks(browser, base, check, {dir}) {
   const errs = [];
   const open = async (look, mode, viewport, query = "") => {
     const ctx = await browser.newContext({viewport, timezoneId: "America/Los_Angeles"});
     const p = await ctx.newPage();
     p.on("pageerror", e => errs.push(`${look}/${mode}/${viewport.width}: ${e.message}`));
     await p.clock.setFixedTime(new Date("2026-10-28T14:41:00-07:00"));
-    await p.goto(`${base}?mode=${mode}${look === "poster" ? "" : "&look=" + look + (process.env.JAM_FX === "0" ? "&fx=0" : "")}${query}`);
+    await p.goto(`${base}?mode=${mode}${query}`);
     await p.waitForFunction(() => window.__ready);
     await p.evaluate(() => document.fonts.ready);
     return {ctx, p};
   };
   const shot = async (p, name) => {
-    if (dir && !name.startsWith("look-poster-")) await p.screenshot({path: path.join(dir, name), fullPage: true});
-    const m = /^look-([a-z][a-z0-9-]*?)-((kiosk|screensaver)-.*)$/.exec(name), d = m && m[1] !== "poster" && lookDir(m[1]);
-    if (d) await p.screenshot({path: path.join(d, m[2]), fullPage: true}); // R9: kiosk screens per look
+    const n = name.replace(/^look-hifi-/, ""); // kiosk + screensaver screens go to preview/shots/, every shot to dir (JAM_SHOTS)
+    if (dir) await p.screenshot({path: path.join(dir, "fit-" + n), fullPage: true});
+    if (/^(kiosk|screensaver)-/.test(n)) await p.screenshot({path: path.join(__dirname, "shots", n), fullPage: true});
   };
   // Text contrast of a look's kiosk screens (preview/contrast.js; shoot.js covers the preview page): every finding fails.
   const contrastOf = async p => (await require("./contrast.js")(p)).findings;
@@ -79,7 +71,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
   const meas = async (p, kiosk) => { await p.evaluate(() => document.fonts.ready); return p.evaluate(measure, kiosk); };
   // Fixture configs (taken from a normal preview page).
   const cfgs = await (async () => {
-    const {ctx, p} = await open("poster", "dark", {width: 1280, height: 900});
+    const {ctx, p} = await open("hifi", "dark", {width: 1280, height: 900});
     try {
       return await p.evaluate(() => {
         const get = (tag, key, id) => { const e = [...document.querySelectorAll("#view " + tag)].find(x => x._config && (key ? x._config[key] === id : true)); return e && JSON.parse(JSON.stringify(e._config)); };
@@ -126,7 +118,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
         await p.waitForTimeout(400);
         await shot(p, `look-${look}-kiosk-home-${mode}-${w}.png`);
         const m = await meas(p, true);
-        if (look !== "poster") m.contrast = await contrastOf(p);
+        m.contrast = await contrastOf(p);
         return [{label: "", m}];
       } finally { await ctx.close(); }
     }]);
@@ -139,12 +131,12 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
         await mountCard(p, kiosk, "jam-kiosk");
         const out = [];
         for (const [i, name] of [[0, "music"], [1, "tv"]]) {
-          await p.evaluate(i => document.querySelector("jam-kiosk").shadowRoot.querySelectorAll(".blk")[i].click(), i);
+          await p.evaluate(i => document.querySelector("jam-kiosk").shadowRoot.querySelectorAll(".c-kt .c-open")[i].click(), i);
           await p.waitForTimeout(1000);
           const m = await meas(p, true);
           m.body = await p.evaluate(() => { const b = [...document.querySelectorAll(".jam-sheet-host")].pop().shadowRoot.querySelector(".body");
             return b.scrollHeight > b.clientHeight + 1 ? `${b.scrollHeight} > ${b.clientHeight}` : ""; });
-          if (look !== "poster") m.contrast = await contrastOf(p);
+          m.contrast = await contrastOf(p);
           await shot(p, `look-${look}-kiosk-sheet-${name}${mode === "dark" ? "" : "-" + mode}-${w}.png`);
           out.push({label: name, m});
           await p.keyboard.press("Escape");
@@ -191,7 +183,7 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
           }
           return [...new Set(out)];
         });
-        if (look !== "poster") m.contrast = await contrastOf(p);
+        m.contrast = await contrastOf(p);
         await shot(p, `look-${look}-screensaver-l${n}${mode === "dark" ? "" : "-" + mode}-961.png`);
         out.push({label: "l" + n, m});
       }
@@ -199,28 +191,20 @@ module.exports = async function fitLooks(browser, base, check, {looks, dir, look
     } finally { await ctx.close(); }
   }]);
 
-  const posterRuns = {}, posterMotif = new Set();
-  for (const look of looks) {
-    for (const [name, run] of scenarios) {
-      const P = posterRuns[name] || (posterRuns[name] = await run("poster")), L = await run(look); // Poster runs once per scenario
-      if (!posterMotif.has(name)) {
-        posterMotif.add(name);
-        for (const x of P) if (x.m.motif) check(x.m.motif.length === 0, `poster: ${name}${x.label ? " " + x.label : ""}: no text over a motif shape` + (x.m.motif.length ? " — " + x.m.motif.slice(0, 4).join("; ") : ""));
-      }
-      for (let i = 0; i < L.length; i++) {
-        const a = L[i].m, b = (P[i] || {m: {face: {}, spill: {}, small: {}}}).m, tag = `look ${look}: ${name}${L[i].label ? " " + L[i].label : ""}`;
-        const bad = [...added(a.face, b.face).map(x => "overflows: " + x), ...added(a.spill, b.spill).map(x => "spills: " + x),
-          ...added(a.small, b.small).map(x => "under 18px: " + x)];
-        if (a.scroll && !b.scroll) bad.push("page scrolls " + a.scroll);
-        if (a.body && !b.body) bad.push("sheet body scrolls " + a.body);
-        if (a.outside && !b.outside) bad.push("text block outside the viewport " + a.outside);
-        if (a.motif && a.motif.length) bad.push(...a.motif.map(x => "text over a motif shape: " + x));
-        if (a.layout && a.layout.length) bad.push(...a.layout);
-        if ("applied" in a && a.applied !== look) bad.push(`cards carry data-look=${a.applied}, not ${look}`);
-        if (a.contrast && a.contrast.length) bad.push(...a.contrast.map(f => `contrast ${f.card} ${f.el} "${f.text}" ${f.ratio}:1 < ${f.need} (${f.fg} on ${f.bg} ${f.font})`));
-        fitCheck(look)(bad.length === 0, `${tag}: text fits as under Poster` + (bad.length ? " — " + bad.slice(0, 6).join("; ") + (bad.length > 6 ? ` (+${bad.length - 6})` : "") : ""));
-      }
+  for (const [name, run] of scenarios) {
+    const L = await run("hifi");
+    for (const x of L) {
+      const a = x.m, tag = `fit: ${name}${x.label ? " " + x.label : ""}`;
+      const bad = [...Object.values(a.face).map(v => "overflows: " + v), ...Object.values(a.spill).map(v => "spills: " + v), ...Object.values(a.small).map(v => "under 15px: " + v)];
+      if (a.scroll && !/^preview /.test(name)) bad.push("page scrolls " + a.scroll); // the preview page is long on purpose; the kiosk screens must not scroll
+      if (a.body) bad.push("sheet body scrolls " + a.body);
+      if (a.outside) bad.push("text block outside the viewport " + a.outside);
+      if (a.motif && a.motif.length) bad.push(...a.motif.map(v => "text over a motif shape: " + v));
+      if (a.layout && a.layout.length) bad.push(...a.layout);
+      if ("applied" in a && a.applied !== "hifi") bad.push(`cards carry data-look=${a.applied}, not hifi`);
+      if (a.contrast && a.contrast.length) bad.push(...a.contrast.map(f => `contrast ${f.card} ${f.el} "${f.text}" ${f.ratio}:1 < ${f.need} (${f.fg} on ${f.bg} ${f.font})`));
+      check(bad.length === 0, `${tag}: text fits, nothing overflows, spills or scrolls` + (bad.length ? " — " + bad.slice(0, 6).join("; ") + (bad.length > 6 ? ` (+${bad.length - 6})` : "") : ""));
     }
   }
-  check(errs.length === 0, "look fit pages: no page errors" + (errs.length ? ": " + errs.slice(0, 3).join("; ") : ""));
+  check(errs.length === 0, "fit pages: no page errors" + (errs.length ? ": " + errs.slice(0, 3).join("; ") : ""));
 };

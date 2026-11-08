@@ -1,12 +1,12 @@
 // Screenshots, layout + generic checks for preview/index.html; per-fixture interaction checks live in preview/checks/*.js. Run: pw-node preview/shoot.js  (exit 0 = all checks passed)
-// Writes preview/shots/{dark,light}-{390,1280}.png (fixed clock). JAM_SHOTS=<dir>: extra review shots (some checks + the fixed-clock
-// screensaver set). JAM_BASELINE=<dir>: pixel diff of every shot against <dir> (JAM_BASELINE_WRITE=1 writes it), see pixelDiff.
-// Look matrix (theming plan R9): LOOKS=<id,...> (default: every non-harness look of tokens/, Poster first) runs the page checks
-// per look x mode x width; Poster's shots stay in preview/shots/, another look's go to preview/shots/<look>/ (full pages +
-// kiosk screens), per-card crops to preview/shots/cards/<look>/ and the contact sheet preview/shots/looks.html (one row per
-// preview item, one column per look). Poster-only invariants (bundled Londrina / Jost, the CUTS sizes, the 5px heading rule
-// and every behaviour check in preview/checks/) run on Poster dark/1280 only; text contrast (preview/contrast.js) runs per
-// look x mode, text fit + kiosk sizes (preview/fit.js) per non-Poster look.
+// Jam Cards 1.0.0: one look, Hi-Fi. Per mode (dark / light) x width (390 / 1280): the Hi-Fi fonts (Jost bundled, IBM Plex Mono
+// + Jost 300 from the asset base, no other font host), every card carries data-look=hifi, papers fit their boxes, Hi-Fi's
+// edges (no cut corners: every paper's clip is none), text contrast (preview/contrast.js) at 1280; on dark / 1280 the core API
+// checks and every behaviour check in preview/checks/; then the built-in palette page (?theme=none: no Hi-Fi theme, the cards
+// draw Hi-Fi Night from their own values), text fit + kiosk screens (preview/fit.js) and the contact sheet
+// preview/shots/cards.html (one row per preview item, dark + light at 1280; crops in preview/shots/cards/).
+// Writes preview/shots/{dark,light}-{390,1280}.png (fixed clock). JAM_SHOTS=<dir>: extra review shots (some checks + the
+// fixed-clock screensaver set). JAM_BASELINE=<dir>: pixel diff of every shot against <dir> (JAM_BASELINE_WRITE=1 writes it).
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -32,32 +32,23 @@ async function fixedPage(browser, url, viewport) {
   await p.evaluate(() => document.fonts.ready);
   return p;
 }
-/* JAM_FX=0: every non-Poster look runs with the effects switch off (?fx=0, as the kiosks' `fx: false`), so a look whose
-   theme sets jam-fx: 1 (New Wave) is checked flat as well; its shots go to shots/<look>/fx-off/ and the contact sheet is
-   skipped (it shows the theme's own fx state). Poster has no effects and runs unchanged. */
-const FX_OFF = process.env.JAM_FX === "0";
-/* Query string of a look + mode page; Poster is the page's own default (no look parameter). */
-const lookQuery = (look, mode) => `?mode=${mode}${look === "poster" ? "" : "&look=" + look + (FX_OFF ? "&fx=0" : "")}`;
-/* Shot folder of a look: preview/shots/ for Poster (as before R9, so its pixel baselines keep their names), else shots/<look>/
-   (shots/<look>/fx-off/ under JAM_FX=0). */
-const shotDir = look => { const d = path.join(__dirname, "shots", ...(look === "poster" ? [] : FX_OFF ? [look, "fx-off"] : [look])); fs.mkdirSync(d, {recursive: true}); return d; };
-/* <shot dir of look>/{mode}-{width}.png (full page). */
-async function fixedShot(browser, base, look, mode, width) {
-  const p = await fixedPage(browser, base + lookQuery(look, mode), {width, height: 900});
+/* <preview/shots>/{mode}-{width}.png (full page, fixed clock). */
+const SHOTS = path.join(__dirname, "shots");
+async function fixedShot(browser, base, mode, width) {
+  const p = await fixedPage(browser, base + `?mode=${mode}`, {width, height: 900});
   try {
     await p.waitForTimeout(1500); // layout + view entrance settle
-    await p.screenshot({path: path.join(shotDir(look), `${mode}-${width}.png`), fullPage: true});
+    await p.screenshot({path: path.join(SHOTS, `${mode}-${width}.png`), fullPage: true});
   } finally { await p.close(); }
 }
-/* Contact sheet (R9): every top-level preview item (#view > *: a card or a section) of every look, dark mode at 1280 on a
-   fixed clock, cropped to preview/shots/cards/<look>/NN.png, and preview/shots/looks.html = one row per item, one column per
-   look (plus links to each look's full-page and kiosk shots). */
-async function contactSheet(browser, base, looks) {
-  const root = path.join(__dirname, "shots"), rows = [];
-  for (const look of looks) {
-    const dir = path.join(root, "cards", look);
+/* Contact sheet: every top-level preview item (#view > *: a card or a section), dark and light at 1280 on a fixed clock,
+   cropped to preview/shots/cards/{dark,light}/NN.png; preview/shots/cards.html = one row per item. */
+async function contactSheet(browser, base) {
+  const rows = [];
+  for (const mode of ["dark", "light"]) {
+    const dir = path.join(SHOTS, "cards", mode);
     fs.rmSync(dir, {recursive: true, force: true}); fs.mkdirSync(dir, {recursive: true});
-    const p = await fixedPage(browser, base + lookQuery(look, "dark"), {width: 1280, height: 900});
+    const p = await fixedPage(browser, base + `?mode=${mode}`, {width: 1280, height: 900});
     try {
       await p.waitForTimeout(1500);
       const items = await p.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => {
@@ -68,28 +59,21 @@ async function contactSheet(browser, base, looks) {
       for (let i = 0; i < items.length; i++) {
         const name = String(i + 1).padStart(2, "0") + ".png";
         await p.locator("#view > *").nth(i).screenshot({path: path.join(dir, name)});
-        (rows[i] = rows[i] || {label: items[i], cells: {}}).cells[look] = `cards/${look}/${name}`;
+        (rows[i] = rows[i] || {label: items[i], cells: {}}).cells[mode] = `cards/${mode}/${name}`;
       }
     } finally { await p.close(); }
   }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-  const sub = look => (look === "poster" ? "" : look + "/");
-  const link = (look, f) => fs.existsSync(path.join(root, sub(look) + f)) ? `<a href="${sub(look)}${f}">${f.replace(".png", "")}</a>` : "";
-  const pages = ["dark-390.png", "dark-1280.png", "light-390.png", "light-1280.png"];
-  const kiosk = look => look === "poster" ? ["kiosk-home-dark-1024.png", "kiosk-home-light-961.png", "kiosk-sheet-music-dark-1024.png", "kiosk-sheet-tv-dark-1024.png"]
-    : fs.existsSync(path.join(root, look)) ? fs.readdirSync(path.join(root, look)).filter(f => /^(kiosk|screensaver)-/.test(f)).sort() : [];
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jam Cards looks</title><style>body{margin:0;padding:16px;background:#141210;color:#ece2c9;font:14px/1.4 system-ui,sans-serif}
-table{border-collapse:collapse}th,td{border:1px solid #3a342d;padding:6px;vertical-align:top;text-align:left}th{position:sticky;top:0;background:#1f1c19}
-td img{display:block;max-width:420px;height:auto}a{color:#e5a31b;margin-right:8px}.l{white-space:nowrap;color:#9a8f7c;max-width:160px;white-space:normal}</style></head><body>
-<h1>Jam Cards looks</h1><p>GENERATED by preview/shoot.js (theming plan R9): one row per preview item (dark, 1280 px, fixed clock), one column per look.</p>
-<table><thead><tr><th>item</th>${looks.map(l => `<th>${esc(l)}</th>`).join("")}</tr></thead><tbody>
-<tr><td class="l">pages</td>${looks.map(l => `<td>${pages.map(f => link(l, f)).join(" ")}</td>`).join("")}</tr>
-<tr><td class="l">kiosk</td>${looks.map(l => `<td>${kiosk(l).map(f => link(l, f)).join(" ")}</td>`).join("")}</tr>
-${rows.map((r, i) => `<tr><td class="l">${i + 1}. ${esc(r.label)}</td>${looks.map(l => `<td>${r.cells[l] ? `<img loading="lazy" src="${r.cells[l]}" alt="">` : ""}</td>`).join("")}</tr>`).join("\n")}
+<title>Jam Cards Hi-Fi</title><style>body{margin:0;padding:16px;background:#10141d;color:#ece5d3;font:14px/1.4 system-ui,sans-serif}
+table{border-collapse:collapse}th,td{border:1px solid #2a3244;padding:6px;vertical-align:top;text-align:left}th{position:sticky;top:0;background:#161c28}
+td img{display:block;max-width:560px;height:auto}.l{color:#a29d8f;max-width:160px}</style></head><body>
+<h1>Jam Cards · Hi-Fi</h1><p>GENERATED by preview/shoot.js: one row per preview item (1280 px, fixed clock), Night and Day.</p>
+<table><thead><tr><th>item</th><th>dark</th><th>light</th></tr></thead><tbody>
+${rows.map((r, i) => `<tr><td class="l">${i + 1}. ${esc(r.label)}</td>${["dark", "light"].map(m => `<td>${r.cells[m] ? `<img loading="lazy" src="${r.cells[m]}" alt="">` : ""}</td>`).join("")}</tr>`).join("\n")}
 </tbody></table></body></html>
 `;
-  fs.writeFileSync(path.join(root, "looks.html"), html);
+  fs.writeFileSync(path.join(SHOTS, "cards.html"), html);
   return rows.length;
 }
 /* With JAM_SHOTS=<dir>: the jam-screensaver poster in all 6 layouts (with the now block) and the photos view, at the
@@ -133,14 +117,13 @@ async function fixedScreensaver(browser, base, dir) {
    minute; the JAM_SHOTS screensaver-fixed-* set is the one to compare), and differences of at most 2 per channel
    (anti-aliasing noise: a sheet shot taken while the compositor still settles shifts a cut edge by ±1-2 in some runs of
    the same code). */
-async function pixelDiff(browser, dir, looks, allLooks) {
+async function pixelDiff(browser, dir) {
   const dirs = [path.join(__dirname, "shots"), process.env.JAM_SHOTS].filter(Boolean);
   const files = new Map(); // relative name (R9: <look>/x.png, cards/<look>/NN.png) -> path
   const pngs = (d, rel = "") => fs.existsSync(d) ? fs.readdirSync(d, {withFileTypes: true}).flatMap(e =>
     e.isDirectory() ? pngs(path.join(d, e.name), rel + e.name + "/") : e.name.endsWith(".png") ? [[rel + e.name, path.join(d, e.name)]] : []) : [];
-  // Only the looks of this run: another look's folder (<look>/..., cards/<look>/...) holds shots of an earlier run.
-  const other = f => { const m = /^(?:cards\/)?([a-z][a-z0-9-]*)\//.exec(f); return !!m && allLooks.includes(m[1]) && !looks.includes(m[1]); };
-  for (const d of dirs) for (const [f, p] of pngs(d)) if (!other(f)) files.set(f, p);
+  const other = () => false;
+  for (const d of dirs) for (const [f, p] of pngs(d)) files.set(f, p);
   fs.mkdirSync(dir, {recursive: true});
   if (process.env.JAM_BASELINE_WRITE) {
     for (const [f, p] of files) { fs.mkdirSync(path.dirname(path.join(dir, f)), {recursive: true}); fs.copyFileSync(p, path.join(dir, f)); }
@@ -187,198 +170,162 @@ const server = http.createServer((req, res) => {
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${server.address().port}/preview/index.html`;
-  fs.mkdirSync(path.join(__dirname, "shots"), {recursive: true});
+  fs.mkdirSync(SHOTS, {recursive: true});
   const browser = await chromium.launch();
   const errors = [], fontRequests = [];
   try {
-    const {SHOT_LOOKS, LOOKS: ALL_LOOKS} = await import(pathToFileURL(path.join(ROOT, "tokens", "index.mjs")).href);
-    const LOOKS = process.env.LOOKS ? process.env.LOOKS.split(",").map(x => x.trim()).filter(Boolean) : SHOT_LOOKS;
-    const unknown = LOOKS.filter(l => !ALL_LOOKS.some(x => x.id === l));
-    if (unknown.length) throw new Error("LOOKS: unknown look(s) " + unknown.join(", ") + " (tokens/looks/)");
-    console.log("looks: " + LOOKS.join(", "));
-    /* A draft look (tokens/looks/<id>.mjs draft: true: registered with its fonts, design pending) reports text fit as INFO,
-       not FAIL: Poster's type tokens with another face do not fit everywhere, and choosing the look's case / scale is its
-       design task. Every other check is hard for it; removing `draft` makes fit hard too. */
-    const DRAFTS = ALL_LOOKS.filter(l => l.draft).map(l => l.id);
-    const fitCheck = look => !DRAFTS.includes(look) ? check : (ok, what) => console.log((ok ? "PASS " : "INFO (draft look, design pending) ") + what);
-    for (const look of LOOKS) for (const mode of ["dark", "light"]) {
-      for (const width of [390, 1280]) {
-        const T = (look === "poster" ? "" : look + " ") + `${mode}/${width}`; // check label (Poster keeps its pre-R9 labels)
-        const page = await browser.newPage({viewport: {width, height: 900}});
-        page.on("pageerror", e => errors.push(`${T}: ${e.message}`));
-        page.on("request", r => { if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) fontRequests.push(r.url()); });
-        await page.goto(base + lookQuery(look, mode));
-        await page.waitForFunction(() => window.__ready);
-        await page.evaluate(() => document.fonts.ready);
-        await page.waitForTimeout(1500); // layout settles
-        if (look === "poster") {
-          // Fonts are bundled: both faces load from the data: URIs that core injects once into document.head.
-          const fonts = await page.evaluate(async () => {
-            await Promise.all(['900 1em "Londrina Solid"', '400 1em "Jost"', '600 1em "Jost"'].map(f => document.fonts.load(f)));
-            await document.fonts.ready;
-            const faces = [...document.fonts].filter(f => f.status === "loaded").map(f => f.family.replace(/"/g, "") + " " + f.weight);
-            return {londrina: document.fonts.check('900 1em "Londrina Solid"'), jost: document.fonts.check('400 1em "Jost"') && document.fonts.check('600 1em "Jost"'),
-              styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length, faces};
-          });
-          check(fonts.londrina && fonts.jost && fonts.faces.includes("Londrina Solid 900") && fonts.faces.includes("Jost 400 600") && fonts.styles === 1 && fonts.links === 0,
-            `${T}: bundled fonts loaded (${fonts.faces.join(", ")}), one font style in head, no Google Fonts link`);
-        } else {
-          // A look pack's fonts (R6/R8): URL faces on <asset base>fonts/, fetched because the cards use them, from no other host.
-          const fonts = await page.evaluate(async look => {
-            const J = window.JamCards, pack = J.lookPack(look), want = pack ? pack.fonts : [];
-            await document.fonts.ready;
-            const loaded = want.map(f => [...document.fonts].some(x => x.family.replace(/"/g, "") === f.family && x.status === "loaded"));
-            const got = performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2(\?|$)/.test(n));
-            const fam = getComputedStyle(document.querySelector("#view jam-tile").shadowRoot.querySelector(".val")).fontFamily;
-            return {pack: !!pack, families: want.map(f => f.family), loaded, fromBase: want.every(f => got.includes(J.ASSET_BASE + "fonts/" + f.file)),
-              foreign: got.filter(n => !n.startsWith(J.ASSET_BASE + "fonts/")), fam, looks: [...new Set([...document.querySelectorAll("#view > *, #view .sec > *")].filter(c => c._config).map(c => c.dataset.look))],
-              styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length};
-          }, look);
-          check(fonts.looks.length === 1 && fonts.looks[0] === look, `${T}: every card carries data-look=${look} (${fonts.looks.join(",")})`);
-          check(fonts.loaded.every(Boolean) && fonts.fromBase && fonts.foreign.length === 0 && fonts.styles === 1 && fonts.links === 0 &&
-            (!fonts.families.length || fonts.fam.replace(/"/g, "").startsWith(fonts.families[0])),
-            `${T}: the look's fonts (${fonts.families.join(", ") || "none"}) loaded from the asset base fonts/, display type in ${fonts.fam.split(",")[0]}, one font style, no other font host` +
-            (fonts.foreign.length ? " — " + fonts.foreign.join(", ") : ""));
+    // JAM_FAST=1 (iteration): only the dark/1280 page and its behaviour checks (no shots, no fit, no contact sheet).
+    const FAST = !!process.env.JAM_FAST;
+    for (const mode of ["dark", "light"]) for (const width of [390, 1280]) {
+      if (FAST && (mode !== "dark" || width !== 1280)) continue;
+      const T = `${mode}/${width}`;
+      const page = await browser.newPage({viewport: {width, height: 900}});
+      page.on("pageerror", e => errors.push(`${T}: ${e.message}`));
+      page.on("request", r => { if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) fontRequests.push(r.url()); });
+      await page.goto(base + `?mode=${mode}`);
+      await page.waitForFunction(() => window.__ready);
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(1500); // layout settles
+      // Fonts: Jost 400-600 bundled (one data: face), the Hi-Fi pack's IBM Plex Mono + Jost 300 from <asset base>fonts/.
+      const fonts = await page.evaluate(async () => {
+        const J = window.JamCards, pack = J.lookPack("hifi"), want = pack ? pack.fonts : [];
+        await Promise.all(['400 1em "Jost"', '600 1em "Jost"', '500 1em "IBM Plex Mono"'].map(f => document.fonts.load(f)));
+        await document.fonts.ready;
+        const loaded = want.map(f => [...document.fonts].some(x => x.family.replace(/"/g, "") === f.family && x.status === "loaded"));
+        const got = performance.getEntriesByType("resource").map(e => e.name).filter(n => /\.woff2(\?|$)/.test(n));
+        const faces = [...document.fonts].filter(f => f.status === "loaded").map(f => f.family.replace(/"/g, "") + " " + f.weight);
+        return {pack: !!pack, families: [...new Set(want.map(f => f.family))], loaded, jost: faces.includes("Jost 400 600"),
+          plex: want.filter(f => f.family === "IBM Plex Mono").every(f => got.includes(J.ASSET_BASE + "fonts/" + f.file)),
+          foreign: got.filter(n => !n.startsWith(J.ASSET_BASE + "fonts/")), looks: [...new Set([...document.querySelectorAll("#view > *, #view .sec > *")].filter(c => c._config).map(c => c.dataset.look))],
+          londrina: faces.some(f => /Londrina/.test(f)), styles: document.head.querySelectorAll("style[data-jam-fonts]").length, links: document.querySelectorAll('link[href*="fonts.googleapis"]').length};
+      });
+      check(fonts.looks.length === 1 && fonts.looks[0] === "hifi", `${T}: every card carries data-look=hifi (${fonts.looks.join(",")})`);
+      check(fonts.pack && fonts.jost && fonts.plex && fonts.loaded.every(Boolean) && !fonts.londrina && fonts.foreign.length === 0 && fonts.styles === 1 && fonts.links === 0,
+        `${T}: Jost bundled, ${fonts.families.join(" + ")} loaded from the asset base fonts/, no Londrina, one font style, no other font host` + (fonts.foreign.length ? " — " + fonts.foreign.join(", ") : ""));
+      if (!FAST) await fixedShot(browser, base, mode, width); // the shot itself comes from a page with a fixed clock (pixel diff)
+      // Layout: every card's paper stays inside the card box; no face overflows sideways.
+      const layout = await page.evaluate(() => {
+        const bad = [];
+        for (const card of document.querySelectorAll("#view [class], #view jam-heading, #view jam-hero, #view jam-tile, #view jam-choice, #view jam-slider, #view jam-media, #view jam-speaker")) {
+          if (!card.shadowRoot) continue;
+          const host = card.getBoundingClientRect(), p = card.shadowRoot.querySelector(".host > .paper");
+          if (p) { const r = p.getBoundingClientRect(); if (r.right > host.right + 0.5 || r.bottom > host.bottom + 0.5) bad.push(card.localName + " paper outside box"); }
+          for (const f of card.shadowRoot.querySelectorAll(".face")) if (f.scrollWidth > f.clientWidth + 1) bad.push(card.localName + " face overflows: " + f.textContent.slice(0, 30));
         }
-        await fixedShot(browser, base, look, mode, width); // the shot itself comes from a page with a fixed clock (pixel diff)
-        // Layout: every card's paper stays inside the card box; no face overflows sideways.
-        const layout = await page.evaluate(() => {
-          const bad = [];
-          for (const card of document.querySelectorAll("#view [class], #view jam-heading, #view jam-hero, #view jam-tile, #view jam-choice, #view jam-slider, #view jam-media, #view jam-speaker")) {
-            if (!card.shadowRoot) continue;
-            const host = card.getBoundingClientRect(), p = card.shadowRoot.querySelector(".host > .paper");
-            if (p) { const r = p.getBoundingClientRect(); if (r.right > host.right + 0.5 || r.bottom > host.bottom + 0.5) bad.push(card.localName + " paper outside box"); }
-            for (const f of card.shadowRoot.querySelectorAll(".face")) if (f.scrollWidth > f.clientWidth + 1) bad.push(card.localName + " face overflows: " + f.textContent.slice(0, 30));
+        return [...new Set(bad)];
+      });
+      check(layout.length === 0, `${T}: papers fit their boxes` + (layout.length ? " — " + layout.join("; ") : ""));
+      // Hi-Fi edges: soft corners, no cuts. Every paper's computed clip is its kind token (none), never inline; no element
+      // keeps a polygon clip-path (a cut corner) anywhere in the cards.
+      const edges = await page.evaluate(() => {
+        const J = window.JamCards, roots = [];
+        const walk = r => { roots.push(r); for (const e of r.querySelectorAll("*")) if (e.shadowRoot) walk(e.shadowRoot); };
+        walk(document);
+        const bad = [], kinds = {};
+        let papers = 0, shadows = 0;
+        for (const r of roots) {
+          shadows += r.querySelectorAll(".shadow").length;
+          for (const p of r.querySelectorAll(".paper")) {
+            papers++;
+            const k = p.dataset.cut, inline = p.style.getPropertyValue("--clip").trim(), clip = getComputedStyle(p).getPropertyValue("--clip").trim();
+            kinds[k] = (kinds[k] || 0) + 1;
+            if (inline && J.CUTS[k]) bad.push(`${k}: inline --clip ${inline}`); // arrow / disc keys (jam-remote's d-pad) set theirs inline; their faces are unclipped by the skin
+            if (J.CUTS[k] && clip !== "none") bad.push(`${k}: --clip ${clip}`);
           }
-          return [...new Set(bad)];
-        });
-        fitCheck(look)(layout.length === 0, `${T}: papers fit their boxes` + (layout.length ? " — " + layout.join("; ") : ""));
-        // Edge system (every mode/width): straight cuts only, one cut corner per surface fixed by kind, no shadow slabs.
-        const edges = await page.evaluate(() => {
-          const J = window.JamCards, roots = [];
-          const walk = r => { roots.push(r); for (const e of r.querySelectorAll("*")) if (e.shadowRoot) walk(e.shadowRoot); };
-          walk(document);
-          const pts = cp => { const m = /^polygon\((.*)\)$/.exec(cp); return m ? m[1].split(",").length : -1; };
-          const bad = [], kinds = {};
-          let papers = 0, shadows = 0;
-          for (const r of roots) {
-            shadows += r.querySelectorAll(".shadow").length;
-            for (const p of r.querySelectorAll(".paper")) {
-              papers++;
-              const k = p.dataset.cut, inline = p.style.getPropertyValue("--clip").trim(), clip = getComputedStyle(p).getPropertyValue("--clip").trim();
-              kinds[k] = (kinds[k] || 0) + 1;
-              if (J.CUTS[k]) {
-                // R2: the kind's shape comes from CSS (--jam-shape-<kind>, else the Poster cut), never an inline --clip; the
-                // computed --clip equals the kind token resolved at the paper (a probe child), and under Poster the cut itself.
-                const pr = document.createElement("i"), poster = J.cutPath(...J.CUTS[k]);
-                pr.style.setProperty("--probe", `var(--jam-shape-${k},${poster})`); p.append(pr);
-                const tok = getComputedStyle(pr).getPropertyValue("--probe").trim(); pr.remove();
-                if (inline) bad.push(`${k}: inline --clip ${inline}`);
-                if (clip !== tok) bad.push(`${k}: --clip ${clip} is not the kind token ${tok}`);
-                if (J.lookOf(p) === "poster" && (clip !== poster || pts(clip) !== 5)) bad.push(`${k}: ${clip}`);
-              }
-              else if (k === "arrow") { if (pts(clip) !== 5) bad.push("arrow: " + clip); }
-              else if (k === "disc") { if (!clip.startsWith("circle(")) bad.push("disc: " + clip); }
-              else bad.push(`unknown kind ${k}: ${clip}`);
-            }
-            for (const e of r.querySelectorAll("*")) {
-              const cp = getComputedStyle(e).clipPath;
-              if (cp && cp.startsWith("polygon(") && pts(cp) > 5) bad.push(`${e.localName}.${e.className} has ${pts(cp)} points`);
-            }
+          for (const e of r.querySelectorAll("*")) {
+            const cp = getComputedStyle(e).clipPath;
+            // a glyph drawn as a clipped shape (jam-remote's d-pad .tri arrows) is a symbol, not a cut corner
+            if (cp && cp.startsWith("polygon(") && e.getClientRects().length && !e.classList.contains("tri")) bad.push(`${e.localName}.${String(e.className).replace(/\s+/g, ".")} clip ${cp.slice(0, 40)}`);
           }
-          return {bad, kinds, papers, shadows};
-        });
-        check(edges.papers > 50 && edges.bad.length === 0,
-          `${T}: ${edges.papers} surfaces, every clip is a straight cut (<=5 points; card/key/chip/hero/sheet sizes), each paper's computed clip = its kind token (no inline --clip) ${JSON.stringify(edges.kinds)}` +
-          (edges.bad.length ? " — " + edges.bad.slice(0, 5).join("; ") : ""));
-        check(edges.shadows === 0, `${T}: no shadow slab elements (${edges.shadows})`);
-        if (width === 1280) {
-          // Text contrast per look x mode (R9): >= 4.5:1, large text >= 3:1, DOM background walk (preview/contrast.js).
-          const ct = await require("./contrast.js")(page);
-          check(ct.texts > 300 && ct.findings.length === 0, `${T}: text contrast >= 4.5:1 (large >= 3:1) for ${ct.texts} texts (${ct.approx} over images skipped)` +
-            (ct.findings.length ? " — " + ct.findings.slice(0, 5).map(f => `${f.card} ${f.el} "${f.text}" ${f.ratio}:1 ${f.fg} on ${f.bg} ${f.font}`).join("; ") + (ct.findings.length > 5 ? ` (+${ct.findings.length - 5})` : "") : ""));
         }
-        if (look === "poster" && mode === "dark" && width === 1280) {
-          // Edge + colour system API.
-          const core = await page.evaluate(() => {
-            const J = window.JamCards;
-            const cuts = Object.entries({card: ["br", 14], key: ["tr", 12], chip: ["br", 6], hero: ["br", 22], sheet: ["tr", 18]})
-              .every(([k, v]) => JSON.stringify(J.CUTS[k]) === JSON.stringify(v));
-            const br = J.cutPath("br", 14) === "polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)";
-            const want = {ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red",
-              living: "living", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red", ink: "ink", paper: "paper"};
-            const names = Object.entries(want).every(([a, n]) => J.accentVar(a) === `var(--${n})`) && J.accentVar("Kitchen") === "var(--teal)" && J.accentVar("nope") === null;
-            return {cuts, br, names, version: J.VERSION,
-              api: ["seed", "rng", "tornPath", "paper", "cutKey", "cutPath", "accentName", "accentVar", "accentFg", "setAccent", "armBars", "icon", "bindActions", "runAction"].every(k => typeof J[k] === "function")};
-          });
-          check(core.cuts && core.br, "JamCards.CUTS / cutPath: card br14, key tr12, chip br6, hero br22, sheet tr18");
-          check(core.names, "accent names + room aliases resolve (living→living (= ochre unless the look sets jam-living), kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
-          check(core.api && core.version === "0.11.0-calm.4", `window.JamCards exports the helper API (version ${core.version})`);
-          // A rendered card resolves an alias: accent kitchen -> teal heading rule; no accent -> ochre; the fixture rooms differ.
-          const rule = await page.evaluate(() => {
-            const mk = accent => { const e = document.createElement("jam-heading"); e.setConfig({type: "custom:jam-heading", title: "T", ...(accent ? {accent} : {})});
-              e.hass = window.__hass; document.body.append(e); return e; };
-            const a = mk("kitchen"), b = mk(null), r = a.shadowRoot;
-            const col = v => { const p = document.createElement("span"); p.style.color = v; r.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-            const bg = e => getComputedStyle(e.shadowRoot.querySelector(".rule")).backgroundColor;
-            const out = {kitchen: bg(a), teal: col("var(--teal)"), def: bg(b), ochre: col("var(--ochre)"),
-              h: a.shadowRoot.querySelector(".rule").getBoundingClientRect().height};
-            a.remove(); b.remove();
-            out.rooms = new Set([...document.querySelectorAll("#view jam-heading")].map(bg)).size;
-            return out;
-          });
-          check(rule.kitchen === rule.teal && rule.def === rule.ochre && rule.h === 5,
-            `jam-heading accent kitchen -> teal rule (${rule.kitchen}), default ochre (${rule.def}), 5px tall`);
-          check(rule.rooms >= 6, `preview headings show ${rule.rooms} accent colours (>= 6)`);
-
-          const helpers = {
-            tile: name => page.locator("jam-tile").filter({hasText: name}),
-            callsNow: () => page.evaluate(() => window.__calls),
-          };
-          for (const f of fs.readdirSync(path.join(__dirname, "checks")).filter(f => f.endsWith(".js")).sort())
-            await require(path.join(__dirname, "checks", f))(page, check, helpers);
-        }
-        await page.close();
+        return {bad: [...new Set(bad)], kinds, papers, shadows};
+      });
+      check(edges.papers > 30 && edges.bad.length === 0, `${T}: ${edges.papers} surfaces, no cut corners (every paper's clip = none, no polygon clips) ${JSON.stringify(edges.kinds)}` +
+        (edges.bad.length ? " — " + edges.bad.slice(0, 5).join("; ") + (edges.bad.length > 5 ? ` (+${edges.bad.length - 5})` : "") : ""));
+      check(edges.shadows === 0, `${T}: no shadow slab elements (${edges.shadows})`);
+      if (width === 1280) {
+        // Text contrast per mode: >= 4.5:1, large text >= 3:1, DOM background walk (preview/contrast.js).
+        const ct = await require("./contrast.js")(page);
+        check(ct.texts > 200 && ct.findings.length === 0, `${T}: text contrast >= 4.5:1 (large >= 3:1) for ${ct.texts} texts (${ct.approx} over images skipped)` +
+          (ct.findings.length ? " — " + ct.findings.slice(0, 5).map(f => `${f.card} ${f.el} "${f.text}" ${f.ratio}:1 ${f.fg} on ${f.bg} ${f.font}`).join("; ") + (ct.findings.length > 5 ? ` (+${ct.findings.length - 5})` : "") : ""));
       }
+      if (mode === "dark" && width === 1280) {
+        const core = await page.evaluate(() => {
+          const J = window.JamCards;
+          const want = {ochre: "ochre", teal: "teal", blue: "blue", pink: "pink", violet: "violet", green: "green", red: "red",
+            living: "living", kitchen: "teal", master: "blue", marissa: "pink", music: "violet", nerd: "green", alert: "red", ink: "ink", paper: "paper"};
+          const names = Object.entries(want).every(([a, n]) => J.accentVar(a) === `var(--${n})`) && J.accentVar("Kitchen") === "var(--teal)" && J.accentVar("nope") === null;
+          return {names, version: J.VERSION, looks: J.looks().join(","), look: J.LOOK,
+            api: ["seed", "rng", "tornPath", "paper", "cutKey", "cutPath", "accentName", "accentVar", "accentFg", "setAccent", "armBars", "icon", "bindActions", "runAction", "lookOf", "motif", "registerLook", "lookPack"].every(k => typeof J[k] === "function")};
+        });
+        check(core.names, "accent names + room aliases resolve (living→living, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
+        check(core.api && core.version === "1.0.0" && core.looks === "hifi" && core.look === "hifi", `window.JamCards exports the helper API (version ${core.version}, looks ${core.looks}, default ${core.look})`);
+        const helpers = {
+          tile: name => page.locator("jam-tile").filter({hasText: name}),
+          callsNow: () => page.evaluate(() => window.__calls),
+        };
+        // JAM_CHECKS=<regex> runs only the matching check files (iteration). A check that throws is one FAIL, the run goes on
+        // (on a fresh page: a half-done check may leave sheets or scratch cards behind).
+        const only = process.env.JAM_CHECKS ? new RegExp(process.env.JAM_CHECKS) : null;
+        let cur = page;
+        for (const f of fs.readdirSync(path.join(__dirname, "checks")).filter(f => f.endsWith(".js") && (!only || only.test(f))).sort()) {
+          try { await require(path.join(__dirname, "checks", f))(cur, check, helpers); }
+          catch (e) {
+            check(false, `checks/${f} threw: ${String(e && e.message || e).split("\n")[0].slice(0, 200)}`);
+            await cur.close().catch(() => {});
+            cur = await browser.newPage({viewport: {width, height: 900}});
+            cur.on("pageerror", e => errors.push(`${T}: ${e.message}`));
+            await cur.goto(base + `?mode=${mode}`); await cur.waitForFunction(() => window.__ready); await cur.waitForTimeout(800);
+            helpers.tile = name => cur.locator("jam-tile").filter({hasText: name});
+            helpers.callsNow = () => cur.evaluate(() => window.__calls);
+          }
+        }
+        if (cur !== page) await cur.close();
+      }
+      await page.close();
     }
-    if (process.env.JAM_SHOTS) await fixedScreensaver(browser, base, process.env.JAM_SHOTS);
-    // Looks other than Poster (theming plan R3 / R9): the harness-only stress look (tokens/looks/stress.mjs: mixed case, a wide
-    // fallback grotesque, display scale .85) must re-type the cards through the tokens, and it and every non-Poster look of
-    // LOOKS must still fit everywhere, kiosk sizes included (preview/fit.js; each look's kiosk screens are written to
-    // preview/shots/<look>/). JAM_FIT_LOOKS=<id,...> picks the looks ("" skips the fit runs).
-    const fitIds = (process.env.JAM_FIT_LOOKS ?? ["stress", ...LOOKS.filter(l => l !== "poster")].join(",")).split(",").map(x => x.trim()).filter(Boolean);
-    if (fitIds.includes("stress")) {
+    if (!FAST) {
+    // Without the Hi-Fi theme (HA's default theme, or a stale theme of a removed look): the cards carry data-jam-builtin and
+    // draw the Hi-Fi Night palette from their own values, a sheet copies it, a page theme of another look id changes nothing.
+    {
       const p = await browser.newPage({viewport: {width: 1280, height: 900}});
       try {
-        await p.goto(`${base}?look=stress`);
+        p.on("pageerror", e => errors.push(`theme=none: ${e.message}`));
+        await p.goto(base + "?theme=none");
         await p.waitForFunction(() => window.__ready);
-        await p.evaluate(() => document.fonts.ready);
-        const t = await p.evaluate(() => {
-          const r = document.querySelector("#view jam-tile").shadowRoot, cs = s => getComputedStyle(r.querySelector(s));
-          const kr = document.querySelector("#view jam-button").shadowRoot, key = getComputedStyle(kr.querySelector(".lbl"));
-          const ch = [...document.querySelectorAll("#view jam-choice")].map(c => c.shadowRoot.querySelector(".key > .face")).find(Boolean);
-          return {look: document.querySelector("#view jam-tile").dataset.look, val: {tt: cs(".val").textTransform, fw: cs(".val").fontWeight,
-            fs: cs(".val").fontSize, ff: cs(".val").fontFamily, lh: cs(".val").lineHeight}, name: {tt: cs(".name").textTransform, ls: cs(".name").letterSpacing, fs: cs(".name").fontSize},
-            lbl: {tt: key.textTransform, fw: key.fontWeight}, key: ch ? {tt: getComputedStyle(ch).textTransform, ls: getComputedStyle(ch).letterSpacing} : null};
+        await p.waitForTimeout(600);
+        const r = await p.evaluate(async () => {
+          const cards = [...document.querySelectorAll("#view > *, #view .sec > *")].filter(c => c._config);
+          const val = (e, t) => getComputedStyle(e).getPropertyValue(t).trim();
+          const c = document.querySelector("#view jam-light"), out = {n: cards.length, builtin: cards.filter(x => x.hasAttribute("data-jam-builtin")).length,
+            look: [...new Set(cards.map(x => x.dataset.look))].join(","), slab: val(c, "--jam-slab"), ground: val(c, "--jam-ground"), groove: val(c, "--jam-groove"), display: val(c, "--jam-display")};
+          // a stale Poster theme on the page: still Hi-Fi Night on the cards
+          document.documentElement.style.cssText = "--jam-look:poster;--jam-slab:#1f1c19;--jam-display:'Londrina Solid'";
+          await new Promise(r => setTimeout(r, 120));
+          out.staleSlab = val(c, "--jam-slab"); out.staleDisplay = val(c, "--jam-display"); out.staleBuiltin = c.hasAttribute("data-jam-builtin");
+          // the Hi-Fi theme arrives (as HA applies it): the cards follow the theme again
+          document.documentElement.style.cssText = "--jam-look:hifi;--jam-slab:#123456";
+          await new Promise(r => setTimeout(r, 120));
+          out.themedSlab = val(c, "--jam-slab"); out.themedBuiltin = c.hasAttribute("data-jam-builtin");
+          document.documentElement.style.cssText = "";
+          return out;
         });
-        // tile value: 1.7rem x .85 = 23.12px, line-height .95 x 1.12; tile name .74rem = 11.84px, .14em x .4 tracking = .6630px
-        check(t.look === "stress" && t.val.tt === "none" && t.val.fw === "700" && t.val.fs === "23.12px" && /^"?Stress Wide/.test(t.val.ff) &&
-          Math.abs(parseFloat(t.val.lh) - 23.12 * .95 * 1.12) < .05 && t.name.tt === "none" && Math.abs(parseFloat(t.name.ls) - 11.84 * .14 * .4) < .01 &&
-          t.lbl.tt === "none" && t.lbl.fw === "700" && t.key && t.key.tt === "none",
-          `stress look re-types the cards through the type tokens (${JSON.stringify(t)})`);
+        check(r.n > 20 && r.builtin === r.n && r.look === "hifi" && r.slab === "#161c28" && r.ground === "#10141d" && r.groove === "#0a0e15" && /^"Jost"/.test(r.display),
+          `no theme: every card (${r.builtin}/${r.n}) draws the built-in Hi-Fi Night palette (slab ${r.slab}, ground ${r.ground}, groove ${r.groove}), Jost, data-look ${r.look}`);
+        check(r.staleBuiltin && r.staleSlab === "#161c28" && /^"Jost"/.test(r.staleDisplay) && !r.themedBuiltin && r.themedSlab === "#123456",
+          `a stale theme (--jam-look: poster) keeps Hi-Fi Night (${r.staleSlab}, ${r.staleDisplay.split(",")[0]}); the Hi-Fi theme is followed again (${r.themedSlab})`);
+        await p.screenshot({path: path.join(SHOTS, "builtin-dark-1280.png"), fullPage: false});
       } finally { await p.close(); }
     }
-    if (fitIds.length) await require("./fit.js")(browser, base, check, {looks: fitIds, dir: process.env.JAM_SHOTS, fitCheck,
-      lookDir: id => (id !== "stress" && LOOKS.includes(id) ? shotDir(id) : null)});
-    // Review views of every non-Poster look (preview/views.js): its sheets, panel B, kiosk sheets and screensaver in both
-    // modes (shots/<look>/views/), each with a controls-present check. JAM_NO_VIEWS=1 skips them.
-    if (!process.env.JAM_NO_VIEWS) for (const look of LOOKS.filter(l => l !== "poster")) await require("./views.js")(browser, base, check, {look, dir: shotDir(look)});
-    if (FX_OFF) console.log("INFO JAM_FX=0: contact sheet skipped (it shows each look's theme fx state)");
-    else if (!process.env.JAM_NO_CONTACT) {
-      const n = await contactSheet(browser, base, LOOKS);
-      check(n > 10, `contact sheet preview/shots/looks.html: ${n} items x ${LOOKS.length} looks (${LOOKS.join(", ")})`);
+    if (process.env.JAM_SHOTS) await fixedScreensaver(browser, base, process.env.JAM_SHOTS);
+    // Text fit + kiosk screens (preview/fit.js; JAM_NO_FIT=1 skips it).
+    if (!process.env.JAM_NO_FIT) await require("./fit.js")(browser, base, check, {dir: process.env.JAM_SHOTS});
+    if (!process.env.JAM_NO_CONTACT) {
+      const n = await contactSheet(browser, base);
+      check(n > 10, `contact sheet preview/shots/cards.html: ${n} items, dark + light`);
     }
-    if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE, LOOKS, ALL_LOOKS.map(l => l.id));
+    if (process.env.JAM_BASELINE) await pixelDiff(browser, process.env.JAM_BASELINE);
+    }
     check(fontRequests.length === 0, "no requests to fonts.googleapis.com / fonts.gstatic.com" + (fontRequests.length ? ": " + fontRequests.slice(0, 3).join(", ") : ""));
     check(errors.length === 0, "no page errors" + (errors.length ? ": " + errors.join("; ") : ""));
   } finally { await browser.close(); server.close(); }

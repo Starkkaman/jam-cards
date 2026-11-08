@@ -1,3 +1,8 @@
+> **History (Jam Cards 1.0.0, 2026-11-07):** this plan built the multi-look system (Poster + ten looks + Jam Calm). Since 1.0.0
+> there is one look, Hi-Fi (the former Jam Calm), built into the cards; the other looks, the look picker and the look cards
+> were removed. The mechanisms below (token registry, packs, motifs, hooks) remain, with Hi-Fi as the only pack; see
+> docs/DESIGN.md for the current rules.
+
 # Theming plan: global "looks" for Jam Cards + the JamBoard theme
 
 Status: architecture brief (2026-11-03); R0-R9 built 2026-11-03, see "Progress" at the end. Line numbers refer to jam-cards

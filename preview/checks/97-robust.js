@@ -21,7 +21,7 @@ module.exports = async (page, check) => {
     return out;
   });
   const tags = [...new Set(cfgs.map(c => c.type.slice(7)))].sort();
-  check(tags.length === 36, `lifecycle: preview has all 36 card types (${tags.length}: ${tags.join(" ")})`);
+  check(tags.length === 24, `lifecycle: preview has all 24 card types (${tags.length}: ${tags.join(" ")})`);
 
   // ---------- lifecycle on a clean page ----------
   const clean = await page.context().browser().newPage();
@@ -78,7 +78,8 @@ module.exports = async (page, check) => {
     const openSheet = e => {
       const r = e.shadowRoot;
       const b = r.querySelector("button.more:not(:disabled)") || r.querySelector(".lc:not(.dead) .tap") || r.querySelector('button[data-key="more"]') ||
-        r.querySelector('button[data-key="remote"]') || r.querySelector('button[data-key="keyboard"]:not(:disabled)');
+        r.querySelector('button[data-key="remote"]') || r.querySelector('button[data-key="keyboard"]:not(:disabled)') ||
+        r.querySelector("button.c-pn"); // Hi-Fi: the name row opens a card's pop-up
       if (b) b.click();
       return !!b;
     };

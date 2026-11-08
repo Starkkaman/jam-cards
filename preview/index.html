@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jam Cards preview</title>
-<!-- Mimics a sections dashboard with the JamBoard theme (looks.css). ?mode=light switches to the paper palette, ?look=<id> to another look. -->
-<link rel="stylesheet" href="looks.css"> <!-- GENERATED from tokens/ by tools/bundle.mjs: the JamBoard theme tokens per mode -->
+<!-- Mimics a sections dashboard with the Hi-Fi theme (looks.css). ?mode=light switches to Day; ?theme=none leaves the theme
+     off (HA's default theme: the cards draw their built-in Hi-Fi Night palette). -->
+<link rel="stylesheet" href="looks.css" id="theme-css"> <!-- GENERATED from tokens/ by tools/bundle.mjs: the Hi-Fi theme tokens per mode -->
 <style>
   html,body{margin:0;background:var(--primary-background-color)}
   /* HA's hui-view-background: a look's lovelace-background (Grid: the page grid) on a layer behind everything in body (the
@@ -18,19 +19,15 @@
   .wide{grid-column:span 2} @media (max-width:700px){.wide{grid-column:span 1}}
   .full{grid-column:1/-1}
 </style>
-<script src="themes.js"></script> <!-- GENERATED from tokens/: hass.themes.themes of the looks (jam-looks swatches) -->
+<script src="themes.js"></script> <!-- GENERATED from tokens/: hass.themes.themes (the Hi-Fi theme) -->
+<script>if (new URLSearchParams(location.search).get("theme") === "none") document.getElementById("theme-css").remove();</script>
 <script src="../dist/jam-cards.js"></script> <!-- GENERATED bundle; look fonts in ../dist/fonts/ -->
 </head>
 <body>
 <div class="view" id="view"></div>
 <script>
 if (new URLSearchParams(location.search).get("mode") === "light") document.documentElement.classList.add("light");
-// ?look=<id>: another look's tokens from looks.css (:root[data-look=id]); the cards read --jam-look from them.
-const lookParam = new URLSearchParams(location.search).get("look");
-if (lookParam && /^[a-z][a-z0-9-]*$/.test(lookParam)) document.documentElement.dataset.look = lookParam;
-// ?fx=0: the effects switch off for the whole page (as a card's `fx: false` would; the kiosks' setting), so a look with
-// jam-fx: 1 (New Wave) can be checked flat too.
-if (new URLSearchParams(location.search).get("fx") === "0") document.documentElement.style.setProperty("--jam-fx", "0");
+const lookParam = new URLSearchParams(location.search).get("theme") === "none" ? "" : "hifi";
 const now = new Date().toISOString();
 const states = {}, layout = [];
 // Fixture API (preview/fixtures/*.js, loaded in name order by fixtures/index.js):
@@ -54,10 +51,9 @@ const hass = {
   callService(domain, service, data, target) { window.__calls.push({domain, service, data, target}); return Promise.resolve(); },
   formatEntityState(s) { const u = s.attributes.unit_of_measurement; return u ? `${s.state} ${u}` : s.state; },
 };
-// hass.themes like HA's: the looks' themes (preview/themes.js), the active one = this page's look; selectedTheme = the
-// browser's pick (Profile -> Theme). A `settheme` event (jam-looks, HA's profile picker) is only recorded in
-// window.__settheme: hass and the page's look stay as they are (HA would merge it into selectedTheme and re-theme).
-const pageTheme = (window.jamPreviewLookThemes || {})[lookParam || "poster"] || "";
+// hass.themes like HA's: the Hi-Fi theme (preview/themes.js), active unless ?theme=none; selectedTheme = the browser's pick
+// (Profile -> Theme). A `settheme` event is only recorded in window.__settheme.
+const pageTheme = lookParam ? (window.jamPreviewLookThemes || {})[lookParam] || "" : "";
 hass.themes = {darkMode: !document.documentElement.classList.contains("light"), default_theme: "default", default_dark_theme: null,
   themes: window.jamPreviewThemes || {}, theme: pageTheme || "default"};
 hass.selectedTheme = pageTheme ? {theme: pageTheme} : null;

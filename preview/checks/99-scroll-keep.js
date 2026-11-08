@@ -4,16 +4,15 @@
 // the viewport clips the page to one screen, so the document's scroll range collapsed and the browser clamped it to 0 (every
 // look, every browser). Now only <html> is locked (counted across sheets and jam-popups), and the scroll positions of the
 // page and of every scrolled ancestor of the opener are saved before and written back after open and after close.
-// Fresh pages of the Poster dark page (the preview shots stay as they were) with HA's html / body CSS
+// Fresh pages of the dark preview page (the preview shots stay as they were) with HA's html / body CSS
 // (html{height:100vh} body{height:100%}) and an old-WebKit emulation (any change of <html> / <body> overflow resets the page's
 // scroll to 0 before the next frame), at 1024x768 (iPad), 961x601 (Echo Show) and 1280x800, in two scroll set-ups:
 //   - "page": the document scrolls (HA's lovelace view), scrolled to 1500;
 //   - "inner": #view moved into a fixed full-screen overflow:auto scroller (an HA-like inner scroll container), scrolled to
 //     1200, the document at 0;
-// and in each, these pop-ups, opened and closed one after another: Poster jam-light pop-up, jam-tv Remote and Source sheets,
-// a jam-kiosk dock sheet with a light pop-up stacked on it, the jam-popup (#hash), then the Calm look (theme inline on a
-// wrapper, HA's view theme): light, kiosk light, TV Remote, Source, speaker, the action confirmation, a dock sheet + a light
-// pop-up on it. Asserts every scroll position is unchanged after each open (300 ms) and after each close.
+// and in each, these pop-ups, opened and closed one after another: the jam-popup (#hash), then Hi-Fi's (scratch cards under the
+// theme inline on a wrapper, HA's view theme): light, kiosk light, TV Remote, Source, speaker, the action confirmation, a dock
+// sheet + a light pop-up on it (1.0.0: the Poster pop-ups of the cards Hi-Fi draws are gone with Poster). Asserts every scroll position is unchanged after each open (300 ms) and after each close.
 // Contract: module.exports = async (page, check) => {}.
 module.exports = async (page, check) => {
   const url = page.url(), browser = page.context().browser();
@@ -44,7 +43,7 @@ module.exports = async (page, check) => {
       const vars = [];
       for (const s of document.styleSheets) {
         let rules; try { rules = s.cssRules; } catch (e) { continue; }
-        for (const r of rules) if (r.selectorText === ':root[data-look="calm"]') for (const q of r.style) if (q.startsWith("--")) vars.push([q, r.style.getPropertyValue(q)]);
+        for (const r of rules) if (r.selectorText === ":root" && !vars.length) for (const q of r.style) if (q.startsWith("--")) vars.push([q, r.style.getPropertyValue(q)]);
       }
       const cfgOf = (tag, ok) => { const e = [...document.querySelectorAll("#view " + tag)].find(x => x._config && ok(x._config)); return e ? JSON.parse(JSON.stringify(e._config)) : null; };
       const tv = cfgOf("jam-tv", c => c.remote && (c.sources || []).length && !c.size && H.states[c.media_player] && H.states[c.media_player].state === "playing");
@@ -76,26 +75,18 @@ module.exports = async (page, check) => {
       const btn = (card, test) => card && [...card.shadowRoot.querySelectorAll("button,[role=button]")].find(b => test((b.getAttribute("aria-label") || "") + "|" + b.textContent.trim()));
       const top = () => { const hs = [...document.querySelectorAll(".jam-sheet-host")]; return hs[hs.length - 1]; };
       const inTop = tag => { const t = top(); return t && t.shadowRoot.querySelector(tag); };
-      const posterTv = [...document.querySelectorAll("#view jam-tv")].find(x => x._config && x._config.remote && !x._config.size && !x.closest("#sk-calm"));
-      const posterLight = [...document.querySelectorAll("#view jam-light")].find(x => x._config && !x.closest("#sk-calm") && typeof x._openSheet === "function");
-      const posterKiosk = [...document.querySelectorAll("#view jam-kiosk")].find(x => !x.closest("#sk-calm"));
       const popup = [...document.querySelectorAll("#view jam-popup")].find(x => x._config && x._config.hash);
       // [name, open() -> truthy, stacked on the previous one]
       C.openers = [
-        ["poster light", () => { posterLight._openSheet(); return true; }],
-        ["poster TV remote", () => { const b = btn(posterTv, t => /\|Remote$/i.test(t) || /^Remote/i.test(t)); if (b) b.click(); return !!b; }],
-        ["poster TV source", () => { const b = btn(posterTv, t => /\|(Source|Watch)$/i.test(t) || /^(Source|Watch)/i.test(t)); if (b) b.click(); return !!b; }],
-        ["poster dock sheet", () => { const b = posterKiosk && [...posterKiosk.shadowRoot.querySelectorAll(".blk")].find(x => x.textContent.includes("Lights")); if (b) b.click(); return !!b; }],
-        ["poster light in dock sheet", () => { const l = inTop("jam-light"); if (l) l._openSheet(); return !!l; }, true],
-        ["poster jam-popup", () => { if (!popup) return false; location.hash = popup._config.hash; dispatchEvent(new HashChangeEvent("hashchange")); return true; }],
-        ["calm light", () => { const b = btn(C.calm.light, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm kiosk light", () => { const b = btn(C.calm.klight, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm TV remote", () => { const b = btn(C.calm.tv, t => /\|Remote$/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm TV source", () => { const b = btn(C.calm.tv, t => /\|Source$/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm speaker", () => { const b = btn(C.calm.spk, t => /: open\|/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm confirm", () => { const b = btn(C.calm.act, t => /…$/.test(t)); if (b) b.click(); return !!b; }],
-        ["calm dock sheet", () => { const b = [...C.calm.kiosk.shadowRoot.querySelectorAll(".c-kt .c-open")].find(x => x.textContent.includes("Lights")); if (b) b.click(); return !!b; }],
-        ["calm light in dock sheet", () => { const l = inTop("jam-light"); const b = btn(l, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }, true],
+        ["jam-popup", () => { if (!popup) return false; location.hash = popup._config.hash; dispatchEvent(new HashChangeEvent("hashchange")); return true; }],
+        ["hifi light", () => { const b = btn(C.calm.light, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi kiosk light", () => { const b = btn(C.calm.klight, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi TV remote", () => { const b = btn(C.calm.tv, t => /\|Remote$/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi TV source", () => { const b = btn(C.calm.tv, t => /\|Source$/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi speaker", () => { const b = btn(C.calm.spk, t => /: open\|/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi confirm", () => { const b = btn(C.calm.act, t => /…$/.test(t)); if (b) b.click(); return !!b; }],
+        ["hifi dock sheet", () => { const b = [...C.calm.kiosk.shadowRoot.querySelectorAll(".c-kt .c-open")].find(x => x.textContent.includes("Lights")); if (b) b.click(); return !!b; }],
+        ["hifi light in dock sheet", () => { const l = inTop("jam-light"); const b = btn(l, t => /open light controls/.test(t)); if (b) b.click(); return !!b; }, true],
       ];
       C.isOpen = () => document.querySelectorAll(".jam-sheet-host").length + (popup && popup.shadowRoot.querySelector(".pop.open") ? 1 : 0);
       C.closeAll = async () => {
@@ -128,7 +119,7 @@ module.exports = async (page, check) => {
       if (afterClose.join() !== before.join()) bad.push(`${name}: close moved the scroll ${before.join("/")} -> ${afterClose.join("/")}`);
     }
     check(!bad.length && !errs.length && seen === setup.n,
-      `${tag}: ${seen}/${setup.n} pop-ups (Poster + Calm) opened and closed without moving the page` + (bad.length || errs.length ? " — " + [...bad, ...errs].join("; ") : ""));
+      `${tag}: ${seen}/${setup.n} pop-ups (Hi-Fi + jam-popup) opened and closed without moving the page` + (bad.length || errs.length ? " — " + [...bad, ...errs].join("; ") : ""));
     await p.close();
   }
 };

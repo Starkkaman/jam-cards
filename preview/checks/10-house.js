@@ -3,9 +3,8 @@
 module.exports = async (page, check, {tile, callsNow}) => {
   await page.evaluate(() => { window.__mi = []; window.addEventListener("hass-more-info", e => window.__mi.push(e.detail.entityId)); });
   // Plain tap (no double_tap_action) runs at once: more-info without a 250 ms wait.
-  await page.locator("jam-tile").first().locator(".name").click();
-  const mi = await page.evaluate(() => window.__mi.slice());
-  check(mi.includes("switch.hisense_tv_power"), "tile tap opens more-info immediately");
+  // (Hi-Fi draws an on / off tile as a switch card: its name row runs a configured tap_action only; the lock / press tiles
+  // below keep the tile's own layout and tap = more-info.)
   // Lock: locked -> UNLOCK key calls lock.unlock; unlocked -> LOCK key calls lock.lock; jammed key is red.
   const fk = tile("Front door").locator("button.sw");
   check((await fk.textContent()) === "Unlock", "locked lock shows Unlock key");

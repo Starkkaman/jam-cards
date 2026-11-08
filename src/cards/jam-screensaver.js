@@ -546,7 +546,7 @@ class JamScreensaver extends JamBase {
     this._ov.dataset.view = this._live === "images" && this._config.mode_entity ? "images" : "poster";
     this._setLayout(false);
     this._texts();
-    const look = this.dataset.look || "poster";
+    const look = this.dataset.look || JAM_LOOK;
     if (this._ov.dataset.look !== look) this._ov.dataset.look = look;
     jamRestyle(this._layer.shadowRoot, look); setFx(this._ov, this.hasAttribute("data-fx"));
     this._ov.classList.add("show");

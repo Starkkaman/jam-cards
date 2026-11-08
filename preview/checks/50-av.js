@@ -89,7 +89,7 @@ module.exports = async (page, check, {callsNow}) => {
   const MID = "media_player.kitchen";
   const media = page.locator("jam-media").nth(1);
   check(await media.locator(".art img").count() === 1, "jam-media v2 shows art as an image");
-  check(await media.locator(".art img").evaluate(i => getComputedStyle(i).mixBlendMode) === "multiply", "art is a multiply duotone print");
+  check(await media.locator(".art img").evaluate(i => getComputedStyle(i).mixBlendMode === "normal" && getComputedStyle(i).filter === "none"), "art is shown in its own colours (Hi-Fi: no duotone print)");
   for (const [k, svc] of [["prev", "media_previous_track"], ["play_pause", "media_play_pause"], ["next", "media_next_track"]]) {
     await reset(); await media.locator(`button[data-key="${k}"]`).click();
     c = await callsNow();

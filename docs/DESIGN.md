@@ -1,19 +1,29 @@
-# Jam design system — the source of truth for every jam card (default look: v0.3 "Poster")
+# Jam design system — the source of truth for every jam card (Jam Cards 1.0.0: one look, **Hi-Fi**)
 
-Saul Bass graphic design (Anatomy of a Murder, The Man with the Golden Arm, Vertigo, North by Northwest), as a poster:
-**flat colour blocks on an ink ground, cut with scissors in straight lines.** One accent colour per card (per room),
-filled into whatever is on. Fun comes from shape and colour blocking, never from effects.
-v0.3 replaced the v0.2 torn-paper look (jagged edges + offset shadow slabs) with the approved mockup variant "A · Poster".
+**Hi-Fi** is the calm-instrument look of Jam Design pass 6 + 7 (`jam-design/mockups/pass7/home-assistant.html` on top of
+`mockups/pass6/home-assistant.html`, HANDOFF.md 2026-11-06; Isaac: "This design looks much better!"). Until 0.11 it was the
+"Jam Calm" look (id `calm`) next to Poster (the v0.3 Saul Bass cut-paper look and the default, theme "JamBoard"), Braun,
+Olympia, Transit, Grid, Pulsar, New Wave, Brutal, Glass and Girard. Isaac, 2026-11-07: Calm becomes the only look, renamed
+Hi-Fi, and the default; every other look and the look picker are removed. Their rules live on in git history (tag the
+0.11 commit `641bcc2`, docs/looks/ and this file's earlier versions).
 
-**Looks** (docs/THEMING-PLAN.md): a look is an HA theme that sets the `--jam-*` tokens (colour, type, shape; later motion)
-and `--jam-look: <id>`, plus, from R6, an optional look pack in jam-cards.js. Poster (theme "JamBoard") is the default and
-the cards' built-in fallback. Braun, Olympia, Transit, Grid, Pulsar, New Wave, Brutal, Glass and Girard are the next looks
-(user, 2026-11-03; built in R10, see "Braun rules", "Olympia rules", "Transit rules", "Grid rules", "Pulsar rules", "New
-Wave rules", "Brutal rules", "Glass rules" and "Girard rules"); the
-global switch will be a Look
-picker card backed by an `input_select` + automation calling `frontend.set_theme`; kiosks follow the global look. So the
-rules are split: **universal rules** hold for every look, **Poster rules** are the Poster look's own (a new look writes its
-own section and may replace them).
+How the one look is built:
+- **Built in.** The Hi-Fi pack (`src/looks/hifi.js`, `registerLook({id: "hifi"})`) is the default pack: `lookPack()` of any id
+  is Hi-Fi's, `lookOf()` is always `hifi`. Every card fixes the Hi-Fi theme-level tokens (type, shapes, motion,
+  `--jam-look: hifi`) on its own `:host` (TOKEN_CSS, tools/bundle.mjs from `tokens/looks/hifi.mjs`), so no theme can re-type or
+  re-shape the cards. Mode tokens (the palette) come from the theme "Hi-Fi" (`../jam-theme/themes/jamboard.yaml`); every one
+  falls back to the Night value.
+- **Built-in palette.** A card whose page theme is not Hi-Fi (no `--jam-look`, or a stale theme of a removed look: Poster's
+  "JamBoard", "Jam Braun", ... still installed in `config/themes/`) carries `data-jam-builtin` (core `setBuiltin()`, in the
+  look batch) and TOKEN_BUILTIN_CSS sets every mode token to Hi-Fi Night on its host, the calm-part tokens without a short
+  name included. "calm" (a view pinned to "Jam Calm") counts as Hi-Fi. Body layers (sheets, the screensaver) copy the card's
+  computed tokens, so they follow.
+- **Two kinds of card.** Hi-Fi draws jam-light, jam-tile / jam-button on an on / off entity, jam-button action cards, jam-fan,
+  jam-scenes, jam-house, jam-heading, jam-tv, jam-speaker, jam-media (compact / kiosk PC row) and jam-kiosk in layouts of its
+  own (the `render` look hook). Every other card (jam-hero, jam-choice, jam-slider, jam-media full, jam-gauge, jam-list,
+  jam-popup, jam-graph, jam-weather, jam-remote, jam-tabs, jam-screensaver, jam-panel, jam-alerts, jam-tile / jam-button
+  otherwise) keeps its own DOM and gets the **Hi-Fi skin** (pack CSS over the stable class hooks + the pack's motifs; see
+  "Hi-Fi rules"). The cards' own layouts are also the fallback when a Hi-Fi drawing throws.
 
 ## Universal rules (every look)
 - Tokens, not literals: colours, shapes and type come from the `--jam-*` tokens (see "Token reference"); card CSS writes no hex
@@ -108,353 +118,35 @@ One grammar for on / off / attention / offline, drawn by each look in its own wa
 - Checks: preview/checks/99-audit.js (grammar, floor, look bugs, opt-ins + shots in preview/shots/optin/), the kiosk lock
   in 88-kiosk-lock.js, text over motif shapes on every screensaver layout in preview/fit.js.
 
-## Poster rules (the Poster look)
-- Flat colour only. No gradients, blur, glows, shadows of any kind, rounded corners, opacity fades as decoration.
-- Separation comes from flat surfaces: card face `--slab` on the ink ground, inner controls `--slab2`. No shadow slabs.
-- Edges are **straight**: every surface is a rectangle with ONE 45° cut corner, fixed per element kind (see "Edge system").
-  Nothing is torn or jagged; nothing is random per seed. Text never sits in a cut.
-- Display type: Londrina Solid 900, UPPERCASE, tight leading (.9), slight negative tracking allowed (-.005em).
-  Body/labels: Jost 400-600; labels UPPERCASE .72rem letter-spacing .16em.
-- Motion = cut paper: `steps()`, ≤ 300 ms, transform / clip-path / opacity only (see "Motion").
-- Focus ring and default accent: ochre.
-
-## Braun rules (the Braun look, theme "Jam Braun")
-Brief: docs/looks/BRAUN.md (decided 2026-11-03). Tokens: tokens/looks/braun.mjs; pack: src/looks/braun.js (CSS over the stable
-hooks + motifs). Replaces the Poster rules above, keeps every universal rule.
-- Warm-white panels (`--slab` #f2efe8 light / #2a2a27 dark) on the page (HA ground #e7e3da / #1c1c1a) with a 1px hairline
-  (`--jam-border`, `--line`) and the soft elevation `--jam-elev-1` (card, hero, sheet faces, jam-button tiles, kiosk dock
-  blocks, screensaver panels): the only look with a shadow. No cut corners: every shape token is `none`; radius 14px cards /
-  sheets / hero, 10px inner panels (posters, art, source tiles, light pop-up bars), 999px keys, chips and toggles.
-- One orange signal (`--ochre` = #f07d1e / #f28a2e) for "active / act": active keys, chips and tabs, play / primary keys,
-  strip fills, progress bars, the focus ring (2px, offset 2px), the OK disc, the weather "today" ring, the
-  kiosk clock colon. Text on the signal is ink (`--on-fg`; white is 2.7:1). Room hues appear only as 8-12px dots (tone
-  marks, kiosk dock blocks, chips, TV source tiles, speaker kickers) or 2px rules (heading rule, tone stripe, tabs).
-  A light's own colour shows only as its LED dot (8px, 6px glow) and its brightness strip. Alert keys / chips / counts are
-  a panel-2 face with red text (`--alert-text`) and a red ring, never a red fill with text.
-- `--jam-ink` stays the dark ground (veils, kiosk ink blocks, plates): #262626 in light, #1c1c1a in dark, so `--on-fg` /
-  `--ink-fg` remain a dark / light text pair for textOn / inkOn. The page colour is HA's ground (theme alias `ground`).
-- Power corners are toggles (34x18 pill top-right, same 46px button; off = `--slab3` track + light knob left, on = `--fg`
-  track + `--slab` knob right, 180 ms slide). jam-light: the face stays the panel; an LED dot before the name; group member
-  bands become 10px dots left of the toggle (off member = hollow ring); a 4px brightness strip in the light's colour; no
-  label plates, no colour wash. The name flows around the toggle (only its first line is shortened).
-- Type: Archivo (dist/fonts, wght 300-700 declared), mixed case; small labels uppercase 500 .06em; names 500 at .72x Poster
-  size (`--jam-display-scale`); numerals 400 tabular at .85x (`--jam-num-scale`); kiosk + screensaver clock 300.
-- Strips 4px with rounded ends on a panel-2 track; sliders (`[role=slider]`) get an 18px panel knob with a hairline.
-- Motifs: empty = 5x4 dot grille (dim), idleArt = concentric speaker-grille dots with one orange dot, flash = none,
-  powerGlyph = 1.75px stroke, screensaver = the AB-1 dial ring (a hairline circle with an orange dot) on a panel page.
-- Motion: smooth `cubic-bezier(.2,.7,.3,1)` at the Poster durations; press = scale .98; entrance / sheets fade and rise;
-  stamps settle, washes and wipes are gone. Reduced motion = none (BASE_CSS).
-- Colour revision 2026-11-03 (brief "more colour"; supersedes the dot-only room hue and LED-only light colour rules above,
-  all in the pack, no new tokens): a lit jam-light face is a flat `color-mix` of its light colour into `--slab` (18% light,
-  24% dark: an `@container style(--jam-ink: #1c1c1a)` query; browsers without style queries keep 18%), its sub text a
-  72/28 fg/dim mix so it stays >= 4.5:1 on any tint; off = the plain panel. ET66 yellow #e8b12a (ink `--on-fg` text) for the
-  secondary accent keys: shuffle / favourite on, the active tab, scene and jam-choice option, panel B's selected action,
-  the current TV source tile. Olive #6f8f3a for "ok / on": the on toggle track (knob `--ink-fg`) and on switch keys (list
-  rows, jam-tile, speaker Join) with deep ink #161616 text (4.9:1; white 3.7:1 and `--ink` 4.1:1 fail). The primary key
-  stays the orange signal. Room colour: jam-heading's rule is 4px, rounded, on top of the title; kiosk dock blocks are a 15%
-  room tint (a `none` block stays the plain panel) with the solid room dot, pressed = solid room colour face in `--bf`.
-  Speaker / TV text bands (not when off) = a 12% `--acc` tint of the panel; the jam-speaker K1 side panel stays the plain
-  panel (a tint of the sampled art colour read grey). Kiosk clock: the colon stays orange; no dot ring (dropped).
-  Check: preview/checks/96-r10-braun-colour.js.
-- Audit 2026-11-03: the living room is walnut (`jam-living` #8a5a3b light / #b07a52 dark, the SK4's wood), no longer the
-  orange signal (`ACCENTS.living` -> the `--living` token, default `var(--ochre)`, so Poster is unchanged).
-- Look cards (2026-11-03; jam-dial, jam-keypad, jam-radio: cards designed after Braun objects that use only tokens, so
-  every look draws them): the pack adds the mockup's polish over their own hooks: a raised panel cap with a hairline,
-  rounded arc ends and ink ticks on the dial; the brown ET66 body (#3a332b, both modes) with #5b5248 keys, a 2px key
-  shadow, the green LCD (#1f2a1d / #b9e08a), the ET66 yellow active key (`--kp-on`) and ring, olive "green" / signal "ochre" keys (deep ink
-  text); the T3 grille at 12px radius, the ink LCD, the signal play key, ET66 yellow shuffle / favourite when on and a hairline ribbed wheel.
-
-## Olympia rules (the Olympia look, theme "Jam Olympia"; brief docs/looks/OLYMPIA.md)
-- Tokens (`tokens/looks/olympia.mjs`): light ground #f4f6f7 (HA ground alias; `jam-ink` is the navy ink #1f3b4d / #10202b
-  for the sheet veil, plates and the screensaver ground), white / #172b38 faces with a 1px hairline (`jam-border`), face 2
-  #e7edf0 / #223a49 for keys and tracks; every shape token `none` (square, no cut corners); Albert Sans 400 lowercase at
-  .87 (labels 400, keys 500, tracking x .15); `jam-rule-h` / `jam-stripe-w` 4px; calm motion (x1.15, ease-in-out, no
-  stamps / washes / spiral flash). Room hues on the spectrum: ochre (living, default) = orange, teal (kitchen) = green,
-  blue = blue, pink (marissa) = light blue, violet (music) = blue, green = green, red (alerts) = its own vermilion #f0503c (review 2026-11-04; was orange), always hatched.
-- Text on spectrum fills (`jam-on-fg`) is the deep navy #10202b in both modes (white and #1f3b4d stay under 4.5:1 on the
-  blue / green); light dim #52697a and alert text #9a4700 are the contrast-safe values (brief: #6b8291 / orange).
-- Pack (`src/looks/olympia.js`): a 4px top stripe on every card face (room / tone colour; the Poster left tone stripe moves
-  to the top; jam-light: the light's colour when on, silver when off); lowercase everything except form fields; 6px
-  strips; the power corner = a 32px square (on: filled accent / light colour, off: face 2), 1.75px glyph; jam-light on =
-  plain face, colour in the stripe, bar and the number when it reads (`--lc-num`), group members as thin bars with 1px
-  face gaps; big numbers / clocks / kiosk dock names weight 300; 2px blue focus ring; motifs: spectrum arm bars, spectrum
-  band idle art, a spectrum band along the screensaver's bottom edge, the now-playing block on a face panel with a blue
-  stripe. The tv / speaker text band is the card face (`jam-band` = slab), the empty art sits on face 2.
-- Audit 2026-11-03 / review 2026-11-04: the alert has its own colour and a form. `jam-ochre` (living, the default
-  accent) is the Munich yellow #f6c445; `jam-red` is a vermilion #f0503c used only for alerts (navy text 4.7:1; alert
-  TEXT #a8261a light / #ff8a73 dark), distinct from the orange of warm lamps and the YouTube / Switch tiles. Trouble is
-  always hatched (non-colour cue): a 45deg alert / face hatch (`--oly-hatch`) on alert top stripes (`.stripe.s-alert`),
-  offline faces' top stripes, alert chips, alert keys and the jam-alerts count (a hatched frame round a solid plate, so
-  navy text keeps its contrast), the unlocked kiosk lock, alert tone marks, and the opt-in attention bar / strip, alert
-  dock blocks and the screensaver alert plate. The kiosk lock when locked is a quiet 2px ring.
-- Look cards made for Olympia (any look renders them through the tokens; see the card catalogue): jam-pictogram (Aicher
-  pictograms on the room colour field), jam-programme (the day as a programme sheet), jam-results (results board squares).
-  The pack only thins their titles to 300 and gives a results square its own colour as the top stripe. Grid and Pulsar
-  (one hue for everything) draw programme lanes apart by shape: `data-lv` 1 = outlined bands, 2 = half-height bands.
-
-## Transit rules (the Transit look, theme "Jam Transit"; brief docs/looks/TRANSIT.md)
-- Tokens (`tokens/looks/transit.mjs`): the cards are black signs with white text in **both** modes (`jam-slab` #000 light /
-  #111 dark, `jam-fg` #fff, `jam-dim` #9d9d9d, keys `jam-slab2` #262626, `jam-slab3` #333, `jam-line` #333); the page is HA's
-  ground (#fff / #000). Text that sits on the page (jam-heading title + kicker, the kiosk home) uses HA's page text,
-  `--primary-text-color` / `--secondary-text-color` (#000 / #5b5b5b light, #fff / #9d9d9d dark; theme aliases `text` /
-  `text-dim`; preview/looks.css carries them too). Arimo (dist/fonts, wght 400-700), mixed case: names 700 at .72, numerals
-  400 tabular at .85 (`jam-num-scale`), labels 400 and keys 700 in sentence case without tracking. Every shape token
-  `none`, no border, `jam-rule-h` / `jam-stripe-w` 4px. Routes (MTA): ochre (living, default) = orange #ff6319, teal
-  (kitchen) = green #00933c, blue = #0039a6, pink (marissa) and violet (music) = purple #b933ad, green (nerd) = lime #6cbe45;
-  `jam-red` = the service-change yellow #fccc0a (alert fills and alert text: yellow on the black sign, black text on it).
-  `jam-on-fg` black; focus ring yellow. Motion: "pull in" (8px slide + fade, `cubic-bezier(.16,.84,.3,1)`) for entrances,
-  stamps and the screensaver text; no washes, wipes or spiral flash.
-- Pack (`src/looks/transit.js`): the **sign rule** on every card / hero / jam-button face (4px rule, 3px gap, 1px rule: a
-  4px border + two flat inset shadows) in the page text colour over the page ground (inside sheets and the screensaver:
-  white over the sheet face); jam-heading's rule and the kiosk bar are the same double rule on the page. **Route bullets**:
-  24px circles (`[data-tr]::before`, the letter from `data-tr`) in the card's accent with the first letter of the name,
-  set by the `decorate` motif on jam-light / jam-heading / jam-tile / jam-panel / jam-list / jam-fan names, jam-button's
-  icon square (which becomes the round bullet) and the kiosk dock names (block accent; `accent: none` = grey). The letter
-  is white on blue / purple (>= 4.5:1), black on the other routes. Off / unavailable = a hollow grey ring; an alert tone
-  (`.stripe.s-alert`, `.tmk.t-alert`) and jam-alerts' title = the yellow diamond. No left tone stripes. Power corners = a
-  26px round bullet top-right (white ring, filled white with a black glyph when on), jam-tv's own corner the same.
-  jam-light stays the black sign when on: the light's colour is the 4px brightness bar; group members = 12px bullets
-  (off = hollow ring); no washes or plates. Keys are #262626 plates with white text; the active key / tab / scene / choice,
-  play, the OK disc, the weather "today" column and jam-tv's Turn on are white plates with black text (a 2px page-text ring
-  keeps a white plate visible on the white page). Kiosk: clock 500 with tight tracking (the mockup's greeting), dock blocks
-  = black signs under the sign rule with 32px route bullets. K1 speaker side panel = the sign, not the art colour.
-  Screensaver = arrivals board: black ground, white time, the now-playing block a sign panel under a white rule with a
-  purple "M" bullet, a route line along the bottom edge.
-- Audit 2026-11-03: inside a sheet / the screensaver layer the page-text variables (`--primary-text-color`, `-secondary-`,
-  `--primary-background-color`) are re-pointed at the sign (jam-heading was black on the black sheet in light mode). Kiosk
-  lock: locked = the quiet page-text ring; unlocked = the yellow disc with a page-text ring and a yellow label plate with
-  black text (was 1.52:1 on the white page).
-- Motifs: empty = a route line with three stations, idleArt = parallel map strokes bending 45 degrees with one station,
-  flash = none, powerGlyph = a 2.4px stroke, screensaver = four route-coloured segments of one line along the bottom.
-- Remote d-pad arrows and the gauge keep their geometry (DESIGN geometry exceptions).
-## Grid rules (the Grid look, theme "Jam Grid"; brief docs/looks/GRID.md, decisions in its "Built" section)
-- Tokens (`tokens/looks/grid.mjs`): white ground (#ffffff, HA ground alias) with a 1px #d2d2d2 grid every 24px (HA
-  `lovelace-background` via the `lovelace-bg` alias; dark: #000 / #343434), white / black card faces with a 1px ink
-  hairline (`jam-border` = the text colour), keys and tracks #f2f2f2 / #ececec (#141414 / #1c1c1c); every shape token
-  `none`; Hanken Grotesk 500 mixed case at .74 (labels 500, keys 500, small tracking), numerals x .82; `jam-rule-h` /
-  `jam-stripe-w` 4px; no motion (every keyframe token `none`, press `none`). One signal colour: every hue token is the
-  signal (#e8401c / #ff4b26), text on it is black (`jam-on-fg`); the secondary blue (#1d3c9a / #6d8cf0) is `jam-focus`
-  (focus ring, calm / info tone, selection); red text #c4300f in light mode; the hero is the ink inverted.
-- Pack (`src/looks/grid.js`): big numbers as cell numerals (5x7 cells, 45-degree cut cells on round strokes; digits, %, :,
-  ., -, degree) through the root hook motif `decorateRoot` (core look hooks, `lookDecorateRoot`): the text stays in the DOM, visually
-  hidden, the cells are an aria-hidden SVG; a value with other characters stays text, non-numeral units stay small text;
-  a change rebuilds cell by cell (30 ms per cell, <= 300 ms, none without motion). Keys, chips, dock blocks, lock and the
-  32px power square are outlined squares, on / active = signal fill. jam-light on = white face, 4px signal top edge,
-  brightness as 10 cells (ceil(%/10) filled), members as 8px squares. Motifs: empty = a block of cells, idleArt = a New
-  Alphabet digit on a cell grid, no flash, square-capped power glyph, screensaver = the page grid behind the cell clock
-  (24px cells snapped onto the grid when the screen is at least 900 x 560).
-- Audit 2026-11-03: cell gaps only from 12px cells (below that a gap broke the strokes into dots); the kiosk clock takes the
-  largest of 24 / 16 / 12px cells whose string fits the clock column (`--gn-fit`), so a 12 h time sits one cell per grid
-  module on both kiosks.
-## Pulsar rules (the Pulsar look, theme "Jam Pulsar"; brief docs/looks/PULSAR.md)
-- Tokens (`tokens/looks/pulsar.mjs`): dark is primary: black field (`jam-ink` = `jam-slab` = #000) with white text, a
-  #3d3d3d 1px rule (`jam-line`, `jam-border`) around every card and sheet face, dim #9a9a9a; light: cream #e7e2d2 field and
-  faces, black text and black 1px rules, dim #555. Near-black / darker-cream `jam-slab2` / `-3` only where a control is
-  not outlined. One warm accent for "on" and "needs attention": `jam-ochre`, every room hue and `jam-red` are #ffb070 dark /
-  #c25f28 light (black text on it, `jam-on-fg`); warm TEXT is `jam-alert-text` (#ffb070 / #7d3a0f). Archivo 300 for names
-  and values (mixed case, x.74, numerals x.86), labels and keys 400 uppercase with wide tracking (labels x2.1 ~ .34em, keys
-  x1); every shape token `none`; `jam-rule-h` / `jam-stripe-w` 1px; slow fades (x1.3, ease, `pulsar-fade`), no stamps,
-  washes or spiral flash. Graph series (`jam-s1`..`s5`) and idle-art colours come from the 12-colour wheel.
-- Pack (`src/looks/pulsar.js`): no fill boxes: keys, chips, tabs, scenes, source tiles, dock blocks and the light pop-up
-  whites are outlined with the rule; on / alert = warm outline + warm text; the primary key (play) has a text-colour
-  outline. Power corners are a 26px outlined square (on: warm). Remote d-pad arrows and the OK disc keep their geometry
-  (DESIGN geometry exceptions): arrows `--slab3`, the OK disc a 1px ring.
-- The pulse: a level (jam-slider, jam-media / jam-speaker volume, jam-gauge bar, jam-light card + pop-up + member
-  brightness) is a 1px baseline, lit in the text colour up to the value, with one Unknown Pleasures ridge at the value whose
-  height is the level (`--lv` 0..1 from the cards; two clip-path layers, no SVG). jam-gauge's arc is a stack of ridge
-  lines whose pulse height is the level (warm in the red band, dim when unavailable); jam-graph draws stacked ridgelines,
-  one per series in legend order, each on its own scale (one series keeps the y axis), front lines hide the ones behind.
-  All static: redrawn only when the value changes.
-- The colour code (Blue Monday): a name's first four letters on the 12-colour wheel (a..l / m..x -> 0..11, a digit d ->
-  d*7 mod 12) + a check square (the sum mod 12), 7px squares (9px headings, 10px kiosk dock), shown before room heading
-  titles, in jam-button's icon square (the icon is hidden) and on the kiosk dock blocks; a press lights it one square at a
-  time (stepped, 120 ms per square, one-shot). A light that is on shows an 8px square in its own colour before its name.
-- Motifs: empty = a small dim ridge stack, idleArt = an Unknown Pleasures field (seeded, the text colour on the face),
-  flash = none, powerGlyph = a 1.5px stroke, screensaver = a ridge band on the black field (placed per layout, clear of the
-  text block; thin 300 time, no warm text), kiosk = thin clock, the accent bar becomes a static ridge band (a CSS mask)
-  across the poster left of the lock disc.
-- Audit 2026-11-03: with a now-playing block (`.ov[data-now=on]`) the screensaver band shrinks to a 13vh strip at the edge
-  away from the text (the ridges struck through the title); the unlocked kiosk lock is the one warm fill.
-## New Wave rules (the New Wave look, theme "Jam New Wave"; brief docs/looks/NEWWAVE.md)
-After April Greiman (Design Quarterly #133, 1986) with a touch of Memphis. The first look with translucency, soft shadows
-and gradients (Glass is the second), all behind the effects switch (universal rule "Effects only under `data-fx`"): the theme sets `jam-fx: 1`,
-and a card's `fx: false` (the kiosks' setting: jam-kiosk, jam-screensaver; their sheets and layer follow) turns them off.
-- Tokens (`tokens/looks/newwave.mjs`): page #fbf8ff / #140f2e (HA ground alias), the plane `--slab` #ffffff / #2a2060
-  (opaque: the fx-off face and the colour the translucent plane is mixed from), `--slab2` / `--slab3` lavender planes for
-  keys and tracks, ink #1b1640 / #f3efff text (`jam-ink` stays the dark ink: veil, plates); room hues = the strong ends of
-  the brief's pastel pairs (ochre peach #ffa64d, teal #3fcfbf, blue #5f98ff, pink #ff6fae, violet #9d82ff, green #42d39a;
-  lighter in dark), text on them is ink (`--on-fg`, >= 5.4:1); red fill #ff4f78 (the brief's #e0244f is 3.9:1 under ink),
-  alert text #a8123c / #ff9db4; the terminal = `jam-band` (#1b1640 with #d8ffe9 text; dark #07051f / #b9ffd9); the
-  confetti / idle-art palette `jam-art-1..8` with art-6 = sticker yellow #fff05a / #ffe94a and art-8 = ok sticker mint;
-  `jam-elev-1` = the plane's white edge + soft shadow (used under fx only). Archivo 700 mixed case at .7, tight (-.02em);
-  numerals Silkscreen (`jam-num-font`, x .6); every shape token `none`, radius 2px on every kind; smooth quick-out motion,
-  stamps = a 1.04 pop, no washes / wipes / spiral flash.
-- Pack (`src/looks/newwave.js`): every card / hero / jam-button face is a plane tinted by its room (`--acc` mixed into the
-  plane in OKLCH, 22%; with a 1px `--line` edge); under fx a translucent gradient (accent -> its partner hue: peach ->
-  yellow, mint <-> aqua, lavender <-> blue, pink -> lilac) with `jam-elev-1`, and the face turns ±0.6° (seeded; not
-  kiosk cards, not in sheets, not with reduced motion). Small labels (`.label`, kickers, subs, tile names, states, legends)
-  in Silkscreen pixel caps; Silkscreen leaves out the degree sign (its unicode-range), which falls back to the monospace
-  stack. Keys are white planes with an edge; an active key / tab / scene / jam-button is an ink block (`--fg` face,
-  `--slab` text) with a hard 3px offset shadow in the room colour; alert keys / chips / counts are stickers (yellow, ink
-  text, red offset shadow), "home" chips mint. Strips are pixel segment bars (6px on, 2px off) with a 6px ink knob on
-  sliders. Power corner = a 30px square top-right (off: plane with an ink ring; on: ink block, room / light colour shadow).
-  jam-light on = a bright plane in the light's own colour (48% into the page white in both modes, gradient to 16% under
-  fx), ink text (`--on-fg`), the % in pixels, a pixel brightness bar; no label plates. Confetti: one seeded shape per card
-  (triangle, squiggle, ring, dot grid; 26px) half under the plane at a side edge (`.paper::before`, z-index -1 inside the
-  `.host` stacking context), seeded by the host's `data-jam-seed` (core, from the card's entity): it shows in the gap or
-  margin beside the card and never over its content. Bands (jam-tv / jam-speaker text, music dock, error strip) are the
-  terminal. Sheets: under fx a translucent plane with a 14px backdrop blur. Kiosk: the big pixel clock (x .8), a pixel dash
-  rule, dock blocks as tinted planes (no tilt, no confetti), the lock an ink square. Screensaver: the page ground, the pixel
-  clock, four confetti shapes in the layout's places, the now-playing block as a sticker (yellow, a hard offset in the text
-  colour; turned 2° under fx); under fx a soft light field drifts with the time of day (`--jam-ss-day` from jam-screensaver: position
-  along a sun path and hue per minute, a one-shot 55 s transform transition, no infinite animation; static field with fx
-  off). Focus ring: the universal 3px `--focus` ring (ink in light, sticker yellow in dark). Tilt on press under fx (perspective rotateX / rotateY).
-- Audit 2026-11-03: the sticker yellow means "needs you" only: the default plane partner is pink (was art-6), remote / TV
-  power keys are ink blocks with a red offset, the screensaver now-playing sticker is mint (art-8); the lit jam-button is
-  the ink block under fx too (its rule outranks the fx plane); a light's % (and Off / Offline) is set in the display face
-  (Silkscreen's % read as a "z"); the kiosk lock when locked is a plane with an ink ring, unlocked the yellow sticker with
-  an ink edge and a red offset.
-- Display type at -.02em closes up Archivo 700's word spaces: the pack opens them again (`.disp` word-spacing .12em).
-- Contrast is measured on the opaque fx-off faces (preview/contrast.js skips gradients): run the harness with
-  `JAM_FX=0` too. Under fx the plane mixes stay in the same lightness band (light: white-based pastel; dark: the plane
-  mixed with the page) and the drifting light is mixed into `--slab` first, so it stays dim behind light text.
-
-## Brutal rules (the Brutal look, theme "Jam Brutal"; brief docs/looks/BRUTAL.md, decisions in its "Built" section)
-Neo-brutalism: loud, honest, tactile, very legible. Flat colour only (no gradients, blur or soft shadows); the one shadow
-is a hard offset in the line colour.
-- Tokens (`tokens/looks/brutal.mjs`): page #fffbea / #191919 (HA ground alias), card `--slab` #ffffff / #262626, off keys
-  and tracks `--slab2` (the paper #fffbea / #303030), keys in sheets `--slab3`; text #111111 / #f5f5f5, dim #4f4b40 /
-  #c2c2c2; `--line` = THE line (#000 / #f5f5f5: borders, shadows, rules); room fills in both modes: ochre yellow #ffde59
-  (living, default), teal lime #c6f432 (kitchen, calm), blue cyan #5ce1e6 (master), pink #ff7ad9, violet #a58bff (music),
-  green orange #ff9f43 (nerd), red #ff4d4d (alerts); `--on-fg` #000 on every fill; alert text #c4161c / #ff8080; hero
-  (`--paper`) violet with black text; bands ink with paper text. Bricolage Grotesque: names and numbers 800 mixed case
-  (x .8, numerals x .92, -.02em), labels and keys 700 mixed case, no tracking; body 500 / 400. Every shape token `none`,
-  radii 10px (cards, keys, sheets, hero, posters) and 999px (chip-size keys, pills); `jam-elev-1` = `6px 6px 0` line
-  (HA's own cards); press = `translate(4px,4px)`; `jam-dur` .6 with one snappy ease-out.
-- Pack (`src/looks/brutal.js`): every card, hero, sheet, poster, jam-button tile and key face is a slab: a 3px border in
-  the line colour, drawn as an inset outline (no layout change), and a hard shadow (6px; 4px for a card inside a card and
-  for chip-size keys; 2px for status pills and the switch). Pressing a key moves it down 4px (chip-size keys 2px) and its
-  shadow shrinks to 2px, so the far edge stays put. On / active = the face filled with the room colour (`--acc`), black
-  text; alert keys / chips / counts = red fill, black text. Tone stripes = 3px border, the tone colour, a 3px inner line.
-  Strips and sliders = fat bordered pills, the fill ends in a 3px line. Power corner = a 40x24 pill switch (3px border,
-  2px shadow; knob right + room fill when on, dashed when unavailable). jam-light on = the light's colour snapped to the
-  nearest room fill (render hook `decorate` -> `--bru-fill`), a 12px bordered swatch of the real colour, a 14px bordered
-  brightness bar with a black fill. jam-gauge wedges get 3px borders, the unfilled part paper. Kiosk: clock 800 at x 1.1,
-  dock blocks = room fills with borders and hard shadows (16px gaps and margin), lock = a bordered disc with a shadow.
-  Screensaver: the page ground, the 800 clock, the bars and disc as bordered fill slabs (accent, pink, cyan, violet), the
-  now-playing block and time chip as white slabs. Motifs: empty = bordered fill bars, idleArt = stacked bordered slabs,
-  powerGlyph = 3px stroke, flash = none.
-- Tactile grammar: on / active / picked = DOWN (4px, 2px shadow; chip-size keys 2px), so state reads by touch-memory as
-  well as colour; the play key is filled only while playing (`data-bru-play` from the `decorate` hook); rocker, ⋯ ("More")
-  and power keys are white slabs, red only for alerts. Pill switch: on = black track + white knob, off = white track +
-  hollow knob. jam-heading: a bordered room sticker behind the title, no rule. Cards keep 6px right / bottom for their own
-  shadow. jam-kiosk dock: `data-state` on = fill + down, off = white slab, action = outlined slab. K1 side panel = white.
-- Focus ring: the universal 3px `--focus` ring in blue (#2b45ff / #8c9bff), so it never reads as one more black border.
-
-## Glass rules (the Glass look, theme "Jam Glass"; brief docs/looks/GLASS.md, decisions in its "Built" section)
-Liquid glass + bento (Apple 2025, Linear / Vercel bento grids, Arc): frosted panes floating over a soft colour field, calm
-and tactile. Dark mode is the primary one. Effects (translucency, blur, the glow, glossy knobs, the hover lift, the
-brighter field) only under `data-fx` (the theme sets `jam-fx: 1`; the kiosks' `fx: false` turns them off).
-- Tokens (`tokens/looks/glass.mjs`): page #0b1020 / #eef1f7 (HA ground alias; `jam-ink` stays the dark ink in light mode for
-  the veil and plates), the solid pane `--slab` #182036 / #fbfcff (the fx-off face; every contrast is measured on it),
-  `--slab2` / `--slab3` deeper panes for keys and tracks, text #f4f6fb / #0f1424, dim #a9b1c6 / #4b536b; room hues from the
-  field (teal #1fb5a8, amber #ffb44d, violet fill #8f7aff) plus blue, pink, green, with ink text on every fill (`--on-fg`,
-  >= 5.8:1); the frosted fill rides on the legacy `jam-shadow` token (white .08 / .62); `jam-elev-1` = a 1px light inner
-  edge + a soft drop shadow; `jam-art-1..3` = the field colours (teal, #7c5cff, amber). The colour field is HA's
-  `lovelace-background`: three radial blobs fixed to the viewport, alpha x (1 + `--jam-fx`) / 2. Figtree 600 names
-  (mixed case, x .74), labels 500 in sentence case, keys 600; every shape token `none`, radius 28px on card / hero / sheet,
-  18px on keys, 999px on chips, 22px on posters; spring ease-out (cubic-bezier(.2,1.25,.35,1)) x 1.2 (about 260 ms), press
-  scale .97, a 1.04 pop for stamps, no washes / wipes / spiral flash.
-- Pack (`src/looks/glass.js`): every card / hero / jam-button face is a pane: solid with a 1px `--line` edge, or under fx
-  the frosted fill + `backdrop-filter: blur(24px) saturate(1.4)` + `jam-elev-1` and a 2px lift on hover (pointer devices,
-  not while pressed). Cards inside a sheet are plain solid panes; the sheet itself is the frosted layer (slab 93% + blur)
-  over a lightly blurred veil. Big numbers (clocks, temperatures, values, percentages) in Figtree 300. Keys are slab2
-  panes with an edge; on = the room colour with ink text (a soft glow of that colour under fx); tabs show their colour as
-  a dot and fill with it when current; chips are pills, tone marks dots, the power button a 36px circle (on = the room /
-  light colour). Strips are thick rounded tracks (24px, slab2) with a 28px round knob on sliders (glossy under fx).
-  jam-light on: the pane glows from inside with the light's colour (fx: a radial tint from the top-left over the frosted
-  fill; no fx: the colour 30% into the solid pane, mixed in OKLab so warm lights stay warm), text stays `--fg`, no label plates; brightness = a 14px rounded track
-  with a 20px knob. Empty art: the Golden Arm bars in the room colour, rounded; idle art: three soft orbs in the field
-  colours (blurred under fx). Kiosk: jam-kiosk paints its own field (opaque ground + blobs, scaled by its own fx), the
-  clock in Figtree 300 floats on it, the accent bar is a 56px pill, dock tiles are 28px panes tinted 24% with their colour
-  (frosted under fx), the lock a slab2 disc. Screensaver: the same field, the thin clock, the layout's bars as glass pills
-  and its disc as a tinted orb, now playing on a pane, kick and temperature in text colours. Focus ring: the universal 3px
-  `--focus` ring (#8ef0e4 dark, #5b3fe6 light).
-- Contrast is measured on the solid fx-off faces (preview/contrast.js skips gradients and the field): run the harness
-  with `JAM_FX=0` too. Under fx the text colours stay the same; the frosted fill is light in light mode and dark in dark
-  mode, so the blurred field behind it keeps text on the same side of the contrast line.
-- Review fixes (2026-11-04, docs/looks/GLASS.md "Design review fixes"; these win over the lines above): lit lights and lit
-  jam-buttons are re-lit panes (the colour in OKLCH with lightness clamped bright and chroma capped; fx: a glow from a
-  near-white core plus a halo; ink text) instead of a tint over the dark pane; unavailable = an empty pane with a dashed
-  edge; the tone stripe is an 8px tone dot; big numbers 40-48px in Figtree 300; kiosk dock tiles follow
-  `data-state` (on = solid room colour, off = neutral pane, action = outlined) and each block raises a disc of its colour
-  behind it (bright while on; flat without fx); odd-count multi-column kiosk sheets lead with a full-width tile; the
-  screensaver drops the layout's bars and keeps one flat orb.
-
-## Girard rules (the Girard look, theme "Jam Girard"; brief docs/looks/GIRARD.md, decisions in its "Built" section)
-After Alexander Girard (Herman Miller textiles, La Fonda del Sol, 1950s-60s): folk warmth on a modernist grid. Bright and
-saturated: no warm-clay / terracotta palette, no gradients, no shadows; the frames and fills carry the joy.
-- Tokens (`tokens/looks/girard.mjs`): page cream-white #fbf6ec (HA ground) / ink #2a1a12 in dark, faces `--slab` #ffffff /
-  #3a2619, keys `--slab2` #f6efe1 / #4a3324, ink text #2a1a12 / cream #fbf6ec, dim #6b5446 / #cbb6a3. Room fills (same in
-  both modes): ochre (living, default) = vermilion #ec5236, teal (kitchen) = mustard #e8b028, blue (master) = cobalt
-  #2f5fd0, pink (marissa) = #f2a3b8, violet (music) = magenta #d6336c, green (nerd) = turquoise #1fa5a0, red = vermilion;
-  olive #7a8f2a only in the series / art palette. `jam-on-fg` ink, `jam-ink-fg` white; alert text #b3261e / #ff9a80.
-  Hero (`jam-paper`) = mustard with ink text. Fraunces 600 mixed case (the SOFT 100 / WONK 1 instance, opsz auto) at .7,
-  numerals x .78; Work Sans labels 500 / keys 600 in sentence case. Every shape token `none` (square cards), chips
-  radius 999px, `jam-pad-card` 14px / `-hero` / `-sheet` 16px (text clear of the frame), rule / stripe 6px, motion 200 ms
-  with one gentle ease and the pack's keyframes (enter = 6px rise + fade, stamp = a 1.04 pop, sheet = 18px rise; no
-  washes, wipes or spiral flash).
-- Pack (`src/looks/girard.js`): **textiles**: heroes, sheets / pop-ups and jam-button tiles are framed by a 6px band
-  inside their edge (an inset box-shadow in the room colour) woven with the room's pattern in a partner colour (a
-  `::after` with four mask strips, 12x6 tiles, the sides turned); every other card face starts with a 12px woven top edge
-  (24x12 tile; its top padding moves down 12px), so a page is not a quilt of frames. Patterns: living diamonds (pink),
-  kitchen zigzag (vermilion), master dots (mustard), marissa sawtooth (magenta), music stripes (pink), nerd checks
-  (mustard); the room comes from the accent written inline (`--acc: var(--x)`, the kiosk dock's `--bc`), so a jam-popup
-  child with only an inherited `--jam-accent` keeps the default pattern. A face's left tone stripe becomes the band / edge
-  (`.s-alert` = vermilion). **Motifs** (flat SVG masks): sun (living), diamonds (kitchen), sleeping eye (master), heart
-  (marissa), bird (music), eye (nerd); before room headings (whose rule is a plain room colour), as jam-button's icon disc
-  when no icon is set, before jam-light's level (in the light's colour when on), in the idle art (a fill, one big motif, a
-  woven band). **Keys / chips / tabs / scenes** are pills (keys and scenes radius 28px, so tall keys are rounded tiles):
-  off = the room colour mixed 18% into the face (OKLCH), on = the full fill; idle things carry no colour (the volume rocker,
-  a Play key with nothing playing, the ⋯ more key are tinted); tone marks are little diamonds; strips are rounded with a
-  ring knob on sliders; a jam-tile key that wraps under its text keeps its own height (the tile grows); jam-alerts values
-  never break inside a word. **Text on a fill** (`--acc-fg`, alert keys / chips, the sun power glyph) is worked out from the
-  fill with relative colour syntax: ink where the fill is light, white on cobalt / magenta (a gamma-space luminance switch
-  at 100/255). **Power** = a Girard sun (disc + eight rays, 32px, clear of the top edge): off muted (`--dim`), on the room /
-  light colour; it turns 15° on each change (a 200 ms transition, none with reduced motion). **jam-light on** = the face
-  tinted with the light colour (a flat 30% mix), its kicker in `--fg`, a pill brightness bar, members as ringed dots.
-- Kiosk (jam-kiosk): in light mode the whole kiosk is the room's own field (`--gi-kg`: living / alerts pink, kitchen
-  mustard, master / marissa / music / nerd a light mix of their colour; `--dim` #4d3426 and alert text #8e1c14 on it; dark
-  mode keeps the ink page). The accent bar becomes a 56-72px **runner** of the six rooms on a white strip (each segment its
-  colour with its pattern woven across the lower 40%; decorative: the card does not know which rooms are lit), added once by
-  the `decorate` hook. A **sky motif** (0.82em, before the clock) shows the first weather source's day / night: a mustard
-  sun, at night a cobalt sleeping eye (`sun.sun` when it exists, else a night weather state, else 07-19 h = day; set as
-  `data-gi-sky` on `.k` by `decorate`). **Dock blocks** by `data-state` (jam-kiosk sets it from branch audit-fixes on; until
-  then every block shows as off): off = an 18% room tint in an 11px woven frame (20x10 tile); on = the full room fill
-  (text from the fill) with the room pattern woven across its lower third; action = an outlined pill (4px ink ring), never
-  filled. The **lock**: locked = a quiet ink disc (glyph in the face colour); unlocked / open / jammed = a vermilion sun
-  whose rays turn 15° once when the state changes (one 300 ms animation). Clock 500.
-- Screensaver: the page ground, the Fraunces clock (500) and one framed **textile panel** of six room tiles (each its fill
-  with the room motif and a woven strip in the partner colour) and an outlined door tile (an arch door; it spans two cells
-  in the 4x2 grid), placed opposite each layout's text (l3: a single row of seven under the centred text); Poster's other
-  three shapes are hidden (node count kept). The now-playing block keeps Poster's layout.
-- Remote d-pad arrows, the OK disc and the gauge keep their geometry (DESIGN geometry exceptions).
-
-## Calm rules (the Calm look, theme "Jam Calm"; Jam Design pass 6 + 7, `jam-design/mockups/pass7/home-assistant.html`, HANDOFF.md 2026-11-06)
+## Hi-Fi rules (theme "Hi-Fi"; Jam Design pass 6 + 7, `jam-design/mockups/pass7/home-assistant.html`, HANDOFF.md 2026-11-06)
 The calm-instrument look Isaac approved ("This design looks much better!"; "Try to replicate their cards as faithfully as you
-can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
-- **Whole-card layouts.** Calm is the one look that draws cards in layouts of its own: the `render` look hook (core,
-  `defineMotif("render")`, Poster = false) lets `src/looks/calm.js` draw jam-light, jam-tile / jam-button on an on / off
+can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things per screen; "all fine" looks like nothing.
+- **The skin (1.0.0)**, for every card Hi-Fi does not draw: labels (`.label`) IBM Plex Mono 500 12px uppercase .14em `--dim`;
+  display words Jost 500 mixed case (no tracking), numerals Jost 300 / 400; keys (`.key > .face`) the house key (slab2, 1px
+  hairline, 12px corners, Jost 500 15px), **on = pressed paper** (slab3 + ink edge, ink text), never a room-colour fill;
+  alert keys solid red with dark text; disabled keys dashed; chips are 999px pills in Plex Mono; strips (`.track .strip
+  .fill`) are the fader's groove with a rounded fill in the card's colour; tone stripes and accent rules turn into hairlines
+  (`.s-alert` keeps red); tone marks are 8px dots; offline faces are a dashed outline. The default card accent is the ink
+  (`--fg`, text `--slab`): a card shows a colour only where its config asks for one (`accent`) or the data has one. Card
+  specific: jam-media art in its own colours (no duotone), the empty art = a dot grille; jam-remote's d-pad is one round pad
+  with flat arrows and the orange OK (as Hi-Fi's own remote); jam-weather's forecast today = the pressed key, its glyphs are
+  line drawings; jam-gauge = a thin arc instrument (motif `gauge`); jam-hero chips = keys (a `tone` still fills); the
+  screensaver = a night clock (Jost 300, the date, the weather words in `--ink-dim`, Plex Mono kicker), no shapes (motif
+  `screensaver` = none), the photos time chip a hairline panel. Motifs: `empty` / `idleArt` = the dot grille, `flash` = none,
+  `wxGlyph` = line glyphs, `gauge` = the arc, `powerGlyph` = the 2px power symbol, `screensaver` = none.
+- **Whole-card layouts.** Hi-Fi draws cards in layouts of its own: the `render` look hook (core,
+  `defineMotif("render")`, the base motif = false) lets `src/looks/hifi.js` draw jam-light, jam-tile / jam-button on an on / off
   entity, jam-button action cards, jam-fan, jam-scenes, jam-house, jam-heading, jam-tv, jam-speaker, jam-media (the PC row)
   and jam-kiosk exactly as the mockup does; every other card renders as usual under the pack CSS. Calm's DOM classes carry a
   `c-` prefix (the cards' own sheets stay adopted next to the pack). The card objects keep their state, calls and
-  pop-up plumbing; Calm only draws. Because shoot.js measures the cards' own DOM, `layouts: true` keeps Calm out of its
-  look matrix; `preview/checks/99-calm.js` and jam-home's labs runner check it.
-- **Tokens** (`tokens/looks/calm.mjs`): Callsheet paper / navy as drawn in the Jam Home mockup: ground #efebe2 / #10141d
+  pop-up plumbing; Hi-Fi only draws. A pop-up or subscription it opens for a card is registered with core `lookHold(card, fn)`
+  and released when the card disconnects (97-robust). `preview/checks/99-hifi*.js`, preview/fit.js and jam-home's
+  preview/shoot.js check the drawings.
+- **Tokens** (`tokens/looks/hifi.mjs`): Callsheet paper / navy as drawn in the Jam Home mockup: ground #efebe2 / #10141d
   (`jam-ground`), panel #f9f7f2 / #161c28, keys #f1ece2 / #1d2433, pressed #e3dbcb / #0a0e15, hairline #d6cfbf / #2a3244,
   inner rule #e7e1d4 / #1c2230, ink #19202e / #ece5d3, dim #5b606d / #a29d8f; orange #ec7c22 / #f08a2c = the one action;
   alert #ff5a48 (text #b3261b / #ff8a7a); ok #7bd651, lit power symbol #3c8a28 / #7bd651; walnut #6b4428 (the kiosk rule).
-  New optional registry tokens (other looks unchanged): jam-ground, jam-hair, jam-groove, jam-cap, jam-win(-off, -rim),
+  Optional registry tokens of the calm parts: jam-ground, jam-hair, jam-groove, jam-cap, jam-win(-off, -rim),
   jam-readout(-off), jam-dot, jam-ok, jam-warn(-text), jam-switch-off / -thumb / -rim and the four switch kinds.
 - **Type**: Jost 500 for words (17px card names, 26px room, 21px media titles), Jost 300 for big numerals (40px inside
   temperature, the 200 / 150px kiosk clock), IBM Plex Mono 500 12px tracked .12-.16em for state words and labels (15px on
@@ -481,7 +173,7 @@ can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
   centred (light: two columns; remote: 600px). A pack never puts `container-type` (or a transform / contain) on a bare `:host`: the pack is
   adopted on the body-attached sheet holder too, and Safari / WKWebView <= 18 turns a query container into the containing
   block of the fixed pop-up (0.11.0-calm.2: every pop-up opened below the iPad's screen); openSheet pins the holder's
-  containment / transform properties inline since then, `preview/checks/99-calm-popups.js` guards it. A kiosk remote fits its pop-up (0.11.0-calm.3): on a kiosk-wide screen
+  containment / transform properties inline since then, `preview/checks/99-hifi-popups.js` guards it. A kiosk remote fits its pop-up (0.11.0-calm.3): on a kiosk-wide screen
   (> 600px) too short for the drawn remote (the Echo's 601px), the pop-up turns compact (44px keys, a 156px d-pad, tighter
   rows) and, still too short, zooms the remote. Every other remote (desktop, phone, a kiosk card at phone width) is the
   mockup's full-size remote and its body scrolls when the window is short (0.11.0-calm.4: never squished).
@@ -496,7 +188,7 @@ can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
-scope: per mode or theme-wide, optional or not); `tokens/looks/poster.mjs` holds the Poster values; `tokens/ha.mjs`
+scope: per mode or theme-wide, optional or not); `tokens/looks/hifi.mjs` holds the Hi-Fi values; `tokens/ha.mjs`
 derives Home Assistant's own keys from a palette. Generated from it: the BASE_CSS `:host` declarations (`TOKEN_CSS`:
 `--ink: var(--jam-ink, <Poster dark>)` ..., so the cards fall back to Poster dark), `JAM_TOKENS` (= `JamCards.TOKENS`, the
 copy list of openSheet / jam-screensaver), `preview/looks.css` (`node tools/bundle.mjs`) and
@@ -611,6 +303,13 @@ Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-po
 Series palette validated with the dataviz validator (both modes, all checks PASS); unchanged in v0.3. Order fixed, never
 cycled; a 6th series is not allowed (fold into fewer series). Status colours are never series colours in the same card.
 State tones (`tone()`): on = the card accent, alert = red, calm = teal, off = line/dim.
+
+## The cards' own layouts (Poster-era mechanics, kept as the base under the Hi-Fi skin)
+The sections below describe the machinery the cards' own DOM is built with since v0.3 (accent system, edge system, power
+corner, paddle, motion, motifs). It stays in the code: it is what the Hi-Fi skin styles on the cards Hi-Fi does not draw,
+and the fallback when a Hi-Fi drawing throws. Under Hi-Fi the shape tokens are `none` (soft corners from `--jam-radius-*`),
+the type and motion tokens are Hi-Fi's (Jost / Plex Mono; the settle curve, `calm-*` keyframes), and the motifs are the
+Hi-Fi pack's (see "Hi-Fi rules"); Poster values named below are the fallbacks written at each use, not what renders.
 
 ## Colour system (accent)
 - Every card accepts `accent:` — a hue: `ochre`, `teal`, `blue`, `pink`, `violet`, `green`, `red`; or a room alias:
@@ -786,18 +485,6 @@ Every card accepts `accent:` (Colour system). Option details are in each file's 
 | jam-kiosk (0.5.0) | kiosk home view | approved mockup "B · Poster + dock": fills the view (measures its top, ends at the viewport bottom; re-measured on resize / visibility / every minute); 10px accent bar, Londrina clock min(19cqw, 31cqh) (176-190px on the kiosks, 12/24 h from hass.locale, small Jost AM/PM, minute timeout), date line (0.6.1: "TUESDAY · OCTOBER 28" in Londrina 900, --fg, uppercase, 30-40px ≈ 0.3x the clock digit height, one line, never wraps) and under it the facts line (0.6.0/0.6.1: `inside_entity` / `humidity_entity` / `aq_entity` → "67° inside · 58% humidity · air excellent", Jost 600 20-22px dim, natural case, wraps between parts, never an ellipsis; left out when no sensor has a value); right "now" block (18px kicker, 52-60px big line clamped to 2 lines, 18px small line) from the first active `now` source (media by `states`, weather with the hourly-forecast outlook); dock of 2-5 equal 120px flat blocks (accent fill + ink text, or `none` = slab2 + dim state; 32-36px name, 18px state) that open a fullscreen openSheet (jamCardSheet, child cards get hass) or run an action (confirmation); sheet `columns` 1-3 or a width list (`[3, 2]`); a sheet with `size: kiosk` cards gives them the full body height. **Exceptions, per the mockup:** no cut corners (the poster band and the dock are full-width flat blocks; the sheet keeps its cut), no view entrance; floor 18px for every text on the card. Motion: a block stamps once on press (`jam-stamp` keyframes). **Lock button (0.6.2, `lock_entity` / `lock_name`):** a perfect circle (border-radius 50%: circles are allowed in the cut-paper look, like the `disc` kind; no shadow / gradient) in the poster's top-right corner, right edge on the accent bar's right edge, 14px under it, diameter min(10.5cqw, 15.2cqh) (104px iPad, 88px Echo Show); flat inline-SVG padlock (56 % of the disc: square body with a keyhole cut, 5-unit shackle, closed when locked, raised and swung left otherwise); under it one 18px Jost 600 uppercase label line, right-aligned, max 36cqw: "FRONT DOOR · LOCKED", the state alone when that does not fit. Tones (state grammar, 2026-11-03): locked = quiet (a 4px --fg ring on no fill, --fg glyph); any other available state = alert (--red disc, ink glyph ≈ 4.9:1, label in --alert-text); unavailable / unknown = 4px dashed --dim outline, dim glyph, label "FRONT DOOR · OFFLINE". Tap: locked → confirm ("Unlock the front door?") then lock.unlock; unlocked / open / jammed → lock.lock at once; locking / unlocking / opening / unavailable → nothing. Native button (Enter / Space), aria-label "Front door, Locked"; stamps on press like a dock block. Must stay clear of the clock, date / facts lines, the now block and the dock at both kiosk sizes |
 | jam-panel | entities (control room) | compact name / value rows, formats (pct, temp, bytes_rate, duration, relative), `bad` thresholds in red; `accent` = 4px rule under the title; names/titles never break mid-word (the value column wraps) |
 | jam-alerts | automation / alert lists | automations by last_triggered ("ran …"), watched entities, unavailable count, red failure chip |
-| jam-looks | Profile → Theme picker | per-user look picker: one key tile per installed look (JamBoard + "Jam " themes, or `looks:`) with a decorative swatch drawn from that theme's own values in the current mode (ground, face with "Aa" in its display face / weight / case / card radius, four hue squares), name in the key type, "Use system default" last (swatch of the backend theme); the current pick (hass.selectedTheme.theme, "" = default) is the accent-filled `.key.on` with aria-pressed. A tap fires HA's own `settheme` event ({theme, primaryColor: undefined, accentColor: undefined}; no `dark` key, so auto / light / dark stays): this user only, nothing global |
-| jam-dial (look card, 2026-11-03) | mushroom-light (dial style) | after the Braun look-cards mockup (dial light), a JamLight subclass (its pop-up, user data, drag-safe render): name button (= pop-up) + sub ("K of N on" / kicker / area), power corner (Braun: the toggle), a 270° dial: 7 ticks, `--slab2` track, the brightness arc in the light's colour at full value (group: lit members' average; nudged only under 1.6:1 on the face; the % is the readable value), centre cap = toggle with the % ("On" / "Off" for on/off lights, "Offline"), a mark on the cap rim at the value (`--acc`); the dial is a real slider (role=slider, aria-valuetext "Off"): drag in a circle (bottom gap clamps to the nearer end), tap on the ring = jump, mouse wheel (sent after 300 ms), arrows / PageUp / PageDown / Home / End; hold 500 ms on dial / cap / name = hold_action (default the pop-up); swatch row (44px buttons, 24px dots): the two whites (color_temp) as half discs (panel over the white's tint, under a `--fg` ring) + colours as full discs (`colors`, else the user's saved colours, else Rose / Blue / Green; a near-duplicate of an earlier swatch is dropped), the current one ringed; on/off-only lights: no ticks / mark, the cap a big push button (inset 12 %); unavailable: "Offline" on the cap only (New Wave: the plain plane) |
-| jam-keypad (look card) | scene buttons (ET66) | dark body (`--ink` 88 % + `--ink-fg`, so it stands off a dark page; an inner layer, the look's own card face / border / rule stays around it) with a display (`--ink`: room left, active scene right in label caps) and round keys in 3 columns (56-96px): body keys `--ink` 72 % + `--ink-fg`; an `accent` key = the hue resolved to rgb and nudged (jamMuReadable) until the look's dark / light text reads 4.5:1, `data-accent` for packs; labels 16px; active = the jam-scenes rule: the key lights up (face `--kp-on`, default `--acc`, nudged to 4.5:1), its LED dot filled (a ring on the other scene keys), a 3px ring 3px outside (`--kp-ring`), aria-pressed, one-shot stamp; missing / unavailable entity = dashed disabled key; `all_on` / `all_off` actions = green / ochre keys in a wide 56px bottom bar (the ET66 "=" key, the look's key shape); a `--focus` under 3:1 on the body becomes `--ink-fg`; focus ring 6px outside the active ring |
-| jam-radio (look card) | speaker cards (T3) | a JamSpeaker subclass (kicker, shuffle / favourite, panel B, favourite memory): SVG dot grille as the full-height left column (`--slab2`, dots `--fg`, a 10px pattern; 96px, 72px up to 400px, hidden under 300px card width via container queries), kicker + `.bk` Shuffle / Favourite, a dark display button (`--ink` / `--ink-fg` / `--ink-dim`: title 2 lines + artist; idle "Last played", offline) = panel B, round 44px Prev / Play (accent fill only while playing) / Next (offline: dashed outlines), kicker 12px, an 84px ribbed volume wheel (76px up to 400px) with a 16px number (role=slider: vertical / sideways drag 2px per %, mouse wheel after 300 ms, keys; volume_set on release; ribs turn with the value, a solid disc under the number); no power corner, no kiosk size |
-| jam-pictogram (look card, Olympia) | room tile / area card | field with an Aicher-style pictogram (inline SVG, 45° / 90° strokes, round heads: home, sofa-tv (reclined on a long sofa, wall screen), watch (screen filled), cook, sleep, music, work-desk, bath, play, car, garden (figure watering a plant)); room state on the root (`data-state` on / off / offline, `.on`): on (a rule matched, entity on, a count fact > 0, a player playing / paused) = the accent field, pictogram + the rule's activity word (>= 14px) in the look's dark / light text (`jamFieldInk`); off = slab2 field, pictogram `--dim`, 6px accent strip; offline = slab2, dashed outlines, "Offline"; room name + 2-4 facts (2 on a tile < 330px, container query; labels wrap normally with hyphens), a missing fact = its name + "Offline" (never the raw id); one control (tap_action, default more-info), not a control without entity / actions |
-| jam-programme (look card, Olympia) | schedule / calendar / history timelines | today from..to as lanes: 32px slab2 tracks 12px apart (44px band hit areas never overlap); schedule blocks (schedule/list + entity_registry/get unique_id; YAML schedules: history), calendar events (call_service calendar.get_events, return_response), on periods from history/history_during_period (open period grows with now), fixed ranges; lane colour = `color`, else the room accent of the entity's area (`jamAreaAccent`), else blue / teal / ochre / pink / violet / green; past bands mixed 35% toward slab2, the current band 4px taller with a `--fg` outline; 3px `--fg` now line with a time flag, moved by a minute timer (no animation); status under the title (1.1rem / 600, aria-live): "Now 2:41 PM · Work" + next, or the tapped band; lanes carry `data-lv` 0-2 (Grid / Pulsar packs: outlined / half-height bands, since their hues are one colour); failed / missing lanes = alert mark + dim name |
-| jam-results (look card, Olympia) | glance / big-number tiles | one card-kind surface per sensor, square (>= 112px, `columns` or auto-fill): label top, big numeral bottom (num font, >= 3.4rem once the square is >= 160px, a container query; 66°, unit small; words smaller; shrunk to fit); colour = first passed threshold (+ an inverted label plate with its word, default high / low: a non-colour cue), else `color`, else neutral (slab2, `--fg`); text = the look's dark / light text (`jamFieldInk`), label plate below 4.5:1; missing / unavailable = slab2, its name + "Offline" |
-| jam-linemap (2026-11-03, Transit) | — (room overview as a map) | rooms as lines in their colour (8px track, 45-degree chamfers, a 90-degree terminal tick; Pulsar 3px), entities as stations along them in config order: 20px filled disc = on (name 600), 12px hollow = off (name --dim), dashed ring = unavailable / missing ("Offline"; a missing entity named from its object id), a tick across the track = a sensor (value under the name); a line with on / off stations and nothing on is out of service (dashed track at 35%, "Out of service"); a line longer than a row turns back on the next row (boustrophedon, the U-turn in a 16px side gutter); an entity on two lines = an interchange (26px ring, its core the line colour when on, + the other lines' 16px bullets after its name, "change for …" in its label). Each line starts at a 28px route bullet (the line colour with its first letter; the letter is the look's dark or light text, whichever reads 4.5:1 on the resolved colour, else a ring bullet with an --fg letter) + name (display) + "K of N on". Station = a real button over its column (76-150px wide, 90px tall): toggle (on / off entities, aria-pressed) or more-info; line name with `path` = navigate. Layout in px from the width (ResizeObserver), focus kept over re-renders |
-| jam-arrivals (2026-11-03, Transit) | — (status list) | an arrivals board: alert rows (`severity` alert, default from tone(): red square mark, "Now" in the alert text, the sensor as detail; first) and service changes (warn: ochre diamond; Transit: MTA red / service-change yellow), now playing ("M" bullet in violet), the next calendar events (GET calendars/<id>, merged in time order: "Now", "7:30 PM", "Tue 9:00", "Tomorrow"), entity states; rows = route bullet (`bullet`, else the first letter of the name no other line uses), destination + dim detail, status right in the numeral font (New Wave: the body face, Silkscreen blurs under 16px); row tap = more-info |
-| jam-matrix (2026-11-03, Grid) | — (light group grid) | one square cell per entity (>= 44px, `columns` default 3-6, at most 4 under 440px, last row completed with empty slots in the cell shape): accent fill = on (Grid: --fg), slab2 = off, outline + diagonal = unavailable, red = problem; a cell of 64px+ shows its name (12.5px, container query); the caption row names the hovered / focused / selected cell (at rest "On: …"); touch: the first tap selects + names, the second acts; the count of what is on is a `.big.num` numeral (Grid draws cell numerals); one tab stop, arrows / Home / End move; Grid: outlined squares, Pulsar: rings with a warm core, New Wave: on cells with a hard ink offset |
-| jam-ridge (2026-11-03, Pulsar) | mini-graph (shape of the day) | 1-8 rows: name (subgrid column: the longest name, at most 30%) / one ridge line per sensor over `hours_to_show`, each on its own scale, rising a quarter row into the row above / current value; lines in --fg (Pulsar 1px), no fill: a front ridge hides the ridges behind it through SVG masks, so any face (tinted, gradient) shows through; jam-graph's history query + point preparation; static, redrawn on data / width only; an unavailable sensor = "Offline" over a dashed baseline; the one row furthest past its earlier range (window minus the last hour) is the accent ridge, the card's one emphasis; rows say their range for screen readers |
-| jam-sticker (2026-11-03, New Wave) | conditional + markdown | a note shown only while its `conditions` hold (state / numeric_state like HA visibility; host `hidden` otherwise, always shown with card.preview; host align-self start): title, text, optional key (`action_name` + `tap_action`); severity default info; an alert has a triangle mark, a 1.3x title and host order -1; face = the severity colour `--sk` (info teal, warn ochre, alert red; Transit: warn the service-change yellow, alert #c8102e with white text; New Wave mint / sticker yellow / red with a hard ink offset, under fx turned ±1.5°; Grid: the info note outlined; Pulsar: outlined notes, alert warm) with the look's dark or light text measured on it (neither 4.5:1: a slab face with a severity stripe); role status with the severity word for screen readers |
 
 ### Core helpers (window.JamCards, src/core.js)
 - Colour: `ACCENTS`, `accentName`, `accentVar`, `accentFg`, `setAccent`; light colour `kelvinToRgb`, `lightRgb` (a light's output

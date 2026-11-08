@@ -220,7 +220,7 @@ class JamKioskHome extends JamBase {
     if (!this._config) return;
     // Whole-card look hook (2026-11-06, Jam Calm): a look that draws the kiosk itself owns the shadow root until the
     // card is shown in another look again (then the shell is rebuilt).
-    if (this._hass && motif("render", this, this, force)) { this._own = true; this._shellLook = this.dataset.look || "poster"; lookDecorate(this); return; }
+    if (this._hass && motif("render", this, this, force)) { this._own = true; this._shellLook = this.dataset.look || JAM_LOOK; lookDecorate(this); return; }
     if (this._own) { this._own = false; force = true; }
     if (force || !this._k) this._shell();
     if (this._hass) { this._update(); lookDecorate(this); }
@@ -283,7 +283,7 @@ class JamKioskHome extends JamBase {
     this._body.append(k);
     root.append(this._body);
     jamStyle(root, this.css(), this.dataset.look);
-    this._k = k; this._clockKey = null; this._shellLook = this.dataset.look || "poster";
+    this._k = k; this._clockKey = null; this._shellLook = this.dataset.look || JAM_LOOK;
     if (this._kh) k.style.setProperty("--kh", this._kh + "px");
   }
   _update() {

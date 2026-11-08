@@ -15,9 +15,9 @@ const JAM_ASSET_BASE = (() => {
   return "/hacsfiles/jam-cards/";
 })();
 
-/* Fonts. Poster's are bundled (FONT_CSS, generated from fonts/*.woff2 by tools/bundle.mjs). Every other look pack's
-   fonts are URL @font-face rules on <asset base>fonts/ (lookFontCss): a declared face costs nothing until text uses it,
-   so only the active look downloads, and a missing file leaves the look's fallback stack. @font-face only works at
+/* Fonts. Jost 400-600 is bundled (FONT_CSS, generated from fonts/*.woff2 by tools/bundle.mjs). The Hi-Fi pack's other
+   faces (IBM Plex Mono, Jost 300) are URL @font-face rules on <asset base>fonts/ (lookFontCss): a declared face costs
+   nothing until text uses it, and a missing file leaves the fallback stack. @font-face only works at
    document level, not inside shadow roots, so all the rules go into ONE <style data-jam-fonts> in document.head. */
 function lookFontCss(pack) {
   return (pack.fonts || []).map(f => `@font-face{font-family:"${f.family}";font-style:${f.style || "normal"};font-weight:${f.weight};font-display:swap;` +
@@ -50,6 +50,7 @@ const BASE_CSS = `
 :host{
 ${TOKEN_CSS}  display:block; font:15px/1.45 var(--body); color:var(--fg);
 }
+${TOKEN_BUILTIN_CSS}
 *{box-sizing:border-box}
 ha-card,.card{background:var(--slab);color:var(--fg);border-radius:0;box-shadow:none;border:0;overflow:hidden;height:100%}
 .unit{text-transform:none}
@@ -571,9 +572,9 @@ function cutKey(label, key, cls, kind = "key") {
 const JAM_MOTIFS = Object.create(null);
 function defineMotif(name, fn) { JAM_MOTIFS[name] = fn; }
 function lookAt(ctx) {
-  if (typeof ctx === "string") return ctx || "poster";
+  if (typeof ctx === "string") return ctx || JAM_LOOK;
   for (let x = ctx; x; x = x.parentNode || x.host) if (x.dataset && x.dataset.look) return x.dataset.look;
-  return "poster";
+  return JAM_LOOK;
 }
 function motif(name, ctx, ...args) {
   const look = lookAt(ctx), pack = lookPack(look), poster = JAM_MOTIFS[name], own = pack && pack.motifs[name];
@@ -623,6 +624,15 @@ defineMotif("decorateRoot", () => null);
    JamBase._render (and jam-kiosk's _render) before the body is cleared, so a look may also keep the body as it is (a
    drag in progress) and draw later. Poster: false, so every other look renders exactly as before. */
 defineMotif("render", () => false);
+/* What a look pack opened or subscribed for a card (Hi-Fi: its pop-up, the kiosk's forecast subscription): lookHold(card,
+   fn) registers a release, JamBase.disconnectedCallback runs them all once (97-robust lifecycle: a detached card holds
+   nothing). */
+function lookHold(card, fn) { (card._lookRelease || (card._lookRelease = [])).push(fn); }
+function lookRelease(card) {
+  const fns = card._lookRelease;
+  card._lookRelease = null;
+  if (fns) for (const f of fns) { try { f(); } catch (e) { console.error("jam-cards: look release", e); } }
+}
 /* The render hook on a rendered card (its _body). */
 function lookDecorate(card) { motif("decorate", card, card._body, card); }
 /* The root hook: undo the last decoration of root, then decorate it for look (only when the look's pack has one). */
@@ -657,7 +667,7 @@ function luminance(c) {
   return .2126 * l[0] + .7152 * l[1] + .0722 * l[2];
 }
 /* Text on a flat [r,g,b] fill: the look's dark text on light colours (luminance > .18), its light text on dark ones.
-   tc = textColors(node) (default: the Poster pair, ink #141210 / paper #ece2c9). */
+   tc = textColors(node) (default: the Hi-Fi Night pair, JAM_TEXT_POSTER). */
 function inkOn(c, tc = JAM_TEXT_POSTER) { return luminance(c) > .18 ? tc.darkCss : tc.lightCss; }
 /* A light's actual output colour as [r,g,b], or null: kelvin -> rgb in color_temp mode, else rgb_color. */
 function lightRgb(s) {
@@ -684,9 +694,9 @@ function contrastRatio(a, b) {
 }
 /* Colour maths per look (theming plan R4). The two text colours a flat face can carry: dark = the look's --on-fg (text on
    any accent fill), light = its --ink-fg (text on ink), sorted by luminance; [r,g,b] for the maths + the token's own CSS
-   value for the style. Poster: ink #141210 / paper #ece2c9 in both modes (the fallback when a node is not connected or a
-   token does not resolve to rgb). */
-const JAM_TEXT_POSTER = Object.freeze({dark: Object.freeze([20, 18, 16]), light: Object.freeze([236, 226, 201]), darkCss: "#141210", lightCss: "#ece2c9"});
+   value for the style. Default (a node not connected, a token that does not resolve to rgb): Hi-Fi Night, on-fg #1a1206 /
+   ink-fg #ece5d3. JAM_TEXT_POSTER keeps its name (JamCards.TEXT_POSTER is API); since 1.0.0 it holds the Hi-Fi pair. */
+const JAM_TEXT_POSTER = Object.freeze({dark: Object.freeze([26, 18, 6]), light: Object.freeze([236, 229, 211]), darkCss: "#1a1206", lightCss: "#ece5d3"});
 const JAM_INK_RGB = JAM_TEXT_POSTER.dark, JAM_PAPER_RGB = JAM_TEXT_POSTER.light;
 /* [r,g,b] of a hex (#rgb, #rrggbb, #rrggbbaa) or rgb()/rgba() string, else null. */
 function parseRgb(v) {
@@ -901,14 +911,30 @@ function staggerIn(nodes, startMs = 60) {
   [...nodes].forEach((n, i) => { if (n.nodeType === 1) oneShot(n, "jam-in", startMs + Math.min(i, ENTER_MAX) * ENTER_STEP); });
 }
 
-/* ---------- looks (theming plan 2.3) ---------- */
-/* The active look of node's tree: the --jam-look token (set by a look's theme, a view theme included), "poster" when it is
-   unset or not an id (HA's default theme, a theme without looks). Computed style is the truth; hass.themes is the trigger. */
+/* ---------- looks (theming plan 2.3; one look since 1.0.0) ---------- */
+/* Jam Cards 1.0.0 has one look, Hi-Fi (id hifi; "calm" until 0.11), built in: every card fixes the Hi-Fi theme-level tokens
+   (--jam-look: hifi included) on its own :host (TOKEN_CSS), so lookOf() is "hifi" for every card, sheet and layer, whatever
+   theme the page has. A pack registered under another id (registerLook) is used only where --jam-look names it. */
+const JAM_LOOK = "hifi";
+const JAM_THEMED = new Set(["hifi", "calm"]); // a theme of the Hi-Fi palette: "Hi-Fi", or "Jam Calm" (0.11) on a pinned view
 function lookOf(node) {
   try {
     const v = getComputedStyle(node).getPropertyValue("--jam-look").trim().replace(/["']/g, "").toLowerCase();
-    return /^[a-z][a-z0-9-]*$/.test(v) ? v : "poster";
-  } catch (e) { return "poster"; }
+    return JAM_LOOK_PACKS.has(v) ? v : JAM_LOOK;
+  } catch (e) { return JAM_LOOK; }
+}
+/* The --jam-look the page's theme gives node (read on its flat-tree parent: a card fixes its own on :host), "" without one. */
+function themeLookOf(node) {
+  const p = node && flatParent(node);
+  if (!p || p.nodeType !== 1) return "";
+  try { return getComputedStyle(p).getPropertyValue("--jam-look").trim().replace(/["']/g, "").toLowerCase(); } catch (e) { return ""; }
+}
+/* Built-in palette (TOKEN_BUILTIN_CSS): a card under no Hi-Fi theme (HA's default theme, or a stale theme of a removed look,
+   e.g. "JamBoard" = Poster, "Jam Braun") carries data-jam-builtin and draws the Hi-Fi Night palette from its own values. */
+function setBuiltin(card) {
+  const own = !JAM_THEMED.has(themeLookOf(card));
+  if (card.hasAttribute("data-jam-builtin") !== own) card.toggleAttribute("data-jam-builtin", own);
+  return own;
 }
 /* Effects switch (R6): --jam-fx > 0 in the look's theme turns the pack's effects on (gradients, translucency, scanlines);
    the element then carries data-fx, so pack CSS gates them with :host([data-fx]) / .pop[data-fx] / .ov[data-fx]. A card
@@ -923,13 +949,12 @@ function jamFxOption(card, config) {
 function setFx(node, on) { if (node && node.hasAttribute("data-fx") !== on) node.toggleAttribute("data-fx", on); }
 
 /* ---------- look packs (theming plan 2.1, R6) ---------- */
-/* A look = an HA theme (every --jam-* token, --jam-look: <id>) + an optional pack registered here (src/looks/<id>.js):
-   {id, name, css (skin over the stable class hooks, adopted after BASE_CSS and the card's own CSS while the look is
-   active), fonts ([{family, weight, file, style?, range?}] = woff2 files in <asset base>fonts/), motifs ({name: fn},
-   R7)}. Poster is the built-in look and has no pack: no extra sheet, no extra font, the Poster motifs. */
+/* A look pack registered here (src/looks/<id>.js): {id, name, css (skin over the stable class hooks, adopted after BASE_CSS
+   and the card's own CSS), fonts ([{family, weight, file, style?, range?}] = woff2 files in <asset base>fonts/), motifs
+   ({name: fn}, R7)}. Hi-Fi (src/looks/hifi.js) is the one pack and the default: lookPack() of any other id is Hi-Fi's. */
 const JAM_LOOK_PACKS = new Map();
 function registerLook(pack) {
-  if (!pack || !/^[a-z][a-z0-9-]*$/.test(pack.id || "") || pack.id === "poster") throw new Error("JamCards.registerLook: a pack needs an id (not poster)");
+  if (!pack || !/^[a-z][a-z0-9-]*$/.test(pack.id || "")) throw new Error("JamCards.registerLook: a pack needs an id");
   for (const f of pack.fonts || [])
     if (!/^[\w .-]+$/.test(f.family || "") || !/^[\w.-]+\.woff2$/.test(f.file || "") || !/^\d{3}( \d{3})?$/.test(String(f.weight)))
       throw new Error(`JamCards.registerLook(${pack.id}): bad font ${JSON.stringify(f)}`);
@@ -941,7 +966,7 @@ function registerLook(pack) {
   if (fs && p.fonts.length) fs.textContent += "\n" + lookFontCss(p);
   return p;
 }
-function lookPack(look) { return JAM_LOOK_PACKS.get(look) || null; }
+function lookPack(look) { return JAM_LOOK_PACKS.get(look) || JAM_LOOK_PACKS.get(JAM_LOOK) || null; }
 /* True when two looks draw a motif differently (a pack overrides it in one and not the same way in the other). */
 function motifsDiffer(a, b) {
   const A = (lookPack(a) || {}).motifs || {}, B = (lookPack(b) || {}).motifs || {};
@@ -961,7 +986,7 @@ function jamSheet(css) {
 }
 function jamStyle(root, css, look) {
   const pack = lookPack(look), parts = [BASE_CSS, css || "", pack ? pack.css : ""].filter(Boolean);
-  root._jamStyle = {css: css || "", look: look || "poster"};
+  root._jamStyle = {css: css || "", look: look || JAM_LOOK};
   if (JAM_ADOPT) root.adoptedStyleSheets = parts.map(jamSheet);
   else {
     let st = [...root.children].find(e => e.localName === "style" && e.hasAttribute("data-jam-style"));
@@ -993,7 +1018,7 @@ const LOOK_SIG_TOKENS = ["--jam-ink", "--jam-slab", "--jam-paper", "--jam-fg", "
 function themeSig(node, look, fx) {
   let cs;
   try { cs = getComputedStyle(node); } catch (e) { return look + "|" + fx; }
-  return look + "|" + fx + "|" + LOOK_SIG_TOKENS.map(t => cs.getPropertyValue(t).trim()).join("|");
+  return look + "|" + fx + "|" + themeLookOf(node) + "|" + LOOK_SIG_TOKENS.map(t => cs.getPropertyValue(t).trim()).join("|");
 }
 function queueLook(card, soft = false) {
   LOOK_Q.cards.set(card, soft && LOOK_Q.cards.get(card) !== false); // a hard request in the same batch wins
@@ -1001,9 +1026,10 @@ function queueLook(card, soft = false) {
   LOOK_Q.pending = true;
   Promise.resolve().then(() => {
     LOOK_Q.pending = false;
-    for (const s of SHEET_STACK.slice()) s._refresh();
     const queued = [...LOOK_Q.cards].filter(([c]) => c.isConnected), cards = queued.map(([c]) => c);
     LOOK_Q.cards.clear();
+    cards.forEach(setBuiltin); // first: the built-in palette changes the card's computed tokens (sheets copy them, below)
+    for (const s of SHEET_STACK.slice()) s._refresh();
     const looks = cards.map(lookOf), fx = cards.map(fxOf), sigs = cards.map((c, i) => themeSig(c, looks[i], fx[i]));
     cards.forEach((c, i) => {
       const look = looks[i];
@@ -1329,7 +1355,7 @@ class JamBase extends HTMLElement {
   connectedCallback() { lookWatch(this); enterView(this); this._watchFonts(true); }
   /* Subclasses that hold timers, observers, window/document listeners or body-appended nodes release them here (and call
      super); HA detaches and re-attaches cards on view switches, so connectedCallback re-arms them. */
-  disconnectedCallback() { lookUnwatch(this); this._watchFonts(false); }
+  disconnectedCallback() { lookUnwatch(this); this._watchFonts(false); lookRelease(this); }
   /* A card with _fontsLoaded() (text measured in JS: jam-kiosk) re-measures when web fonts finish loading: a look's URL
      fonts arrive after the first layout (font-display: swap), also on a live look switch. */
   _watchFonts(on) {
@@ -1362,7 +1388,7 @@ class JamBase extends HTMLElement {
       if (this._enterMs != null) { oneShot(this._body, "jam-enter", this._enterMs); this._enterMs = null; }
     }
     if (!this._hass) return;
-    this._renderLook = this.dataset.look || "poster";
+    this._renderLook = this.dataset.look || JAM_LOOK;
     if (motif("render", this, this, this._body)) { lookDecorate(this); return; } // a look drew the card (whole-card hook)
     this._body.textContent = "";
     this.render(this._body);
@@ -1383,7 +1409,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   el, stateObj, friendly, fmtState, keepUnit, tone, OFFLINE, isLock, lockAlert, jamState, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, jamDateText, ALERT_CLASSES, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
-  motif, defineMotif, registerLook, lookPack, looks: () => ["poster", ...JAM_LOOK_PACKS.keys()], ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
+  motif, defineMotif, registerLook, lookPack, looks: () => [...JAM_LOOK_PACKS.keys()], LOOK: JAM_LOOK, ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
   jamSwitch, jamSwitchKind,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));

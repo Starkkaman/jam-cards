@@ -17,7 +17,7 @@ module.exports = async (page, check) => {
     `jam-panel: formats pct/temp/max/bytes_rate (${nas.map(r => r.v).join(" | ")})`);
   check(row("Network", "Uptime").v === "12 d 4 h" && row("Network", "Router").v === "connected",
     `jam-panel: duration from a timestamp (${row("Network", "Uptime").v}), plain state (${row("Network", "Router").v})`);
-  check(/Londrina/.test(row("NAS", "CPU").font) && !row("NAS", "CPU").bad && row("NAS", "CPU").color !== red, "jam-panel: values in Londrina, healthy rows not red");
+  check(/Jost/.test(row("NAS", "CPU").font) && !row("NAS", "CPU").bad && row("NAS", "CPU").color !== red, "jam-panel: values in Jost (Hi-Fi), healthy rows not red");
   // Bad thresholds: below 20 → red; 80.5 stays plain.
   const bats = ["Kitchen sensor", "Front door button", "Bedroom sensor"].map(n => row("Downloads & batteries", n));
   check(bats[0].bad && bats[2].bad && !bats[1].bad && bats[0].color === red && bats[1].color !== red,
