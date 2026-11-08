@@ -1494,7 +1494,7 @@ function jamNowMedia(hass, src) {
   const MONO = '"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace';
   /* Calm's own class names carry a "c-" prefix in the DOM and the CSS (the cards' own sheets stay adopted next to the pack,
      and their .k / .dock / .lc / .src ... must never reach a Calm node). C("a b") -> "c-a c-b"; ce = el with C. */
-  const CM_NAMES = new Set("hfe pale afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red nro rcmp rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
+  const CM_NAMES = new Set("hfe pale tone tones tl tv tchip afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red nro rcmp rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
   const C = s => String(s).split(/\s+/).filter(Boolean).map(n => (CM_NAMES.has(n) ? "c-" + n : n)).join(" ");
   const ce = (tag, cls, text) => el(tag, cls ? C(cls) : cls, text);
   const cmark = m => String(m).replace(/class="([^"]+)"/g, (x, k) => `class="${C(k)}"`);
@@ -1653,31 +1653,40 @@ function jamNowMedia(hass, src) {
   /* Lit power symbol (status: green-ink while on, dim while off). */
   function pwrGlyph(on, size) { const g = ic("pwr", "pwg" + (on ? " on" : "")); if (size) g.style.width = g.style.height = size + "px"; return g; }
 
-  /* ---------- the fader (vertical: a light's brightness; horizontal: volume, pop-up brightness) ----------
-     o: {card, orient "v" | "h", value 0..100, lit (fill shown), color (fill css), cls ("big" | "sm" | "quiet"), label,
-         min (0), step (5 keys), live(v) (called at most every 300 ms while dragging), commit(v) (on release / keys),
-         disabled}. The card's _cmDrag flag holds its redraws while the pointer is down. */
+  /* ---------- the fader (vertical: a light's brightness; horizontal: volume, pop-up brightness, the colour sliders) ----------
+     o: {card, orient "v" | "h", value, min (0), max (100), lit (fill shown), color (fill css), cls ("big" | "sm" | "quiet" |
+         "tone"), label, key (data-key: focus survives a pop-up refill), step (arrow keys, 5), page (Page keys, 10), thumb (px:
+         the cap's width, so the cap's centre follows the finger; 0 = the track's edge), live(v) (called at most every 300 ms
+         while dragging), commit(v) (on release / keys), text(v) (aria-valuetext), capText(v), onShow(v, user), disabled}.
+         The card's _cmDrag flag holds its redraws while the pointer is down. */
   function fader(o) {
-    const v0 = Math.max(0, Math.min(100, Math.round(Number(o.value) || 0)));
+    const lo = Number(o.min) || 0, hi = o.max != null ? Number(o.max) : 100, span = hi - lo || 1;
+    const clamp = v => Math.max(lo, Math.min(hi, Math.round(v)));
+    const v0 = clamp(Number(o.value) || 0);
     const f = ce("div", (o.orient === "v" ? "vf" : "hf") + (o.cls ? " " + o.cls : "") + (o.lit ? " lit" : "") + (o.pale ? " pale" : ""));
     const fl = ce("i", "fl"), cp = ce("i", "cp"), b = ce("b", "num");
     cp.append(b); f.append(fl, cp);
     if (o.color) f.style.setProperty("--lc", o.color);
+    if (o.key) f.dataset.key = o.key;
     if (o.disabled) { f.classList.add(C("dis")); f.setAttribute("aria-disabled", "true"); f.setAttribute("role", "slider"); f.setAttribute("aria-label", o.label || "Level"); return f; }
     f.tabIndex = 0; f.setAttribute("role", "slider"); f.setAttribute("aria-label", o.label || "Level");
-    f.setAttribute("aria-valuemin", String(o.min || 0)); f.setAttribute("aria-valuemax", "100");
+    f.setAttribute("aria-valuemin", String(lo)); f.setAttribute("aria-valuemax", String(hi));
     if (o.orient === "v") f.setAttribute("aria-orientation", "vertical");
     let cur = v0, sent = v0, timer = null, last = 0;
-    const show = v => {
-      cur = Math.max(o.min || 0, Math.min(100, Math.round(v)));
-      f.style.setProperty("--vn", String(cur / 100));
+    const show = (v, user) => {
+      cur = clamp(v);
+      f.style.setProperty("--vn", String((cur - lo) / span));
       f.setAttribute("aria-valuenow", String(cur)); f.setAttribute("aria-valuetext", o.text ? o.text(cur) : cur + "%");
       b.textContent = o.capText ? o.capText(cur) : cur ? String(cur) : "Off";
       f.classList.toggle(C("lit"), !!o.alwaysLit || cur > 0);
-      if (o.onShow) o.onShow(cur);
+      if (o.onShow) o.onShow(cur, !!user);
     };
     show(v0);
-    const at = e => { const r = f.getBoundingClientRect(); return o.orient === "v" ? (1 - (e.clientY - r.top) / r.height) * 100 : (e.clientX - r.left) / r.width * 100; };
+    const at = e => {
+      const r = f.getBoundingClientRect(), t = Number(o.thumb) || 0;
+      const q = o.orient === "v" ? 1 - (e.clientY - r.top) / r.height : (e.clientX - r.left - t / 2) / Math.max(1, r.width - t);
+      return lo + Math.max(0, Math.min(1, q)) * span;
+    };
     const flush = () => { clearTimeout(timer); timer = null; if (cur !== sent) { sent = cur; last = Date.now(); if (o.live) o.live(cur); } };
     const throttle = () => {
       if (!o.live) return;
@@ -1695,21 +1704,21 @@ function jamNowMedia(hass, src) {
       e.stopPropagation(); e.preventDefault();
       try { f.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
       f.dataset.drag = "1"; if (o.card) o.card._cmDrag = true;
-      show(at(e)); throttle();
+      show(at(e), true); throttle();
     });
-    f.addEventListener("pointermove", e => { if (!f.dataset.drag) return; show(at(e)); throttle(); });
-    f.addEventListener("pointerup", e => { if (f.dataset.drag) show(at(e)); end(); });
+    f.addEventListener("pointermove", e => { if (!f.dataset.drag) return; show(at(e), true); throttle(); });
+    f.addEventListener("pointerup", e => { if (f.dataset.drag) show(at(e), true); end(); });
     f.addEventListener("pointercancel", end);
     f.addEventListener("lostpointercapture", end);
     f.addEventListener("click", e => e.stopPropagation());
     let kt = null;
     f.addEventListener("keydown", e => {
-      const st = o.step || 5, d = {ArrowUp: st, ArrowRight: st, ArrowDown: -st, ArrowLeft: -st, PageUp: 10, PageDown: -10}[e.key];
+      const st = o.step || 5, pg = o.page || 10, d = {ArrowUp: st, ArrowRight: st, ArrowDown: -st, ArrowLeft: -st, PageUp: pg, PageDown: -pg}[e.key];
       let v = null;
-      if (d) v = cur + d; else if (e.key === "Home") v = o.min || 0; else if (e.key === "End") v = 100;
+      if (d) v = cur + d; else if (e.key === "Home") v = lo; else if (e.key === "End") v = hi;
       if (v === null) return;
       e.preventDefault(); e.stopPropagation();
-      show(v);
+      show(v, true);
       // keys: the value shows at once; the call goes 250 ms after the last press (one call per burst)
       clearTimeout(kt); kt = setTimeout(() => { if (cur !== sent) { sent = cur; (o.commit || o.live)(cur); } }, 250);
     });
@@ -1872,12 +1881,85 @@ function jamNowMedia(hass, src) {
     hh = Math.round(hh * 60); if (hh < 0) hh += 360;
     return [hh, Math.round(d / mx * 100)];
   }
+  /* ---------- stepless colour sliders (Isaac 2026-11-08: "I want stepless hue and saturation sliders in the light popup menu") ----------
+     Horizontal faders with the colour as the track (the track is the data, not decoration): Hue 0-360° over the spectrum at
+     the current saturation (at least 30 %, so the hues stay legible near white), Saturation 0-100 % from white to the
+     current hue; a light with colour temperature only gets a stepless Temperature slider over the mockup's whites. A tall
+     narrow cap (the colour stays visible under it), the value in Plex Mono beside the name, a live chip with the result.
+     Calls go through the fader's throttle (at most one per 300 ms while dragging, the final value on release, one per key
+     burst); the card holds the value it sent (_cmHs / _cmCt) for 2.5 s, so a late state from an earlier call never moves
+     the cap back, and a light that is off turns on with the colour. */
+  const HOLD_MS = 2500;
+  const hsvRgb = (hh, ss) => { const s1 = ss / 100, f = n => { const k = (n + hh / 60) % 6; return 255 * (1 - s1 * Math.max(0, Math.min(k, 4 - k, 1))); };
+    return [f(5), f(3), f(1)].map(Math.round); };
+  const hueTrack = ss => `linear-gradient(90deg,${[0, 60, 120, 180, 240, 300, 360].map(x => rgbCss(hsvRgb(x, Math.max(30, ss)))).join(",")})`;
+  const satTrack = hh => `linear-gradient(90deg,#fff,${rgbCss(hsvRgb(hh, 100))})`;
+  function ctTrack(lo, hi) {
+    const st = [];
+    for (let i = 0; i <= 8; i++) st.push(rgbCss(whiteOf(lo + (hi - lo) * i / 8)));
+    return `linear-gradient(90deg,${st.join(",")})`;
+  }
+  /* The light's colour now as [hue 0-360, saturation 0-100] (hs_color, else from rgb_color), or null. */
+  function lightHs(s) {
+    const a = (s && s.attributes) || {};
+    if (Array.isArray(a.hs_color) && a.hs_color.length >= 2 && isFinite(a.hs_color[0])) return [Math.round(Number(a.hs_color[0])) % 361, Math.round(Number(a.hs_color[1]) || 0)];
+    const f = fullRgb(a.rgb_color);
+    return f ? hueOf(f) : null;
+  }
+  /* One slider row: the name and its value (Plex Mono) beside a tone fader. */
+  function toneRow(name, fd) {
+    const t = ce("span", "tl"), v = ce("b", "tv num");
+    t.append(lab(name), v);
+    return {t, v, f: fd};
+  }
+  function toneSliders(card, s, set) {
+    const held = card._cmHs, now = Date.now();
+    const st = lightHs(s), [h0, s0] = held && (now - held.t < HOLD_MS || !st) ? [held.h, held.s] : st || [0, 0];
+    const mix = {h: h0, s: s0};
+    const box = ce("div", "tones"), chip = ce("i", "tchip");
+    chip.setAttribute("aria-hidden", "true");
+    let rows = null;
+    const paint = () => {
+      if (!rows) return;
+      rows.h.f.style.setProperty("--trk", hueTrack(mix.s)); rows.s.f.style.setProperty("--trk", satTrack(mix.h));
+      rows.h.v.textContent = mix.h + "°"; rows.s.v.textContent = mix.s + " %";
+      chip.style.setProperty("--c", rgbCss(hsvRgb(mix.h, mix.s)));
+    };
+    const send = () => set({hs_color: [mix.h, mix.s]});
+    const mk = (k, name, max, label, text) => toneRow(name, fader({card, orient: "h", cls: "tone", key: k, value: mix[k === "hue" ? "h" : "s"], max, step: 1, page: 10, thumb: 18,
+      label, text, capText: () => "", live: send, commit: send,
+      onShow: (v, user) => { mix[k === "hue" ? "h" : "s"] = v; if (user) card._cmHs = {h: mix.h, s: mix.s, t: Date.now()}; paint(); }}));
+    const name = card._name();
+    rows = {h: mk("hue", "Hue", 360, `${name} hue`, v => `${v} degrees`), s: mk("sat", "Saturation", 100, `${name} saturation`, v => `${v} percent`)};
+    for (const r of [rows.h, rows.s]) box.append(r.t, r.f);
+    paint();
+    return {box, chip};
+  }
+  function ctSlider(card, s, set, lo, hi) {
+    const a = s.attributes, held = card._cmCt, now = Date.now();
+    const st = s.state === "on" && a.color_temp_kelvin ? Number(a.color_temp_kelvin) : null;
+    const k0 = held && (now - held.t < HOLD_MS || !st) ? held.k : st || Math.round((lo + hi) / 2);
+    const box = ce("div", "tones"), chip = ce("i", "tchip"), name = card._name();
+    chip.setAttribute("aria-hidden", "true");
+    let r = null;
+    const paint = k => { if (!r) return; r.v.textContent = k + " K"; chip.style.setProperty("--c", rgbCss(whiteOf(k))); };
+    const send = k => set({color_temp_kelvin: k});
+    r = toneRow("Temperature", fader({card, orient: "h", cls: "tone", key: "ct", value: k0, min: lo, max: hi, step: 50, page: 500, thumb: 18,
+      label: `${name} colour temperature`, text: v => `${v} kelvin`, capText: () => "", live: send, commit: send,
+      onShow: (v, user) => { if (user) card._cmCt = {k: v, t: Date.now()}; paint(v); }}));
+    r.f.style.setProperty("--trk", ctTrack(lo, hi));
+    box.append(r.t, r.f);
+    paint(k0);
+    return {box, chip};
+  }
+  const labChip = (name, chip) => { const hd = ce("div", "bh"); hd.append(lab(name), chip); return hd; };
   function lightPopBody(card, body) {
     const c = card._config, h = card._hass, s = stateObj(h, c.entity), kio = c.size === "kiosk";
     if (dead(s)) { body.append(ce("span", "note", OFFLINE)); return; }
     const a = s.attributes, on = s.state === "on", col = cssRgb(lampRgb(s)), modes = lightModes(s);
     const set = data => jamCall(card, card._hass, "light", "turn_on", {entity_id: c.entity, ...data});
-    const parts = [];
+    const pick = data => { card._cmHs = card._cmCt = null; set(data); }; // a swatch: the sliders follow the state again
+    const parts = [], hasColor = c.show_color ?? modes.some(m => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
     if (c.show_brightness !== false && lightDims(s)) parts.push(["L", blk("Brightness", fader({card, orient: "h", value: on ? lightPct(s) : 0, lit: on, color: col, cls: "big",
       label: "Brightness", live: v => card._setPct(c.entity, v), commit: v => card._setPct(c.entity, v)}))]);
     if (!c.preset_entity && (c.show_color_temp ?? modes.includes("color_temp"))) {
@@ -1887,12 +1969,13 @@ function jamNowMedia(hass, src) {
       const wh = ce("div", "wh");
       for (const w of list) {
         const k = Math.max(lo, Math.min(hi, Number(w.kelvin) || 2700));
-        const btn = key("", null, () => set({color_temp_kelvin: k}), {pressed: cur != null && Math.abs(cur - k) <= 60, key: "w" + k, aria: `${w.name} white, ${k} K`});
+        const btn = key("", null, () => pick({color_temp_kelvin: k}), {pressed: cur != null && Math.abs(cur - k) <= 60, key: "w" + k, aria: `${w.name} white, ${k} K`});
         const cc = ce("i", "cc"); cc.style.setProperty("--c", rgbCss(whiteOf(k)));
         btn.prepend(cc); btn.append(ce("span", "kl", w.name), ce("small", "num", `${k} K`));
         wh.append(btn);
       }
-      parts.push(["L", blk("White", wh)]);
+      if (!hasColor && hi > lo) { const t = ctSlider(card, s, set, lo, hi); parts.push(["L", blk(labChip("White", t.chip), wh, t.box)]); }
+      else parts.push(["L", blk("White", wh)]);
     }
     const ps = c.preset_entity && stateObj(h, c.preset_entity);
     if (ps && !dead({state: ps.state === "unknown" ? "x" : ps.state}) && Array.isArray(ps.attributes.options)) {
@@ -1902,7 +1985,6 @@ function jamNowMedia(hass, src) {
         {pressed: lc(ps.state) === lc(o), key: "p:" + o}));
       parts.push(["L", blk("Presets", g)]);
     }
-    const hasColor = c.show_color ?? modes.some(m => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
     if (hasColor) {
       const cur = on && !["color_temp", "white"].includes(a.color_mode) ? fullRgb(lightRgb(s)) : null;
       const row = ce("div", "hue");
@@ -1910,14 +1992,15 @@ function jamNowMedia(hass, src) {
         const rgb = rgbHex(x), [hh, ss] = hueOf(rgb), bt = ce("button");
         bt.type = "button"; bt.style.setProperty("--c", rgbCss(guard(rgb))); bt.dataset.key = "h" + x;
         bt.setAttribute("aria-label", "Colour " + x); bt.setAttribute("aria-pressed", String(!!cur && Math.abs(hueOf(cur)[0] - hh) <= 12));
-        bt.addEventListener("click", () => set({hs_color: [hh, ss]}));
+        bt.addEventListener("click", () => pick({hs_color: [hh, ss]}));
         row.append(bt);
       }
-      parts.push(["R", blk("Colour", row)]);
+      const t = toneSliders(card, s, set);
+      parts.push(["R", blk(labChip("Colour", t.chip), row, t.box)]);
       const yc = ce("div", "yc"), saved = (typeof LIGHT_COLORS !== "undefined" && LIGHT_COLORS) || [];
       saved.slice(-4).forEach((rgb, i) => {
         const sw = ce("i", "swin"); sw.style.setProperty("--c", rgbCss(guard(fullRgb(rgb) || rgb)));
-        const k = key("", null, () => set({rgb_color: rgb.slice(0, 3)}), {aria: "Your colour " + (i + 1), key: "y" + i, pressed: !!cur && Math.hypot(...cur.map((v, j) => v - (fullRgb(rgb) || rgb)[j])) < 20});
+        const k = key("", null, () => pick({rgb_color: rgb.slice(0, 3)}), {aria: "Your colour " + (i + 1), key: "y" + i, pressed: !!cur && Math.hypot(...cur.map((v, j) => v - (fullRgb(rgb) || rgb)[j])) < 20});
         k.prepend(sw); yc.append(k);
       });
       const save = key("Save this", "plus", () => { const x = fullRgb(lightRgb(stateObj(card._hass, c.entity))); if (x) { card._saveColor(x); fillPop(card); } }, {key: "save", disabled: !cur});
@@ -1938,13 +2021,14 @@ function jamNowMedia(hass, src) {
         row.append(mini);
         box.append(row);
       }
-      parts.push(["R", box]);
+      // kiosk: with the colour sliders on the right, the members go left and Turn off in right (the Echo's 601px, no scrolling)
+      parts.push([kio && hasColor ? "L" : "R", box]);
     }
     const ts = card._timerScript();
     if (stateObj(h, ts)) {
       const k3 = ce("div", "k3");
       for (const [m, t] of [[15, "15 min"], [30, "30 min"], [60, "1 h"]]) k3.append(key(t, null, () => jamCall(card, card._hass, "script", "turn_on", {entity_id: ts, variables: {entity_id: c.entity, minutes: m}}), {key: "t" + m}));
-      parts.push(["L", blk("Turn off in", k3)]);
+      parts.push([kio && hasColor ? "R" : "L", blk("Turn off in", k3)]);
     }
     const autos = (Array.isArray(c.automations) ? c.automations : []).map(x => (typeof x === "string" ? {entity: x} : x)).filter(x => x && /^automation\./.test(x.entity || ""));
     if (autos.length && !kio) {
@@ -2894,6 +2978,16 @@ function jamNowMedia(hass, src) {
 .c-hue{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));height:44px;border-radius:12px;overflow:hidden;border:1px solid var(--cln)}
 .c-hue button{appearance:none;border:0;cursor:pointer;background:var(--c);position:relative;padding:0;min-width:0}
 .c-hue button[aria-pressed=true]::after{content:"";position:absolute;left:50%;bottom:6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#19202e;box-shadow:0 0 0 2px #fff}
+/* stepless colour sliders: [name + value | track]; the track is the colour itself (inset in the groove), the cap a tall narrow
+   ink-rimmed thumb that leaves the colour visible; the chip on the block's label row shows the result */
+.c-tones{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;align-items:center;margin-top:4px}
+.c-tl{display:grid;gap:3px;min-width:0}
+.c-tl .c-tv{font:500 15px/1 var(--cmono);color:var(--cink);letter-spacing:.02em;white-space:nowrap}
+.c-hf.c-tone{height:44px;cursor:ew-resize}
+.c-hf.c-tone .c-fl{width:auto;right:3px;opacity:1;background:var(--trk,var(--cgroove))}
+.c-hf.c-tone .c-cp{width:18px;top:-5px;bottom:-5px;left:calc((100% - 18px) * var(--vn));border-radius:7px;box-shadow:inset 0 0 0 2px var(--ccap)}
+.c-hf.c-tone .c-cp b{display:none}
+.c-tchip{display:block;width:40px;height:20px;border-radius:6px;background:var(--c,var(--cgroove));border:1px solid var(--cln);flex:none}
 .c-yc{display:flex;gap:8px;flex-wrap:wrap}
 .c-chips3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .c-chips3 .c-k{padding:8px 6px;font-size:14px}
@@ -2979,9 +3073,13 @@ function jamNowMedia(hass, src) {
 .pop.c-cmp.c-kio .stage{align-items:center}
 .pop.c-kio .c-lab{font-size:15px}.pop.c-kio .c-k{font-size:18px;min-height:52px}.pop.c-kio .c-note{font-size:16px}
 .pop.c-kio .c-hf .c-cp b{font-size:16px}.pop.c-kio .c-wh .c-k{font-size:16px;min-height:80px}.pop.c-kio .c-wh .c-k small{font-size:15px}
+.pop.c-kio .c-tones{margin-top:0;row-gap:8px}.pop.c-kio .c-tl .c-tv{font-size:17px}.pop.c-kio .c-tchip{width:48px;height:24px}
 .pop.c-kio .c-mem{font-size:17px}.pop.c-kio .c-rk.c-mini{width:64px;height:60px}
 .c-kp2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
 .c-kp2 > div{display:grid;gap:16px;align-content:start}
+/* a kiosk light pop-up at phone width (a kiosk dashboard opened on a phone): one column, the body scrolls (two 160px columns
+   squeezed the whites, the members and the colour sliders' tracks to slivers) */
+@media (max-width:600px){.c-kp2{grid-template-columns:minmax(0,1fr);gap:16px}}
 .pop.c-cmp.c-kio.c-rem .sheet{max-width:600px}
 .pop.c-kio .t .kick{font-size:15px}.pop.c-kio .t h2{font-size:30px;line-height:1.1}
 .pop.c-kio .close > .face{min-height:52px;font-size:18px;--p-l:18px;--p-r:18px}.pop.c-kio .acts .c-k{min-height:52px;font-size:18px}

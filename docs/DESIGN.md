@@ -161,6 +161,16 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
   shows on the cap while dragging (always on kiosks). Drag anywhere (the cap jumps to the finger), keys ±5 / Page ±10 /
   Home / End. The value shows at once; the entity follows at most every 300 ms while dragging and once more on release;
   keys send one call 250 ms after a burst; a state update never redraws a card under the finger (it waits for the release).
+- **Colour sliders** (light pop-up, Isaac 2026-11-08: "I want stepless hue and saturation sliders in the light popup menu"):
+  horizontal faders whose track is the colour itself (data, not decoration): Hue 0-360° over the spectrum at the current
+  saturation (drawn at >= 30 % so the hues stay legible near white), Saturation 0-100 % from white to the hue; a light with
+  colour temperature only gets a Temperature slider (its min / max kelvin) over the mockup's whites instead. They sit in the
+  Colour block under the 12 swatches (Temperature in the White block); the value in Plex Mono 15px beside the name, a tall
+  18px cap with the ink rim that leaves the colour visible, a 40 x 20 chip with the result on the block's label row. The
+  fader's rules (300 ms while dragging, the final value on release, one call per key burst, no redraw under the finger);
+  arrows ±1 / Page ±10 (kelvin ±50 / ±500); the card holds what it sent for 2.5 s so a late state never moves the cap back;
+  a swatch releases the hold. Kiosk pop-ups with colour: brightness, whites and the members left, colour, your colours and
+  Turn off in right (fits the Echo's 601px); at phone width (<= 600px) a kiosk light pop-up is one column.
 - **Small switch** (core `jamSwitch`, `.jsw`): pill channel, plain dark off; on, the thumb slides and the kind's accent is
   revealed (plug blue, climate teal, automation violet, setting steel; `accent` overrides); 180 ms on the settle curve,
   instant with JamCards.motion = false or reduced motion; disabled = hollow, offline = dashed with a dash.
