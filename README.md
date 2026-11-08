@@ -21,6 +21,18 @@ sheets never scroll.
    (the kiosks) switches with the sun whatever its own dark setting; whoever picks **Hi-Fi** in their profile keeps following
    their own device.
 
+**1.1.0: the house's pop-ups, playback on the TV, motion.** Tap the inside half of jam-house (or the inside part of the
+kiosk's facts line) for the indoor climate: temperature, humidity and the air now, each room with a 24 h sparkline, and the
+house's 24 h temperature and humidity graphs. Tap the outside half (the weather part on the kiosk) for the next five days
+from the weather entity (OpenWeatherMap here): the condition, a low-high bar on one scale for every day with today's
+temperature on it, rain chance and amount, wind, plus feels like, humidity, wind, pressure, UV and clouds now
+(`inside_more` / `outside_more`, below). jam-tv finds the TV's Google Cast player (`playback_entity`), so a YouTube video
+shows as Playing with its title and position even though Android TV Remote only says "on"; without playback it says
+"On · YouTube", never idle. Pop-ups open and close with motion again: a phone's bottom sheet rises in, a centred pop-up
+settles in, the veil fades, and closing plays it backwards (a fade only with `JamCards.motion = "calm"`, jam-screensaver
+`motion: calm`; none with reduced motion). The phone remote's sheet is taller, so the whole remote shows. Every rocker keeps the
+lighter shade whether the light is on or off (a toggle used to redraw it with a dark grey half). The jam-popup kicker is dim text with the accent as a mark beside it.
+
 **1.0.1: Hi-Fi Day and Hi-Fi Night.** Two single-mode themes next to Hi-Fi in `themes/jamboard.yaml` (jam-theme), generated
 from the same tokens. Every Hi-Fi theme carries `--jam-mode: day | night`, and the cards decide day or night from it (the
 rocker's tones, the night marks of pop-ups, the kiosk and the remote), never from Home Assistant's dark-mode flag or the OS
@@ -268,7 +280,7 @@ entity: light.living_room
 | `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
 | `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
 | `size` | `kiosk` (opt-in): a 150 px block for kiosk sheets — 36 px name, 18 px sub line, 52 px number, 64 px power corner, nothing under 18 px. Two to a row (`columns: 2` on the jam-kiosk block) gives the big-light sheet |
-| `switch` | `corner` (default: the power corner), `toggle` (opt-in: the small channel-reveal switch top-right; plug / power blue, `switch_accent` overrides) or `paddle` (opt-in): one rocker on the right instead of the corner, with the IEC symbols (a bar on top, a circle below) and no words on it; the face stays the plain panel. On = the top half pressed in, off = the bottom half pressed in: the same rocker flipped, the pressed half the flatter, darker tone. The lamp's colour shows only as a thin band on the pressed top half while on. A change rocks it once (none without motion). Offline = the same rocker with a dashed rim and dim symbols. The state words are in its label and title and on the card. Group member bands are left out (the sub line says "2 of 3 on") |
+| `switch` | `corner` (default: the power corner), `toggle` (opt-in: the small channel-reveal switch top-right; plug / power blue, `switch_accent` overrides) or `paddle` (opt-in): one rocker on the right instead of the corner, with the IEC symbols (a bar on top, a circle below) and no words on it; the face stays the plain panel. On = the top half pressed in, off = the bottom half pressed in: the same rocker flipped, the pressed half one quiet step off the panel (1.1.0: the light pressed-paper beige by day, the key tone by night, the same on and off, split from the raised half by a hairline and a thin edge). The lamp's colour shows only as a thin band on the pressed top half while on. A change rocks it once (none without motion). Offline = the same rocker with a dashed rim and dim symbols. The state words are in its label and title and on the card. Group member bands are left out (the sub line says "2 of 3 on") |
 | `switch_accent` | With `switch: toggle`: the small switch's accent (an accent name, room alias or CSS colour) |
 | `glyph` | Jam Calm: the lamp drawn on the name row (`floor`, `table`, `strip`, `pendant`, `bulb`, `string`, `lantern`; default from the name) |
 | `automations` | Jam Calm: `[automation ids]` or `{entity, name?, accent?}` listed in the light pop-up, each with a small switch (violet: the automations kind) |
@@ -294,7 +306,7 @@ Open it with a `navigate` action to `#lights-popup`; close with the CLOSE key, a
 |---|---|
 | `hash` | URL hash that opens the popup (required) |
 | `title`, `kicker` | Sheet title and label |
-| `accent` | Header colour (default ochre); also the default accent of the cards inside |
+| `accent` | A mark beside the kicker (1.1.0: the kicker itself is dim text, so it reads in both palettes) and the cards' default accent inside |
 | `spiral` | Spiral flash on open (default true) |
 | `cards` | List of card configs |
 
@@ -308,12 +320,13 @@ entities: [sensor.living_room_temperature]
 | Option | Description |
 |---|---|
 | `title` | Title |
-| `entities` | 1–5 entity ids or `{entity, name}` |
+| `entities` | 1–5 entity ids or `{entity, name, color}` (`color`, 1.1.0: a CSS colour for that series; default the theme's series colours in order) |
 | `hours_to_show` | Default 24 |
 | `style` | `line` / `step` / `bars` |
 | `show_current` | Show current values (default true) |
 | `min`, `max` | Y-axis range |
 | `refresh_minutes` | Default 5 |
+| `height` | 1.1.0: the plot's height in px (default 140, 170 with several series) |
 
 ### jam-weather
 Big temperature, condition word and cut-paper glyph, with a forecast strip and an optional clock.
@@ -401,6 +414,7 @@ stereo:
 | `input_entity` | Select/sensor naming the TV input; the tile whose `match.input` equals it is marked while the TV shows an input |
 | `input_app` | current-app values that mean "the TV shows an input" (e.g. `Live TV`); without it the input counts whenever it matches |
 | `input_signal_entity` | Optional: the input only counts while this sensor reports a signal (not "No signal" / off / unavailable) |
+| `playback_entity` | 1.1.0: a media_player (or a list) that knows what the TV plays when its own player does not: Android TV Remote reports "on" and the app only. Default: found by itself, the TV's Google Cast player (registry platform `cast`, on the TV's device or named like it: "Phoster" for "Phoster - Android TV"); `false` = none. While the TV is on, the first of them that is playing / paused / buffering an app that matches the one on screen gives the card Playing / Paused, the title, artist and position (a session of another app is ignored as stale). Without playback the card says "On · YouTube" (the source on screen, else the app), never idle |
 | | Highlight comes only from these live signals (0.3.5): select states and tap options are not used (`source_entities` is ignored); nothing matches → no tile marked |
 | `power_action` | Power triangle and Turn on key action (default `remote.toggle`) |
 | `volume_up_action`, `volume_down_action`, `mute_action` | The violet volume rocker on the card (keys without an action are left out; Vol keys repeat while held) |
@@ -478,6 +492,8 @@ people: [person.alex, person.sam]
 | `lock_entity` | Door lock chip |
 | `people` | person ids; those at home show as chips with their first name (Jam Calm: everyone, a colour tag with the initial, "· out" when away; items may be `{entity, name?, color?}`) |
 | `humidity_entity` | Jam Calm: the inside humidity printed small after the inside temperature |
+| `inside_more` | 1.1.0, default on: the inside half (label + temperature) opens the indoor climate pop-up: temperature, humidity, the air word with PM2.5 (`sensor.<purifier>_pm2_5` beside the `inside_aq` sensor, found by itself), the rooms (each with its temperature, humidity and a 24 h sparkline on one scale per measure) and the house's 24 h temperature and humidity graphs. `false` = HA's more-info instead. Options: `{temperature, humidity, air_quality, pm25 (or false), rooms: [{name, temperature, humidity}], hours (24)}`; without `rooms` the rooms are the members of the temperature group (`attributes.entity_id`), each paired with the humidity group's member of the same device or name, named by their area |
+| `outside_more` | 1.1.0, default on for a weather entity: the outside half opens the forecast pop-up: now (the condition, high / low), feels like, humidity, wind (direction, gusts), pressure, UV and clouds (the weather entity's attributes, else its `sensor.<weather>_uv_index` / `_wind_gust_speed`), then the next days (glyph, condition, a low-high bar on one scale with today's temperature marked, rain chance and amount, wind) and the source as a footnote. `false` = more-info. Options: `{entity, days (5), forecast_type}` (default daily, else twice_daily / hourly as the entity offers) |
 | `full_names` | `true`: chips show the full name |
 | `alerts` | `{entity, state, name}`: red chip while the entity is in `state` (or on/open/problem) |
 | `title`, `kicker` | Title (default the HA location name) and label |
@@ -541,7 +557,7 @@ active_hours: {from: "06:00", to: "23:00"}
 | `disable_on` | `{entity, state}` or a list: no screensaver while matched (e.g. a player is playing) |
 | `accent` | Poster colour |
 | `kiosk` | Hide HA's sidebar and the dashboard header on this dashboard: `"url"` (default) only when the URL has `?kiosk`, `true` always, `false` never |
-| `motion` | `false`: turn the jam cards' one-shot motion (entrance, wipes, stamps, sheet stagger) off on this page while the card is on screen (`JamCards.motion = false`); default on |
+| `motion` | `false`: turn the jam cards' one-shot motion (entrance, wipes, stamps, sheet stagger) off on this page while the card is on screen (`JamCards.motion = false`); `calm` (1.1.0): the calm tier, pop-ups and sheets only fade in and out (≤ 160 ms) and their contents do not stagger (`JamCards.motion = "calm"`); default on |
 | `fx` | `false`: keep a look's effects (`--jam-fx`) off on this card and its layer, for slow wall tablets; default: as the look's theme |
 
 Photos from Home Assistant's media source (0.4.0): set `images.media` to a folder's `media-source://` id instead of
@@ -634,6 +650,7 @@ dock:
 |---|---|
 | `accent` | Room colour of the 10 px bar at the top (default ochre); also the sheet colour of `none` blocks |
 | `inside_entity`, `humidity_entity`, `aq_entity` | Facts line under the clock: "Tuesday · October 28 · 67° inside · 58% humidity · air excellent" (each part only while its sensor has a value; AQ as a word, a US AQI number becomes its category; wraps between parts, never cut off) |
+| `inside_more`, `outside_more` | 1.1.0 (Hi-Fi): the inside part of the facts line opens the indoor climate pop-up, the weather part the forecast, as jam-house's (same options; the weather is the `now` weather source); centred, two columns, no scrolling on the iPad or the Echo Show. `false` = more-info |
 | `lock_entity`, `lock_name` | 0.6.2: round lock button top-right (≈104 px on a 1024×768 iPad, ≈88 px on an Echo Show 8) with a label line "FRONT DOOR · LOCKED" (just "LOCKED" when it does not fit; `lock_name` default "Front door"). Locked = a quiet ring in the text colour; Unlocked / Open / Jammed / Locking… / Unlocking… = red disc; unavailable = dashed dim outline and "Offline". Tap: unlocked / open / jammed → `lock.lock` at once; locked → confirmation "Unlock the front door?" then `lock.unlock`; other states do nothing |
 | `now` | Sources for the right-hand block, the first active one wins. `{type: media, entity, states (default [playing]), kicker (default Playing / Paused), app_entity}`: title, else the app; small line = artist, else the app. `{type: weather, entity, temperature_entity, kicker (default Outside)}`: "51° cloudy" + the next change in the hourly forecast within 12 h ("Rain at 3 · high 64°"), else "High 64°", else humidity |
 | `dock` | 2-5 blocks: `name`, `accent` (colour or room alias; `none` = plain block with a dim state; default the card accent), `state`, `cards` + `kicker` + `columns` (1-3 equal, or a list of widths such as `[3, 2]` = 60 % / 40 %) for a sheet (cards with `size: kiosk` get the full sheet height), or `tap_action` (confirmation supported); `tap: sheet / action` forces one |

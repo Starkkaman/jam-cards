@@ -23,8 +23,10 @@ const contrast = require("../contrast.js");
    white): not palette choices, so they never count as the other palette's colour. */
 const FIXED = [...new Set([...fs.readFileSync(path.join(__dirname, "..", "..", "src", "looks", "hifi.js"), "utf8").matchAll(/#([\da-f]{6}|[\da-f]{3})\b(?![\da-f])/gi)]
   .map(m => "#" + (m[1].length === 3 ? [...m[1]].map(c => c + c).join("") : m[1]).toLowerCase()))];
-/* Contrast findings that are not about day / night (they show under the Hi-Fi theme with modes too), reported as INFO. */
-const KNOWN = [{card: "jam-popup", text: "Pop-up", why: "jam-popup kicker in the living accent (#6b4428) on the Night ground: pre-existing under Hi-Fi (dark mode) too"}];
+/* Contrast findings that are not about day / night (they show under the Hi-Fi theme with modes too), reported as INFO.
+   Empty since 1.1.0: the jam-popup kicker in the living accent (#6b4428, 2.18:1 on the Night ground) was the one entry; every
+   kicker is dim text now (the accent is a mark beside it), so a finding there fails like any other. */
+const KNOWN = [];
 
 /* In-page audit: [theme name, the other theme's name, "day" | "night"] -> {n, cards, bad, wrong, nightMarks, rockers}. */
 function audit([name, otherName, want, fixed]) {
@@ -75,9 +77,9 @@ function audit([name, otherName, want, fixed]) {
   for (const r of roots) {
     // Hi-Fi's night mark is a bare attribute (toggleAttribute); jam-graph's data-n="<points>" is something else
     for (const e of r.querySelectorAll("[data-n]")) if (e.getAttribute("data-n") === "" && (e.getClientRects().length || /\bpop\b/.test(e.className))) nightMarks++;
-    // rockers whose tones were worked out from the palette (inline --pd-up); one drawn before its card is in the page has no
-    // computed style to read and keeps the CSS token fallbacks (palette-correct by construction, covered by the colour walk)
-    for (const e of r.querySelectorAll("[data-pd]")) if (e.style.getPropertyValue("--pd-up")) rockers[e.dataset.pd] = (rockers[e.dataset.pd] || 0) + 1;
+    // every rocker's day / night (1.1.0: its tones are CSS, data-pd picks the night one; a card drawn before it was in the
+    // page draws again once attached, so none keeps a guessed mode)
+    for (const e of r.querySelectorAll("[data-pd]")) rockers[e.dataset.pd] = (rockers[e.dataset.pd] || 0) + 1;
   }
   return {n, layers: layers.length, cards, bad: [...new Set(bad)], wrong: wrong.size, nightMarks, rockers, html: val(document.documentElement, "--jam-mode")};
 }

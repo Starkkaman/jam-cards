@@ -75,10 +75,14 @@ jamPreview.add({
 window.__userData = {jam_colors: [[255, 60, 140], [90, 160, 255], [255, 120, 40], [140, 60, 255]]};
 window.__ws = [];
 document.addEventListener("DOMContentLoaded", () => {
-  window.__hass.callWS = msg => {
-    window.__ws.push(JSON.parse(JSON.stringify(msg)));
+  // other messages go to the fake installed before (40-data's history, 1.1.0: replacing it lost the history after load)
+  const prev = window.__hass.callWS;
+  window.__hass.callWS = function (msg) {
+    if (msg.type === "frontend/get_user_data" || msg.type === "frontend/set_user_data") window.__ws.push(JSON.parse(JSON.stringify(msg)));
     if (msg.type === "frontend/get_user_data") return Promise.resolve({value: window.__userData[msg.key] ?? null});
     if (msg.type === "frontend/set_user_data") { window.__userData[msg.key] = msg.value; return Promise.resolve(null); }
+    if (prev) return prev.call(this, msg);
+    window.__ws.push(JSON.parse(JSON.stringify(msg)));
     return Promise.reject(new Error("unknown command " + msg.type));
   };
 });

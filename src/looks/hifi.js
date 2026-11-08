@@ -22,7 +22,7 @@
   const MONO = '"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace';
   /* Calm's own class names carry a "c-" prefix in the DOM and the CSS (the cards' own sheets stay adopted next to the pack,
      and their .k / .dock / .lc / .src ... must never reach a Calm node). C("a b") -> "c-a c-b"; ce = el with C. */
-  const CM_NAMES = new Set("hfe pale tone tones tl tv tchip afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red nro rcmp rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
+  const CM_NAMES = new Set("half lt rds rd rv rs word spkl spn rms nohum rm rmc rmv rmn gph clim wxp wxn wxt wxw wxb wxc wxs wxd wxi wxf fd today fdn fbar fnow flo fhi fds attr fb fsep hfe pale tone tones tl tv tchip afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red nro rcmp rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
   const C = s => String(s).split(/\s+/).filter(Boolean).map(n => (CM_NAMES.has(n) ? "c-" + n : n)).join(" ");
   const ce = (tag, cls, text) => el(tag, cls ? C(cls) : cls, text);
   const cmark = m => String(m).replace(/class="([^"]+)"/g, (x, k) => `class="${C(k)}"`);
@@ -259,20 +259,18 @@
   function cmRedraw(card) { if (!card || !card.isConnected || !card._config || !card._hass) return; card._sig = null; card._render(false); }
 
   /* The rocker (branch paddle-off, Isaac: "I prefer the binary on off symbols to the words", "It should just look like it's
-     rocking between on and off"): one object, ON = the I half pressed in, OFF = the O half pressed in; pressed = the flatter
-     tone, raised = the other with a thin shading edge at the pivot; the lamp's colour as a thin band on the pressed I half. */
+     rocking between on and off"): one object, ON = the I half pressed in, OFF = the O half pressed in; the lamp's colour as
+     a thin band on the pressed I half. Tones (1.1.0, Isaac: "when I toggle in either direction it makes it darker I prefer the
+     lighter shade"): CSS only, one source of truth (.c-rk in CALM_CSS): raised = the card panel, pressed = the pressed-paper
+     tone by day (slab3, the light warm beige) and the key tone by night (slab2; never near-black), the halves split by a hairline
+     and a 3px shading edge on the raised half's pivot side. Until 1.0.1 a card drawn in the page (a toggle redraws it)
+     worked out a much darker pressed tone (3.2:1) from --slab / --fg, one drawn before attach kept these. data-pd = day /
+     night from the theme's --jam-mode (the night tone keys on it). */
   function rocker(card, host, {name, on, offline, color, onToggle}) {
-    // day / night (data-pd): the theme's --jam-mode at host, else at the card (a body not yet in the page has no computed style)
-    const cs = getComputedStyle(host), rgbOf = n => parseRgb(cs.getPropertyValue(n).trim()) || resolveRgb(host, `var(${n})`);
-    const slab = rgbOf("--slab"), fg = rgbOf("--fg"), md = jamMode(host) || jamMode(card), day = md ? md === "day" : !!slab && luminance(slab) > .35;
+    const md = jamMode(host) || jamMode(card);
+    let day = md ? md === "day" : null;
+    if (day === null) { try { const c = parseRgb(getComputedStyle(host).getPropertyValue("--slab").trim()); day = !!c && luminance(c) > .35; } catch (e) { day = false; } }
     const r = ce("button", "rk"); r.type = "button"; r.dataset.key = "power"; r.dataset.pd = day ? "day" : "night";
-    if (slab && fg) {
-      let t = .3, lift = mix(slab, fg, t);
-      while (contrastRatio(lift, slab) < 3.2 && t < .85) { t += .05; lift = mix(slab, fg, t); }
-      const up = day ? slab : lift, inn = day ? lift : slab;
-      r.style.setProperty("--pd-up", rgbCss(up)); r.style.setProperty("--pd-in", rgbCss(inn));
-      r.style.setProperty("--pd-edge", rgbCss(mix(up, inn, .5))); r.style.setProperty("--pd-rim", rgbCss(lift));
-    }
     if (color) r.style.setProperty("--lc", color);
     const NS = "http://www.w3.org/2000/svg", sym = (tag, at) => { const s = document.createElementNS(NS, "svg"), e = document.createElementNS(NS, tag);
       s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false");
@@ -301,7 +299,7 @@
     const api = openSheet({from: card, title: o.title, kicker: o.kicker, rule: false, flash: false, cls: C("cmp" + (o.kiosk ? " kio" : "") + (o.cls ? " " + o.cls : "")),
       headerActions: o.keys || [], onClose: () => { if (card._cmPop && card._cmPop.api === api) card._cmPop = null; if (o.onClose) o.onClose(); }});
     api.pop.toggleAttribute("data-n", isNight(api.root));
-    const pop = {api, fill: o.fill, keys: o.keys, refresh: o.refresh};
+    const pop = {api, fill: o.fill, keys: o.keys, refresh: o.refresh, live: !!o.live}; // live: the card refills it on each render
     card._cmPop = pop;
     lookHold(card, () => { if (api.isOpen()) api.close({silent: true}); }); // the card leaves the page: its pop-up goes too
     fillPop(card);
@@ -709,16 +707,17 @@
     L.append(lab("Inside"));
     const big = ce("div", "big num", n(ins) == null ? "—" : n(ins) + "°");
     if (n(hum) != null) big.append(ce("small", "num", `${n(hum)} %`));
-    asButton(big, () => moreInfo(card, c.inside_entity));
     L.append(big);
     const out = stateObj(h, c.outside_entity), wx = /^weather\./.test(c.outside_entity || "");
     const ot = out && !dead(out) ? (wx ? out.attributes.temperature : out.state) : null;
     Rt.append(lab("Outside"));
     const ob = ce("div", "big num", ot == null || !isFinite(Number(ot)) ? "—" : Math.round(Number(ot)) + "°");
     if (wx && out && !dead(out)) ob.append(ce("span", "w", " " + lc(conditionWord(out.state)).replace(/ night$/, "")));
-    asButton(ob, () => moreInfo(card, c.outside_entity));
     Rt.append(ob);
-    tp.append(L, Rt); root.append(tp);
+    // the two halves are the two doors (1.1.0): inside = indoor climate, outside = the forecast (else HA's more-info)
+    tp.append(halfKey(L, "inside", `Inside, ${big.textContent.replace(/ %$/, " % humidity")}`, () => (climSpec(card) ? climPop(card) : moreInfo(card, c.inside_entity))),
+      halfKey(Rt, "outside", `Outside, ${ob.textContent.trim()}`, () => (wxSpec(card) ? wxPop(card) : moreInfo(card, c.outside_entity))));
+    root.append(tp);
     if (c.lock_entity) {
       const d = doorState(h, c.lock_entity), dr = ce("div", "dr");
       dr.append(ind("led", d.sev !== "off", d.sev === "ok" ? "var(--cok)" : d.sev === "warn" ? "var(--cwarn)" : d.sev === "alert" ? "var(--calert)" : null));
@@ -741,8 +740,281 @@
       root.append(ppl);
     }
     b.append(root);
+    if (card._cmPop && card._cmPop.live) fillPop(card);
     return true;
   };
+  /* A half of the house strip as one button (label + number, keyboard too): the inside / outside pop-up. */
+  function halfKey(box, k, label, run) {
+    const b = ce("button", "half " + (k === "outside" ? "rt" : "lt")); b.type = "button"; b.dataset.key = k;
+    b.append(...box.childNodes); b.setAttribute("aria-label", label + ": details"); b.setAttribute("aria-haspopup", "dialog");
+    b.addEventListener("click", e => { e.stopPropagation(); run(); });
+    return b;
+  }
+
+  /* ---------- the house's two pop-ups (1.1.0, Isaac: "Tapping on the indoor temp gave indoor climate stats with some graphs.
+     ... Tapping the outdoor side showed a popup of a 5 day weather forecast with info from open weathermap") ----------
+     Opened from jam-house (the two halves of the strip) and from the kiosk home (the two parts of its facts line).
+     Options on both cards: inside_more (default on): false = HA's more-info instead, or {temperature, humidity, air_quality,
+     pm25 (entity, or false), rooms: [{name?, temperature, humidity?}] (default: the members of the temperature group, each
+     paired with the humidity group's member of the same device / name), hours (24)}; outside_more (default on for a weather
+     entity): false, or {entity (weather.*), days (5), forecast_type (daily, else twice_daily / hourly as the entity offers)}.
+     Inside: now (temperature, humidity, air word + PM2.5), the rooms (now + a 24 h sparkline each on one shared scale per
+     measure, so rooms compare at a glance; no colour: the name is the label), the house's 24 h temperature and humidity
+     graphs (jam-graph: one series each in ink, one axis, crosshair). Outside: now (glyph, temperature, the condition, high /
+     low), the details (feels like, humidity, wind, pressure, UV, clouds; the OpenWeatherMap sensors fill what the weather
+     entity lacks), the next days (glyph, a low-high bar on one scale for all days with today's temperature on it, rain
+     chance / amount, wind) and the source as a footnote. Kiosks: centred, two columns, nothing scrolls on the iPad / Echo. */
+  const num = (h, id) => { const s = stateObj(h, id); return s && !dead(s) && s.state !== "" && isFinite(Number(s.state)) ? Number(s.state) : null; };
+  const unitOf = (h, id) => { const s = stateObj(h, id); return (s && s.attributes.unit_of_measurement) || ""; };
+  const capFirst = t => (t ? t[0].toUpperCase() + t.slice(1) : t);
+  /* A room's name for a sensor: its area, else its name without "sensor" / "temperature". */
+  function roomName(h, id) {
+    const a = area(h, id);
+    if (a) return a;
+    return capFirst(String(friendly(h, id)).replace(/\b(sensor|temperature|temp|humidity)\b/gi, " ").replace(/\s+/g, " ").trim()) || id;
+  }
+  function climSpec(card) {
+    const c = card._config, h = card._hass, kio = card.localName === "jam-kiosk", more = c.inside_more;
+    if (more === false || !h) return null;
+    const o = more && typeof more === "object" ? more : {};
+    const temp = o.temperature || c.inside_entity;
+    if (!temp || !stateObj(h, temp)) return null;
+    const hum = o.humidity || c.humidity_entity || c.inside_humidity_entity || null;
+    const aq = o.air_quality || (kio ? c.aq_entity : c.inside_aq && typeof c.inside_aq === "object" ? c.inside_aq.entity : c.inside_aq) || null;
+    const pmAuto = aq && /_air_quality$/.test(aq) ? aq.replace(/_air_quality$/, "_pm2_5") : null;
+    const pm = o.pm25 === false ? null : o.pm25 || (pmAuto && stateObj(h, pmAuto) ? pmAuto : null);
+    const members = id => { const s = stateObj(h, id), m = s && s.attributes && s.attributes.entity_id; return Array.isArray(m) ? m.filter(x => typeof x === "string" && stateObj(h, x)) : []; };
+    let rooms;
+    if (Array.isArray(o.rooms)) rooms = o.rooms.map(r => (typeof r === "string" ? {temperature: r} : r)).filter(r => r && stateObj(h, r.temperature))
+      .map(r => ({name: r.name || roomName(h, r.temperature), temperature: r.temperature, humidity: r.humidity || null}));
+    else {
+      const hm = hum ? members(hum) : [], dev = id => h.entities && h.entities[id] && h.entities[id].device_id;
+      rooms = members(temp).map(t => ({name: roomName(h, t), temperature: t,
+        humidity: hm.find(x => x === t.replace(/temperature/, "humidity")) || hm.find(x => dev(x) && dev(x) === dev(t)) || null}));
+    }
+    const house = (h.config && h.config.location_name) || "Home";
+    // kicker: the card's title (jam-house), else the house for a group of sensors, the room for one sensor (the kitchen kiosk)
+    const title = (!kio && c.title) || (members(temp).length ? house : roomName(h, temp));
+    return {temp, hum: hum && stateObj(h, hum) ? hum : null, aq: aq && stateObj(h, aq) ? aq : null, pm, rooms, hours: Number(o.hours) > 0 ? Number(o.hours) : 24, title, kio};
+  }
+  function wxSpec(card) {
+    const c = card._config, h = card._hass, kio = card.localName === "jam-kiosk", more = c.outside_more;
+    if (more === false || !h) return null;
+    const o = more && typeof more === "object" ? more : {};
+    const now = kio ? (c.now || []).find(x => x && x.type === "weather") : null;
+    const id = o.entity || (kio ? now && now.entity : c.outside_entity);
+    if (!/^weather\./.test(id || "") || !stateObj(h, id)) return null;
+    const title = (!kio && c.title) || (h.config && h.config.location_name) || "Home";
+    return {entity: id, days: Math.max(1, Math.min(8, Number(o.days) || 5)), type: o.forecast_type || null, temp: (now && now.temperature_entity) || null, title, kio};
+  }
+  /* A readout: the value big, its label under it (Plex Mono), an optional small line; a button to the sensor's details. */
+  function readout(card, id, value, label, small) {
+    const b = ce(id ? "button" : "div", "rd"); if (id) { b.type = "button"; b.dataset.key = "rd:" + id; b.addEventListener("click", e => { e.stopPropagation(); moreInfo(card, id); }); }
+    b.append(ce("span", "rv num", value), lab(label));
+    if (small) b.append(ce("span", "rs", small));
+    return b;
+  }
+  /* A 24 h sparkline (one series, ink, 1.75px) on a given scale; aria-label / title carry the range in words. */
+  function spark(pts, t0, t1, lo, hi, words) {
+    const NS = "http://www.w3.org/2000/svg", W = 72, H = 26, svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("class", C("spkl")); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", words);
+    const tt = document.createElementNS(NS, "title"); tt.textContent = words; svg.append(tt);
+    const ok = (pts || []).filter(p => p[1] !== null);
+    if (ok.length < 2 || !(hi > lo)) { const g = document.createElementNS(NS, "path"); g.setAttribute("d", `M2 ${H / 2}H${W - 2}`); g.setAttribute("class", C("spn")); svg.append(g); return svg; }
+    const x = t => 2 + (t - t0) / (t1 - t0) * (W - 6), y = v => 3 + (hi - v) / (hi - lo) * (H - 6);
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", ok.map((q, i) => (i ? "L" : "M") + x(q[0]).toFixed(1) + " " + y(q[1]).toFixed(1)).join(""));
+    const e = document.createElementNS(NS, "circle"), l = ok[ok.length - 1];
+    e.setAttribute("cx", x(l[0]).toFixed(1)); e.setAttribute("cy", y(l[1]).toFixed(1)); e.setAttribute("r", "2.5");
+    svg.append(p, e);
+    return svg;
+  }
+  /* Room histories for the sparklines: one history call for every room sensor, through jam-graph's own preparation
+     (JamGraph.prep: numeric states, gaps dropped, <= 240 points); kept 5 minutes on the card. */
+  function climHistory(card, sp) {
+    const h = card._hass, ids = [...new Set(sp.rooms.flatMap(r => [r.temperature, r.humidity]).filter(Boolean))], G = customElements.get("jam-graph");
+    const key = ids.join(",") + "|" + sp.hours, mem = card._cmHist;
+    if (!ids.length || !G || !h || typeof h.callWS !== "function") return null;
+    if (mem && mem.key === key && (mem.busy || Date.now() - mem.at < 300e3)) return mem.data ? mem : null;
+    const t1 = Date.now(), t0 = t1 - sp.hours * 3600e3, next = {key, at: t1, busy: true, data: mem && mem.key === key ? mem.data : null, t0, t1};
+    card._cmHist = next;
+    h.callWS({type: "history/history_during_period", start_time: new Date(t0).toISOString(), end_time: new Date(t1).toISOString(), entity_ids: ids,
+      minimal_response: true, no_attributes: true, significant_changes_only: false}).then(res => {
+      next.data = Object.fromEntries(ids.map(id => [id, G.prep(res && res[id], t0, t1, "line", sp.hours)])); next.t0 = t0; next.t1 = t1;
+    }, () => { next.data = next.data || {}; }).then(() => { next.busy = false; if (card._cmHist === next && card._cmPop && card._cmPop.kind === "clim") fillPop(card); });
+    return next.data ? next : null;
+  }
+  /* The house graphs: jam-graph cards (one series each, in ink), kept on the card while its pop-up refills. */
+  function climGraph(card, sp, id, title, kio) {
+    const G = card._cmGraphs || (card._cmGraphs = new Map());
+    const cfg = {type: "custom:jam-graph", title, entities: [{entity: id, name: sp.rooms.length ? "House" : title, color: "var(--fg)"}], hours_to_show: sp.hours, show_current: false, height: kio ? 104 : 120};
+    const key = JSON.stringify(cfg);
+    let g = G.get(id);
+    if (!g || g._cmKey !== key) {
+      if (!customElements.get("jam-graph")) return null;
+      g = document.createElement("jam-graph"); g._cmKey = key; g.setConfig(cfg); G.set(id, g);
+    }
+    g.toggleAttribute("data-kio", !!kio);
+    g.hass = card._hass;
+    return g;
+  }
+  function climPop(card) {
+    const sp = climSpec(card); if (!sp) return;
+    const ids = [sp.temp, sp.hum, sp.aq, sp.pm, ...sp.rooms.flatMap(r => [r.temperature, r.humidity])].filter(Boolean);
+    card._cmPopIds = ids; card._sig = null;
+    popup(card, {kicker: sp.title, title: "Inside", kiosk: sp.kio, cls: "clim", onClose: () => { card._cmPopIds = null; card._sig = null; }, fill: body => {
+      const s2 = climSpec(card) || sp, h = card._hass, kio = s2.kio;
+      if (card._cmPop) card._cmPop.kind = "clim";
+      // now: temperature, humidity, the air
+      const now = ce("div", "cw rds"), t = num(h, s2.temp), hu = s2.hum ? num(h, s2.hum) : null;
+      now.append(readout(card, s2.temp, t == null ? "—" : Math.round(t * 10) / 10 + "°", "Temperature"));
+      if (s2.hum) now.append(readout(card, s2.hum, hu == null ? "—" : Math.round(hu) + " %", "Humidity"));
+      if (s2.aq) {
+        const a = stateObj(h, s2.aq), w = a && !dead(a) ? aqWord(a.state) : null, pm = s2.pm ? num(h, s2.pm) : null;
+        const r = readout(card, s2.aq, w || OFFLINE, "Air", pm != null ? `PM2.5 ${Math.round(pm)} ${unitOf(h, s2.pm) || "µg/m³"}` : null);
+        r.classList.add(C("word")); now.append(r);
+      }
+      // rooms: now + a sparkline each (one scale per measure for every room)
+      let rooms = null;
+      if (s2.rooms.length) {
+        const mem = climHistory(card, s2), d = mem && mem.data;
+        const scale = key => { let lo = Infinity, hi = -Infinity; for (const r of s2.rooms) for (const p of (d && r[key] && d[r[key]]) || []) if (p[1] !== null) { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); } return [lo, hi]; };
+        const [tl, th] = scale("temperature"), [hl, hh] = scale("humidity"), anyHum = s2.rooms.some(r => r.humidity);
+        const tbl = ce("div", "cw rms" + (anyHum ? "" : " nohum")); // no header: the values carry their units
+        for (const r of s2.rooms) {
+          const row = ce("button", "rm"); row.type = "button"; row.dataset.key = "room:" + r.temperature;
+          row.addEventListener("click", e => { e.stopPropagation(); moreInfo(card, r.temperature); });
+          const tv = num(h, r.temperature), hv = r.humidity ? num(h, r.humidity) : null, range = (pts, f) => { const v = (pts || []).filter(p => p[1] !== null).map(p => p[1]); return v.length ? `${f(Math.min(...v))} to ${f(Math.max(...v))}` : "no history yet"; };
+          const deg = v => Math.round(v) + "°", pc = v => Math.round(v) + " %";
+          const cell = (pts, lo, hi, val, words) => { const c2 = ce("span", "rmc"); c2.append(spark(pts, mem ? mem.t0 : 0, mem ? mem.t1 : 1, lo, hi, words), ce("span", "rmv num", val)); return c2; };
+          row.append(ce("span", "rmn", r.name),
+            cell(d && d[r.temperature], tl, th, tv == null ? "—" : Math.round(tv) + "°", `${r.name} temperature, last ${s2.hours} h: ${range(d && d[r.temperature], deg)}`),
+            anyHum ? (r.humidity ? cell(d && d[r.humidity], hl, hh, hv == null ? "—" : Math.round(hv) + " %", `${r.name} humidity, last ${s2.hours} h: ${range(d && d[r.humidity], pc)}`) : ce("span", "rmc")) : "");
+          row.setAttribute("aria-label", `${r.name}: ${tv == null ? "no reading" : Math.round(tv) + " degrees"}${hv != null ? ", " + Math.round(hv) + " % humidity" : ""}`);
+          tbl.append(row);
+        }
+        rooms = blk(`Rooms · last ${s2.hours} h`, tbl);
+      }
+      // the house's graphs
+      const gs = [climGraph(card, s2, s2.temp, "Temperature", kio), s2.hum ? climGraph(card, s2, s2.hum, "Humidity", kio) : null].filter(Boolean);
+      const graphs = gs.length ? blk(s2.rooms.length ? `House · last ${s2.hours} h` : `Last ${s2.hours} h`, ...gs) : null;
+      if (graphs) graphs.classList.add(C("gph"));
+      if (kio) { const two = ce("div", "kp2"), L = ce("div"), Rc = ce("div"); L.append(now); if (rooms) L.append(rooms); if (graphs) Rc.append(graphs); two.append(L, Rc); body.append(two); }
+      else body.append(...[now, rooms, graphs].filter(Boolean));
+    }, live: true});
+  }
+  /* ---------- the outside pop-up: now, the details, the next days ---------- */
+  const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const uvWord = v => (v < 3 ? "low" : v < 6 ? "moderate" : v < 8 ? "high" : v < 11 ? "very high" : "extreme");
+  /* Forecast items -> days [{d, hi, lo, cond, pp, pr, wind}] from today on (daily as is; twice_daily / hourly folded per day:
+     high / low, the daytime condition seen most, the highest rain chance, the rain summed, the strongest wind). */
+  function wxDays(fc, type, n) {
+    const by = new Map(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    for (const x of fc || []) {
+      const d = new Date(x.datetime); if (!isFinite(d)) continue;
+      const day = new Date(d); day.setHours(0, 0, 0, 0);
+      if (day < d0) continue;
+      const k = +day; let g = by.get(k);
+      if (!g) by.set(k, g = {d: day, hi: -Infinity, lo: Infinity, conds: new Map(), pp: null, pr: null, wind: null, unit: null});
+      const t = Number(x.temperature), tl = Number(x.templow);
+      if (isFinite(t)) { g.hi = Math.max(g.hi, t); g.lo = Math.min(g.lo, t); }
+      if (x.templow != null && isFinite(tl)) g.lo = Math.min(g.lo, tl);
+      const hr = d.getHours(), day2 = x.is_daytime != null ? !!x.is_daytime : type !== "hourly" || (hr >= 8 && hr < 20);
+      if (x.condition && day2) g.conds.set(x.condition, (g.conds.get(x.condition) || 0) + 1);
+      else if (x.condition && !g.conds.size) g.conds.set(x.condition, .5);
+      if (x.precipitation_probability != null && isFinite(Number(x.precipitation_probability))) g.pp = Math.max(g.pp || 0, Number(x.precipitation_probability));
+      if (x.precipitation != null && isFinite(Number(x.precipitation))) g.pr = (g.pr || 0) + Number(x.precipitation);
+      if (x.wind_speed != null && isFinite(Number(x.wind_speed))) g.wind = Math.max(g.wind || 0, Number(x.wind_speed));
+    }
+    return [...by.values()].sort((a, b) => a.d - b.d).slice(0, n).map(g => ({...g, cond: [...g.conds.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0])[0] || null,
+      hi: isFinite(g.hi) ? g.hi : null, lo: isFinite(g.lo) ? g.lo : null}));
+  }
+  /* The forecast subscription while the pop-up is open (weather/subscribe_forecast: daily, else twice_daily / hourly as
+     supported_features offers; a failure tries the next one; the legacy forecast attribute when nothing answers). */
+  function wxSubscribe(card, sp, onData) {
+    const h = card._hass, s = stateObj(h, sp.entity), sf = Number(s && s.attributes.supported_features) || 0;
+    const types = sp.type ? [sp.type] : ["daily", "twice_daily", "hourly"].filter(t => !sf || sf & {daily: 1, hourly: 2, twice_daily: 4}[t]);
+    const st = {unsub: null, closed: false};
+    const legacy = () => { const f = s && s.attributes.forecast; if (Array.isArray(f) && !st.closed) onData(f, "daily"); };
+    const go = i => {
+      if (st.closed) return;
+      if (i >= types.length || !h.connection || typeof h.connection.subscribeMessage !== "function") { legacy(); return; }
+      try {
+        h.connection.subscribeMessage(ev => { if (!st.closed) onData((ev && ev.forecast) || [], types[i]); }, {type: "weather/subscribe_forecast", forecast_type: types[i], entity_id: sp.entity})
+          .then(u => { if (st.closed) { try { u(); } catch (e) { /* gone */ } } else st.unsub = u; }, () => go(i + 1));
+      } catch (e) { go(i + 1); }
+    };
+    go(0);
+    return () => { st.closed = true; if (st.unsub) { try { st.unsub(); } catch (e) { /* gone */ } st.unsub = null; } };
+  }
+  function wxPop(card) {
+    const sp = wxSpec(card); if (!sp) return;
+    const obj = sp.entity.split(".")[1], extra = ["uv_index", "wind_gust_speed"].map(k => `sensor.${obj}_${k}`).filter(id => stateObj(card._hass, id));
+    card._cmPopIds = [sp.entity, sp.temp, ...extra].filter(Boolean); card._sig = null;
+    const fc = {items: null, type: null};
+    let stop = null;
+    popup(card, {kicker: sp.title, title: "Outside", kiosk: sp.kio, cls: "wxp", onClose: () => { if (stop) stop(); card._cmPopIds = null; card._sig = null; }, live: true, fill: body => {
+      const h = card._hass, s = stateObj(h, sp.entity), a = (s && s.attributes) || {}, kio = sp.kio, off = dead(s);
+      const tu = a.temperature_unit && /C$/.test(a.temperature_unit) ? "°" : "°";
+      const days = wxDays(fc.items, fc.type, sp.days), today = days[0] && +days[0].d === new Date().setHours(0, 0, 0, 0) ? days[0] : null;
+      // now
+      const tNow = sp.temp && num(h, sp.temp) != null ? num(h, sp.temp) : Number(a.temperature);
+      const nowBox = ce("div", "cw wxn"), top = ce("div", "wxt");
+      const word = off ? OFFLINE : capFirst(lc(conditionWord(s.state)));
+      const tx = ce("span", "wxw"); tx.append(ce("span", "wxb num", off || !isFinite(tNow) ? "—" : Math.round(tNow) + tu), ce("span", "wxc", word));
+      if (today && today.hi != null) tx.append(ce("span", "wxs num", `High ${Math.round(today.hi)}${tu} · low ${Math.round(today.lo)}${tu}`));
+      top.append(off ? ce("span") : wxGlyph(s.state, s.state === "clear-night"), tx);
+      nowBox.append(top);
+      // the details (what the entity has, else the OpenWeatherMap sensors)
+      const sens = k => num(h, `sensor.${obj}_${k}`), fin = v => v != null && v !== "" && isFinite(Number(v));
+      const det = [];
+      if (fin(a.apparent_temperature)) det.push(["Feels like", Math.round(a.apparent_temperature) + tu]);
+      if (fin(a.humidity)) det.push(["Humidity", Math.round(a.humidity) + " %"]);
+      if (fin(a.wind_speed)) {
+        const gust = fin(a.wind_gust_speed) ? Number(a.wind_gust_speed) : sens("wind_gust_speed"), dir = fin(a.wind_bearing) ? COMPASS[Math.round(Number(a.wind_bearing) / 45) % 8] : "";
+        det.push(["Wind", `${Math.round(a.wind_speed)} ${a.wind_speed_unit || ""}${dir ? " " + dir : ""}`.trim(), gust != null && gust > Number(a.wind_speed) ? `gusts ${Math.round(gust)}` : null]);
+      }
+      if (fin(a.pressure)) det.push(["Pressure", `${Number(a.pressure).toLocaleString((h.locale && h.locale.language) || undefined, {maximumFractionDigits: Number(a.pressure) < 100 ? 2 : 0})} ${a.pressure_unit || ""}`.trim()]);
+      const uv = fin(a.uv_index) ? Number(a.uv_index) : sens("uv_index");
+      if (uv != null) det.push(["UV index", `${Math.round(uv)} · ${uvWord(uv)}`]);
+      if (fin(a.cloud_coverage)) det.push(["Clouds", Math.round(a.cloud_coverage) + " %"]);
+      if (det.length && !off) {
+        const g = ce("dl", "wxd");
+        for (const [k, v, sm] of det) { const it = ce("div", "wxi"); it.append(ce("dt", "lab", k), ce("dd", "num", v + (sm ? " · " + sm : ""))); g.append(it); }
+        nowBox.append(g);
+      }
+      // the next days
+      const list = ce("div", "cw wxf");
+      if (!days.length) list.append(ce("span", "note", fc.items ? "No forecast from this weather service." : "Loading the forecast…"));
+      else {
+        const LO = Math.min(...days.map(x => x.lo).filter(v => v != null)), HI = Math.max(...days.map(x => x.hi).filter(v => v != null)), span = HI - LO || 1;
+        const pu = a.precipitation_unit || "", wu = a.wind_speed_unit || "";
+        for (const [i, x] of days.entries()) {
+          const row = ce("div", "fd" + (i === 0 && today ? " today" : ""));
+          const name = i === 0 && today ? "Today" : x.d.toLocaleDateString((h.locale && h.locale.language) || undefined, {weekday: "short"});
+          const bar = ce("span", "fbar"), fill = ce("i");
+          if (x.hi != null && x.lo != null) { fill.style.left = ((x.lo - LO) / span * 100).toFixed(1) + "%"; fill.style.right = ((HI - x.hi) / span * 100).toFixed(1) + "%"; bar.append(fill); }
+          if (i === 0 && today && isFinite(tNow) && tNow >= LO - .5 && tNow <= HI + .5) { const dot = ce("b", "fnow"); dot.style.left = ((Math.min(HI, Math.max(LO, tNow)) - LO) / span * 100).toFixed(1) + "%"; bar.append(dot); }
+          bar.setAttribute("aria-hidden", "true");
+          const sub = [x.cond ? capFirst(lc(conditionWord(x.cond))).replace(/ night$/, "") : null,
+            x.pp != null && x.pp > 0 ? `rain ${Math.round(x.pp)} %` : null, x.pr != null && x.pr > 0 ? `${Math.round(x.pr * 100) / 100} ${pu}`.trim() : null,
+            x.wind != null ? `wind ${Math.round(x.wind)} ${wu}`.trim() : null].filter(Boolean).join(" · ");
+          row.append(ce("span", "fdn", name), x.cond ? wxGlyph(x.cond, false) : ce("span"), ce("span", "flo num", x.lo == null ? "—" : Math.round(x.lo) + "°"), bar,
+            ce("span", "fhi num", x.hi == null ? "—" : Math.round(x.hi) + "°"), ce("span", "fds", sub));
+          row.setAttribute("role", "listitem");
+          row.setAttribute("aria-label", `${name}: ${sub}, low ${x.lo == null ? "unknown" : Math.round(x.lo)}, high ${x.hi == null ? "unknown" : Math.round(x.hi)} degrees`);
+          list.append(row);
+        }
+        list.setAttribute("role", "list");
+      }
+      const next = blk(days.length > 1 ? `Next ${days.length} days` : "Forecast", list);
+      const foot = a.attribution ? ce("span", "attr", String(a.attribution)) : null;
+      if (kio) { const two = ce("div", "kp2"), L = ce("div"), Rc = ce("div"); L.append(nowBox); if (foot) L.append(foot); Rc.append(next); two.append(L, Rc); body.append(two); }
+      else body.append(...[nowBox, next, foot].filter(Boolean));
+    }});
+    if (card._cmPop) card._cmPop.kind = "wx";
+    stop = wxSubscribe(card, sp, (items, type) => { fc.items = items; fc.type = type; if (card._cmPop && card._cmPop.kind === "wx") fillPop(card); });
+  }
 
   /* ---------- jam-heading: the room head ("Living room" + "73.6° · 62%") ---------- */
   R["jam-heading"] = (card, b) => {
@@ -764,11 +1036,13 @@
     const c = card._config, h = card._hass, full = String(c.name || friendly(h, c.media_player) || "TV"), parts = full.split(/\s+·\s+/);
     return {title: parts.length > 1 ? parts[0] : "TV", device: parts.length > 1 ? parts.slice(1).join(" · ") : full, room: c.room || area(h, c.media_player)};
   }
+  /* The TV's state as the card shows it: jam-tv _playState() (1.1.0: the TV's player, or the Cast player that knows what it
+     plays, see jam-tv playback_entity). */
   function tvState(card) {
-    const c = card._config, h = card._hass, s = stateObj(h, c.media_player), a = (s && s.attributes) || {};
+    const c = card._config, h = card._hass, s = typeof card._playState === "function" ? card._playState() : stateObj(h, c.media_player), a = (s && s.attributes) || {};
     const off = !s || UNAVAILABLE.has(s.state) || s.state === "off" || s.state === "standby";
     const playing = !off && (["playing", "paused", "buffering"].includes(s.state) || !!a.media_title);
-    const act = off ? null : card._activeSource(), app = off ? null : card._app(a) || (act && act.name) || null;
+    const act = off ? null : card._activeSource(), app = off ? null : card._app(a) || appLabel(h, c.current_app_entity) || (act && act.name) || null;
     let ends = "", frac = null;
     const dur = Number(a.media_duration);
     if (playing && dur > 0 && a.media_position != null) {
@@ -779,10 +1053,20 @@
     }
     return {s, a, off, playing, paused: !!s && s.state === "paused", act, app, ends, frac, unavailable: !s || UNAVAILABLE.has(s.state)};
   }
+  /* The state word (1.1.0, Isaac: "... says idle even when I'm watching a movie"): Playing / Paused / On from the real
+     state, then the app on screen ("On · YouTube", "Playing · YouTube"), else the device ("Off · Phoster"); never "idle". */
   function tvWord(card, t) {
-    const {device} = tvNames(card);
-    return (t.unavailable ? OFFLINE : t.off ? "Off" : t.playing ? (t.paused ? "Paused" : "Playing") : "On · idle") + (device && device !== "TV" ? " · " + device : "");
+    const {device} = tvNames(card), dev = device && device !== "TV" ? device : "";
+    const st = t.unavailable ? OFFLINE : t.off ? "Off" : t.playing ? (t.paused ? "Paused" : "Playing") : "On";
+    const tail = (!t.off && ((t.act && t.act.name) || t.app)) || dev;
+    return st + (tail ? " · " + tail : "");
   }
+  /* An app sensor's label (Control Freak's current app: "YouTube", "Jamfin TV"), not a package id, a home screen or nothing. */
+  function appLabel(h, id) {
+    const s = id && stateObj(h, id), v = s && !dead(s) ? String(s.state).trim() : "";
+    return v && v !== "unknown" && !JAM_KIOSK_PKG.test(v) && !JAM_KIOSK_NOTHING.test(v) ? v : null;
+  }
+  const tvLabel = t => (t.unavailable ? OFFLINE : t.off ? "Off" : t.playing ? (t.paused ? "Paused" : "Playing") : "On");
   /* Transport: rewind / play-pause / forward (the remote's media keys when there is a remote, else prev / next track). */
   function tvTransport(card, t, orange) {
     const c = card._config, h = card._hass, rc = card._remoteCfg(), k3 = ce("div", "k3");
@@ -836,8 +1120,8 @@
         what.append(ce("span", "mtitle", t.a.media_title || t.app || "Playing"), ce("span", "msub num", [t.app, t.ends].filter(Boolean).join(" · ")));
         root.append(what);
         if (t.frac != null) { const p = ce("div", "prog"), i = ce("i"); i.style.width = (t.frac * 100).toFixed(1) + "%"; p.append(i); p.setAttribute("aria-hidden", "true"); root.append(p); }
-      } else {
-        what.append(ce("span", "mtitle", (t.act && t.act.name) || t.app || "On"), ce("span", "msub", "Nothing playing"));
+      } else { // on, nothing reports playback: the app on screen (whether it plays is not known, so no "Nothing playing")
+        what.append(ce("span", "mtitle", (t.act && t.act.name) || t.app || "On"));
         root.append(what);
       }
       root.append(tvTransport(card, t, true));
@@ -854,7 +1138,7 @@
   };
   function tvSummary(card, t, big) {
     const box = ce("div", "cw mc sum"), top = ce("div", "sumh"), txt = ce("span");
-    txt.append(lab(t.unavailable ? OFFLINE : t.off ? "Off" : t.playing ? (t.paused ? "Paused" : "Playing") : "On · idle"));
+    txt.append(lab(tvLabel(t)));
     const tt = ce("span", "mtitle" + (big ? " xl" : ""), t.off ? (t.unavailable ? "TV is offline" : "TV is off") : t.playing ? (t.a.media_title || t.app || "Playing") : (t.act && t.act.name) || t.app || "On");
     txt.append(tt);
     if (t.playing && (t.app || t.ends)) txt.append(ce("span", "msub num", [t.app, t.ends].filter(Boolean).join(" · ")));
@@ -1156,15 +1440,23 @@
     t.append(document.createTextNode(f.h12 ? `${hh % 12 || 12}:${mm}` : `${String(hh).padStart(2, "0")}:${mm}`));
     if (f.h12) t.append(ce("small", "", hh < 12 ? "AM" : "PM"));
     clk.append(t, ce("div", "d", jamDateText(now, (h.locale && h.locale.language) || h.language)));
-    const facts = [], num = id => { const s = stateObj(h, id); return s && !dead(s) && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
-    if (num(c.inside_entity) != null) facts.push(`${num(c.inside_entity)}° inside`);
+    const inF = [], outF = [], num = id => { const s = stateObj(h, id); return s && !dead(s) && isFinite(Number(s.state)) ? Math.round(Number(s.state)) : null; };
+    if (num(c.inside_entity) != null) inF.push(`${num(c.inside_entity)}° inside`);
     const wx = (c.now || []).find(x => x.type === "weather"), ws = wx && stateObj(h, wx.entity);
     if (ws && !dead(ws)) {
       const tt = wx.temperature_entity && num(wx.temperature_entity) != null ? num(wx.temperature_entity) : Math.round(Number(ws.attributes.temperature));
-      facts.push(`${tt}° ${lc(conditionWord(ws.state)).replace(/ night$/, "")}`);
-      const hi = K.hi; if (hi) facts.push(hi);
+      outF.push(`${tt}° ${lc(conditionWord(ws.state)).replace(/ night$/, "")}`);
+      const hi = K.hi; if (hi) outF.push(hi);
     }
-    if (facts.length) clk.append(ce("div", "f", facts.join(" · ")));
+    // the facts line's two parts are two buttons (1.1.0): inside = indoor climate, the weather = the forecast
+    if (inF.length || outF.length) {
+      const f = ce("div", "f"), part = (txt, k, run, label) => { const b = ce("button", "fb", txt); b.type = "button"; b.dataset.key = k;
+        b.setAttribute("aria-label", label); b.setAttribute("aria-haspopup", "dialog"); b.addEventListener("click", e => { e.stopPropagation(); run(); }); return b; };
+      if (inF.length) f.append(part(inF.join(" · "), "inside", () => (climSpec(card) ? climPop(card) : moreInfo(card, c.inside_entity)), `Inside, ${inF.join(", ")}: details`));
+      if (inF.length && outF.length) { const sep = ce("span", "fsep", " · "); sep.setAttribute("aria-hidden", "true"); f.append(sep); }
+      if (outF.length) f.append(part(outF.join(" · "), "outside", () => (wxSpec(card) ? wxPop(card) : moreInfo(card, wx.entity)), `Outside, ${outF.join(", ")}: forecast`));
+      clk.append(f);
+    }
     // dock
     const dock = ce("div", "dock"), blocks = c.dock.slice(0, 3);
     dock.style.setProperty("--n", blocks.length);
@@ -1186,7 +1478,7 @@
       open.setAttribute("aria-label", bk.name + (word ? ", " + word : ""));
       open.addEventListener("click", () => cmKioskTap(card, bk));
       kt.append(open);
-      const ms = st.entity && /^media_player\./.test(st.entity) ? stateObj(h, st.entity) : null;
+      const tvb = st.entity && dockTv(card, bk), ms = st.entity && /^media_player\./.test(st.entity) ? (tvb ? tvb.ps : stateObj(h, st.entity)) : null;
       if (ms && ms.state === "playing") {
         kt.append(key("", "pause", () => jamCall(card, card._hass, "media_player", "media_pause", {entity_id: st.entity}), {cls: orange ? "or" : "", aria: `Pause ${bk.name.toLowerCase()}`, key: "pause:" + bk.name}));
         orange = false;
@@ -1218,6 +1510,7 @@
       } catch (e) { /* no forecast */ }
     }
     if (card._jamSheet) card._jamSheet.hass(h);
+    if (card._cmPop && card._cmPop.live) fillPop(card);
     card._fit();
     return true;
   };
@@ -1230,13 +1523,21 @@
     if (!s) return card._stateText(st);
     if (dead(s)) return OFFLINE;
     if (s.state === "off" || s.state === "standby") return "Off";
-    const tvc = (bk.cards || []).find(x => x && x.type === "custom:jam-tv" && x.media_player === st.entity), T = customElements.get("jam-tv");
-    if (["playing", "paused"].includes(s.state) && s.attributes.media_title) return (tvc ? (s.state === "paused" ? "Paused · " : "") : s.state === "playing" ? "Playing · " : "Paused · ") + s.attributes.media_title;
-    if (tvc && T) {
-      const o = Object.create(T.prototype); o._config = tvc; o._hass = h;
-      const a = o._activeSource(); return a && a.name ? "On · " + a.name : "On";
+    const tv = dockTv(card, bk), p = tv ? tv.ps : s;
+    if (["playing", "paused"].includes(p.state) && p.attributes.media_title) return (tv ? (p.state === "paused" ? "Paused · " : "") : p.state === "playing" ? "Playing · " : "Paused · ") + p.attributes.media_title;
+    if (tv) { // the TV is on: Playing / Paused / On and the source on screen (else the app), never "Idle" (1.1.0)
+      const a = tv.o._activeSource(), app = (a && a.name) || tv.o._app(p.attributes || {}) || appLabel(h, st.app_entity || tv.o._config.current_app_entity);
+      return (["playing", "paused", "buffering"].includes(p.state) ? (p.state === "paused" ? "Paused" : "Playing") : "On") + (app ? " · " + app : "");
     }
     return s.state === "idle" ? "Idle" : card._stateText(st);
+  }
+  /* The dock block's jam-tv (its sheet's card on the block's player) as a stand-in card: {o (jam-tv methods on its config), ps
+     (its _playState(): the Cast player's playback while the TV is on)} or null. */
+  function dockTv(card, bk) {
+    const st = bk.state || {}, tvc = (bk.cards || []).find(x => x && x.type === "custom:jam-tv" && x.media_player === st.entity), T = customElements.get("jam-tv");
+    if (!tvc || !T) return null;
+    const o = Object.create(T.prototype); o._config = tvc; o._hass = card._hass;
+    return {o, ps: o._playState() || stateObj(card._hass, st.entity)};
   }
   /* A dock key: its sheet (full screen; `rows` on the block = cards per row: [1, 4, 2] = scenes / four lights / purifier +
      all off, the rows with lights or switches fill the height) or its action (a confirmation opens the Calm pop-up). */
@@ -1372,6 +1673,10 @@
 .c-ofx{display:grid;gap:10px;align-content:start;justify-items:start}
 .c-tg{display:grid;align-content:end;border-radius:12px}
 /* the rocker (paddle-off): one object; ON = the I half pressed, OFF = the O half pressed; a thin lamp-colour band on the pressed I half */
+/* tones (1.1.0): one source, here; raised = the panel, pressed = slab3 by day / the key tone by night
+   (Isaac preferred the lighter shade to the 3.2:1 grey), split by a hairline + the 3px edge on the raised half */
+.c-rk{--pd-up:var(--cpl);--pd-in:var(--ckey2);--pd-edge:var(--cln);--pd-rim:var(--cln)}
+.c-rk[data-pd=night]{--pd-in:var(--ckey)}
 .c-rk{position:relative;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr;overflow:hidden;padding:0;min-height:96px;cursor:pointer;
   background:var(--pd-up,var(--cpl));border:1.5px solid var(--pd-rim,var(--cln));border-radius:12px;--pd-sym:18px;--pd-sw:4;--pd-ew:3px;--pd-band:5px;transform-origin:50% 50%}
 .c-rk i{position:relative;display:flex;align-items:center;justify-content:center;font-style:normal;min-width:0;background:var(--pd-up,var(--cpl));color:var(--cink)}
@@ -1456,6 +1761,74 @@
 .c-ptag{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:4px;background:var(--c);color:#fff;font:600 12px var(--cmono);font-style:normal}
 .c-ppl .c-away{color:var(--cdim)}
 .c-ppl .c-away .c-ptag{background:transparent;color:var(--cdim);box-shadow:inset 0 0 0 1.5px var(--cdim)}
+/* the strip's two halves (1.1.0): each one button, label + number; the › says it opens */
+.c-hs .c-half{appearance:none;border:0;background:none;padding:2px 0;margin:0;color:var(--cink);font:inherit;cursor:pointer;display:grid;gap:4px;align-content:end;
+  justify-items:start;text-align:left;min-height:44px;min-width:0;border-radius:10px}
+.c-hs .c-half.c-rt{justify-items:end;text-align:right}
+.c-hs .c-half .c-big{cursor:inherit}
+.c-hs .c-half > .c-lab::after{content:" ›";letter-spacing:0}
+.c-hs .c-half:hover > .c-lab{color:var(--cink)}
+/* the kiosk's facts line: its inside part and its weather part are buttons */
+.c-fb{appearance:none;border:0;background:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;position:relative;text-align:left;border-radius:6px}
+.c-fb::after{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,48px);transform:translateY(-50%)}
+.c-fb:hover{color:var(--cink)}
+/* the inside / outside pop-ups (1.1.0): readouts, the rooms with their sparklines, the house graphs; now, details, next days */
+.pop.c-cmp.c-clim:not(.c-kio) .sheet,.pop.c-cmp.c-wxp:not(.c-kio) .sheet{max-width:520px}
+.c-rds{display:flex;flex-wrap:wrap;gap:6px 26px;padding:12px 16px}
+.c-rd{appearance:none;border:0;background:none;padding:4px 0;margin:0;color:var(--cink);cursor:pointer;display:grid;gap:5px;align-content:start;justify-items:start;text-align:left;
+  min-height:44px;min-width:0;border-radius:10px;font:inherit}
+div.c-rd{cursor:default}
+.c-rv{font:300 34px/1 var(--body);letter-spacing:-.01em;white-space:nowrap}
+.c-rd.c-word .c-rv{font:500 20px/1.2 var(--body);letter-spacing:0;padding-top:7px;white-space:normal}
+.c-rs{font-size:14px;line-height:1.3;color:var(--cdim)}
+.c-rms{padding:4px 0;display:grid}
+.c-rm{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:0 14px}
+.c-rms.c-nohum .c-rm{grid-template-columns:minmax(0,1fr) auto}
+.c-rm{appearance:none;border:0;background:none;margin:0;color:var(--cink);text-align:left;min-height:50px;cursor:pointer;font:inherit;width:100%;border-radius:10px}
+.c-rm + .c-rm{border-top:1px solid var(--chair);border-radius:0}
+.c-rmn{font:500 16px/1.2 var(--body);overflow-wrap:break-word;min-width:0}
+.c-rmc{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
+.c-rmv{font:400 17px/1 var(--body);min-width:40px;text-align:right;white-space:nowrap}
+.c-spkl{display:block;width:56px;height:26px;flex:none;overflow:visible}
+.c-spkl path{fill:none;stroke:var(--cink);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.c-spkl .c-spn{stroke:var(--cln);stroke-dasharray:2 4}
+.c-spkl circle{fill:var(--cink)}
+.c-gph > jam-graph{display:block}
+.c-wxn{padding:14px 16px;display:grid;gap:14px}
+.c-wxt{display:flex;gap:14px;align-items:center}
+.c-wxt .gl{display:block;width:56px;height:56px;flex:none;color:var(--cink);overflow:visible}
+.c-wxw{display:grid;gap:3px;min-width:0}
+.c-wxb{font:300 40px/1 var(--body);letter-spacing:-.01em}
+.c-wxc{font:500 17px/1.2 var(--body)}
+.c-wxs{font-size:14px;color:var(--cdim)}
+.c-wxd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;border-top:1px solid var(--chair);padding-top:12px}
+.c-wxi{display:grid;gap:4px;min-width:0;align-content:start}
+.c-wxi dd{margin:0;font:400 16px/1.25 var(--body);overflow-wrap:anywhere}
+.c-wxf{padding:2px 0;display:grid}
+.c-fd{display:grid;grid-template-columns:50px 30px 36px minmax(0,1fr) 36px;column-gap:8px;row-gap:2px;align-items:center;padding:9px 14px}
+.c-fd + .c-fd{border-top:1px solid var(--chair)}
+.c-fdn{font:500 15px/1.2 var(--body)}
+.c-fd .gl{display:block;width:30px;height:30px;color:var(--cink);overflow:visible}
+.c-flo,.c-fhi{font:400 15px/1 var(--body);white-space:nowrap}
+.c-flo{text-align:right;color:var(--cdim)}
+.c-fbar{position:relative;height:6px;border-radius:3px;background:var(--cgroove);box-shadow:inset 0 0 0 1px var(--cln)}
+.c-fbar i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--cink);min-width:6px}
+.c-fnow{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--cpl);box-shadow:0 0 0 2px var(--cink)}
+.c-fds{grid-column:2/-1;font-size:14px;line-height:1.3;color:var(--cdim)}
+.c-fd.c-today .c-fdn{font-weight:600}
+.c-attr{font-size:12px;color:var(--cdim);padding:0 2px}
+.pop.c-kio .c-rv{font-size:44px}.pop.c-kio .c-rd.c-word .c-rv{font-size:24px}.pop.c-kio .c-rs{font-size:16px}
+.pop.c-kio .c-wxd{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pop.c-kio .c-rm{gap:10px}.pop.c-kio .c-rmc .c-spkl{width:44px}
+@media (max-height:640px){ /* the Echo Show's 601px: the inside pop-up stays one screen */
+  .pop.c-cmp.c-kio.c-clim .sheet > .face,.pop.c-cmp.c-kio.c-wxp .sheet > .face{--p-t:16px;--p-b:16px;gap:12px}
+  .pop.c-kio .c-rds{padding:8px 14px;gap:2px 20px}.pop.c-kio .c-rv{font-size:38px}.pop.c-kio .c-rd.c-word .c-rv{font-size:22px;padding-top:4px}
+  .pop.c-kio .c-rm{min-height:44px}.pop.c-kio .c-wxn{gap:10px;padding:12px 14px}.pop.c-kio .c-fd{padding:6px 14px}
+}
+.pop.c-kio .c-rmn{font-size:18px}.pop.c-kio .c-rmv{font-size:19px;min-width:48px}.pop.c-kio .c-rm{min-height:52px}
+.pop.c-kio .c-wxb{font-size:52px}.pop.c-kio .c-wxc{font-size:21px}.pop.c-kio .c-wxs{font-size:16px}.pop.c-kio .c-wxi dd{font-size:18px}
+.pop.c-kio .c-fd{grid-template-columns:62px 34px 44px minmax(0,1fr) 44px;padding:8px 16px}.pop.c-kio .c-fd .gl{width:34px;height:34px}
+.pop.c-kio .c-fdn,.pop.c-kio .c-flo,.pop.c-kio .c-fhi{font-size:18px}.pop.c-kio .c-fds{font-size:15px}.pop.c-kio .c-attr{font-size:15px}
 /* room head */
 .c-rh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 2px 0} /* padding, not margin: a margin collapsed out of the card (0.11.0-calm.4) */
 .c-rh .c-rt{font:500 26px/1.1 var(--body)}
@@ -1580,14 +1953,43 @@
 .pop .c-pwr .c-ic{width:18px;height:18px;stroke:var(--cdim);stroke-width:2.4;transition:stroke 300ms}
 .pop .c-pwr[aria-pressed=true] .c-ic{stroke:var(--cokg)}
 @media (max-width:600px){.pop .sheet{max-width:none}.pop .sheet > .face{border-radius:22px 22px 0 0;border-width:1px 0 0;max-height:90vh}}
+/* the phone remote (1.1.0, Isaac: "Can the popup for the TV remote be taller? The bottom of the remote is getting cut off"):
+   a taller bottom sheet, up to 24px under the top edge (and the notch), so the whole 647px remote shows on a phone; where
+   even that is short (375 x 667) the body scrolls (never clipped, never squished) */
+@media (max-width:600px){.pop.c-cmp.c-rem:not(.c-kio) .sheet > .face{max-height:calc(100vh - 24px - env(safe-area-inset-top,0px));max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px))}}
 @keyframes calm-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @keyframes calm-fade{from{opacity:0}to{opacity:1}}
 @keyframes calm-fade-out{from{opacity:1}to{opacity:0}}
 @keyframes calm-press{from{transform:translateY(1px)}to{transform:translateY(1px)}}
 @keyframes calm-settle{from{transform:scale(.98)}to{transform:none}}
 @keyframes calm-nudge{0%,100%{transform:none}50%{transform:translateX(3px)}}
-.pop.opening .wipe{animation:calm-rise calc(220ms * var(--jam-motion,1)) var(--settle) backwards}
-.pop.opening .veil{animation:calm-fade calc(180ms * var(--jam-motion,1)) ease-out backwards}
+/* pop-up motion (1.1.0, Isaac: "I'm missing the animations of the popups"; the 0.11 rise was 24px on the settle curve and
+   read as a cut, and closing had none). Open: a centred pop-up (desktop, kiosk) fades in rising 14px from 96.5 %, a phone's
+   bottom sheet rises 72px and fades in, a kiosk sheet (full screen) fades in rising 10px; the veil fades to its .6.
+   Close (core .closing, the layer stays sheetLeaveMs()): the same moves reversed, shorter, on the leave curve. The calm tier
+   (.jam-calm, JamCards.motion = "calm") fades only; reduced motion: none (core). Placement never depends on it: the open
+   fill is backwards (the end state is the element's own), the leave holds its end only while the layer is removed. */
+@keyframes cm-in-c{from{opacity:0;transform:translateY(14px) scale(.965)}55%{opacity:1}to{opacity:1;transform:none}}
+@keyframes cm-out-c{from{opacity:1;transform:none}to{opacity:0;transform:translateY(10px) scale(.975)}}
+@keyframes cm-in-b{from{opacity:0;transform:translateY(72px)}40%{opacity:1}to{opacity:1;transform:none}}
+@keyframes cm-out-b{from{opacity:1;transform:none}to{opacity:0;transform:translateY(64px)}}
+@keyframes cm-in-f{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes cm-veil-in{from{opacity:0}to{opacity:.6}}
+@keyframes cm-veil-out{from{opacity:.6}to{opacity:0}}
+.pop.opening .wipe{animation:cm-in-c calc(240ms * var(--jam-motion,1)) cubic-bezier(.2,.8,.2,1) backwards}
+.pop.opening .veil{animation:cm-veil-in calc(200ms * var(--jam-motion,1)) ease-out backwards}
+.pop.closing .wipe{animation:cm-out-c calc(170ms * var(--jam-motion,1)) cubic-bezier(.4,0,1,1) forwards}
+.pop.closing .veil{animation:cm-veil-out calc(180ms * var(--jam-motion,1)) cubic-bezier(.4,0,1,1) forwards}
+.pop.full.opening .wipe{animation-name:cm-in-f;animation-duration:calc(220ms * var(--jam-motion,1))}
+.pop.full.closing .wipe{animation-name:calm-fade-out}
+@media (max-width:600px){
+  .pop:not(.full):not(.c-kio):not(.jam-calm).opening .wipe{animation-name:cm-in-b;animation-duration:calc(260ms * var(--jam-motion,1))}
+  .pop:not(.full):not(.c-kio):not(.jam-calm).closing .wipe{animation-name:cm-out-b;animation-duration:calc(180ms * var(--jam-motion,1))}
+}
+.pop.jam-calm.opening .wipe{animation:calm-fade calc(160ms * var(--jam-motion,1)) ease-out backwards}
+.pop.jam-calm.closing .wipe{animation:calm-fade-out calc(130ms * var(--jam-motion,1)) ease-in forwards}
+.pop.jam-calm.opening .veil{animation-duration:calc(160ms * var(--jam-motion,1))}.pop.jam-calm.closing .veil{animation-duration:calc(130ms * var(--jam-motion,1))}
+@media (prefers-reduced-motion:reduce){.pop.opening .veil{animation:none!important}}
 /* kiosk pop-ups: centred, wider, two columns for the light */
 .pop.c-cmp.c-kio .sheet{max-width:760px}
 .pop.c-cmp.c-kio .sheet > .face{--p-t:22px;--p-r:24px;--p-b:24px;--p-l:24px;border-radius:22px;border-width:1px;max-height:calc(100vh - 40px)}
@@ -1811,6 +2213,18 @@ button.chip::before{border:1px solid var(--cln);border-radius:999px}
 :host(jam-button) .on .st{color:var(--cdim)}
 :host(jam-button) .st{font:500 12px/1.2 var(--cmono);letter-spacing:.12em}
 :host(jam-popup) .rule{display:none}
+/* jam-graph (1.1.0, the dataviz rules): thin round lines, a hairline grid, labels in Plex Mono in the text tokens, round
+   series marks; in a kiosk pop-up (data-kio) the text keeps the kiosk's 15px floor */
+:host(jam-graph){--jam-graph-ax:12px}
+:host(jam-graph[data-kio]){--jam-graph-ax:15px}
+:host(jam-graph[data-kio]) .label,:host(jam-graph[data-kio]) .tip{font-size:15px}
+:host(jam-graph) .ax{font-family:var(--cmono);font-weight:500;fill:var(--cdim)}
+:host(jam-graph) .rule{stroke:var(--chair)}
+:host(jam-graph) .ln{stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:host(jam-graph) .xh{stroke:var(--cdim)}
+:host(jam-graph) .mk{stroke:var(--cpl);rx:4px}
+:host(jam-graph) .sq{border-radius:50%}
+:host(jam-graph) .tip{background:var(--cpl);border:1px solid var(--cln);border-radius:10px;font-family:var(--body)}
 /* the screensaver (its overlay layer): a calm night clock on the navy, no shapes; the photos time chip on the ink */
 .ov{--acc:var(--jam-accent,var(--ink-fg));--acc-fg:var(--ink)}
 .ov .kick{font:500 max(15px,2.5vh)/1.2 var(--cmono);letter-spacing:.16em;text-transform:uppercase;color:var(--sdim)}

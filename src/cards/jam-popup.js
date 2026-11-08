@@ -2,11 +2,13 @@
    {type: custom:jam-popup, hash: "#lights-popup", title?, kicker?, accent?: colour or room alias (default ochre),
     spiral? (Vertigo flash on open, default true), cards: [card configs]}
    Sheet face = slab; child cards get the surface tokens one step up (--jam-slab = slab2, --jam-slab2 = slab3).
-   Accent = kicker, header rule, spiral; a configured accent is also handed to the child cards as --jam-accent (a child's
-   own accent option still wins).
+   Accent = a mark beside the kicker (the kicker itself is dim text, 1.1.0), header rule, spiral; a configured accent is also
+   handed to the child cards as --jam-accent (a child's own accent option still wins).
    Open while location.hash === hash (navigate action to "#lights-popup", a link, or the address bar).
    Close: CLOSE key, veil click, Esc, browser back. Children are created with HA's card helpers (preview: by tag).
-   Motion: stepped wipe + Vertigo flash on open; the child cards slide in one after another (40 ms stagger, 0.3.5). */
+   Motion: the look's open motion (Hi-Fi: the sheet rises / settles, the veil fades) and, 1.1.0, its leave on close (the
+   overlay stays until it has played; a disconnect or motion off closes at once); the child cards slide in one after
+   another (40 ms stagger, 0.3.5). */
 const POPUP_CSS = `
   /* Zero footprint when closed: the host is a 0-height block; the overlay is position:fixed. Whether a sections
      grid adds a gap/row for a 0-height card is verified in real HA in the clone step. */
@@ -22,7 +24,11 @@ const POPUP_CSS = `
     background:var(--slab);outline:none}
   .head{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .t{display:grid;gap:4px;min-width:0}
-  .t .label{color:var(--acc)}
+  /* kicker: the dim label colour, like every eyebrow (1.1.0; the living accent #6b4428 was 2.18:1 on the Night ground); a
+     configured accent shows as an 8px mark beside it */
+  .t .label{color:var(--dim)}
+  .t .label.acc{display:flex;align-items:center;gap:8px}
+  .t .label.acc::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--acc)}
   .t h2{font-size:calc(clamp(1.7rem,6vw,2.4rem) * var(--disp-scale));overflow-wrap:anywhere}
   .rule{flex:none;height:var(--rule-h);background:var(--acc)}
   /* Child cards one surface step up (DESIGN "Tokens"): their face = slab2, their inner controls = slab3. */
@@ -41,7 +47,12 @@ const POPUP_CSS = `
     .sheet > .face{padding-bottom:calc(max(var(--p-b),var(--pad,0px)) + env(safe-area-inset-bottom,0px))}
     .pop.opening .wipe{animation-name:jam-wipe-up}
   }
-  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
+  /* leaving (1.1.0): .closing keeps the overlay for sheetLeaveMs() while sheet and veil fade, then .open goes */
+  .pop.closing{pointer-events:none}
+  .pop.closing .wipe,.pop.closing .veil{animation:jam-popup-out calc(160ms * var(--dur)) ease-in forwards}
+  .pop.closing .spiral{display:none}
+  @keyframes jam-popup-out{to{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral,.pop.closing .wipe,.pop.closing .veil{animation:none!important}}`;
 
 /* vertigoSpiral() and deepActive() live in src/core.js (shared with openSheet / jam-light). */
 
@@ -99,6 +110,7 @@ class JamPopup extends JamBase {
     window.removeEventListener("popstate", this._onLoc);
     document.removeEventListener("keydown", this._onKey);
     if (this._open) this._hide(false);
+    clearTimeout(this._leaveT); this._leaveT = null; if (this._pop) this._pop.classList.remove("open", "closing");
   }
   /* Static DOM: veil, spiral, sheet (sheet cut: top-right 18px; a bottom sheet on phones). */
   _shell() {
@@ -114,7 +126,7 @@ class JamPopup extends JamBase {
     const {root: sheet, face} = this.paper(key, {kind: "sheet", cls: "sheet wipe"});
     face.tabIndex = -1; face.setAttribute("role", "dialog"); face.setAttribute("aria-modal", "true");
     const head = el("div", "head"), t = el("div", "t");
-    if (c.kicker) t.append(el("div", "label", c.kicker));
+    if (c.kicker) t.append(el("div", "label" + (accentVar(c.accent) ? " acc" : ""), c.kicker));
     if (c.title) { const h2 = el("h2", "disp", c.title); h2.id = "jam-popup-title"; t.append(h2); face.setAttribute("aria-labelledby", h2.id); }
     else face.setAttribute("aria-label", c.kicker || "Pop-up");
     const close = cutKey("Close ×", key + "|close", "close", "chip");
@@ -175,10 +187,11 @@ class JamPopup extends JamBase {
     if (!want) clearTimeout(this._backT);
     if (!want) this._last = {len: history.length, idx: navIndex(), path: location.pathname + location.search};
     if (want && !this._open) this._show(!initial);
-    else if (!want && this._open) this._hide(true);
+    else if (!want && this._open) this._hide(true, true);
   }
   _show(animate) {
     this._open = true; clearTimeout(this._backT);
+    clearTimeout(this._leaveT); this._leaveT = null; this._pop.classList.remove("closing", "jam-calm");
     // history.back() is only safe when the hash was pushed onto this same page: we saw the page without the hash and
     // the hash entry is the very next one (Navigation API index; else history.length grew by one). Otherwise
     // (deep link, replace navigation, unknown history) close() clears the hash in place.
@@ -193,15 +206,22 @@ class JamPopup extends JamBase {
     this._pop.classList.remove("opening");
     if (animate && motionOn()) {
       void this._pop.offsetWidth; this._pop.classList.add("opening");
+      if (motionCalm()) this._pop.classList.add("jam-calm");
       staggerIn(this._bodyEl.children); // child cards slide in one after another (0.3.5)
     }
     this._face.scrollTop = 0; this._bodyEl.scrollTop = 0;
     try { this._face.focus({preventScroll: true}); } catch (e) { this._face.focus(); }
     const snap = this._snap; jamScrollBack(snap); requestAnimationFrame(() => { if (this._open) jamScrollBack(snap); });
   }
-  _hide(restoreFocus) {
+  _hide(restoreFocus, animate = false) {
     this._open = false;
-    this._pop.classList.remove("open", "opening");
+    const pop = this._pop, ms = animate ? sheetLeaveMs() : 0;
+    clearTimeout(this._leaveT); this._leaveT = null;
+    pop.classList.remove("opening");
+    if (ms) { // leave: the look's closing motion plays, then the overlay goes (a timer: no animationend needed)
+      pop.classList.add("closing"); pop.classList.toggle("jam-calm", motionCalm());
+      this._leaveT = setTimeout(() => { this._leaveT = null; if (!this._open) pop.classList.remove("open", "closing", "jam-calm"); }, ms + 30);
+    } else pop.classList.remove("open", "closing", "jam-calm");
     if (this._locked) { jamScrollLock(false); this._locked = false; }
     const f = this._prevFocus; this._prevFocus = null;
     if (restoreFocus && f && f.isConnected && typeof f.focus === "function") { try { f.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
@@ -213,7 +233,7 @@ class JamPopup extends JamBase {
   close() {
     if (!this._open) return;
     const hash = this._config.hash, back = this._viaNav;
-    this._hide(true);
+    this._hide(true, true);
     const clear = () => {
       if (location.hash !== hash) return;
       history.replaceState(null, "", location.pathname + location.search);

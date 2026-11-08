@@ -1,6 +1,9 @@
 /* ---------- jam-graph: history chart from the recorder (line / step / bars), 1-5 series ----------
-   {type: custom:jam-graph, title?, entities: [id | {entity, name?}] (1-5), hours_to_show? (24), style?: line|step|bars,
-    show_current? (true), min?, max?, refresh_minutes? (5), accent? (loading placeholder only; series colours are fixed)}
+   {type: custom:jam-graph, title?, entities: [id | {entity, name?, color? (1.1.0: a CSS colour for this series, e.g.
+    "var(--fg)"; default --s1..--s5 in order)}] (1-5), hours_to_show? (24), style?: line|step|bars,
+    show_current? (true), min?, max?, refresh_minutes? (5), height? (1.1.0: the plot's px, default 140 / 170 with several
+    series), accent? (loading placeholder only)}
+   Axis text: --jam-graph-ax (a look may set it, 12px by default); the margins follow it.
    One history/history_during_period WS call for all entities. Numeric states only, unavailable dropped, ≤240 points per
    series (bucket mean; bars = time-weighted mean per hour). Refetch every refresh_minutes and when a watched state changes,
    at most once a minute for the same query. One y-axis, series colours --s1..--s5 in order, text never in series colour.
@@ -35,7 +38,7 @@ class JamGraph extends JamBase {
     for (const x of list) {
       const id = typeof x === "string" ? x : x && x.entity;
       if (typeof id !== "string" || !id.includes(".")) { this._err = "entities: each item is an entity id or {entity, name}"; return; }
-      this._ents.push({entity: id, name: typeof x === "object" ? x.name : undefined});
+      this._ents.push({entity: id, name: typeof x === "object" ? x.name : undefined, color: typeof x === "object" && typeof x.color === "string" && x.color ? x.color : undefined});
     }
     if (c.style !== undefined && !JAM_GRAPH_STYLES.includes(c.style)) { this._err = "style: line, step or bars"; return; }
     if (c.hours_to_show !== undefined && !(+c.hours_to_show > 0)) { this._err = "hours_to_show: a positive number"; return; }
@@ -182,6 +185,9 @@ class JamGraph extends JamBase {
   }
   _unit(id) { const s = stateObj(this._hass, id); return (s && s.attributes.unit_of_measurement) || ""; }
   _name(e) { return e.name || friendly(this._hass, e.entity); }
+  _col(i) { const e = this._ents[i]; return (e && e.color) || `var(--s${i + 1})`; }
+  /* The axis text size (px): --jam-graph-ax on the card (a look's), else 12. */
+  _axPx() { try { const v = parseFloat(getComputedStyle(this).getPropertyValue("--jam-graph-ax")); return v >= 8 && v <= 40 ? v : 12; } catch (e) { return 12; } }
   css() { return `
     .g{display:grid;gap:10px}
     .top{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 14px;flex-wrap:wrap;min-width:0}
@@ -199,7 +205,7 @@ class JamGraph extends JamBase {
     .plot{position:relative;min-width:0;outline:none}
     .plot:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
     .plot svg{display:block;width:100%;touch-action:pan-y}
-    .ax{font:500 max(12px,.72rem) var(--body);fill:var(--dim)}
+    .ax{font:500 var(--jam-graph-ax,max(12px,.72rem)) var(--body);fill:var(--dim)}
     .rule{stroke:var(--line);stroke-width:1;shape-rendering:crispEdges}
     .ln{fill:none;stroke-width:3;stroke-linecap:square;stroke-linejoin:miter}
     .xh{stroke:var(--dim);stroke-width:1;shape-rendering:crispEdges}
@@ -240,7 +246,7 @@ class JamGraph extends JamBase {
       const lg = el("div", "lg");
       this._ents.forEach((e, i) => {
         const s = stateObj(h, e.entity), btn = el("button");
-        const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`); sq.setAttribute("aria-hidden", "true");
+        const sq = el("span", "sq"); sq.style.setProperty("--c", this._col(i)); sq.setAttribute("aria-hidden", "true");
         btn.append(sq, el("span", "", this._name(e)));
         if (show && s) {
           const v = Number(s.state);
@@ -251,7 +257,7 @@ class JamGraph extends JamBase {
       });
       face.append(lg);
     }
-    const H = multi ? 170 : 140, plot = el("div", "plot");
+    const H = +c.height > 0 ? Math.round(+c.height) : multi ? 170 : 140, plot = el("div", "plot");
     plot.style.height = H + "px";
     face.append(plot);
     b.append(root);
@@ -288,7 +294,7 @@ class JamGraph extends JamBase {
     if (fixHi) hi = +c.max;
     const tk = JamGraph.ticks(lo, hi, fixLo, fixHi);
     const fmt = v => v.toLocaleString(this._lang(), {minimumFractionDigits: tk.dec, maximumFractionDigits: tk.dec});
-    const ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * 9, mr = 4, mt = 8, mb = 20; // 9px a digit: the axis labels are 12px (type floor)
+    const fs = this._axPx(), ml = 8 + Math.max(...tk.ticks.map(v => fmt(v).length)) * Math.round(fs * .75), mr = 4, mt = 8, mb = Math.round(fs + 8); // 9px a digit at 12px (type floor)
     const per = JamGraph.per(this._hours());
     const x = t => ml + (t - d.t0) / (d.t1 - d.t0) * (W - ml - mr);
     const y = v => mt + (tk.hi - Math.min(tk.hi, Math.max(tk.lo, v))) / (tk.hi - tk.lo) * (H - mt - mb);
@@ -311,11 +317,14 @@ class JamGraph extends JamBase {
     const span = (d.t1 - d.t0) / 3600e3, xs = [1, 2, 3, 6, 12, 24, 48, 72, 168, 336].find(s => span / s <= 4) || 720;
     const m = new Date(d.t0); m.setMinutes(0, 0, 0);
     for (let k = 0; k < 800 && (xs < 24 ? m.getHours() % xs : m.getHours()) !== 0; k++) m.setHours(m.getHours() + 1);
+    // a label is left out where it would touch the one before or stand past an edge (1.1.0: "6:00 PM12:00 AM" at 15px)
+    const fs = this._axPx();
+    let lastR = -Infinity;
     for (let k = 0; k < 8 && +m <= d.t1; k++, m.setHours(m.getHours() + xs)) {
-      const xx = x(+m);
-      if (+m < d.t0 || xx < ml + 18 || xx > W - mr - 18) continue;
+      const xx = x(+m), txt = xs < 24 ? this._time(+m) : m.toLocaleDateString(this._lang(), {weekday: "short"}), half = txt.length * fs * .31 + 2;
+      if (+m < d.t0 || xx - half < ml || xx + half > W - mr || xx - half < lastR + fs) continue;
       const t = jamGraphSvg("text", {x: xx, y: H - 4, "text-anchor": "middle"}, "ax");
-      t.textContent = xs < 24 ? this._time(+m) : m.toLocaleDateString(this._lang(), {weekday: "short"});
+      t.textContent = txt; lastR = xx + half;
       svg.append(t);
     }
     const n = d.series.length;
@@ -324,7 +333,7 @@ class JamGraph extends JamBase {
     const own = motif("graph", this, svg, d, g);
     g.ys = own || null;
     if (!own) d.series.forEach((pts, i) => {
-      const col = `var(--s${i + 1})`;
+      const col = this._col(i);
       if (g.style === "bars") {
         const gp = jamGraphSvg("g", {fill: col, "data-n": pts.length}, "bars");
         const base = y(Math.min(g.tk.hi, Math.max(g.tk.lo, 0)));
@@ -348,7 +357,7 @@ class JamGraph extends JamBase {
     });
     const xh = jamGraphSvg("g", {visibility: "hidden"}, "cross");
     xh.append(jamGraphSvg("line", {y1: mt, y2: H - mb}, "xh"));
-    d.series.forEach((_, i) => xh.append(jamGraphSvg("rect", {width: 8, height: 8, fill: `var(--s${i + 1})`}, "mk")));
+    d.series.forEach((_, i) => xh.append(jamGraphSvg("rect", {width: 8, height: 8, fill: this._col(i)}, "mk")));
     svg.append(xh);
     plot.textContent = "";
     plot.append(svg);
@@ -378,7 +387,7 @@ class JamGraph extends JamBase {
     const marks = this._xh.querySelectorAll("rect");
     d.series.forEach((pts, i) => {
       const e = this._ents[i], v = JamGraph.at(pts, t, g.style, d.o, g.per);
-      const sq = el("span", "sq"); sq.style.setProperty("--c", `var(--s${i + 1})`);
+      const sq = el("span", "sq"); sq.style.setProperty("--c", this._col(i));
       tip.append(sq, el("span", "", this._name(e)), el("span", "v num", v === null ? "—" : `${this._num(e.entity, v)}${this._unit(e.entity) ? " " + this._unit(e.entity) : ""}`));
       if (v === null) marks[i].setAttribute("visibility", "hidden");
       else { marks[i].removeAttribute("visibility"); marks[i].setAttribute("x", xx - 4); marks[i].setAttribute("y", Math.round((g.ys ? g.ys[i] : g.y)(v)) - 4); }

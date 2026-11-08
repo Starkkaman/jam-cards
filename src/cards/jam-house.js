@@ -5,7 +5,9 @@
     the entity matches `state`, or without `state` while it is on/open/problem), title? (default
     hass.config.location_name), kicker? (default "<title> · inside"), compact?: true (kiosk: one row, smaller),
     inside_aq? / outside_aq?: {entity, extra?} (or just an entity id; extra is accepted and ignored since 0.3.5),
-    attention?: true | {lights?: [light ids]} (audit 2026-11-03, opt-in)}
+    attention?: true | {lights?: [light ids]} (audit 2026-11-03, opt-in), humidity_entity? (Hi-Fi: the % beside the inside
+    temperature), inside_more? / outside_more? (1.1.0, Hi-Fi: the inside half opens an indoor climate pop-up, the outside
+    half a forecast pop-up; false = HA's more-info; options in src/looks/hifi.js "the house's two pop-ups" and the README)}
    Attention strip (opt-in): a strip at the top of the card listing what needs someone, invisible when all is well: the door
    (unlocked / open / jammed / offline; tap on unlocked / open = lock.lock), "N lights offline" (the `lights` list, else every
    light.* in hass; tap = more-info of the first), and poor air ("Air poor inside" / "outside": aqPoor, poor or worse; tap =
@@ -34,7 +36,8 @@ class JamHouse extends JamBase {
   watched() {
     const c = this._config;
     const aq = [jamHouseAq(c.inside_aq), jamHouseAq(c.outside_aq)].filter(Boolean).map(a => a.entity);
-    const ids = [c.inside_entity, c.outside_entity, c.lock_entity, ...(c.people || []), ...(c.alerts || []).map(a => a && a.entity), ...aq].filter(Boolean);
+    const ids = [c.inside_entity, c.outside_entity, c.lock_entity, c.humidity_entity, c.inside_humidity_entity, ...(c.people || []),
+      ...(c.alerts || []).map(a => a && a.entity), ...aq, ...(this._cmPopIds || [])].filter(x => typeof x === "string" && x); // + an open pop-up's sensors
     if (c.attention) ids.push(...this._attLights());
     return ids;
   }

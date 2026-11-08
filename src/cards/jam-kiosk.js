@@ -7,6 +7,8 @@
       inside_entity? (temperature: "67° inside"), humidity_entity? ("58% humidity"), aq_entity? (air quality: "air excellent",
       word via aqWord, a US AQI number becomes its category)} -> "67° inside · 58% humidity · air excellent"
       (Jost 600 20-22px, dim, natural case; wraps between parts, never an ellipsis).
+     Hi-Fi (1.1.0): the inside part and the weather part of its facts line are two buttons: indoor climate and the forecast
+      pop-ups (inside_more? / outside_more?, as jam-house: false = HA's more-info).
    now sources (right-hand "now" block: kicker, big line max 2 lines, small line):
     {type: media, entity (media_player), states? (["playing"]: states that make it active), kicker? ("Playing" /
      "Paused"), app_entity? (sensor/select whose state names the app on screen)} -> big = media_title, else the app;
@@ -97,10 +99,16 @@ class JamKioskHome extends JamBase {
   watched() {
     const c = this._config, ids = [c.inside_entity, c.humidity_entity, c.aq_entity, c.lock_entity, ...(c.attention || []).map(a => a.entity)];
     for (const s of c.now || []) ids.push(s.entity, s.app_entity, s.temperature_entity);
+    const T = customElements.get("jam-tv");
     for (const b of c.dock) {
       const st = b.state || {};
       ids.push(...(Array.isArray(st.count_on) ? st.count_on : []), st.entity, st.app_entity);
+      // the block's jam-tv players that know what the TV plays (1.1.0, jam-tv playback_entity: the dock word follows them)
+      for (const k of b.cards || []) if (T && k && k.type === "custom:jam-tv" && k.media_player === st.entity) {
+        const o = Object.create(T.prototype); o._config = k; o._hass = this._hass; ids.push(...o._playbackIds());
+      }
     }
+    ids.push(...(this._cmPopIds || [])); // an open inside / outside pop-up's sensors (1.1.0, Hi-Fi)
     return [...new Set(ids.filter(x => typeof x === "string" && x))];
   }
   connectedCallback() {

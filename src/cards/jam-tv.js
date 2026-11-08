@@ -8,6 +8,11 @@
                 "YouTube" does not light for "YouTube Music" / "YouTube TV")}]  (`launchers` = alias),
     source_label? ("Source": the Source tab and sheet title),
     current_app_entity? (sensor whose state is the app in front: a label or package id, e.g. sensor.hisense_tv_current_app),
+    playback_entity? (1.1.0: media_player id or list, or false: players that know what the TV plays when its own
+      media_player does not, e.g. the TV's Google Cast player: Android TV Remote reports "on" and the app only. Default: auto,
+      a Cast player (entity registry platform cast) of the same device or named like the TV ("Phoster" for "Phoster -
+      Android TV"). While the TV is on, the first of them that is playing / paused / buffering, with an app that matches
+      the one on screen, gives the card its state, title, artist and position; otherwise the card says "On" and the app),
     input_entity? (select/sensor whose state names the TV input, e.g. select.hisense_tv_input),
     input_app? (text | [texts]: current_app values that mean the TV is showing an input, e.g. "Live TV"; without it the
       input counts whenever it matches), input_signal_entity? (optional: the input only counts while this sensor reports
@@ -126,7 +131,47 @@ class JamTv extends JamSheetHost(JamBase) {
   setConfig(c) { this._closeSources(); super.setConfig(c); }
   watched() {
     const c = this._config, st = c.stereo || {};
-    return [c.media_player, c.remote, c.current_app_entity, c.input_entity, c.input_signal_entity, st.input_entity].filter(x => typeof x === "string" && x);
+    return [c.media_player, c.remote, c.current_app_entity, c.input_entity, c.input_signal_entity, st.input_entity, ...this._playbackIds()].filter(x => typeof x === "string" && x);
+  }
+  /* playback_entity (1.1.0): the configured players, else (auto) the TV's Google Cast player: a media_player of platform
+     cast on the TV's device, else one whose name is the TV's name before " - " (Android TV Remote names the entity "Phoster
+     - Android TV", Cast "Phoster") or its device's name. false = none. */
+  _playbackIds() {
+    const c = this._config, h = this._hass;
+    if (!c || c.playback_entity === false) return [];
+    if (c.playback_entity) return [].concat(c.playback_entity).filter(x => typeof x === "string" && /^media_player\./.test(x) && x !== c.media_player);
+    if (!h || !h.states || !h.entities) return [];
+    const reg = h.entities, me = reg[c.media_player] || {}, low = v => String(v || "").trim().toLowerCase();
+    const s = h.states[c.media_player], dev = me.device_id && h.devices && h.devices[me.device_id];
+    const names = new Set([low(s && s.attributes.friendly_name).split(" - ")[0], low(dev && (dev.name_by_user || dev.name))].filter(Boolean));
+    const out = [];
+    for (const id of Object.keys(h.states)) {
+      if (id === c.media_player || !id.startsWith("media_player.") || !reg[id] || reg[id].platform !== "cast") continue;
+      if ((me.device_id && reg[id].device_id === me.device_id) || names.has(low(h.states[id].attributes.friendly_name))) out.push(id);
+    }
+    return out;
+  }
+  /* The state the card shows (1.1.0, Isaac: "Now playing on the TV shows the app, but says idle even when I'm watching a
+     movie or a YouTube video"): the TV's own media_player when it reports playback (or is off / offline), else, while the TV
+     is on, the first playback_entity that plays / pauses / buffers an app matching the one on screen, merged over the TV's
+     state (state, title, artist, duration, position, picture, app); else the TV's state (the card then says On and the app). */
+  _playState() {
+    const c = this._config, h = this._hass, s = stateObj(h, c.media_player);
+    if (!s || UNAVAILABLE.has(s.state) || s.state === "off" || s.state === "standby" || JAM_TV_PLAYING.has(s.state)) return s;
+    const low = v => String(v || "").trim().toLowerCase();
+    const ca = c.current_app_entity && stateObj(h, c.current_app_entity), now = low(ca && !UNAVAILABLE.has(ca.state) ? ca.state : this._app(s.attributes || {}));
+    for (const id of this._playbackIds()) {
+      const p = stateObj(h, id);
+      if (!p || !JAM_TV_PLAYING.has(p.state)) continue;
+      const pa = p.attributes || {}, app = low(pa.app_name);
+      if (now && app && !now.includes(app) && !app.includes(now)) continue; // another app is in front: its session is stale
+      const keep = ["media_title", "media_artist", "media_series_title", "media_album_name", "media_duration", "media_position", "media_position_updated_at", "entity_picture", "entity_picture_local", "media_content_type"];
+      const attrs = {...s.attributes};
+      for (const k of keep) if (pa[k] !== undefined && pa[k] !== null && pa[k] !== "") attrs[k] = pa[k]; else delete attrs[k];
+      if (pa.app_name) attrs.app_name = pa.app_name;
+      return {...s, state: p.state, attributes: attrs, via: id};
+    }
+    return s;
   }
   get _sources() { const c = this._config; return (c.sources || c.launchers || []).filter(Boolean); }
   css() { return `
@@ -441,7 +486,7 @@ class JamTv extends JamSheetHost(JamBase) {
     return pane;
   }
   render(b) {
-    const c = this._config, h = this._hass, s = stateObj(h, c.media_player), a = (s && s.attributes) || {};
+    const c = this._config, h = this._hass, s = this._playState(), a = (s && s.attributes) || {};
     const off = !s || UNAVAILABLE.has(s.state) || s.state === "off";
     const playing = !off && (JAM_TV_PLAYING.has(s.state) || !!a.media_title);
     const mode = off ? "off" : playing ? "playing" : "idle";

@@ -856,11 +856,17 @@ function motionOn() {
   if (!JAM_MOTION) return false;
   try { return !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return true; }
 }
+/* The calm tier (1.1.0, Jam Design "Calm (SAFE) mode": every transition becomes a short fade): JamCards.motion = "calm"
+   (jam-screensaver `motion: calm` on a kiosk). Pop-ups and sheets then fade in and out (<= 160 ms) without moving. */
+function motionCalm() { return JAM_MOTION === "calm" && motionOn(); }
 function setMotion(v) {
-  JAM_MOTION = v !== false;
+  JAM_MOTION = v === "calm" ? "calm" : v !== false;
   const st = document.documentElement.style;
   if (JAM_MOTION) st.removeProperty("--jam-motion"); else st.setProperty("--jam-motion", "0");
 }
+/* Pop-up / sheet leave time (ms): the closing animation runs this long, then the layer goes (a timer, not animationend:
+   a page whose animations never run must still lose the layer). */
+function sheetLeaveMs() { return !motionOn() ? 0 : motionCalm() ? 140 : 190; }
 /* Ancestors from the document down to n, across shadow roots (parentNode, else the shadow root's host). */
 function composedChain(n) { const out = []; for (let x = n; x; x = x.parentNode || x.host) out.unshift(x); return out; }
 /* Document (composed tree) order of two nodes: < 0 when a comes first. A shadow root sorts before its host's light children. */
@@ -916,6 +922,7 @@ function oneShot(node, cls, delayMs) {
 /* Sheet children slide in one after another (index-based delays, set once). */
 function staggerIn(nodes, startMs = 60) {
   if (!motionOn()) return;
+  if (JAM_MOTION === "calm") return; // the calm tier: the sheet's own fade is the only motion
   [...nodes].forEach((n, i) => { if (n.nodeType === 1) oneShot(n, "jam-in", startMs + Math.min(i, ENTER_MAX) * ENTER_STEP); });
 }
 
@@ -1181,7 +1188,13 @@ const SHEET_CSS = `
   .pop.full .acts > .key{min-height:64px}
   .pop.full .close > .face{display:flex;align-items:center;font-size:20px;letter-spacing:calc(.14em * var(--key-track));--p-t:18px;--p-r:26px;--p-b:18px;--p-l:26px}
   .pop.full .body{gap:16px}
-  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
+  /* leaving (1.1.0): the layer stays for sheetLeaveMs() while the sheet and the veil fade out, then it is removed; it takes
+     no clicks meanwhile. A look's pack draws its own leave (Hi-Fi: the open motion reversed). */
+  .pop.closing{pointer-events:none}
+  .pop.closing .wipe,.pop.closing .veil{animation:jam-sheet-out calc(160ms * var(--dur)) ease-in forwards}
+  .pop.closing .spiral{display:none}
+  @keyframes jam-sheet-out{to{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral,.pop.closing .wipe,.pop.closing .veil{animation:none!important}}`;
 const SHEET_STACK = [];
 /* Scroll positions kept across a pop-up (0.11.0-calm.3, Isaac: "When I open a popup it scrolls the page all the way to the
    top", iPad). The page's scroller (document.scrollingElement) plus every scrolled ancestor of the opener across shadow roots
@@ -1259,13 +1272,24 @@ function openSheet(opts = {}) {
     if (e.key !== "Escape" || SHEET_STACK[SHEET_STACK.length - 1] !== api) return;
     e.preventDefault(); e.stopPropagation(); api.close();
   };
-  const onPop = () => { if (!(history.state && history.state.jamSheet === id)) hide(); };
-  function hide(keepScroll = true) {
+  const onPop = () => { if (!(history.state && history.state.jamSheet === id)) hide(true, true); };
+  /* animate (1.1.0): the sheet leaves with the look's closing motion (the open motion reversed) before the layer goes; a
+     silent close (the card went away, another pop-up replaces it) or motion off removes it at once. Everything else (the
+     stack, the scroll lock, focus, the page's scroll) is let go at once either way, so nothing waits for the animation. */
+  function hide(keepScroll = true, animate = false) {
     if (!open) return;
     open = false;
     window.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onPop);
     const i = SHEET_STACK.indexOf(api); if (i >= 0) SHEET_STACK.splice(i, 1);
-    holder.remove();
+    const ms = animate && holder.isConnected ? sheetLeaveMs() : 0;
+    if (ms) {
+      // no longer a sheet host (queries for open sheets skip it), no longer focusable or clickable
+      holder.classList.remove("jam-sheet-host"); holder.classList.add("jam-sheet-leaving");
+      try { holder.inert = true; } catch (e) { /* old engine */ }
+      pop.classList.remove("opening"); pop.classList.add("closing");
+      if (motionCalm()) pop.classList.add("jam-calm");
+      setTimeout(() => holder.remove(), ms + 30);
+    } else holder.remove();
     jamScrollLock(false);
     if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === "function") { try { prevFocus.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
     // the page where it was (not after a silent close: the card went away, e.g. another view), and once more after
@@ -1291,7 +1315,7 @@ function openSheet(opts = {}) {
     close({silent = false} = {}) {
       if (!open) return;
       const back = pushed && !silent && history.state && history.state.jamSheet === id;
-      hide(!silent);
+      hide(!silent, !silent);
       if (back) history.back();
     },
   };
@@ -1309,6 +1333,7 @@ function openSheet(opts = {}) {
   jamStyle(sr, SHEET_CSS + (o.css || ""), pop.dataset.look);
   setFx(pop, fxOf(holder));
   if (motionOn()) pop.classList.add("opening");
+  if (motionCalm()) pop.classList.add("jam-calm"); // the calm tier: the look's open / close become a short fade
   // The caller fills `body` right after this returns; its children then slide in one after another (once).
   Promise.resolve().then(() => { if (open) staggerIn(body.children); });
   try { face.focus({preventScroll: true}); } catch (e) { face.focus(); }
@@ -1371,6 +1396,14 @@ class JamBase extends HTMLElement {
     if (!this._onFonts) this._onFonts = () => { if (this.isConnected) this._fontsLoaded(); };
     if (on) document.fonts.addEventListener("loadingdone", this._onFonts); else document.fonts.removeEventListener("loadingdone", this._onFonts);
   }
+  /* A look's whole-card drawing made while the card was not on the page reads no computed style (Hi-Fi: day or night from
+     --jam-mode, the rocker's two tones), and HA sets hass before it attaches a card. queueLook calls this on connect: such
+     a card draws once more, now that its tokens resolve (1.1.0; until then a paddle kept the fallback tones until its
+     light changed state, so a light just switched looked darker than the rest, Isaac 2026-11-08). */
+  _themeRefresh() {
+    if (!this._drawnDetached || !this.isConnected || !this._config || !this._hass) return;
+    this._drawnDetached = false; this._sig = null; this._render(false);
+  }
   /* Look switch (queueLook): a rendered card whose motifs differ between the old and the new look renders again (R7). */
   _relook(look) {
     if (this._renderLook == null || this._renderLook === look || !this._config || !this._hass || !this._body) return;
@@ -1397,7 +1430,7 @@ class JamBase extends HTMLElement {
     }
     if (!this._hass) return;
     this._renderLook = this.dataset.look || JAM_LOOK;
-    if (motif("render", this, this, this._body)) { lookDecorate(this); return; } // a look drew the card (whole-card hook)
+    if (motif("render", this, this, this._body)) { this._drawnDetached = !this.isConnected; lookDecorate(this); return; } // a look drew the card (whole-card hook)
     this._body.textContent = "";
     this.render(this._body);
     lookDecorate(this);
@@ -1416,7 +1449,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   seed, rng, tornPath, paper, cutKey, armBars, icon, bindActions, runAction, asButton,
   el, stateObj, friendly, fmtState, keepUnit, tone, OFFLINE, isLock, lockAlert, jamState, fire, moreInfo, navigate, toggleable, UNAVAILABLE,
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, jamDateText, ALERT_CLASSES, vertigoSpiral, deepActive, openSheet,
-  motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
+  motionOn, motionCalm, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => [...JAM_LOOK_PACKS.keys()], LOOK: JAM_LOOK, ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
   contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER, jamMode,
   jamSwitch, jamSwitchKind,

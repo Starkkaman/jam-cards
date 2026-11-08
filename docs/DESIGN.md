@@ -202,6 +202,32 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
   hidden on <html> only, and the page's and the opener's scrolled ancestors' positions are written back after open and close. The kiosk measures HA's view padding and keeps the mockup's 44 / 40px insets.
 - **Remote while the TV is off** (every look, 2026-11-06): jam-tv's off card keeps Remote (and Source); the remote's power key
   turns the TV on.
+- **1.1.0 (Hi-Fi follow-ups, Isaac 2026-11-08, phone screenshots):**
+  - *One rocker, two tones, the lighter shade.* The paddle's pressed and raised tones are the same in both states, every size
+    and place (cards, kiosk, pop-up members): on and off differ only in which half is pressed and the lamp band. They are CSS
+    only (see "Paddle"): the JS tone maths is gone (it gave a light that had just been toggled a dark grey half, Isaac: "I
+    prefer the lighter shade"). A card drawn before Home Assistant attached it also draws once more when attached (core
+    `JamBase._themeRefresh`, `_drawnDetached`), so day / night marks (data-n, data-pd) are right too. Check: 99-hifi-rocker.js.
+  - *Pop-up motion* ("I'm missing the animations of the popups"): open = a phone's bottom sheet rises 72px and fades in
+    (260 ms), a centred pop-up (desktop, kiosk) fades in rising 14px from 96.5 % (240 ms), a kiosk sheet fades in rising 10px
+    (220 ms), all on glide `cubic-bezier(.2,.8,.2,1)`; the veil fades to its .6. Close = the same reversed on the leave curve
+    (170-180 ms): core `openSheet` / jam-popup let go of everything at once (stack, scroll lock, focus, scroll) and keep only
+    the inert layer (`.jam-sheet-leaving`, `.closing`) for `sheetLeaveMs()`, removed by a timer (never animationend). The calm
+    tier (`JamCards.motion = "calm"`, jam-screensaver `motion: calm`) fades only; reduced motion / `motion: false`: none.
+    Placement never depends on it (open fill backwards). Check: 99-hifi-motion.js.
+  - *The phone remote* ("the bottom of the remote is getting cut off"): its bottom sheet may reach 24px under the top edge
+    (plus the notch) instead of 90vh, so the 647px remote shows whole on a phone; shorter windows scroll its body. Check:
+    99-hifi-remote-phone.js.
+  - *The TV's state* ("says idle even when I'm watching a movie"): jam-tv `playback_entity` (default: the TV's Google Cast
+    player) gives Playing / Paused, the title and position while the TV is on; else the word is "On · <source or app>", never
+    idle. The kiosk's TV key follows it. Check: 99-hifi-tv-playback.js.
+  - *The house's pop-ups*: jam-house's inside and outside halves (the kiosk facts line's two parts) are buttons: indoor
+    climate (readouts, rooms with 24 h sparklines on one shared scale per measure, the house's 24 h graphs as jam-graph in ink)
+    and the forecast (now, details, the next days with low-high bars on one scale, today's temperature marked, the source as a
+    footnote). No series colours: one series per chart, the name is the label (one axis, text in text tokens). Kiosk pop-ups:
+    two columns, nothing scrolls on the iPad / Echo, text >= 15px. Check: 99-hifi-climate.js.
+  - *Kickers are dim text* (labels-in-dim): jam-popup's kicker no longer takes the accent (2.18:1 on Night); the accent is an
+    8px mark beside it. 99-hifi-daynight fails on such a finding now.
 
 ## Token reference
 Source of truth: `tokens/` (node only, not bundled). `tokens/registry.mjs` lists every token (short name in the cards,
@@ -405,18 +431,20 @@ hover (`aria-label "<name> power, On|Off|Offline"`, `title` On / Off / Offline) 
 or "Offline"). The face stays the plain panel: no colour flood, wash, label plates or member bands (the sub line says "2 of
 3 on"); the brightness number and strip stay while on. Root classes `pon` / `poff` (not `on` / `off`, so no pack's lit-face
 rule applies) and `data-pd="day|night"`; the host keeps `data-state`.
-Flat tones only (no gradients, blur or shadows), worked out per look and mode by `_paddle()`: base = the card face
-(`--slab`), lift = `--fg` mixed into it (sRGB) until it stands >= 3.2:1 off the face, the least mix that does.
-| Part | Light mode | Dark mode |
+Flat tones only (no gradients, blur or shadows), CSS only since 1.1.0 (one source of truth, `.c-rk` in the Hi-Fi pack; Isaac,
+on live 1.0.1: "when I toggle in either direction it makes it darker I prefer the lighter shade"; until then a card drawn in
+the page worked out a 3.2:1 grey from `--slab` / `--fg` while one drawn before attach kept the CSS fallback):
+| Part | Day | Night |
 |---|---|---|
-| Pressed half (flatter, darker) | lift | base |
-| Raised half (catches light) | base | lift |
-| Shading edge: the raised half's pivot side, 3px (kiosk 4px) | halfway between the two | same |
-| Rim 1.5px + split hairline | lift | lift |
+| Pressed half | slab3 (`--ckey2`, the pressed-paper beige) | slab2 (`--ckey`, the key tone; never the near-black slab3) |
+| Raised half | the panel (`--cpl`) | the panel |
+| Shading edge: the raised half's pivot side, 3px (kiosk 4px) | the hairline (`--cln`) | same |
+| Rim 1.5px + split hairline | the hairline | the hairline |
 | Lamp colour | only while on: a 3px band (kiosk 5px) along the pressed I half's outer edge | same |
 | Offline | the same rocker, nothing pressed, transparent halves, dashed `--dim` rim and split, `--dim` symbols, disabled | same |
-The two halves are >= 3:1 apart, so which half is pressed reads from across the room; the symbols are >= 3:1 on either
-half. Motion: a real on/off change rocks the paddle once (`jam-pd-rock-on|off`: rotateX towards the new pressed half and back
+The halves are a light step apart (about 1.3:1 by day, 1.1:1 by night: Isaac chose the lighter shade over the 3:1 grey); the
+split hairline and the shading edge carry which half is pressed; the symbols are >= 3:1 on either half. Check:
+preview/checks/99-hifi-rocker.js (the same two tones in every state, size and place, before and after a toggle both ways). Motion: a real on/off change rocks the paddle once (`jam-pd-rock-on|off`: rotateX towards the new pressed half and back
 to flat, transform only, `calc(150ms * var(--dur))`, `--jam-ease-3`; `oneShot`), none with `prefers-reduced-motion` or
 `JamCards.motion = false`. Radius = `--jam-radius-poster` (Poster: square). Check: preview/checks/96-paddle.js.
 

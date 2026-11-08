@@ -92,6 +92,9 @@ const JE_LABELS = {
 /* Per card labels where a shared key means something else (jam-house `alerts` = alert chips). */
 const JE_TAG_LABELS = {};
 const JE_HELP = {
+  inside_more: "The inside half opens indoor climate (rooms, 24 h graphs); off = the sensor's details. Options in YAML.",
+  outside_more: "The outside half opens the five-day forecast; off = the weather's details. Options in YAML.",
+  playback_entity: "A player that knows what the TV plays (its Google Cast player; found by itself when empty).",
   accent: "A hue, or type a room alias (living, kitchen, master, marissa, music, nerd, alert).",
   show_color_temp: "Default: when the light supports colour temperature.",
   show_color: "Default: when the light supports colour.",
@@ -295,7 +298,8 @@ const JAM_EDITORS = {
       jeGrid(jeText("title"), jeText("kicker")), jeEnt("lock_entity", "lock"), jeEnts("people", "person"),
       jeGrid(jeBool("full_names"), jeBool("compact")),
       jeList("alerts", [jeEnt("entity", null, {required: true}), jeText("state"), jeText("name")], {label: "entity", desc: "name"}),
-      jeMore("Air quality", [jeGrid(jeEnt("inside_aq", "sensor"), jeEnt("outside_aq", "sensor"))])],
+      jeMore("Air quality", [jeGrid(jeEnt("inside_aq", "sensor"), jeEnt("outside_aq", "sensor"))]),
+      jeMore("Pop-ups", [jeEnt("humidity_entity", "sensor"), jeGrid(jeBool("inside_more", true), jeBool("outside_more", true))])],
     stub: (h, e) => ({inside_entity: jePick(h, e, jeTemp, "sensor.jam_temperature"), outside_entity: jePick(h, e, jeDom("weather"), "weather.home")}),
   },
   "jam-screensaver": {
@@ -352,7 +356,7 @@ const JAM_EDITORS = {
         {name: "icon", selector: {select: {mode: "dropdown", custom_value: true, options: JE_TV_GLYPHS}}},
         JE_ACTION("tap_action"), JE_ACTION("hold_action"), jeObj("match", [jeTexts("app"), jeTexts("input")]), jeBool("exact")], {label: "name"}),
       jeMore("On now", [jeEnt("current_app_entity", ["sensor", "select", "input_select"]), jeEnt("input_entity", ["select", "input_select", "sensor"]),
-        jeTexts("input_app"), jeEnt("input_signal_entity")]),
+        jeTexts("input_app"), jeEnt("input_signal_entity"), jeEnt("playback_entity", "media_player")]),
       jeMore("Power and volume", ["power_action", "volume_up_action", "volume_down_action", "mute_action"].map(JE_ACTION))],
     check: c => { if (c.launchers !== undefined) throw new Error('jam-tv: "launchers" (the old name of sources) is edited in YAML (code editor); rename it to sources to use the form.'); },
     stub: (h, e) => { const r = jePick(h, e, jeDom("remote"), null);

@@ -11,7 +11,8 @@
     active_hours?: {from: "06:00", to: "23:00"},
     disable_on?: {entity, state: "playing" | [states]} or a list of those, kiosk?: "url" (default) | true | false,
     motion?: false (0.3.5: turns the jam cards' one-shot motion off on this page while the card is on screen, via
-    JamCards.motion; for a kiosk too weak for it; the screensaver's own per-minute layout cut stays)}
+    JamCards.motion; for a kiosk too weak for it; the screensaver's own per-minute layout cut stays) | "calm" (1.1.0: the calm
+    tier, pop-ups and sheets only fade)}
    Built for weak kiosk hardware (Echo Show 8 / iPad): no rAF, no infinite animation, no filters; one clock timer aligned to
    the minute; every timer stops while document.hidden. It never touches screen brightness (the kiosk app owns that).
    Activity = pointerdown / keydown / wheel on document (capture). The first tap on the overlay dismisses it and is
@@ -344,11 +345,12 @@ class JamScreensaver extends JamBase {
     if (!this.isConnected) return;
     if (v) this._detach(); else this._attach();
   }
-  /* motion: false switches JamCards.motion off while this card is connected; on leaves it as it found it. */
+  /* motion: false switches JamCards.motion off while this card is connected, motion: calm (1.1.0) to the calm tier (pop-ups
+     and sheets only fade); on leaves it as it found it. */
   _motion(on) {
-    const off = on && !!this._config && this._config.motion === false;
-    if (off && !this._motionOff) { this._motionOff = true; window.JamCards.motion = false; }
-    else if (!off && this._motionOff) { this._motionOff = false; window.JamCards.motion = true; }
+    const m = on && this._config ? this._config.motion : undefined, want = m === false ? false : m === "calm" ? "calm" : null;
+    if (want !== null) { if (this._motionSet !== want) { this._motionSet = want; window.JamCards.motion = want; } }
+    else if (this._motionSet != null) { this._motionSet = null; window.JamCards.motion = true; } // leave it as it found it
   }
   set hass(h) {
     this._themeChanged(h); // a theme / dark-mode switch re-reads the look (and re-copies the tokens onto a body layer)

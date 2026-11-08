@@ -16,6 +16,12 @@ const SERIES = {
   "sensor.office_sensor_temperature": {now: 79.556, swing: 4, noise: .12, every: 520, lag: -.04},
   "sensor.kitchen_sensor_temperature": {now: 73.49, swing: 2.4, noise: .25, every: 480, lag: .02, gap: [.52, .58]},
   "sensor.serenity_current_consumption": {now: 286, power: true, every: 30},
+  // humidity (1.1.0, the inside pop-up: the house and its rooms; states in 62-climate.js)
+  "sensor.home_humidity": {now: 58.6, swing: 4, noise: .2, every: 300, lag: .5},
+  "sensor.living_room_sensor_humidity": {now: 57, swing: 3.5, noise: .3, every: 540, lag: .5},
+  "sensor.bedroom_sensor_humidity": {now: 61, swing: 3, noise: .2, every: 600, lag: .55},
+  "sensor.office_sensor_humidity": {now: 52, swing: 5, noise: .3, every: 520, lag: .45},
+  "sensor.kitchen_sensor_humidity": {now: 63, swing: 6, noise: .4, every: 480, lag: .52},
 };
 jamPreview.add({
   states: [
