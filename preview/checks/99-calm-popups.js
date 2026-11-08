@@ -18,6 +18,8 @@
 //   - every Calm pop-up: light (and size: kiosk), TV controls, Remote, Source, kiosk Remote, speaker, an action card's
 //     confirmation, a jam-kiosk dock sheet, a light pop-up opened from a card inside that dock sheet (two sheets stacked) and
 //     the dock's All off confirmation.
+// Remote (0.11.0-calm.3, the Echo Show's 601px was 88px short): a kiosk remote stays inside its face with no scrolling body,
+// any other remote is inside its face or its body scrolls; every remote key is >= 44px.
 // Per pop-up: the look is calm, the holder is not a query container and .pop covers the viewport (the holder is not its
 // containing block), the sheet face is fully inside
 // the viewport and horizontally centred; above 600px wide it is vertically centred too (unless it fills the height), at
@@ -121,7 +123,13 @@ module.exports = async (page, check) => {
         if (!hh) return null;
         const pop = hh.shadowRoot.querySelector(".pop"), f = hh.shadowRoot.querySelector(".sheet > .face"), r = f.getBoundingClientRect(), hr = pop.getBoundingClientRect();
         return {n: hs.length, full: pop.classList.contains("full"), kio: pop.classList.contains("c-kio"), look: pop.dataset.look, ct: getComputedStyle(hh).containerType,
-          host: [hr.left, hr.top, hr.width, hr.height].map(Math.round), f: [r.left, r.top, r.right, r.bottom], sy: window.scrollY};
+          host: [hr.left, hr.top, hr.width, hr.height].map(Math.round), f: [r.left, r.top, r.right, r.bottom], sy: window.scrollY,
+          rem: (() => { // the remote (0.11.0-calm.3): inside its face (kiosk: no scrolling body), keys >= 44px
+            const x = hh.shadowRoot.querySelector(".c-remote"), body = hh.shadowRoot.querySelector(".body");
+            if (!x) return null;
+            const q = x.getBoundingClientRect(), keys = [...x.querySelectorAll("button")].map(k => k.getBoundingClientRect()).map(k => Math.min(k.width, k.height));
+            return {bottom: q.bottom, top: q.top, scrolls: body.scrollHeight > body.clientHeight + 1, minKey: Math.round(Math.min(...keys) * 10) / 10, zoom: x.style.zoom || ""};
+          })()};
       });
       if (!m) { bad.push(`${name}: no sheet opened`); continue; }
       const [l, t, r, b] = m.f, fh = b - t, why = [];
@@ -133,6 +141,11 @@ module.exports = async (page, check) => {
       if (m.full) { if (Math.abs(l) > .5 || Math.abs(t) > .5 || Math.abs(r - w) > .5 || Math.abs(b - h) > .5) why.push("dock sheet does not cover the viewport"); }
       else if (w > 600 || m.kio) { if (fh < h - 32 && Math.abs(t - (h - b)) > 1) why.push("not centred vertically"); }
       else if (Math.abs(b - h) > .5) why.push("bottom sheet not on the bottom edge");
+      if (m.rem) {
+        if (m.kio && (m.rem.bottom > b + .5 || m.rem.scrolls)) why.push(`remote past its face (${Math.round(m.rem.bottom)} > ${Math.round(b)}${m.rem.scrolls ? ", body scrolls" : ""})`);
+        if (!m.kio && m.rem.bottom > b + .5 && !m.rem.scrolls) why.push("remote past its face and the body does not scroll");
+        if (m.rem.minKey < 43.5) why.push(`remote key ${m.rem.minKey}px < 44${m.rem.zoom ? " (zoom " + m.rem.zoom + ")" : ""}`);
+      }
       if (name === "light in dock sheet" && m.n !== 2) why.push(`${m.n} sheets open, want 2 (stacked)`);
       seen.push(`${name} [${m.f.map(Math.round).join(",")}]${m.sy ? " scrolled " + m.sy : ""}`);
       if (why.length) bad.push(`${name} [${m.f.map(Math.round).join(",")}] scrolled ${m.sy}: ${why.join(", ")}`);

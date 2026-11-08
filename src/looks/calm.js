@@ -22,7 +22,7 @@
   const MONO = '"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace';
   /* Calm's own class names carry a "c-" prefix in the DOM and the CSS (the cards' own sheets stay adopted next to the pack,
      and their .k / .dock / .lc / .src ... must never reach a Calm node). C("a b") -> "c-a c-b"; ce = el with C. */
-  const CM_NAMES = new Set("pale afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
+  const CM_NAMES = new Set("pale afc akeys al alert an aname appl asub away bh big blk cc cg chev chips3 clk clt cm cmb cmp conf cp cw d dash dis dock dpad dr dw dz echo engr f fl gh gr grille hf hs hue ic ind inp irlens k k2 k3 kalloff kcol kdoor kdt kh khome kio klock kmed kp2 kplace kspk kt ktop ktv l lab lc led lg lit lr lst mc mem mini msub mtitle nm note np o ofl ofx og okk on open or pb pcrow pd-off pd-on pn ppl prog pt ptag pwg pwr quiet r rc red rcmp rem remote rg rh rk rk3 rk4 rkey ro rock-off rock-on round rt s sc scn seam seg7 sg sm solo sq src srt static sum sumh swin swrow tab tg tp tx u vf vrow vsteps w warn wd wh wide xl yc".split(" "));
   const C = s => String(s).split(/\s+/).filter(Boolean).map(n => (CM_NAMES.has(n) ? "c-" + n : n)).join(" ");
   const ce = (tag, cls, text) => el(tag, cls ? C(cls) : cls, text);
   const cmark = m => String(m).replace(/class="([^"]+)"/g, (x, k) => `class="${C(k)}"`);
@@ -898,9 +898,36 @@
       if (card._kb && card._kb.isOpen()) return;
       card._kb = jamRemoteKeyboard(card._body || card, {entity: rc.entity, name: device, title: "Keyboard", hass: () => card._hass, onClose: () => { card._kb = null; }});
     }, {key: "keyboard"}));
-    const api = popup(card, {kicker: `TV${device && device !== "TV" ? " · " + device : ""}`, title: c.remote_title || "Remote", keys, kiosk, cls: "rem", fill: body => body.append(remoteBody(card))});
+    let onResize = null;
+    const api = popup(card, {kicker: `TV${device && device !== "TV" ? " · " + device : ""}`, title: c.remote_title || "Remote", keys, kiosk, cls: "rem",
+      fill: (body, a) => { body.append(remoteBody(card)); remoteFit(a); },
+      onClose: () => { if (onResize) removeEventListener("resize", onResize); }});
     // kiosk: the remote beside its title, keys and a note (the mockup's 600px pop-up)
     if (kiosk) { const hd = api.face.querySelector(".head"); if (hd) hd.append(ce("span", "note", "The IR window at the top flashes red on each press.")); }
+    remoteFit(api);
+    onResize = () => remoteFit(api);
+    addEventListener("resize", onResize);
+  }
+  /* The remote fits its pop-up without scrolling (0.11.0-calm.3; the Echo Show's 601px was 88px short): when the drawn remote
+     is taller than the room the face's max-height leaves under its head, the pop-up turns compact (.c-rcmp: 44px keys, a
+     156px d-pad, tighter gaps and face padding); a kiosk pop-up still too short zooms the remote down to fit (it never
+     scrolls), any other pop-up scrolls its body instead (keys stay 44px). */
+  function remoteFit(api) {
+    if (!api || !api.isOpen()) return;
+    const face = api.face, pop = api.pop, r = face.querySelector(".c-remote");
+    if (!r) return;
+    pop.classList.remove(C("rcmp")); r.style.zoom = "";
+    const room = () => {
+      const fs = getComputedStyle(face), mh = parseFloat(fs.maxHeight), pt = parseFloat(fs.paddingTop) || 0, pb = parseFloat(fs.paddingBottom) || 0;
+      if (!isFinite(mh)) return Infinity;
+      const fr = face.getBoundingClientRect(), rr = r.getBoundingClientRect(), mb = parseFloat(getComputedStyle(r).marginBottom) || 0;
+      return mh - pt - pb - (rr.top - fr.top - pt) - mb - 4; // 4: the body's own padding + rounding
+    };
+    if (r.getBoundingClientRect().height <= room()) return;
+    pop.classList.add(C("rcmp"));
+    const h = r.getBoundingClientRect().height, a = room();
+    // a kiosk pop-up never scrolls, so it zooms; a phone / desktop pop-up keeps 44px keys and lets its body scroll instead
+    if (h > a && pop.classList.contains(C("kio"))) r.style.zoom = String(Math.max(.6, Math.floor(a / h * 1000) / 1000));
   }
 
   /* ---------- jam-speaker: name row, grille face + title, transport, volume fader; speaker pop-up ---------- */
@@ -1392,7 +1419,10 @@
 .c-rg{display:flex;justify-content:space-between;align-items:center}
 .c-rkey{appearance:none;border:0;cursor:pointer;border-radius:12px;background:#33322f;color:#ece8df;box-shadow:inset 0 1px 0 #ffffff1f,0 2px 0 #000000a0;display:grid;place-items:center;gap:2px;
   min-height:48px;padding:6px 4px;font:600 12px var(--cmono);letter-spacing:.06em;text-transform:uppercase;transition:transform 80ms}
-.pop .c-rkey,.c-cm .c-rkey{color:#ece8df}
+/* inside a pop-up body, .pop .body button {font-family:inherit;color:inherit} outranked these (the Day remote's labels and arrows
+   came out dark on the dark keys, in Jost): the mockup forces them, so they carry .body too (0.11.0-calm.3) */
+.pop .body .c-rkey,.c-cm .c-rkey{color:#ece8df;font-family:var(--cmono)}
+.pop .body .c-rk3.c-inp .c-rkey{font-family:var(--body)}
 [data-n] .c-rkey{background:#55534e}
 .c-rkey:active{transform:translateY(2px)}
 .c-rkey .c-ic{width:17px;height:17px}
@@ -1406,13 +1436,13 @@
 .c-dpad{position:relative;width:184px;height:184px;margin:0 auto;border-radius:50%;background:#33322f;box-shadow:inset 0 1px 0 #ffffff1f,0 3px 0 #000000a0}
 [data-n] .c-dpad{background:#55534e}
 .c-dz{appearance:none;border:0;cursor:pointer;position:absolute;width:56px;height:56px;background:transparent;display:grid;place-items:center;color:#ece8df;border-radius:50%;padding:0}
-.pop .c-dz,.c-cm .c-dz{color:#ece8df}
+.pop .body .c-dz,.c-cm .c-dz{color:#ece8df}
 .c-dz .c-ic{width:16px;height:16px}
 .c-dz.c-u{top:0;left:64px}.c-dz.c-d{bottom:0;left:64px}.c-dz.c-l{left:0;top:64px}.c-dz.c-r{right:0;top:64px}
 .c-dz:active{background:#00000040}
 .c-okk{appearance:none;border:0;cursor:pointer;position:absolute;left:52px;top:52px;width:80px;height:80px;border-radius:50%;background:var(--cor);color:#1d1c1a;font:600 16px var(--body);letter-spacing:.12em;
   box-shadow:0 0 0 6px #00000040,0 3px 0 color-mix(in srgb,var(--cor) 62%,#000)}
-.pop .c-okk{color:#1d1c1a}
+.pop .body .c-okk{color:#1d1c1a}
 .c-seam{height:0;border-top:1px solid #0000002e;border-bottom:1px solid #ffffff80;margin:2px -18px}
 [data-n] .c-seam{border-top-color:#00000080;border-bottom-color:#ffffff1f}
 /* ---------- pop-ups (openSheet): the house ground, a hairline, 22px corners; eyebrow + title + keys + Close × ---------- */
@@ -1464,6 +1494,27 @@
 .pop.c-kio.c-rem .body{grid-column:2;grid-row:1;overflow:visible;padding:0}
 .pop.c-kio.c-rem .c-remote{margin:6px 0 0}
 .pop.c-cmp.c-rem .body{justify-items:center}
+/* compact remote (remoteFit): the same object with 44px keys, a 156px d-pad and tighter rows, for pop-ups too short for it */
+.pop.c-rcmp .c-remote{padding:24px 16px 14px;gap:6px;border-radius:40px 40px 56px 56px}
+.pop.c-rcmp .c-rkey{min-height:44px;padding:3px 4px}
+.pop.c-rcmp .c-rkey.c-round{width:44px;height:44px;min-height:0;padding:0}
+.pop.c-rcmp .c-rk3.c-inp .c-rkey{padding:5px 8px 4px;line-height:1.05}
+.pop.c-rcmp .c-dpad{width:156px;height:156px}
+.pop.c-rcmp .c-dz{width:48px;height:48px}
+.pop.c-rcmp .c-dz.c-u,.pop.c-rcmp .c-dz.c-d{left:54px}.pop.c-rcmp .c-dz.c-l,.pop.c-rcmp .c-dz.c-r{top:54px}
+.pop.c-rcmp .c-okk{width:64px;height:64px;left:46px;top:46px}
+.pop.c-rcmp .c-seam{margin:1px -16px}
+.pop.c-kio.c-rcmp .sheet > .face{--p-t:16px;--p-b:16px}
+/* a kiosk remote in a narrow window (<= 600px): the head above the remote, as the phone pop-up */
+@media (max-width:600px){
+  .pop.c-kio.c-rem .sheet > .face{display:flex;flex-direction:column;align-items:stretch}
+  .pop.c-kio.c-rem .head{flex-direction:column;align-items:stretch;gap:12px}
+  .pop.c-kio.c-rem .acts{flex-direction:row;align-items:center;gap:8px}
+  .pop.c-kio.c-rem .acts > *{width:auto}
+  .pop.c-kio.c-rem .head > .c-note{display:none}
+  .pop.c-kio.c-rem .body{overflow:visible}
+  .pop.c-kio.c-rem .c-remote{margin:6px auto 0}
+}
 /* ---------- kiosk home: the walnut rule, room + door, a big clock, three keys ---------- */
 .c-khome{position:relative;height:var(--kh,600px);min-height:420px;background:var(--cgd);color:var(--cink);overflow:hidden;font-size:18px;container-type:size}
 .c-khome::before{content:"";position:absolute;left:var(--kpl,44px);right:var(--kpr,44px);top:0;height:3px;background:var(--cwal);z-index:1}

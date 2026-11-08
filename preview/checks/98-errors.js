@@ -77,5 +77,5 @@ module.exports = async (page, check) => {
   const mCard = await nv.evaluate(e => !!e.shadowRoot.querySelector(".unavail"));
   await closeAll(); await restore();
   check(mOpen && mGone > 0 && mCard, `media entities removed while the ⋯ sheet is open: sheet children stay (${mGone}), card unavailable`);
-  check(await page.evaluate(() => document.querySelectorAll(".jam-sheet-host").length === 0 && document.body.style.overflow !== "hidden"), "sheets closed, page scroll restored");
+  check(await page.evaluate(() => document.querySelectorAll(".jam-sheet-host").length === 0 && document.documentElement.style.overflow !== "hidden"), "sheets closed, page scroll restored");
 };

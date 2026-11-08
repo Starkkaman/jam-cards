@@ -186,9 +186,9 @@ class JamPopup extends JamBase {
     this._viaNav = !!l && l.path === location.pathname + location.search &&
       (idx != null && l.idx != null ? idx === l.idx + 1 : history.length === l.len + 1);
     this._prevFocus = deepActive();
-    const de = document.documentElement, bd = document.body;
-    this._scroll = [de.style.overflow, bd.style.overflow];
-    de.style.overflow = "hidden"; bd.style.overflow = "hidden";
+    // scroll lock on <html> only and the page's scroll positions kept (0.11.0-calm.3; core jamScrollLock / jamScrollSnap)
+    this._snap = jamScrollSnap(this);
+    if (!this._locked) { jamScrollLock(true); this._locked = true; }
     this._pop.classList.add("open");
     this._pop.classList.remove("opening");
     if (animate && motionOn()) {
@@ -197,16 +197,16 @@ class JamPopup extends JamBase {
     }
     this._face.scrollTop = 0; this._bodyEl.scrollTop = 0;
     try { this._face.focus({preventScroll: true}); } catch (e) { this._face.focus(); }
+    const snap = this._snap; jamScrollBack(snap); requestAnimationFrame(() => { if (this._open) jamScrollBack(snap); });
   }
   _hide(restoreFocus) {
     this._open = false;
     this._pop.classList.remove("open", "opening");
-    if (this._scroll) {
-      document.documentElement.style.overflow = this._scroll[0]; document.body.style.overflow = this._scroll[1];
-      this._scroll = null;
-    }
+    if (this._locked) { jamScrollLock(false); this._locked = false; }
     const f = this._prevFocus; this._prevFocus = null;
     if (restoreFocus && f && f.isConnected && typeof f.focus === "function") { try { f.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
+    const s = this._snap; this._snap = null;
+    if (restoreFocus && s) { jamScrollBack(s); requestAnimationFrame(() => jamScrollBack(s)); } // not on a disconnect (another view)
   }
   /* Close: back out of the navigation that opened us; if that did not clear the hash (deep link, odd history),
      drop the hash in place and tell HA's router. */

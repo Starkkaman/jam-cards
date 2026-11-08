@@ -210,7 +210,7 @@ module.exports = async (page, check, {callsNow}) => {
   const hs = await sheet.evaluate(e => {
     const r = e.shadowRoot, f = r.querySelector(".face");
     return {kicker: r.querySelector(".t .label").textContent, title: r.querySelector(".t h2").textContent, role: f.getAttribute("role"),
-      focus: document.activeElement === e && r.activeElement === f, overflow: document.body.style.overflow, cut: r.querySelector(".sheet").dataset.cut,
+      focus: document.activeElement === e && r.activeElement === f, overflow: document.documentElement.style.overflow, cut: r.querySelector(".sheet").dataset.cut,
       flash: getComputedStyle(r.querySelector(".spiral")).color, state: history.state && history.state.jamSheet};
   });
   check(hs.kicker === "Living room · Group · 2 bulbs" && hs.title === "Living room" && hs.role === "dialog" && hs.cut === "sheet",
@@ -218,7 +218,7 @@ module.exports = async (page, check, {callsNow}) => {
   check(hs.focus && hs.overflow === "hidden" && !!hs.state, "focus moves into the sheet, scroll locked, history entry pushed");
   check(hs.flash === "rgb(255, 159, 71)", `spiral flash in the light's colour (${hs.flash})`);
   await page.keyboard.press("Escape");
-  const esc = await page.evaluate(() => ({n: document.querySelectorAll(".jam-sheet-host").length, overflow: document.body.style.overflow}));
+  const esc = await page.evaluate(() => ({n: document.querySelectorAll(".jam-sheet-host").length, overflow: document.documentElement.style.overflow}));
   await page.waitForTimeout(100);
   const st2 = await page.evaluate(() => history.state && history.state.jamSheet);
   check(esc.n === 0 && esc.overflow === "" && !st2, "Esc closes the pop-up, unlocks scroll and steps back out of its history entry");
@@ -395,7 +395,7 @@ module.exports = async (page, check, {callsNow}) => {
   const state = () => pop.evaluate(e => {
     const p = e.shadowRoot.querySelector(".pop"), r = e.getBoundingClientRect(), body = e.shadowRoot.querySelector(".body");
     return {display: getComputedStyle(p).display, h: r.height, hash: location.hash, kids: [...body.children].map(k => k.localName),
-      kidHass: [...body.children].every(k => k.hass === e.hass), overflow: document.body.style.overflow,
+      kidHass: [...body.children].every(k => k.hass === e.hass), overflow: document.documentElement.style.overflow,
       focus: document.activeElement === e && e.shadowRoot.activeElement === e.shadowRoot.querySelector(".face")};
   });
   const waitClosed = () => page.waitForFunction(h => location.hash !== h, HASH, {timeout: 2000}).catch(() => null);
@@ -406,7 +406,7 @@ module.exports = async (page, check, {callsNow}) => {
   s = await state();
   check(s.hash === HASH && s.display === "block", "navigate tap opens the popup");
   check(s.kids.join() === "jam-light,jam-light,jam-choice" && s.kidHass, `popup children rendered with hass (${s.kids})`);
-  check(s.focus && s.overflow === "hidden", "focus moves into the sheet, body scroll locked");
+  check(s.focus && s.overflow === "hidden", "focus moves into the sheet, page scroll locked (<html>)");
   const vis = await pop.evaluate(e => {
     const f = e.shadowRoot.querySelector(".face").getBoundingClientRect(), v = e.shadowRoot.querySelector(".veil").getBoundingClientRect();
     const l = e.shadowRoot.querySelector("jam-light"), t = l.shadowRoot.querySelector(".nm");

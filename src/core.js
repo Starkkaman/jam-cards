@@ -1149,6 +1149,30 @@ const SHEET_CSS = `
   .pop.full .body{gap:16px}
   @media (prefers-reduced-motion:reduce){.pop.opening .wipe,.pop.opening .spiral{animation:none!important}}`;
 const SHEET_STACK = [];
+/* Scroll positions kept across a pop-up (0.11.0-calm.3, Isaac: "When I open a popup it scrolls the page all the way to the
+   top", iPad). The page's scroller (document.scrollingElement) plus every scrolled ancestor of the opener across shadow roots
+   (HA may scroll an inner element; a sheet's body under a stacked one). jamScrollBack writes only what moved. */
+function jamScrollSnap(from) {
+  const out = [], se = document.scrollingElement || document.documentElement;
+  if (se) out.push([se, se.scrollTop, se.scrollLeft]);
+  for (let n = from ? flatParent(from) : null; n && n.nodeType === 1; n = flatParent(n))
+    if (n !== se && (n.scrollTop || n.scrollLeft)) out.push([n, n.scrollTop, n.scrollLeft]);
+  return out;
+}
+function jamScrollBack(snap) {
+  for (const [n, t, l] of snap || []) if (n.isConnected && (Math.abs(n.scrollTop - t) >= 1 || Math.abs(n.scrollLeft - l) >= 1)) { n.scrollTop = t; n.scrollLeft = l; }
+}
+/* Scroll lock while a pop-up is open: overflow hidden on <html> only. Locking <body> as well moved the page to the top in
+   Home Assistant: its body is height:100%, and a body whose overflow is not propagated to the viewport (html no longer
+   visible) clips the page to one screen, so the document's scroll range collapses and the browser clamps it to 0. With
+   only the root locked, body's overflow still propagates, the range stays and the position is kept. */
+/* Counted: every open sheet / jam-popup holds one lock; the page's own value comes back when the last one lets go. */
+const JAM_LOCK = {n: 0, was: ""};
+function jamScrollLock(on) {
+  const de = document.documentElement;
+  if (on) { if (!JAM_LOCK.n++) { JAM_LOCK.was = de.style.overflow; de.style.overflow = "hidden"; } }
+  else if (JAM_LOCK.n > 0 && !--JAM_LOCK.n) de.style.overflow = JAM_LOCK.was;
+}
 /* Opens a modal cut sheet (kind "sheet", top-right 18px; a bottom sheet on phones) over a full-screen ink veil, appended to
    document.body in its own shadow root (so a clipped ancestor, e.g. a jam-popup sheet, cannot clip it).
    opts: {from (element whose --jam-* theme tokens are copied), title, kicker, label (dialog name), accent (CSS colour for
@@ -1196,21 +1220,23 @@ function openSheet(opts = {}) {
 
   const id = "jam-sheet-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   let open = true, pushed = false;
-  const prevFocus = deepActive(), de = document.documentElement, bd = document.body;
-  const scroll = [de.style.overflow, bd.style.overflow];
+  const prevFocus = deepActive(), snap = jamScrollSnap(o.from);
   const onKey = e => {
     if (e.key !== "Escape" || SHEET_STACK[SHEET_STACK.length - 1] !== api) return;
     e.preventDefault(); e.stopPropagation(); api.close();
   };
   const onPop = () => { if (!(history.state && history.state.jamSheet === id)) hide(); };
-  function hide() {
+  function hide(keepScroll = true) {
     if (!open) return;
     open = false;
     window.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onPop);
     const i = SHEET_STACK.indexOf(api); if (i >= 0) SHEET_STACK.splice(i, 1);
     holder.remove();
-    if (!SHEET_STACK.length) { de.style.overflow = scroll[0]; bd.style.overflow = scroll[1]; }
+    jamScrollLock(false);
     if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === "function") { try { prevFocus.focus({preventScroll: true}); } catch (e) { /* ignore */ } }
+    // the page where it was (not after a silent close: the card went away, e.g. another view), and once more after
+    // history.back's own scroll restoration (asynchronous popstate)
+    if (keepScroll) { jamScrollBack(snap); requestAnimationFrame(() => jamScrollBack(snap)); }
     if (typeof o.onClose === "function") o.onClose();
   }
   const api = {
@@ -1231,7 +1257,7 @@ function openSheet(opts = {}) {
     close({silent = false} = {}) {
       if (!open) return;
       const back = pushed && !silent && history.state && history.state.jamSheet === id;
-      hide();
+      hide(!silent);
       if (back) history.back();
     },
   };
@@ -1242,8 +1268,8 @@ function openSheet(opts = {}) {
   }
   window.addEventListener("keydown", onKey, true);
   window.addEventListener("popstate", onPop);
+  jamScrollLock(true);
   SHEET_STACK.push(api);
-  de.style.overflow = "hidden"; bd.style.overflow = "hidden";
   document.body.append(holder);
   pop.dataset.look = lookOf(holder); // the copied --jam-look (or the page's own)
   jamStyle(sr, SHEET_CSS + (o.css || ""), pop.dataset.look);
@@ -1252,6 +1278,8 @@ function openSheet(opts = {}) {
   // The caller fills `body` right after this returns; its children then slide in one after another (once).
   Promise.resolve().then(() => { if (open) staggerIn(body.children); });
   try { face.focus({preventScroll: true}); } catch (e) { face.focus(); }
+  jamScrollBack(snap); // the page stays where it was (lock, focus)
+  requestAnimationFrame(() => { if (open) jamScrollBack(snap); });
   return api;
 }
 
