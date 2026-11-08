@@ -18,8 +18,11 @@
 //   - every Calm pop-up: light (and size: kiosk), TV controls, Remote, Source, kiosk Remote, speaker, an action card's
 //     confirmation, a jam-kiosk dock sheet, a light pop-up opened from a card inside that dock sheet (two sheets stacked) and
 //     the dock's All off confirmation.
-// Remote (0.11.0-calm.3, the Echo Show's 601px was 88px short): a kiosk remote stays inside its face with no scrolling body,
-// any other remote is inside its face or its body scrolls; every remote key is >= 44px.
+// Remote (0.11.0-calm.3, the Echo Show's 601px was 88px short): a kiosk remote on a kiosk-wide screen (> 600px) stays inside
+// its face with no scrolling body (compact only when it lacks room: never at 768px high or more); every other remote (desktop,
+// phone, a kiosk card at phone width; 0.11.0-calm.4, "squished on my desktop" / "on mobile") is the mockup's full 264px
+// remote (>= 640px tall, not compact, not zoomed), inside its face or in a scrolling body; every remote key is >= 44px.
+// Viewports 0.11.0-calm.4: + 1440x900, 1440x800, 1366x768, 1280x720 (laptop windows) and 412x915, 375x667 (phones).
 // Per pop-up: the look is calm, the holder is not a query container and .pop covers the viewport (the holder is not its
 // containing block), the sheet face is fully inside
 // the viewport and horizontally centred; above 600px wide it is vertically centred too (unless it fills the height), at
@@ -27,7 +30,7 @@
 // Contract: module.exports = async (page, check) => {}.
 module.exports = async (page, check) => {
   const url = page.url(), browser = page.context().browser();
-  const VPS = [[1024, 768, true], [961, 601], [1920, 1080], [1280, 800], [390, 844, true]];
+  const VPS = [[1024, 768, true], [961, 601], [1920, 1080], [1280, 800], [390, 844, true], [1440, 900], [1440, 800], [1366, 768], [1280, 720], [412, 915], [375, 667]];
   const runs = [];
   for (const [w, h, both] of VPS) { runs.push([w, h, false]); if (both) runs.push([w, h, true]); }
   for (const [w, h, force] of runs) {
@@ -128,7 +131,8 @@ module.exports = async (page, check) => {
             const x = hh.shadowRoot.querySelector(".c-remote"), body = hh.shadowRoot.querySelector(".body");
             if (!x) return null;
             const q = x.getBoundingClientRect(), keys = [...x.querySelectorAll("button")].map(k => k.getBoundingClientRect()).map(k => Math.min(k.width, k.height));
-            return {bottom: q.bottom, top: q.top, scrolls: body.scrollHeight > body.clientHeight + 1, minKey: Math.round(Math.min(...keys) * 10) / 10, zoom: x.style.zoom || ""};
+            return {bottom: q.bottom, top: q.top, w: Math.round(q.width), h: Math.round(q.height), cmp: pop.classList.contains("c-rcmp"),
+              scrolls: body.scrollHeight > body.clientHeight + 1, minKey: Math.round(Math.min(...keys) * 10) / 10, zoom: x.style.zoom || ""};
           })()};
       });
       if (!m) { bad.push(`${name}: no sheet opened`); continue; }
@@ -142,8 +146,12 @@ module.exports = async (page, check) => {
       else if (w > 600 || m.kio) { if (fh < h - 32 && Math.abs(t - (h - b)) > 1) why.push("not centred vertically"); }
       else if (Math.abs(b - h) > .5) why.push("bottom sheet not on the bottom edge");
       if (m.rem) {
-        if (m.kio && (m.rem.bottom > b + .5 || m.rem.scrolls)) why.push(`remote past its face (${Math.round(m.rem.bottom)} > ${Math.round(b)}${m.rem.scrolls ? ", body scrolls" : ""})`);
-        if (!m.kio && m.rem.bottom > b + .5 && !m.rem.scrolls) why.push("remote past its face and the body does not scroll");
+        const kw = m.kio && w > 600; // a kiosk pop-up on a kiosk-wide screen: fits, compact / zoomed if it must
+        if (kw && (m.rem.bottom > b + .5 || m.rem.scrolls)) why.push(`remote past its face (${Math.round(m.rem.bottom)} > ${Math.round(b)}${m.rem.scrolls ? ", body scrolls" : ""})`);
+        if (kw && m.rem.cmp && h >= 768) why.push(`kiosk remote compact at ${w}x${h} (room enough for the full remote)`);
+        if (!kw && (m.rem.cmp || m.rem.zoom || m.rem.w !== 264 || m.rem.h < 640)) // desktop / phone: the mockup's full-size remote
+          why.push(`remote squished (${m.rem.w}x${m.rem.h}${m.rem.cmp ? ", compact" : ""}${m.rem.zoom ? ", zoom " + m.rem.zoom : ""}), want the full 264px remote`);
+        if (!kw && m.rem.bottom > b + .5 && !m.rem.scrolls) why.push("remote past its face and the body does not scroll");
         if (m.rem.minKey < 43.5) why.push(`remote key ${m.rem.minKey}px < 44${m.rem.zoom ? " (zoom " + m.rem.zoom + ")" : ""}`);
       }
       if (name === "light in dock sheet" && m.n !== 2) why.push(`${m.n} sheets open, want 2 (stacked)`);

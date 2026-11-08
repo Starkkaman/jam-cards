@@ -481,9 +481,15 @@ can"). Calm, ordered, few things per screen; "all fine" looks like nothing.
   centred (light: two columns; remote: 600px). A pack never puts `container-type` (or a transform / contain) on a bare `:host`: the pack is
   adopted on the body-attached sheet holder too, and Safari / WKWebView <= 18 turns a query container into the containing
   block of the fixed pop-up (0.11.0-calm.2: every pop-up opened below the iPad's screen); openSheet pins the holder's
-  containment / transform properties inline since then, `preview/checks/99-calm-popups.js` guards it. The remote fits its pop-up (0.11.0-calm.3): too short for the drawn remote
-  (the Echo's 601px), the pop-up turns compact (44px keys, a 156px d-pad, tighter rows); a kiosk pop-up still too short zooms
-  the remote, any other one scrolls its body. Pop-ups keep the page's scroll position (every look): the lock is overflow
+  containment / transform properties inline since then, `preview/checks/99-calm-popups.js` guards it. A kiosk remote fits its pop-up (0.11.0-calm.3): on a kiosk-wide screen
+  (> 600px) too short for the drawn remote (the Echo's 601px), the pop-up turns compact (44px keys, a 156px d-pad, tighter
+  rows) and, still too short, zooms the remote. Every other remote (desktop, phone, a kiosk card at phone width) is the
+  mockup's full-size remote and its body scrolls when the window is short (0.11.0-calm.4: never squished).
+  Dock sheets lay out any block (0.11.0-calm.4, the live dashboards): `rows` as designed for the kiosks, each row at least
+  its content (minmax(min-content, 1fr)); without rows the block's `columns` as jam-kiosk does, a block of kiosk player
+  cards in one column with the first taking the height left; at phone width (<= 600px) one column of natural-height cards;
+  the body scrolls rather than clip. The rocker keeps the mockup's paddle on wide cards (<= 150px, kiosk <= 190px) with
+  the fader beside it; the purifier's readout finds sensor.<fan>_pm2_5 without extra_sensor, and is left out with no number. Pop-ups keep the page's scroll position (every look): the lock is overflow
   hidden on <html> only, and the page's and the opener's scrolled ancestors' positions are written back after open and close. The kiosk measures HA's view padding and keeps the mockup's 44 / 40px insets.
 - **Remote while the TV is off** (every look, 2026-11-06): jam-tv's off card keeps Remote (and Source); the remote's power key
   turns the TV on.
