@@ -234,8 +234,8 @@ The pop-up's **Edit** key: tap a white's pencil to rename it and set its warmth 
 on a saved colour to remove it; **Done** to finish. Edited whites are saved per HA user and per light.
 
 Stepless colour (Hi-Fi pop-up, 1.0.0): a light with a colour mode (hs, xy, rgb, rgbw, rgbww; groups and WLED included) gets
-**Hue** (0–360°, the track is the spectrum) and **Saturation** (0–100 %, white to the hue) sliders under the colour swatches,
-with the values in Plex Mono and a chip showing the result; a light with colour temperature only gets a stepless
+**Hue** (0–360°, the track is the spectrum) and **Saturation** (0–100 %, white to the hue) sliders, full width in the Colour
+block (they replaced the 12-swatch strip), each with its name and value (Plex Mono) on a line above and a chip showing the result; a light with colour temperature only gets a stepless
 **Temperature** slider (the light's min / max kelvin) under its whites. Drag or use the keys (hue / saturation: arrows ±1,
 Page ±10, Home / End; temperature: ±50 / ±500 K); the light follows at most every 300 ms while dragging and once more on
 release (`light.turn_on` with `hs_color` / `color_temp_kelvin`, which also turns a light that is off on).
@@ -253,7 +253,7 @@ entity: light.living_room
 | `preset_entity` | A `select` of presets (e.g. WLED) shown as cards instead of the whites |
 | `presets` | Extra pop-up chips: `{name, color_temp_kelvin or rgb_color, brightness_pct}` |
 | `timer_script` | Off-timer script (default `script.jam_light_off_in`, fields `entity_id` + `minutes`; the row hides without it) |
-| `show_brightness`, `show_color_temp`, `show_color`, `show_members` | Show/hide pop-up parts (whites, hue strip + hue / saturation sliders + your colours, group members) |
+| `show_brightness`, `show_color_temp`, `show_color`, `show_members` | Show/hide pop-up parts (whites, hue / saturation sliders + your colours, group members) |
 | `member_bands` | Group lights: `full` (default, bands down the whole right edge, black power corner on top) or `corner` (a block under the power corner) |
 | `tap_action`, `hold_action` | Card actions (default tap and hold: the pop-up; the power corner always toggles) |
 | `size` | `kiosk` (opt-in): a 150 px block for kiosk sheets — 36 px name, 18 px sub line, 52 px number, 64 px power corner, nothing under 18 px. Two to a row (`columns: 2` on the jam-kiosk block) gives the big-light sheet |

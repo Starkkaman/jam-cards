@@ -1857,7 +1857,7 @@ function jamNowMedia(hass, src) {
       box.append(t); body.append(box);
     }});
   }
-  /* Light pop-up: brightness, whites (5 by default, with their colours), colour (12 hues), your colours, group members,
+  /* Light pop-up: brightness, whites (5 by default, with their colours), colour (hue + saturation sliders), your colours, group members,
      turn off in, automations (config `automations`). Kiosk: centred, two columns. */
   function lightPop(card) {
     const c = card._config, h = card._hass, name = card._name();
@@ -1872,8 +1872,6 @@ function jamNowMedia(hass, src) {
         pwr.setAttribute("aria-pressed", String(on)); pwr.setAttribute("aria-label", `${name} power, ${on ? "On" : "Off"}`);
       }, fill: body => lightPopBody(card, body)});
   }
-  const HUES = ["#ff7a6b", "#ff9a5a", "#ffc95a", "#e6dc5a", "#9bdc5a", "#5ad68a", "#5ad6c8", "#5ab8ff", "#6a8cff", "#9b7bff", "#d17bff", "#ff7ab0"];
-  const rgbHex = x => [1, 3, 5].map(i => parseInt(x.substr(i, 2), 16));
   function hueOf(rgb) {
     const [r, g, b] = rgb.map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
     if (!d) return [0, 0];
@@ -1884,8 +1882,8 @@ function jamNowMedia(hass, src) {
   /* ---------- stepless colour sliders (Isaac 2026-11-08: "I want stepless hue and saturation sliders in the light popup menu") ----------
      Horizontal faders with the colour as the track (the track is the data, not decoration): Hue 0-360° over the spectrum at
      the current saturation (at least 30 %, so the hues stay legible near white), Saturation 0-100 % from white to the
-     current hue; a light with colour temperature only gets a stepless Temperature slider over the mockup's whites. A tall
-     narrow cap (the colour stays visible under it), the value in Plex Mono beside the name, a live chip with the result.
+     current hue, both full width (they replaced the 12-swatch strip); a light with colour temperature only gets a stepless Temperature slider over the mockup's whites. A tall
+     narrow cap (the colour stays visible under it), the name and the value (Plex Mono) on a line above, a live chip with the result.
      Calls go through the fader's throttle (at most one per 300 ms while dragging, the final value on release, one per key
      burst); the card holds the value it sent (_cmHs / _cmCt) for 2.5 s, so a late state from an earlier call never moves
      the cap back, and a light that is off turns on with the colour. */
@@ -1906,7 +1904,7 @@ function jamNowMedia(hass, src) {
     const f = fullRgb(a.rgb_color);
     return f ? hueOf(f) : null;
   }
-  /* One slider row: the name and its value (Plex Mono) beside a tone fader. */
+  /* One slider: a line with the name and its value (Plex Mono), then the tone fader. */
   function toneRow(name, fd) {
     const t = ce("span", "tl"), v = ce("b", "tv num");
     t.append(lab(name), v);
@@ -1987,16 +1985,9 @@ function jamNowMedia(hass, src) {
     }
     if (hasColor) {
       const cur = on && !["color_temp", "white"].includes(a.color_mode) ? fullRgb(lightRgb(s)) : null;
-      const row = ce("div", "hue");
-      for (const x of HUES) {
-        const rgb = rgbHex(x), [hh, ss] = hueOf(rgb), bt = ce("button");
-        bt.type = "button"; bt.style.setProperty("--c", rgbCss(guard(rgb))); bt.dataset.key = "h" + x;
-        bt.setAttribute("aria-label", "Colour " + x); bt.setAttribute("aria-pressed", String(!!cur && Math.abs(hueOf(cur)[0] - hh) <= 12));
-        bt.addEventListener("click", () => pick({hs_color: [hh, ss]}));
-        row.append(bt);
-      }
+      // Isaac 2026-11-08: "The hue should replace the color slider. And they should both be the same width as the color slider."
       const t = toneSliders(card, s, set);
-      parts.push(["R", blk(labChip("Colour", t.chip), row, t.box)]);
+      parts.push(["R", blk(labChip("Colour", t.chip), t.box)]);
       const yc = ce("div", "yc"), saved = (typeof LIGHT_COLORS !== "undefined" && LIGHT_COLORS) || [];
       saved.slice(-4).forEach((rgb, i) => {
         const sw = ce("i", "swin"); sw.style.setProperty("--c", rgbCss(guard(fullRgb(rgb) || rgb)));
@@ -2975,13 +2966,12 @@ function jamNowMedia(hass, src) {
 .c-wh .c-k{flex-direction:column;gap:6px;padding:0 0 8px;min-height:72px;font-size:13.5px;overflow:hidden;justify-content:flex-start;min-width:0}
 .c-wh .c-k .c-cc{display:block;width:100%;height:20px;background:var(--c);border-bottom:1px solid var(--cln)}
 .c-wh .c-k small{font:400 12px var(--cmono);color:var(--cdim)}
-.c-hue{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));height:44px;border-radius:12px;overflow:hidden;border:1px solid var(--cln)}
-.c-hue button{appearance:none;border:0;cursor:pointer;background:var(--c);position:relative;padding:0;min-width:0}
-.c-hue button[aria-pressed=true]::after{content:"";position:absolute;left:50%;bottom:6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#19202e;box-shadow:0 0 0 2px #fff}
-/* stepless colour sliders: [name + value | track]; the track is the colour itself (inset in the groove), the cap a tall narrow
-   ink-rimmed thumb that leaves the colour visible; the chip on the block's label row shows the result */
-.c-tones{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;align-items:center;margin-top:4px}
-.c-tl{display:grid;gap:3px;min-width:0}
+/* stepless colour sliders: a line with the name and its value (Plex Mono, right), then the full-width track; the track is the
+   colour itself (inset in the groove), the cap a tall narrow ink-rimmed thumb that leaves the colour visible; the chip on the
+   block's label row shows the result */
+.c-tones{display:grid;gap:6px}
+.c-tl{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}
+.c-tl + .c-hf + .c-tl{margin-top:8px}
 .c-tl .c-tv{font:500 15px/1 var(--cmono);color:var(--cink);letter-spacing:.02em;white-space:nowrap}
 .c-hf.c-tone{height:44px;cursor:ew-resize}
 .c-hf.c-tone .c-fl{width:auto;right:3px;opacity:1;background:var(--trk,var(--cgroove))}
@@ -3073,7 +3063,7 @@ function jamNowMedia(hass, src) {
 .pop.c-cmp.c-kio .stage{align-items:center}
 .pop.c-kio .c-lab{font-size:15px}.pop.c-kio .c-k{font-size:18px;min-height:52px}.pop.c-kio .c-note{font-size:16px}
 .pop.c-kio .c-hf .c-cp b{font-size:16px}.pop.c-kio .c-wh .c-k{font-size:16px;min-height:80px}.pop.c-kio .c-wh .c-k small{font-size:15px}
-.pop.c-kio .c-tones{margin-top:0;row-gap:8px}.pop.c-kio .c-tl .c-tv{font-size:17px}.pop.c-kio .c-tchip{width:48px;height:24px}
+.pop.c-kio .c-tl .c-tv{font-size:17px}.pop.c-kio .c-tchip{width:48px;height:24px}
 .pop.c-kio .c-mem{font-size:17px}.pop.c-kio .c-rk.c-mini{width:64px;height:60px}
 .c-kp2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
 .c-kp2 > div{display:grid;gap:16px;align-content:start}

@@ -165,8 +165,10 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
   horizontal faders whose track is the colour itself (data, not decoration): Hue 0-360° over the spectrum at the current
   saturation (drawn at >= 30 % so the hues stay legible near white), Saturation 0-100 % from white to the hue; a light with
   colour temperature only gets a Temperature slider (its min / max kelvin) over the mockup's whites instead. They sit in the
-  Colour block under the 12 swatches (Temperature in the White block); the value in Plex Mono 15px beside the name, a tall
-  18px cap with the ink rim that leaves the colour visible, a 40 x 20 chip with the result on the block's label row. The
+  Colour block, full width, in place of the 12-swatch strip (Isaac: "The hue should replace the color slider. And they should
+  both be the same width as the color slider."; Temperature in the White block); a line with the name and the value (Plex
+  Mono 15px, right) above each track, a tall 18px cap with the ink rim that leaves the colour visible, a 40 x 20 chip with
+  the result on the block's label row. The
   fader's rules (300 ms while dragging, the final value on release, one call per key burst, no redraw under the finger);
   arrows ±1 / Page ±10 (kelvin ±50 / ±500); the card holds what it sent for 2.5 s so a late state never moves the cap back;
   a swatch releases the hold. Kiosk pop-ups with colour: brightness, whites and the members left, colour, your colours and

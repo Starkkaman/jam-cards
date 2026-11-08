@@ -2,7 +2,9 @@
 // the light popup menu"), and a stepless colour-temperature slider for lights with colour temperature only.
 // On scratch cards of the dark/1280 preview page (the preview shots stay as they were):
 //   - a light with hs: Hue (0-360) and Saturation (0-100) sliders with role=slider, aria-valuemin/max/now/text, the values
-//     read out in Plex Mono ("212°", "64 %") and a live colour chip; a hue drag of ~1 s sends at most one light.turn_on per
+//     read out in Plex Mono ("212°", "64 %") on a line above each track and a live colour chip; Isaac 2026-11-08 ("The hue
+//     should replace the color slider. And they should both be the same width as the color slider."): no 12-swatch strip,
+//     both tracks span the Colour block's full width; a hue drag of ~1 s sends at most one light.turn_on per
 //     300 ms with hs_color, the readout follows the finger, the pop-up is not redrawn under the finger (a state update arrives
 //     mid-drag), the last call carries exactly the shown value; a late state from an earlier call does not move the cap back;
 //     the same for saturation (the final call = [the hue, the shown saturation]);
@@ -81,6 +83,13 @@ module.exports = async (page, check) => {
   // ---- an hs light ----
   check(await open(page, "light.hu_a"), "hifi hue: the light pop-up opens for an hs light");
   let H = await sl(page, "hue"), S = await sl(page, "sat");
+  const lay = await page.evaluate(() => {
+    const sr = window.__hu.sr, h = sr.querySelector('[data-key="hue"]'), s = sr.querySelector('[data-key="sat"]'), blk = h.closest(".c-blk"), hl = h.previousElementSibling;
+    const w = n => n.getBoundingClientRect();
+    return {strip: !!sr.querySelector(".c-hue"), bw: Math.round(w(blk).width), hw: Math.round(w(h).width), sw: Math.round(w(s).width), above: w(hl).bottom <= w(h).top + .5};
+  });
+  check(!lay.strip && Math.abs(lay.hw - lay.bw) <= 1 && Math.abs(lay.sw - lay.bw) <= 1 && lay.above,
+    `hifi hue: no swatch strip, Hue and Saturation span the Colour block (${lay.hw} / ${lay.sw} of ${lay.bw}px), name + value on a line above (${JSON.stringify(lay)})`);
   check(!!H && !!S && H.min === 0 && H.max === 360 && H.now === 212 && H.read === "212°" && /212 degrees/.test(H.text) && /hue/i.test(H.label) &&
     S.min === 0 && S.max === 100 && S.now === 64 && S.read === "64 %" && /64 percent/.test(S.text) && /saturation/i.test(S.label) && /^rgb/.test(H.chip || ""),
     `hifi hue: Hue 0-360 and Saturation 0-100 sliders show the light's colour (${JSON.stringify({H, S})})`);
