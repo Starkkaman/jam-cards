@@ -12,7 +12,12 @@ How the one look is built:
   is Hi-Fi's, `lookOf()` is always `hifi`. Every card fixes the Hi-Fi theme-level tokens (type, shapes, motion,
   `--jam-look: hifi`) on its own `:host` (TOKEN_CSS, tools/bundle.mjs from `tokens/looks/hifi.mjs`), so no theme can re-type or
   re-shape the cards. Mode tokens (the palette) come from the theme "Hi-Fi" (`../jam-theme/themes/jamboard.yaml`); every one
-  falls back to the Night value.
+  falls back to the Night value. The same file holds "Hi-Fi Day" and "Hi-Fi Night" (1.0.1): one palette each, flat, no modes
+  (`single` in `tokens/looks/hifi.mjs`), for a default theme an automation switches at sunrise / sunset (the kiosks).
+- **Day or night = `--jam-mode`.** Every Hi-Fi palette carries `--jam-mode: day | night` (the built-in palette: night). Core
+  `jamMode(node)` reads it; Hi-Fi's night marks (`[data-n]`), the rocker tones (`data-pd`) and the jam-kiosk shell's light
+  class follow it, never `hass.themes.darkMode` or `prefers-color-scheme` (a single-mode theme keeps its palette on a device
+  in the other mode). A theme without it (1.0.0) falls back to the face's luminance.
 - **Built-in palette.** A card whose page theme is not Hi-Fi (no `--jam-look`, or a stale theme of a removed look: Poster's
   "JamBoard", "Jam Braun", ... still installed in `config/themes/`) carries `data-jam-builtin` (core `setBuiltin()`, in the
   look batch) and TOKEN_BUILTIN_CSS sets every mode token to Hi-Fi Night on its host, the calm-part tokens without a short
@@ -307,6 +312,11 @@ Elevation (Braun; per mode, optional):
 | var | sets | Poster |
 |---|---|---|
 | `--jam-elev-1` | box-shadow of card, hero and sheet faces, applied by a look pack (only with a shape of `none`: clip-path clips shadows) | unset (none) |
+
+Identity (per mode, optional; 1.0.1):
+| var | sets | default |
+|---|---|---|
+| `--jam-mode` | `day` or `night`: which palette the theme carries; Hi-Fi decides day / night from it (core `jamMode`), never from the dark-mode flag | unset: from the face's luminance (built-in palette: night) |
 
 Runtime tokens (not in a theme, copied onto body layers): `--jam-accent` (jam-popup hands its accent to its children),
 `--jam-spotify` (jam-speaker source dot); `--jam-motion` (0 = motion off, set on `<html>` by `JamCards.motion`) and

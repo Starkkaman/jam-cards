@@ -114,6 +114,7 @@
   --jam-kf-flash:calm-fade-out;
   --jam-kf-ss-cut:calm-fade;
   --jam-kf-ss-pop:calm-fade;
+  --jam-mode:night;
   --jam-look:hifi;
   --primary-background-color:#10141d;
   --primary-text-color:#ece5d3;
@@ -233,6 +234,7 @@
   --jam-kf-flash:calm-fade-out;
   --jam-kf-ss-cut:calm-fade;
   --jam-kf-ss-pop:calm-fade;
+  --jam-mode:day;
   --jam-look:hifi;
   --primary-background-color:#efebe2;
   --primary-text-color:#19202e;

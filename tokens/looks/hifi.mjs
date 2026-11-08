@@ -34,6 +34,11 @@ export default {
   id: "hifi",
   theme: "Hi-Fi",
   file: "jamboard.yaml", // the file HACS has always installed (was the Poster theme "JamBoard" until Jam Cards 1.0.0)
+  // Single-mode themes in the same file (1.0.1, Isaac: the kiosks follow the sun): one palette as flat top-level variables,
+  // no modes. An HA automation sets the backend default theme (frontend.set_theme, mode light and dark) to "Hi-Fi Day" at
+  // sunrise and "Hi-Fi Night" at sunset, so a device on the default theme (the kiosks) follows the sun whatever its own
+  // dark setting; whoever picks "Hi-Fi" in their profile keeps following their device. [theme name, mode].
+  single: [["Hi-Fi Day", "light"], ["Hi-Fi Night", "dark"]],
   comment: [
     "Hi-Fi: the Jam look (Jam Design pass 6 + 7, calm instruments). Callsheet paper by day, navy by night; Jost words,",
     "IBM Plex Mono labels and numbers; flat panels with hairline edges and soft corners; no shadows, no glow.",
@@ -43,6 +48,9 @@ export default {
     "loads Jost + IBM Plex Mono (dist/fonts/, IBM's files unmodified, SIL OFL 1.1) and draws the cards (Hi-Fi is built in:",
     "--jam-look: hifi). Without Jam Cards the stacks fall back to system fonts. Until Jam Cards 1.0.0 this file held the",
     "Poster theme \"JamBoard\": pick \"Hi-Fi\" in your profile, or run frontend.set_theme (name Hi-Fi, mode light and dark).",
+    "\"Hi-Fi Day\" and \"Hi-Fi Night\" (below \"Hi-Fi\") are the same palettes as single-mode themes (no modes): set one as the",
+    "default theme (frontend.set_theme, mode light and dark) at sunrise / sunset and every device on the default theme (the",
+    "kiosks) follows the sun whatever its own dark setting; whoever picks \"Hi-Fi\" keeps following their own device.",
   ],
   tokens: {
     "jam-display": JOST,
@@ -131,6 +139,7 @@ export default {
         "jam-ok": "#7bd651", "jam-warn": "#f2c14e", "jam-warn-text": "#7a5300",
         "jam-switch-off": "#1c2331", "jam-switch-thumb": "#fbf9f4", "jam-switch-rim": "transparent",
         "jam-switch-plug": "#6780b4", "jam-switch-climate": "#43899a", "jam-switch-auto": "#8f72c0", "jam-switch-set": "#71819c",
+        "jam-mode": "day",
       },
       ha: {
         ground: "#efebe2", ground2: "{jam-slab}", primary: "{jam-blue}", secondary: "{jam-red}", faint: "#8f8b82",
@@ -158,6 +167,7 @@ export default {
         "jam-ok": "#7bd651", "jam-warn": "#f2c14e", "jam-warn-text": "#f2c14e",
         "jam-switch-off": "#05070b", "jam-switch-thumb": "#ece5d3", "jam-switch-rim": "#2a3244",
         "jam-switch-plug": "#5971a4", "jam-switch-climate": "#337b8c", "jam-switch-auto": "#8063b1", "jam-switch-set": "#64738d",
+        "jam-mode": "night",
       },
       ha: {
         ground: "#10141d", ground2: "{jam-slab}", primary: "{jam-blue}", secondary: "{jam-red}", faint: "#5c6273",

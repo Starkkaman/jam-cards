@@ -426,7 +426,7 @@ class JamLight extends JamBase {
      lift (lighter), pressed = base. Edge = halfway; rim = lift. */
   _paddle(b, root, {name, dead}) {
     const cs = getComputedStyle(b), rgbOf = n => parseRgb(cs.getPropertyValue(n).trim()) || resolveRgb(b, `var(${n})`);
-    const slab = rgbOf("--slab"), fg = rgbOf("--fg"), day = !!slab && luminance(slab) > .35;
+    const slab = rgbOf("--slab"), fg = rgbOf("--fg"), md = jamMode(b), day = md ? md === "day" : !!slab && luminance(slab) > .35;
     root.dataset.pd = day ? "day" : "night";
     if (slab && fg) {
       const mix = (x, y, t) => x.map((v, i) => Math.round(v * t + y[i] * (1 - t)));

@@ -149,6 +149,7 @@ export const TOKENS = [
   {name: "jam-fx", css: "", scope: "theme", optional: true, note: "effects switch, 0 or 1: 1 sets data-fx on cards, sheets and the screensaver layer, so a look pack's gradients / translucency / scanlines apply (unset = 0; a card's `fx: false` forces 0)"},
   {name: "jam-elev-1", css: "", scope: "mode", optional: true, note: "box-shadow of card, sheet and hero faces (a look pack applies it; only with a shape of none, because clip-path clips shadows; unset = none)"},
   // ---- identity (R1) ----
+  {name: "jam-mode", css: "", scope: "mode", optional: true, note: "day or night: which palette the theme carries (1.0.1). Hi-Fi decides day / night from this token (rocker tones, pop-ups, kiosk, screensaver), never from Home Assistant's dark-mode flag or the OS scheme, so the single-mode themes Hi-Fi Day / Hi-Fi Night draw their palette on any device; unset (an older theme) = from the face's luminance"},
   {name: "jam-look", css: "", scope: "theme", note: "look id (hifi since 1.0.0, fixed on every card): cards set data-look=<id> on their host, sheets and the screensaver layer; the page theme's value decides data-jam-builtin (not hifi / calm = the built-in Night palette)"},
 ];
 /* Runtime tokens: set by cards or users, not by a theme, but copied onto body layers (sheets, screensaver) like the rest. */

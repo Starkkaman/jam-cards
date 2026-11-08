@@ -705,6 +705,14 @@ function parseRgb(v) {
   const m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(s);
   return m ? [+m[1], +m[2], +m[3]].map(Math.round) : null;
 }
+/* Day or night at node (1.0.1): the theme's --jam-mode token ("day" / "night"; Hi-Fi, Hi-Fi Day, Hi-Fi Night and the
+   built-in palette all carry it), else null (a theme from before 1.0.1: callers fall back to the face's luminance). Never
+   Home Assistant's dark-mode flag or the OS scheme: a single-mode theme (Hi-Fi Day on a device in dark mode) keeps its palette. */
+function jamMode(node) {
+  let v = "";
+  try { v = getComputedStyle(node).getPropertyValue("--jam-mode").trim().replace(/^["']|["']$/g, "").toLowerCase(); } catch (e) { /* not in a page */ }
+  return v === "day" || v === "night" ? v : null;
+}
 const TEXT_CACHE = new Map();
 /* The look's text pair at node (one computed-style read; resolved pairs cached by their token values, so a look or mode
    switch picks up new values on the next render). */
@@ -1410,7 +1418,7 @@ window.JamCards = Object.freeze(Object.defineProperty({
   kelvinToRgb, luminance, inkOn, lightRgb, fullRgb, rgbCss, CONDITION_WORDS, conditionWord, AQI_WORDS, aqWord, aqPoor, jamDateText, ALERT_CLASSES, vertigoSpiral, deepActive, openSheet,
   motionOn, oneShot, staggerIn, treeOrder, actionError, shortError, jamCall, lookOf, TOKENS: JAM_TOKENS,
   motif, defineMotif, registerLook, lookPack, looks: () => [...JAM_LOOK_PACKS.keys()], LOOK: JAM_LOOK, ASSET_BASE: JAM_ASSET_BASE, jamStyle, fxOf,
-  contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER,
+  contrastRatio, textOn, shade, resolveRgb, POWER_CSS, powerCorner, cornerColors, textColors, parseRgb, TEXT_POSTER: JAM_TEXT_POSTER, jamMode,
   jamSwitch, jamSwitchKind,
 }, "motion", {get: () => JAM_MOTION, set: setMotion, enumerable: true}));
 window.customCards = window.customCards || [];

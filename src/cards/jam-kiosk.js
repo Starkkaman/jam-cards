@@ -289,9 +289,11 @@ class JamKioskHome extends JamBase {
   _update() {
     if (this._own) { this._render(false); return; } // a look draws the kiosk (whole-card hook): it updates itself
     this._clock();
-    // Light mode: hass.themes.darkMode (set by HA), else the OS scheme. "none" dock blocks are solid ink in light mode.
-    const th = this._hass.themes, dark = th && typeof th.darkMode === "boolean" ? th.darkMode
-      : !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    // Light mode = the theme's day palette (1.0.1: --jam-mode, else the face's luminance), never HA's dark-mode flag or the
+    // OS scheme (a single-mode theme such as Hi-Fi Day keeps its palette on a device in dark mode). "none" dock blocks are
+    // solid ink in light mode.
+    const md = jamMode(this), slab = parseRgb(getComputedStyle(this).getPropertyValue("--slab").trim());
+    const dark = md ? md === "night" : !slab || luminance(slab) < .3;
     this._body.classList.toggle("light", !dark);
     const c = this._config, h = this._hass;
     const set = (n, t) => { t = t == null ? "" : String(t); if (n.textContent !== t) n.textContent = t; };

@@ -259,7 +259,7 @@ const server = http.createServer((req, res) => {
             api: ["seed", "rng", "tornPath", "paper", "cutKey", "cutPath", "accentName", "accentVar", "accentFg", "setAccent", "armBars", "icon", "bindActions", "runAction", "lookOf", "motif", "registerLook", "lookPack"].every(k => typeof J[k] === "function")};
         });
         check(core.names, "accent names + room aliases resolve (living→living, kitchen→teal, master→blue, marissa→pink, music→violet, nerd→green, alert→red)");
-        check(core.api && core.version === "1.0.0" && core.looks === "hifi" && core.look === "hifi", `window.JamCards exports the helper API (version ${core.version}, looks ${core.looks}, default ${core.look})`);
+        check(core.api && core.version === "1.0.1" && core.looks === "hifi" && core.look === "hifi", `window.JamCards exports the helper API (version ${core.version}, looks ${core.looks}, default ${core.look})`);
         const helpers = {
           tile: name => page.locator("jam-tile").filter({hasText: name}),
           callsNow: () => page.evaluate(() => window.__calls),

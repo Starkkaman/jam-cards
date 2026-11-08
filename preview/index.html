@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jam Cards preview</title>
 <!-- Mimics a sections dashboard with the Hi-Fi theme (looks.css). ?mode=light switches to Day; ?theme=none leaves the theme
-     off (HA's default theme: the cards draw their built-in Hi-Fi Night palette). -->
+     off (HA's default theme: the cards draw their built-in Hi-Fi Night palette). ?theme=Hi-Fi%20Day / Hi-Fi%20Night (1.0.1)
+     applies that single-mode theme (preview/themes.js) inline on <html> as HA does, instead of looks.css; ?dark=1 / 0 sets
+     hass.themes.darkMode (and the .light class) independently of it, so a check can make them disagree. -->
 <link rel="stylesheet" href="looks.css" id="theme-css"> <!-- GENERATED from tokens/ by tools/bundle.mjs: the Hi-Fi theme tokens per mode -->
 <style>
   html,body{margin:0;background:var(--primary-background-color)}
@@ -20,13 +22,19 @@
   .full{grid-column:1/-1}
 </style>
 <script src="themes.js"></script> <!-- GENERATED from tokens/: hass.themes.themes (the Hi-Fi theme) -->
-<script>if (new URLSearchParams(location.search).get("theme") === "none") document.getElementById("theme-css").remove();</script>
+<script>
+{ const q = new URLSearchParams(location.search), th = q.get("theme"), one = th && th !== "none" && (window.jamPreviewThemes || {})[th];
+  if (th === "none" || one) document.getElementById("theme-css").remove();
+  // a single-mode theme (no modes): every key as a custom property on <html> (HA: applyThemesOnElement on documentElement)
+  if (one && !one.modes) for (const [k, v] of Object.entries(one)) document.documentElement.style.setProperty("--" + k, v);
+  window.__singleTheme = one && !one.modes ? th : ""; }
+</script>
 <script src="../dist/jam-cards.js"></script> <!-- GENERATED bundle; look fonts in ../dist/fonts/ -->
 </head>
 <body>
 <div class="view" id="view"></div>
 <script>
-if (new URLSearchParams(location.search).get("mode") === "light") document.documentElement.classList.add("light");
+if (new URLSearchParams(location.search).get("mode") === "light" || new URLSearchParams(location.search).get("dark") === "0") document.documentElement.classList.add("light");
 const lookParam = new URLSearchParams(location.search).get("theme") === "none" ? "" : "hifi";
 const now = new Date().toISOString();
 const states = {}, layout = [];
@@ -53,10 +61,11 @@ const hass = {
 };
 // hass.themes like HA's: the Hi-Fi theme (preview/themes.js), active unless ?theme=none; selectedTheme = the browser's pick
 // (Profile -> Theme). A `settheme` event is only recorded in window.__settheme.
-const pageTheme = lookParam ? (window.jamPreviewLookThemes || {})[lookParam] || "" : "";
-hass.themes = {darkMode: !document.documentElement.classList.contains("light"), default_theme: "default", default_dark_theme: null,
+// ?theme=<single-mode theme> (1.0.1): that theme is the default theme (frontend.set_theme), darkMode stays the device's (?dark).
+const pageTheme = window.__singleTheme || (lookParam ? (window.jamPreviewLookThemes || {})[lookParam] || "" : "");
+hass.themes = {darkMode: !document.documentElement.classList.contains("light"), default_theme: window.__singleTheme || "default", default_dark_theme: null,
   themes: window.jamPreviewThemes || {}, theme: pageTheme || "default"};
-hass.selectedTheme = pageTheme ? {theme: pageTheme} : null;
+hass.selectedTheme = pageTheme && !window.__singleTheme ? {theme: pageTheme} : null; // a kiosk on the default theme picked nothing
 window.__settheme = [];
 window.addEventListener("settheme", e => { window.__settheme.push(e.detail); });
 window.__hass = hass;

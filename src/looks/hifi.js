@@ -94,8 +94,11 @@
     if (!f) return a.color_temp_kelvin ? whiteOf(a.color_temp_kelvin) : null;
     return guard(f);
   }
-  /* Night (dark mode) from the card face: the theme's dark mode is a dark panel. */
+  /* Night palette at node: the theme's --jam-mode token (1.0.1; never HA's dark-mode flag), else (a theme from before 1.0.1)
+     from the card face: the dark palette is a dark panel. */
   function isNight(node) {
+    const m = jamMode(node);
+    if (m) return m === "night";
     try { const c = parseRgb(getComputedStyle(node).getPropertyValue("--jam-slab").trim()); return !!c && luminance(c) < .3; } catch (e) { return false; }
   }
   const cssRgb = c => (c ? rgbCss(c) : "var(--ccream)");
@@ -259,8 +262,9 @@
      rocking between on and off"): one object, ON = the I half pressed in, OFF = the O half pressed in; pressed = the flatter
      tone, raised = the other with a thin shading edge at the pivot; the lamp's colour as a thin band on the pressed I half. */
   function rocker(card, host, {name, on, offline, color, onToggle}) {
+    // day / night (data-pd): the theme's --jam-mode at host, else at the card (a body not yet in the page has no computed style)
     const cs = getComputedStyle(host), rgbOf = n => parseRgb(cs.getPropertyValue(n).trim()) || resolveRgb(host, `var(${n})`);
-    const slab = rgbOf("--slab"), fg = rgbOf("--fg"), day = !!slab && luminance(slab) > .35;
+    const slab = rgbOf("--slab"), fg = rgbOf("--fg"), md = jamMode(host) || jamMode(card), day = md ? md === "day" : !!slab && luminance(slab) > .35;
     const r = ce("button", "rk"); r.type = "button"; r.dataset.key = "power"; r.dataset.pd = day ? "day" : "night";
     if (slab && fg) {
       let t = .3, lift = mix(slab, fg, t);
