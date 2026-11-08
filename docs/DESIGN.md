@@ -194,8 +194,8 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
   (> 600px) too short for the drawn remote (the Echo's 601px), the pop-up turns compact (44px keys, a 156px d-pad, tighter
   rows) and, still too short, zooms the remote. Every other remote (desktop, phone, a kiosk card at phone width) is the
   mockup's full-size remote and its body scrolls when the window is short (0.11.0-calm.4: never squished).
-  Dock sheets lay out any block (0.11.0-calm.4, the live dashboards): `rows` as designed for the kiosks, each row at least
-  its content (minmax(min-content, 1fr)); without rows the block's `columns` as jam-kiosk does, a block of kiosk player
+  Dock sheets lay out any block (0.11.0-calm.4, the live dashboards): `rows` as designed for the kiosks (1.1.1: rows of lights
+  / switches at their content's height, the rows centred; a row of kiosk players at least its content, taking the rest); without rows the block's `columns` as jam-kiosk does, a block of kiosk player
   cards in one column with the first taking the height left; at phone width (<= 600px) one column of natural-height cards;
   the body scrolls rather than clip. The rocker keeps the mockup's paddle on wide cards (<= 150px, kiosk <= 190px) with
   the fader beside it; the purifier's readout finds sensor.<fan>_pm2_5 without extra_sensor, and is left out with no number. Pop-ups keep the page's scroll position (every look): the lock is overflow
@@ -226,6 +226,14 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
     and the forecast (now, details, the next days with low-high bars on one scale, today's temperature marked, the source as a
     footnote). No series colours: one series per chart, the name is the label (one axis, text in text tokens). Kiosk pop-ups:
     two columns, nothing scrolls on the iPad / Echo, text >= 15px. Check: 99-hifi-climate.js.
+  - *Kiosk Lights sheets (1.1.1, Isaac: "Kitchen kiosk dash looks a little silly with the giant paddles", "The living room one
+    looks silly too")*: a size: kiosk light card no longer stretches its rocker and fader to the sheet: both are `--kpb` tall
+    (34 % of the screen, 160-200px: 200px on the iPad and the Echo; 150px at phone width) and the card is its content's
+    height; a switched device's kiosk card draws a wall plate of the same height with POWER and the big switch in the middle
+    (no empty panel); rows of lights / switches are their content's height (only kiosk players take the height left), a
+    card stretched by a taller neighbour keeps its rocker at the row's foot, and the rows sit in the middle of the sheet
+    (`align-content: safe center`). Check: 99-hifi-kiosk-lights.js. (Departs from the pass-7 mockup, whose kiosk sheet
+    stretched the paddles to the height left.)
   - *Kickers are dim text* (labels-in-dim): jam-popup's kicker no longer takes the accent (2.18:1 on Night); the accent is an
     8px mark beside it. 99-hifi-daynight fails on such a finding now.
 

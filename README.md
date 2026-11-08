@@ -21,6 +21,10 @@ sheets never scroll.
    (the kiosks) switches with the sun whatever its own dark setting; whoever picks **Hi-Fi** in their profile keeps following
    their own device.
 
+**1.1.1: calmer kiosk Lights sheets.** In a kiosk's Lights sheet the rocker and fader of a `size: kiosk` light keep a sensible
+height (at most 200px) instead of stretching to the sheet, a switch's card shows a wall plate with its switch in the middle,
+and the rows sit in the middle of the sheet with the purifier / All off row at its natural height.
+
 **1.1.0: the house's pop-ups, playback on the TV, motion.** Tap the inside half of jam-house (or the inside part of the
 kiosk's facts line) for the indoor climate: temperature, humidity and the air now, each room with a 24 h sparkline, and the
 house's 24 h temperature and humidity graphs. Tap the outside half (the weather part on the kiosk) for the next five days
@@ -660,7 +664,7 @@ dock:
 | `now_band` | `true` (opt-in): the first active media `now` source moves into the empty top band (64 px title), left of the lock; the right block then shows the weather. While the attention bar shows, the band steps aside |
 | `sheet_heading` | `false` (opt-in, also per block): sheets leave out their top-level jam-heading cards (the sheet title already names the room) |
 | `title` | Jam Calm: the room name printed top-left of the kiosk home (default the lock's area) |
-| `rows` | Jam Calm, per block: cards per row of its sheet, e.g. `[1, 4, [3, 2]]` (a list = the cards' widths); rows of lights, switches or `size: kiosk` players take the height left, nothing scrolls. Also per block: `title` (sheet title, default the block name), `glyph` (`lights`, `tv`, `music`, `all off`, `pc`, `air`) and `confirm_title` (an action block's confirmation pop-up) |
+| `rows` | Jam Calm, per block: cards per row of its sheet, e.g. `[1, 4, [3, 2]]` (a list = the cards' widths); rows of `size: kiosk` players take the height left; rows of lights and switches are their content's height (1.1.1: rockers and faders at most 200px, a switch as a wall plate of the same height) and the rows sit in the middle of the sheet; nothing scrolls. Also per block: `title` (sheet title, default the block name), `glyph` (`lights`, `tv`, `music`, `all off`, `pc`, `air`) and `confirm_title` (an action block's confirmation pop-up) |
 | `state` | `{count_on: [ids], suffix: on}` → "3 on" / "All off"; `{entity, attribute, app_entity}` → the entity's state in words (media player: title while playing / paused, else the app from `app_entity`, else On / Idle, Off when off; lock: "Door locked" / "Door unlocked"; air-quality sensor: Good / Moderate / … or its own word); `{text}` |
 
 The clock follows the Home Assistant profile's time format (12 h with a small AM/PM, or 24 h). The card sizes itself from
