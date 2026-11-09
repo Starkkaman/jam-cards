@@ -273,7 +273,7 @@
     const r = ce("button", "rk"); r.type = "button"; r.dataset.key = "power"; r.dataset.pd = day ? "day" : "night";
     if (color) r.style.setProperty("--lc", color);
     const NS = "http://www.w3.org/2000/svg", sym = (tag, at) => { const s = document.createElementNS(NS, "svg"), e = document.createElementNS(NS, tag);
-      s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false");
+      s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "24"); s.setAttribute("height", "24"); s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false"); // the CSS size wins; the attributes are its fallback
       for (const k in at) e.setAttribute(k, at[k]); s.append(e); return s; };
     const a = ce("i", "pd-on"), b = ce("i", "pd-off");
     a.append(sym("line", {x1: 12, y1: 2, x2: 12, y2: 22})); b.append(sym("circle", {cx: 12, cy: 12, r: 9}));
@@ -1683,7 +1683,13 @@
 .c-rk[data-pd=night]{--pd-in:var(--ckey)}
 .c-rk{position:relative;box-sizing:border-box;display:grid;grid-template-rows:1fr 1fr;overflow:hidden;padding:0;min-height:96px;cursor:pointer;
   background:var(--pd-up,var(--cpl));border:1.5px solid var(--pd-rim,var(--cln));border-radius:12px;--pd-sym:18px;--pd-sw:4;--pd-ew:3px;--pd-band:5px;transform-origin:50% 50%}
-.c-rk i{position:relative;display:flex;align-items:center;justify-content:center;font-style:normal;min-width:0;background:var(--pd-up,var(--cpl));color:var(--cink)}
+/* the halves fill their rows, set out in full (1.1.2): WebKit's UA style gives every <button> align-items: flex-start
+   (Safari / WKWebView up to 17, the iPad kiosk; Chromium dropped it), so in the button's grid each half shrank to its
+   symbol at the top of its row: the I sat against the lamp band like a "T", the pressed tone filled only that small box and
+   the O sat right under the split (Isaac: "The symbols on the paddles on the iPad kiosk look weird") */
+.c-rk{align-items:stretch;justify-items:stretch}
+.c-rk i{position:relative;display:flex;align-items:center;justify-content:center;align-self:stretch;justify-self:stretch;font-style:normal;min-width:0;min-height:0;
+  background:var(--pd-up,var(--cpl));color:var(--cink)}
 .c-rk .c-pd-off{border-top:1px solid var(--pd-rim,var(--cln))}
 .c-rk svg{display:block;flex:none;width:var(--pd-sym);height:var(--pd-sym);overflow:visible}
 .c-rk svg *{fill:none;stroke:currentColor;stroke-width:var(--pd-sw);stroke-linecap:butt}

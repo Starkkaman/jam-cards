@@ -234,6 +234,12 @@ can"); until 0.11 "Jam Calm" (below, "Calm" = Hi-Fi). Calm, ordered, few things 
     card stretched by a taller neighbour keeps its rocker at the row's foot, and the rows sit in the middle of the sheet
     (`align-content: safe center`). Check: 99-hifi-kiosk-lights.js. (Departs from the pass-7 mockup, whose kiosk sheet
     stretched the paddles to the height left.)
+  - *Old WebKit buttons (1.1.2, Isaac: "The symbols on the paddles on the iPad kiosk look weird")*: WebKit's UA style gives
+    every `<button>` `align-items: flex-start` (Safari / WKWebView up to 17; Chromium dropped it), so a grid or flex button's
+    items do not stretch there unless the author says so. The rocker (a button grid of two 1fr halves) now sets
+    `align-items` / `justify-items: stretch` and its halves `align-self: stretch`, and core's button reset sets
+    `align-items: normal` for every jam button. Any new button that lays out children must not rely on the default stretch.
+    Check: 99-hifi-rocker-symbols.js (the rule emulated as a leading author sheet).
   - *Kickers are dim text* (labels-in-dim): jam-popup's kicker no longer takes the accent (2.18:1 on Night); the accent is an
     8px mark beside it. 99-hifi-daynight fails on such a finding now.
 

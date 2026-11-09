@@ -73,7 +73,10 @@ button.chip::before{content:"";position:absolute;inset:0;z-index:-1;background:v
 .hit,.track{position:relative}
 .hit::after,.key::after,.track::after,button.chip::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);
   transform:translate(-50%,-50%)}
-button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* align-items: normal (1.1.2) undoes WebKit's UA "button { align-items: flex-start }" (Safari / WKWebView up to 17: a grid or
+   flex <button> did not stretch its items there, e.g. the rocker's halves on the iPad kiosk); every engine then lays a jam
+   button out alike, a card's own align-items still wins */
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;align-items:normal}
 button:focus-visible,.focusable:focus-visible,[role=button]:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 /* A clip-path clips the element's own outline too: self-clipped chips draw the ring inside (text colour on filled chips). */
 .chip:focus-visible{outline-offset:-3px}

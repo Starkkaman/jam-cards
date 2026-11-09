@@ -21,6 +21,10 @@ sheets never scroll.
    (the kiosks) switches with the sun whatever its own dark setting; whoever picks **Hi-Fi** in their profile keeps following
    their own device.
 
+**1.1.2: rocker symbols on the iPad.** On Safari / WKWebView up to iPadOS 17 the rocker's I sat against the top of its half
+(like a "T") and the O right under the split: WebKit's default style for buttons kept the two halves from filling the
+rocker. Both symbols are now centred in their halves in every browser.
+
 **1.1.1: calmer kiosk Lights sheets.** In a kiosk's Lights sheet the rocker and fader of a `size: kiosk` light keep a sensible
 height (at most 200px) instead of stretching to the sheet, a switch's card shows a wall plate with its switch in the middle,
 and the rows sit in the middle of the sheet with the purifier / All off row at its natural height.
